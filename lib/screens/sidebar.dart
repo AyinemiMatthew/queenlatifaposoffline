@@ -1,6 +1,7 @@
 
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/screens/role_access_config.dart';
 import 'package:provider/provider.dart';
@@ -56,6 +57,8 @@ class Sidebar extends StatelessWidget {
     return normalized.contains('superadmin');
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
@@ -66,6 +69,7 @@ class Sidebar extends StatelessWidget {
         final isAdmin = _isAdminUser(value.accesslevel);
         final isSuperAdmin = _isSuperAdminUser(value.accesslevel);
         final isEnabled = value.hamperEnabled;
+        final isEnabledStockCheck = value.stockCheckEnabled;
         // Navigate to sales page directly for sales users
         if (isSales) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -845,7 +849,29 @@ class Sidebar extends StatelessWidget {
                         Navigator.pushNamed(context, Routes.discountmanagerview);
                       },
                     ),
-
+                    if(value.hasFeature('Enable Stock check'))
+                      ListTile(
+                        leading: Icon(
+                          Icons.card_giftcard,
+                          color: isEnabledStockCheck ? Colors.white : Colors.white24,
+                        ),
+                        title: Text(
+                          'Turn Stock Check',
+                          style: TextStyle(
+                            color: isEnabledStockCheck ? Colors.white54 : Colors.white24,
+                          ),
+                        ),
+                        trailing: Switch(
+                          value: isEnabledStockCheck,
+                          activeColor: Colors.greenAccent,
+                          inactiveThumbColor: Colors.white24,
+                          inactiveTrackColor: Colors.white10,
+                          onChanged: (val) =>
+                              context.read<Datafeed>().toggleStockCheck(val),
+                        ),
+                        onTap: () =>
+                            context.read<Datafeed>().toggleStockCheck(!isEnabledStockCheck),
+                      ),
                   ],
                 ),
                   const Divider(color: Colors.white24),
@@ -1694,6 +1720,29 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.collectionmanager);
                           },
                         ),
+
+                        ListTile(
+                          leading: const Icon(
+                            Icons.tune,
+                            color: Colors.white,
+                          ),
+                          title: const Text(
+                            'Set Reorder Level',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Current: ${value.reorderLevel.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.reordercount);
+                          },
+                        ),
+
                         // ListTile(
                         //   leading: const Icon(
                         //     Icons.graphic_eq,

@@ -843,6 +843,7 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
       else{
         datafeed.creditorpayList[indexed]=creditpay;
       }
+
       if (index != -1) {
         final creditor   = datafeed.creditorList[index];
         final newDebit   = ((creditor['debit']  ?? 0) as num) + amount;
@@ -852,7 +853,7 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
         datafeed.creditorList[index] = {
           ...creditor,
           'debit':   newDebit,
-          'balance': newBalance < 0.00 ? 0.00 : newBalance,
+          'balance': newBalance,
         };
         datafeed.notifyListeners();
       }
@@ -1263,39 +1264,66 @@ class _ActionButton extends StatelessWidget {
   );
 }
 
+
 // class _BalanceChip extends StatelessWidget {
 //   final num  balance;
 //   final bool isOwed;
 //   const _BalanceChip(this.balance, this.isOwed);
 //
 //   @override
-//   Widget build(BuildContext context) => Text(
-//     ' GHS ${NumberFormat('#,##0.00').format(balance)}',
-//     style: TextStyle(
-//         color:       _C.textPri,
-//         fontWeight: FontWeight.w700,
-//         fontSize:   13),
+//   Widget build(BuildContext context) => FittedBox(
+//     fit: BoxFit.scaleDown,
+//     alignment: Alignment.centerRight,
+//     child: Text(
+//       'GHS ${NumberFormat('#,##0.00').format(balance)}',
+//       maxLines: 1,
+//       overflow: TextOverflow.ellipsis,
+//       style: const TextStyle(
+//           color:       _C.textPri,
+//           fontWeight: FontWeight.w700,
+//           fontSize:   13),
+//     ),
 //   );
 // }
+
 class _BalanceChip extends StatelessWidget {
   final num  balance;
   final bool isOwed;
   const _BalanceChip(this.balance, this.isOwed);
 
   @override
-  Widget build(BuildContext context) => FittedBox(
-    fit: BoxFit.scaleDown,
-    alignment: Alignment.centerRight,
-    child: Text(
-      'GHS ${NumberFormat('#,##0.00').format(balance)}',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-          color:       _C.textPri,
-          fontWeight: FontWeight.w700,
-          fontSize:   13),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final isCredit = balance < 0; // negative = overpaid, supplier owes you
+    final displayAmount = balance.abs();
+    final color = isCredit ? _C.positive : _C.textPri;
+    final label = isCredit ? 'Owed to you' : null;
+
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'GHS ${NumberFormat('#,##0.00').format(displayAmount)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          if (label != null)
+            Text(
+              label,
+              style: const TextStyle(color: _C.positive, fontSize: 9),
+            ),
+        ],
+      ),
+    );
+  }
 }
 class _AmountChip extends StatelessWidget {
   final String text;

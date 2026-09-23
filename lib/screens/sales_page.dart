@@ -989,6 +989,7 @@ class _SalesPageState extends State<SalesPage> {
         context, datafeed, _selectedItem, ))
         return;
 
+
       final activeBranchId = _activeBranchId;
       final activeBranchName = _activeBranchName;
 
@@ -1016,7 +1017,7 @@ class _SalesPageState extends State<SalesPage> {
           : branchtype;
       final totalPieces = double.tryParse(_totalPiecesController.text) ?? 0;
 
-      if (!isService) {
+      if (!isService && datafeed.stockCheckEnabled) {
         final branchBalance = salesProvider.resolveBranchBalance(
           _selectedItem?.branchbalance,
           balanceBranchId,
@@ -1062,6 +1063,13 @@ class _SalesPageState extends State<SalesPage> {
       double totalpcs = double.parse(_totalPiecesController.text.toString());
       double qty = double.parse(_quantityController.text.toString());
       double cp = double.tryParse(_selectedItem?.cp ?? '') ?? 0;
+
+      double sp = double.tryParse(
+        _itemModes?['single']?['rp']?.toString() ??
+            _itemModes?['Single']?['rp']?.toString() ??
+            '0',
+      ) ?? 0;
+
       double profitonsale = totalAmt - (totalpcs * cp);
 
       final salesItem = {
@@ -1078,6 +1086,7 @@ class _SalesPageState extends State<SalesPage> {
         'profit': profitonsale.toString(),
         'discount': _discountController.text.trim().toString().isEmpty ? '0' : _discountController.text.trim().toString(),
         'cp': cp.toString(),
+        'sp': sp.toString(),
         'pcategory': _selectedItem?.pcategory ?? '',
         'producttype': _selectedItem?.producttype ?? '',
         'totalpieces': totalpcs.toString(),
@@ -1122,11 +1131,13 @@ class _SalesPageState extends State<SalesPage> {
     final activeBranchName = _activeBranchName;
 
     // Validate stock
-    bool isValid = await salesProvider.validateCartStockOnSaves(activeBranchId);
-    if (!isValid) {
-      snackMsg(context, 'Insufficient stock detected. Please adjust cart.', Colors.red);
-      return;
-    }
+      if (datafeed.stockCheckEnabled) {
+    final isValid = await salesProvider.validateCartStockOnSaves(activeBranchId);
+   if (!isValid) {
+    snackMsg(context, 'Insufficient stock detected. Please adjust cart.', Colors.red);
+  return;
+   }
+  }
 
     setState(() => _isSavingDirect = true);
 
@@ -1230,7 +1241,8 @@ class _SalesPageState extends State<SalesPage> {
 
       await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
 
-      final skipCheck = salesProvider.isServiceOnlySale(salesItems);
+     // final skipCheck = salesProvider.isServiceOnlySale(salesItems);
+      final skipCheck = !datafeed.stockCheckEnabled || salesProvider.isServiceOnlySale(salesItems);
       if (!context.mounted) return;
       final approved = await salesProvider.ensureSaleApproved(context, saleDocId, skipStockCheck: skipCheck);
 
@@ -1281,7 +1293,7 @@ class _SalesPageState extends State<SalesPage> {
     final value = Provider.of<Datafeed>(context, listen: false);
    final isService = (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-    if (!isService) {
+    if (!isService && value.stockCheckEnabled) {
       bool isValid = await salesProvider.validateCartStockOnSaves(
         _activeBranchId,
       );
@@ -1638,62 +1650,7 @@ class _SalesPageState extends State<SalesPage> {
             centerTitle: true,
             backgroundColor: const Color(0xFF1B263B),
             actions: [
-              // IconButton(
-              //   icon: const Icon(Icons.inventory_2_outlined, color: Colors.white),
-              //   tooltip: 'Stock Report',
-              //   onPressed: () => StockReportModal.show(
-              //     context: context,
-              //     branchId: _loginBranchId,
-              //     branchName: _loginBranchName,
-              //   ),
-              // ),
-              // PopupMenuButton<String>(
-              //   onSelected: (selectedValue) {
-              //     if (selectedValue == 'logout') {
-              //       LogoutDialog.show(context);
-              //     } else if (selectedValue == 'password') {
-              //       ChangePasswordDialog.changePassword(context);
-              //     } else if (selectedValue == 'profile') {
-              //       Navigator.pushNamed(context, Routes.staffprofile);
-              //     }
-              //   },
-              //   itemBuilder: (BuildContext context) => [
-              //     PopupMenuItem<String>(
-              //       value: 'profile',
-              //       child: Row(
-              //         children: [
-              //           Icon(
-              //             Icons.person_outline,
-              //             size: 20,
-              //             color: Colors.green,
-              //           ),
-              //           SizedBox(width: 12),
-              //           Text('My Profile'),
-              //         ],
-              //       ),
-              //     ),
-              //     PopupMenuItem<String>(
-              //       value: 'password',
-              //       child: Row(
-              //         children: [
-              //           Icon(Icons.lock_outline, size: 20, color: Colors.blue),
-              //           SizedBox(width: 12),
-              //           Text('Change Password'),
-              //         ],
-              //       ),
-              //     ),
-              //     PopupMenuItem(
-              //       value: 'logout',
-              //       child: Row(
-              //         children: const [
-              //           Icon(Icons.logout, size: 20, color: Colors.red),
-              //           SizedBox(width: 8),
-              //           Text('Logout'),
-              //         ],
-              //       ),
-              //     ),
-              //   ],
-              // ),
+
 
             ],
           ),
@@ -1955,7 +1912,7 @@ class _SalesPageState extends State<SalesPage> {
                                                           context: context,
                                                           initialDate: _selectedDate ?? DateTime.now(),
                                                           firstDate: DateTime(2020),
-                                                          lastDate: DateTime(2100),
+                                                          lastDate: DateTime.now(),
                                                           builder: (context, child) {
                                                             return Theme(
                                                               data: Theme.of(context).copyWith(
@@ -3383,37 +3340,14 @@ class _SalesPageState extends State<SalesPage> {
                                                   ) {
                                                     final index = entry.key;
                                                     final item = entry.value;
-                                                    final isInsufficient =
-                                                        salesProvider
-                                                            .isPreviewItemInsufficient(
-                                                              item,
-                                                              value,
-                                                            );
+                                                  //  final isInsufficient =salesProvider.isPreviewItemInsufficient(item, value,);
+
+                                                    final isInsufficient = value.stockCheckEnabled &&
+                                                        salesProvider.isPreviewItemInsufficient(item, value);
                                                     final isUnapproved =
                                                         item['isUnapproved'] ==
                                                         true;
-                                                    // return _tableRowWithAction(
-                                                    //   (index + 1).toString(),
-                                                    //   item['item'] ?? '',
-                                                    //
-                                                    //   "${item['quantity'] ?? '0'}${item['mode'] ?? ''}",
-                                                    //   item['price'] ?? '0',
-                                                    //   item['discount']
-                                                    //           ?.toString() ??
-                                                    //       '0',
-                                                    //   item['totalamount'] ??
-                                                    //       '0',
-                                                    //
-                                                    //   () => context
-                                                    //       .read<SalesProvider>()
-                                                    //       .removeFromSalesPreview(
-                                                    //         index,
-                                                    //       ),
-                                                    //   isInsufficient:
-                                                    //       isInsufficient,
-                                                    //   isUnapproved:
-                                                    //       isUnapproved,
-                                                    // );
+
                                                     return _tableRowWithAction(
                                                       (index + 1).toString(),
                                                       item['item'] ?? '',
@@ -3567,7 +3501,7 @@ class _SalesPageState extends State<SalesPage> {
 
                                                           final isService = (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-                                                          if (!isService) {
+                                                          if (!isService && value.stockCheckEnabled) {
                                                             bool isValid = await salesProvider.validateCartStockOnSaves(activeBranchId, );
 
                                                             if (!isValid) {
@@ -3606,7 +3540,9 @@ class _SalesPageState extends State<SalesPage> {
                                       payableTotal: salesProvider.calculateTaxableTotal(),
                                       insufficientIndices: {
                                         for (int i = 0; i < salesProvider.salesItems.length; i++)
-                                          if (salesProvider.isPreviewItemInsufficient(salesProvider.salesItems[i], value,)) i,
+                                        //  if (salesProvider.isPreviewItemInsufficient(salesProvider.salesItems[i], value,)) i,
+                                          if (value.stockCheckEnabled && salesProvider.isPreviewItemInsufficient(salesProvider.salesItems[i], value,)) i,
+
                                       },
                                       onSwitchCart: salesProvider.switchCart,
                                       onDeleteCart: salesProvider.deleteCart,

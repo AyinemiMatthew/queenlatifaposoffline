@@ -204,13 +204,7 @@ final Map<String, Map<String, Object>> _routeMetadata = {
     'badge': 'Entry',
     'color': const Color(0xFF1976D2),
   },
-  Routes.dailysalesreport: {
-    'title': 'Daily Sales Report',
-    'description': 'Daily sales report',
-    'icon': Icons.bar_chart,
-    'badge': 'Report',
-    'color': const Color(0xFF1976D2),
-  },
+
   Routes.warehousehomescreen: {
     'title': 'Warehouse Home Screen',
     'description': 'Warehouse home screen',

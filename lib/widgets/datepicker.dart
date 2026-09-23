@@ -21,7 +21,7 @@ class ReusableDatePickerWidget extends StatefulWidget {
 
 class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
   DateTimeRange _selectedRange = DateTimeRange(
-    start: DateTime.now().subtract(const Duration(days: 30)),
+    start: DateTime.now().subtract(const Duration(days: 0)),
     end: DateTime.now(),
   );
 

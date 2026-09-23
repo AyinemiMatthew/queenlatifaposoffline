@@ -23,6 +23,11 @@ class _SalesInvoiceState extends State<SalesInvoice> {
   bool _sortAscending = true;
   final now = DateTime.now();
 
+
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+
   final ScrollController _horizontalController = ScrollController();
   final ScrollController _verticalController   = ScrollController();
   final ScrollController _mobileListController = ScrollController();
@@ -74,9 +79,25 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     _horizontalController.dispose();
     _verticalController.dispose();
     _mobileListController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
+  void _openSearch() {
+    setState(() => _isSearching = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchFocusNode.requestFocus();
+    });
+  }
+
+  void _closeSearch(Datafeed value) {
+    setState(() {
+      _isSearching = false;
+      _searchController.clear();
+    });
+    value.updateSearch('');
+  }
 
   void _showViewModal(BuildContext context, dynamic salesview) {
     final receipt  = salesview.receiptNumber;
@@ -130,7 +151,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                   child: Row(
                     children: [
                       const Icon(Icons.receipt_long,
-                          color: Color(0xFFFFC857), size: 18),
+                          color: Colors.white, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text('Receipt  #$receipt',
@@ -219,7 +240,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                       ),
                                       Text('GHC ${item['totalamount']}',
                                           style: const TextStyle(
-                                              color: Color(0xFFFFC857),
+                                              color: Colors.white,
                                               fontWeight: FontWeight.bold,
                                               fontSize: 13)),
                                     ],
@@ -350,57 +371,102 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     ],
   );
 
-  Future<void> _handleDelete(BuildContext context, String itemName, String id, String receipt) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (innerContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
-        title: Text('Delete $itemName?',
-            style: const TextStyle(color: Colors.white)),
-        content: Text('This action cannot be undone. Are you sure?',
-            style: TextStyle(color: Colors.white.withOpacity(0.7))),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(innerContext, false),
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white54))),
-          ElevatedButton(
-              style:
-              ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-              onPressed: () => Navigator.pop(innerContext, true),
-              child: const Text('Delete',
-                  style: TextStyle(color: Colors.white))),
-        ],
+  Widget _buildBranchDropdown(Datafeed value) {
+    final currentId =
+    value.branches.any((b) => b.id == value.selectedBranch?.id)
+        ? value.selectedBranch?.id
+        : null;
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 130),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: currentId,
+          dropdownColor: const Color(0xFF22304A),
+          icon: const Icon(Icons.expand_more, color: Colors.white54, size: 16),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+          isDense: true,
+          isExpanded: true,
+          items: [
+            const DropdownMenuItem<String?>(
+                value: null, child: Text('All Branches')),
+            ...{for (final b in value.branches) b.id: b}.values.map(
+                  (b) => DropdownMenuItem<String?>(
+                value: b.id,
+                child: Text(b.branchname, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            setState(() => _selectedBranch = val);
+            value.fetchsalesview(
+                selectedDate: selectedDate, selectedBranch: val);
+          },
+        ),
       ),
     );
+  }
 
-    if (confirm == true) {
-      try {
-        await context.read<Datafeed>().deletesalesview(id, receipt);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('$itemName deleted successfully'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Failed to delete item'),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
-      }
-    }
+  Widget _buildSearchField(Datafeed value) {
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      cursorColor: Colors.white,
+      decoration: const InputDecoration(
+        hintText: 'Search receipt, customer...',
+        hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+        border: InputBorder.none,
+        isDense: true,
+      ),
+      onChanged: value.updateSearch,
+    );
+  }
+
+  /// Resolves the display name for the currently selected branch,
+  /// falling back to "All Branches" when none is selected or the id
+  /// no longer matches anything in the branches list.
+  String _branchLabel(Datafeed value) {
+    if (_selectedBranch == null) return 'All Branches';
+    final match = value.branches.where((b) => b.id == _selectedBranch);
+    if (match.isEmpty) return 'All Branches';
+    return match.first.branchname;
+  }
+
+  Widget _buildTitleWithPeriod(DateTime start, DateTime end, String branchName) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Sales Invoice List',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 16)),
+        const SizedBox(height: 2),
+        Text(
+          '$branchName sales invoice for the period '
+              '${DateFormat('yyyy MMM dd').format(start)}  –  '
+              '${DateFormat('yyyy MMM dd').format(end)}',
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, value, child) {
-        final effectiveStart = selectedDate?.start ?? now.subtract(const Duration(days: 30));
+        final effectiveStart = selectedDate?.start ?? now.subtract(const Duration(days: 0));
         final effectiveEnd = selectedDate?.end ?? now;
         final filteredSalesview = value.filtersalesview();
 
@@ -409,13 +475,39 @@ class _SalesInvoiceState extends State<SalesInvoice> {
           appBar: AppBar(
             backgroundColor: const Color(0xFF1B263B),
             elevation: 0,
-            title: const Text('Sales View List',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16)),
+            toolbarHeight: 64,
+            titleSpacing: _isSearching ? 4 : 12,
+            leading: _isSearching
+                ? IconButton(
+              tooltip: "close",
+              icon: const Icon(Icons.arrow_back, color: Colors.white70),
+              onPressed: () => _closeSearch(value),
+            )
+                : null,
+            automaticallyImplyLeading: _isSearching,
+            title: _isSearching
+                ? _buildSearchField(value)
+                : _buildTitleWithPeriod(
+                effectiveStart, effectiveEnd, _branchLabel(value)),
             iconTheme: const IconThemeData(color: Colors.white),
-            actions: [
+            actions: _isSearching
+                ? [
+              if (_searchController.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                  onPressed: () {
+                    _searchController.clear();
+                    value.updateSearch('');
+                    setState(() {});
+                  },
+                ),
+            ]
+                : [
+              _buildBranchDropdown(value),
+              IconButton(
+                icon: const Icon(Icons.search, color: Colors.white70),
+                onPressed: _openSearch,
+              ),
               ReusableDatePickerWidget(
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
@@ -441,80 +533,6 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Sales report • '
-                          '${DateFormat('yyyy MMM dd').format(effectiveStart)}  –  '
-                          '${DateFormat('yyyy MMM dd').format(effectiveEnd)}',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 11),
-                    ),
-                    const SizedBox(height: 10),
-
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isMobile = constraints.maxWidth < 600;
-                        final fields = [
-                          Expanded(
-                            flex: isMobile ? 0 : 3,
-                            child: DropdownButtonFormField<String?>(
-                              value: value.branches.any((b) => b.id == value.selectedBranch?.id)
-                                  ? value.selectedBranch?.id
-                                  : null,   // ← falls back to null if the id isn't in the list
-                              dropdownColor: const Color(0xFF22304A),
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              isDense: true,
-                              decoration: InputDecoration( /* unchanged */ ),
-                              items: [
-                                const DropdownMenuItem<String?>(value: null, child: Text('All Branches')),
-                                ...{ for (final b in value.branches) b.id: b }.values.map(   // ← dedupe by id
-                                      (b) => DropdownMenuItem<String?>(value: b.id, child: Text(b.branchname)),
-                                ),
-                              ],
-                              isExpanded: true,
-                              onChanged: (val) {
-                                _selectedBranch = val;
-                                value.fetchsalesview(selectedDate: selectedDate, selectedBranch: val);
-                              },
-                            ),
-                          ),
-                          SizedBox(height: isMobile ? 8 : 0, width: isMobile ? 0 : 10),
-                          Expanded(
-                            flex: isMobile ? 0 : 3,
-                            child: TextFormField(
-                              onChanged: value.updateSearch,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
-                              decoration: InputDecoration(
-                                hintText: 'Search ...',
-                                hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18),
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                filled: true,
-                                fillColor: const Color(0xFF1B263B),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Colors.white12)),
-                                focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF415A77))),
-                              ),
-                            ),
-                          ),
-                        ];
-
-                        return isMobile
-                            ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: fields,
-                        )
-                            : Row(
-                          children: fields,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 10),
                     Expanded(
                       child: value.isloadingsalesview
                           ? const Center(
@@ -758,7 +776,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
           await Clipboard.setData(ClipboardData(text: '#$receipt'));
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                backgroundColor: Colors.green,
+                  backgroundColor: Colors.green,
                   content: Text('Receipt copied',style: TextStyle(color: Colors.white),)));
         },
         child: Text('#$receipt',
@@ -782,11 +800,11 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _actionIcon(Icons.visibility, Colors.cyanAccent, 'View', () =>
+          _actionIcon(Icons.visibility, Colors.white, 'View', () =>
               Navigator.push(context, MaterialPageRoute(
                   builder: (_) => SalesDetailPage(salesview: sv)))),
-          _actionIcon(Icons.print, const Color(0xFFFFC857), 'Print',
-                  () => salesViewPdf(sv)),
+          _actionIcon(Icons.print,  Colors.white, 'Print',
+                  () => printSalesModelReceipt(context, sv),),
         ],
       ),
     ];
@@ -805,7 +823,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
             for (int i = 0; i < columns.length; i++) ...[
               SizedBox(width: columns[i].width, child: cells[i]),
               if (i != columns.length - 1)
-                 SizedBox(width: gap),
+                SizedBox(width: gap),
             ],
           ],
         ),
@@ -888,7 +906,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                             },
                             child: Text('Receipt #$receipt',
                                 style: const TextStyle(
-                                    color: Color(0xFFFFC857),
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13)),
                           ),
@@ -969,7 +987,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.visibility, color: Colors.cyanAccent, size: 20),
+                                  icon: const Icon(Icons.visibility, color: Colors.white, size: 20),
                                   tooltip: 'View',
                                   onPressed: () =>Navigator.push(
                                     context,
@@ -979,9 +997,9 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.print, color: Color(0xFFFFC857), size: 20),
+                                  icon: const Icon(Icons.print, color:Colors.white, size: 20),
                                   tooltip: 'Print',
-                                  onPressed: () => salesViewPdf(sv),
+                                  onPressed: () => printSalesModelReceipt(context, sv),
                                 ),
                               ],
                             ),

@@ -650,19 +650,11 @@ class CustomerInfoDialog {
                   break;
               }
 
-             /* if (!salesProvider.ensureSalesWarehouseSelected(context, datafeed, selectedItem, requireItemSelection: false)) {
-                setState(() => isSaving = false);
-                return;
-              }
 
-              if (!await salesProvider.validateCartStockOnSave(context, salesItems, datafeed)) {
-                setState(() => isSaving = false);
-                return;
-              } */
               final isService =
                   (selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-              if (!isService) {
+              if (!isService && datafeed.stockCheckEnabled) {
                 if (!salesProvider.ensureSalesWarehouseSelected(context, datafeed, selectedItem, requireItemSelection: false)) {
                   setState(() => isSaving = false);
                   return;
@@ -679,9 +671,7 @@ class CustomerInfoDialog {
                 customerName = (selectedCreditCustomer?['name'] ?? '').toString();
                 customerPhone = (selectedCreditCustomer?['contact'] ?? selectedCreditCustomer?['phone'] ?? '').toString();
                 customerType = 'credit';
-                // await db.collection('customers').doc(customerId).update({
-                //   'creditBalance': FieldValue.increment(salesProvider.calculateTaxableTotal()),
-                // });
+
                 final formatter = NumberFormat.currency(
                   locale: 'en_GH',
                   symbol: 'GHS',
@@ -904,7 +894,7 @@ class CustomerInfoDialog {
 
               await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
 
-             // final approved = await salesProvider.ensureSaleApproved(context, saleDocId);
+
               final skipCheck = salesProvider.isServiceOnlySale(salesProvider.salesItems);
               final approved = await salesProvider.ensureSaleApproved(context, saleDocId, skipStockCheck: skipCheck);
 
@@ -1394,6 +1384,7 @@ class CustomerInfoDialog {
                       ),
                     ),
                   ),
+
                 ],
               );
             }

@@ -1293,6 +1293,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
                           return;
                         }
                         },
+                        validator: (v) => null,
                       ),
                       const SizedBox(height: 10),
 

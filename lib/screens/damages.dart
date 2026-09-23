@@ -258,7 +258,7 @@ class _DamagesState extends State<Damages> {
       _resetForm();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Item added to damages preview'),
+          content: Text('Item added to damages preview',style: TextStyle(color: Colors.white),),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),
@@ -480,94 +480,7 @@ class _DamagesState extends State<Damages> {
     });
   }
 
-//   Future<void> _saveSale() async {
-//     if (_damageItems.isEmpty) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//          SnackBar(
-//           content: Text('No items to save',style: TextStyle(color: Theme.of(context).colorScheme.surface),),
-//           backgroundColor: Colors.orange,
-//         ),
-//       );
-//       setState(() {
-//         _isLoading = false;
-//       });
-//       return;
-//     }
-//     if (_isLoading) return;
-//     setState(() {
-//       _isLoading = true;
-//     });
-//     try {
-//       final datafeed = Provider.of<Datafeed>(context, listen: false);
-//
-//       final companyId = datafeed.companyid;
-//       final staffPosition = datafeed.staffPosition;
-//       final timestamp = DateTime.now().millisecondsSinceEpoch;
-//
-//       final docId = '${_branchid}_${staffPosition}_$timestamp'
-//           .toLowerCase()
-//           .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-// final trnx =  '${staffPosition}_$timestamp'
-//           .toLowerCase()
-//           .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-//
-//       final Map<String, dynamic> itemsMap = {};
-//       for (int i = 0; i < _damageItems.length; i++) {
-//         itemsMap['item_$i'] = {..._damageItems[i]};
-//       }
-//      // String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-//       final formattedDate = context.read<SalesProvider>().saleDate;
-//       final damageitem = damageitemmodel(
-//         id: docId,
-//         trxid: trnx,
-//         itemcount: _damageItems.length.toString(),
-//         item: itemsMap,
-//         branchid: _branchid,
-//         branchname: _branchname,
-//         description: '',
-//         createdby: datafeed.staff,
-//         createdat: DateTime.now(),
-//         staffposition: staffPosition.toString(),
-//         companyid: companyId,
-//         company: datafeed.company,
-//         dateymd: formattedDate,
-//         grandtotal: grandtotal,
-//       );
-//
-//       await datafeed.db
-//           .collection('damageitems')
-//           .doc(docId)
-//           .set(damageitem.tomap(), SetOptions(merge: true));
-//
-//       if (!mounted) return;
-//
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text('Damages recorded successfully',style: TextStyle(color: Theme.of(context).colorScheme.surface),),
-//           backgroundColor: Colors.green,
-//           duration: const Duration(seconds: 3),
-//         ),
-//       );
-//
-//       setState(() {
-//         _damageItems.clear();
-//         _isLoading = false;
-//         _totalAmountController.text = '0.00';
-//         grandtotal = '0.00';
-//       });
-//     } catch (e) {
-//       if (!mounted) return;
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text('Error saving damages: $e',style: TextStyle(color: Theme.of(context).colorScheme.surface),),
-//           backgroundColor: Colors.red,
-//         ),
-//       );
-//       setState(() {
-//         _isLoading = false;
-//       });
-//     }
-//   }
+
   Future<void> _saveSale() async {
     if (_damageItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -591,10 +504,7 @@ class _DamagesState extends State<Damages> {
       final companyId = datafeed.companyid;
       final staffPosition = datafeed.staffPosition;
 
-      // FIX: reuse the existing document's id/trxid when editing, instead of
-      // always minting a new one from the current timestamp. Previously this
-      // block ran unconditionally, so every save — including edits — wrote to
-      // a brand-new Firestore document and left the original record untouched.
+
       final bool isEditing = widget.damageitem != null;
 
       final String docId;
@@ -628,8 +538,7 @@ class _DamagesState extends State<Damages> {
         branchid: _branchid,
         branchname: _branchname,
         description: '',
-        // Preserve who originally created the record when editing; only stamp
-        // the current staff as creator for brand-new records.
+
         createdby: isEditing ? widget.damageitem!.createdby : datafeed.staff,
         createdat: isEditing ? widget.damageitem!.createdat : DateTime.now(),
         staffposition: staffPosition.toString(),
@@ -644,11 +553,7 @@ class _DamagesState extends State<Damages> {
           .doc(docId)
           .set(damageitem.tomap(), SetOptions(merge: true));
 
-      // FIX: refresh the local cached list so the list page reflects the
-      // update immediately instead of showing stale data until a manual
-      // re-fetch. fetchdamages() already exists and is what DamagesListPage
-      // calls on init, so this is the safest way to sync local state without
-      // needing to know Datafeed's internal list-mutation methods.
+
       await datafeed.fetchdamages();
 
       if (!mounted) return;
@@ -657,7 +562,7 @@ class _DamagesState extends State<Damages> {
         SnackBar(
           content: Text(
             isEditing ? 'Damage record updated successfully' : 'Damages recorded successfully',
-            style: TextStyle(color: Theme.of(context).colorScheme.surface),
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
@@ -671,9 +576,7 @@ class _DamagesState extends State<Damages> {
         grandtotal = '0.00';
       });
 
-      // If this was an edit opened from the list page, pop back to it now
-      // that the update has been saved and the local list refreshed.
-      if (isEditing && mounted) {
+     if (isEditing && mounted) {
         Navigator.pop(context);
       }
     } catch (e) {
@@ -771,7 +674,7 @@ class _DamagesState extends State<Damages> {
                                           key: _formKey,
                                           child: Column(
                                             children: [
-                                              if(isSuperAdmin)...[
+                                              if (isSuperAdmin) ...[
                                                 TextFormField(
                                                   controller: _dateController,
                                                   readOnly: true,
@@ -784,11 +687,11 @@ class _DamagesState extends State<Damages> {
                                                     hint: 'yyyy-mm-dd',
                                                   ),
                                                   onTap: () async {
-                                                    DateTime? picked = await showDatePicker(
+                                                    final picked = await showDatePicker(
                                                       context: context,
                                                       initialDate: _selectedDate ?? DateTime.now(),
                                                       firstDate: DateTime(2020),
-                                                      lastDate: DateTime(2100),
+                                                      lastDate: DateTime.now(),
                                                       builder: (context, child) {
                                                         return Theme(
                                                           data: Theme.of(context).copyWith(
@@ -810,15 +713,15 @@ class _DamagesState extends State<Damages> {
                                                       setState(() {
                                                         _selectedDate = picked;
                                                         _dateController.text =
-                                                        "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                        '${picked.year}-'
+                                                            '${picked.month.toString().padLeft(2, '0')}-'
+                                                            '${picked.day.toString().padLeft(2, '0')}';
                                                       });
                                                     }
                                                   },
-                                                  validator: (value) =>
-                                                  value == null || value.isEmpty
-                                                      ? 'Select date'
-                                                      : null,
-                                                )
+
+
+                                                ),
                                               ],
                                               SizedBox(height: 10),
                                               DropdownButtonFormField<String>(

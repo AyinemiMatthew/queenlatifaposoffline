@@ -130,10 +130,10 @@ class SalesProvider extends  Datafeed {
   }
 
   bool deleteCart(String cartId) {
-    // Prevent deleting the last cart
+
     if (_customerCarts.length == 1) return false;
 
-    if (!_customerCarts.containsKey(cartId)) return false; // extra safety
+    if (!_customerCarts.containsKey(cartId)) return false;
 
     _customerCarts.remove(cartId);
 
@@ -981,71 +981,7 @@ class SalesProvider extends  Datafeed {
     }
   }
 
-/*
-  Future<bool> validateCartStockOnSaves(String branchId,) async {
 
-    final requestedByItem = <String, double>{};
-    final itemNameById = <String, String>{};
-    final branchByItem = <String, String>{};
-
-    for (final item in salesItems) {
-      final isService =
-          item['producttype']?.toString().toLowerCase().trim() == 'service';
-      if (isService) continue;
-      final itemId = item['itemid']?.toString() ?? '';
-      if (itemId.isEmpty) continue;
-      final requestedPieces =
-          double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0;
-      if (requestedPieces <= 0) continue;
-      requestedByItem[itemId] =
-          (requestedByItem[itemId] ?? 0) + requestedPieces;
-      itemNameById[itemId] = item['item']?.toString() ?? 'item';
-      branchByItem[itemId] = item['branchid']?.toString() ?? branchId;
-    }
-    if (requestedByItem.isEmpty) return true;
-    try {
-      final futures = requestedByItem.keys.map(
-            (id) => FirebaseFirestore.instance
-            .collection('itemsreg')
-            .doc(id)
-            .get(const GetOptions(source: Source.server)),
-      );
-      final docs = await Future.wait(futures);
-      for (final doc in docs) {
-        if (!doc.exists) continue;
-        final data = doc.data() ?? <String, dynamic>{};
-        //final branchId = branchByItem[doc.id] ?? branchId;
-        final branchBalance =
-            data['branchbalance'] as Map<String, dynamic>? ?? {};
-        final branchData =
-            branchBalance[branchId] as Map<String, dynamic>? ?? {};
-        final availableNetPieces = _parseNetPieces(branchData);
-        final requestedPieces = requestedByItem[doc.id] ?? 0;
-        final boxQty =
-            double.tryParse(
-              data['boxqty']?.toString() ??
-                  data['boxQty']?.toString() ??
-                  data['modes']?['carton']?['qty']?.toString() ??
-                  data['modes']?['single']?['qty']?.toString() ??
-                  '1',
-            ) ??
-                1.0;
-        final availableBoxes = boxQty > 0
-            ? (availableNetPieces / boxQty)
-            : null;
-        final requestedBoxes = boxQty > 0 ? (requestedPieces / boxQty) : null;
-        if (requestedBoxes != null &&
-            availableBoxes != null &&
-            requestedBoxes > availableBoxes) {
-          return false;
-        }
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-*/
   Future<bool> validateCartStockOnSaves(String branchId,) async {
 
     final requestedByItem = <String, double>{};

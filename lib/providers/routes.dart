@@ -80,6 +80,7 @@ import '../screens/printbarcodes.dart';
 import '../screens/profit_and_loss.dart';
 import '../screens/purchase_returns.dart';
 import '../screens/receivpayments.dart';
+import '../screens/reorderstock.dart';
 import '../screens/reorderstockreport.dart';
 import '../screens/role_access_dashboard.dart';
 import '../screens/purchasereturns_view.dart';
@@ -91,6 +92,7 @@ import '../screens/sales_upload_page.dart';
 import '../screens/salesinvoice.dart';
 import '../screens/salesregisterreport.dart';
 import '../screens/salesreport.dart';
+
 import '../screens/salesreturn.dart';
 import '../screens/salesreturnlist.dart';
 import '../screens/salesview.dart';
@@ -251,7 +253,8 @@ class Routes {
   static const String stockvaluepage = '/stockvaluepage';
   static const String receivepayments = '/receivepayments';
   static const String stocktake = '/stocktake';
-  static const String dailysalesreport = '/dailysalesreport';
+  static const String reordercount = '/reordercount';
+
 }
 
 final pages = {
@@ -374,4 +377,6 @@ final pages = {
   Routes.stockvaluepage: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: StockValuePage()),
   Routes.receivepayments: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: ReceivepaymentsPage()),
   Routes.stocktake: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: StockTake()),
+  Routes.reordercount: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'stock officer', 'warehouse'], child: ReorderLevelPage()),
+
 };

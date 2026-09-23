@@ -52,11 +52,11 @@ Future<void> printReceipt({
     return;
   }
 
-//  if (!await salesProvider.validateCartStockOnSave(context,salesItems,datafeed,)) return;
+
   final isService =
       (selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-  if (!isService &&
+  if (!isService &&  datafeed.stockCheckEnabled&&
       !await salesProvider.validateCartStockOnSave(context, salesItems, datafeed)) {
     return;
   }
@@ -340,25 +340,7 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
-                /*  final ensureSalesWarehouseSelected =
-                  salesProvider.ensureSalesWarehouseSelected(
-                    context,
-                    datafeed,
-                    selectedItem,
-                    requireItemSelection: false,
-                  );
-
-                  final isValid =
-                  await salesProvider.validateCartStockOnSave(
-                    context,
-                    salesItems,
-                    datafeed,
-                  );
-
-                  if (!ensureSalesWarehouseSelected || !isValid) {
-                    return;
-                  }*/
-                  if (!isService) {
+                  if (!isService && datafeed.stockCheckEnabled) {
                     final ensureSalesWarehouseSelected =
                     salesProvider.ensureSalesWarehouseSelected(
                       context,
@@ -462,10 +444,13 @@ Future<void> printReceipt({
                       .collection('sales')
                       .doc(docId)
                       .set(saleData.toMap());
-                  final skipCheck = salesProvider.isServiceOnlySale(salesProvider.salesItems);
-                  final approved = await salesProvider.ensureSaleApproved(context, docId, skipStockCheck: skipCheck);
+                 // final skipCheck = salesProvider.isServiceOnlySale(salesProvider.salesItems);
+                 // final skipCheck = !datafeed.stockCheckEnabled || salesProvider.isServiceOnlySale(salesProvider.salesItems);
+                 // final approved = await salesProvider.ensureSaleApproved(context, docId, skipStockCheck: skipCheck);
                  // final approved =  await salesProvider.ensureSaleApproved(context, docId);
-
+                  final skipCheck = !datafeed.stockCheckEnabled || salesProvider.isServiceOnlySale(salesProvider.salesItems);
+                  final approved =
+                  await salesProvider.ensureSaleApproved(context, docId, skipStockCheck: skipCheck);
                   if (!approved) return;
 
                   final receiptItems = salesItems.map((e) {
@@ -631,25 +616,8 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
-                 /* final ensureSalesWarehouseSelected =
-                  salesProvider.ensureSalesWarehouseSelected(
-                    context,
-                    datafeed,
-                    selectedItem,
-                    requireItemSelection: false,
-                  );
 
-                  final isValid =
-                  await salesProvider.validateCartStockOnSave(
-                    context,
-                    salesItems,
-                    datafeed,
-                  );
-
-                  if (!ensureSalesWarehouseSelected || !isValid) {
-                    return;
-                  }*/
-                  if (!isService) {
+                  if (!isService&& datafeed.stockCheckEnabled) {
                     final ensureSalesWarehouseSelected =
                     salesProvider.ensureSalesWarehouseSelected(
                       context,

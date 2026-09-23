@@ -1,8 +1,9 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:excel/excel.dart' as xls;
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:kologsoft/providers/routes.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -10,8 +11,156 @@ import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
 import '../widgets/datepicker.dart';
-import '../widgets/printreportpdf.dart';
 
+class _BranchRow {
+  final String branchId;
+  final String branchName;
+  final double cash;
+  final double momo;
+  final double card;
+  final double bank;
+  final double hubtel;
+  final double cheque;
+  final double credit;
+  final double cashReturns;
+  final double creditReturns;
+  final double discount;
+  final double returnDiscount;
+  final double profit;
+  final double returnProfit;
+  final double debt;
+  final String? category;
+  final String? producttype;
+
+  const _BranchRow({
+    required this.branchId,
+    required this.branchName,
+    required this.cash,
+    required this.momo,
+    required this.card,
+    required this.bank,
+    required this.hubtel,
+    required this.cheque,
+    required this.credit,
+    required this.cashReturns,
+    required this.creditReturns,
+    required this.discount,
+    required this.returnDiscount,
+    required this.profit,
+    required this.returnProfit,
+    required this.debt,
+     this.category,
+     this.producttype,
+
+  });
+
+  factory _BranchRow.fromMap(Map<String, dynamic> m) {
+    double d(String k) => (m[k] as num?)?.toDouble() ?? 0.0;
+    return _BranchRow(
+      branchId: (m['branchId'] ?? '').toString(),
+      branchName: (m['branchName'] ?? '').toString(),
+      cash: d('cashSales'),
+      momo: d('merchantmomo'),
+      card: d('card'),
+      bank: d('bank'),
+      hubtel: d('hubtel'),
+      cheque: d('cheque'),
+      credit: d('creditSales'),
+      cashReturns: d('cashReturns'),
+      creditReturns: d('creditReturns'),
+      discount: d('discount'),
+      returnDiscount: d('returnDiscount'),
+      profit: d('profit'),
+      returnProfit: d('returnProfit'),
+      debt: d('branchdebt'),
+      category: '',
+      producttype: '',
+
+    );
+  }
+  factory _BranchRow.fromItem(Map<String, dynamic> m) {
+    double d(String k) => (m[k] as num?)?.toDouble() ?? 0.0;
+    return _BranchRow(
+      branchId: (m['itemid'] ?? '').toString(),
+      branchName: (m['item'] ?? '').toString(),
+      cash: d('cashSales'),
+      momo: d('momo'),
+      card: 0,
+      bank: 0,
+      hubtel: 0,
+      cheque: 0,
+      credit: d('creditSales'),
+      cashReturns: d('cashReturns'),
+      creditReturns: d('creditReturns'),
+      discount: d('discount'),
+      returnDiscount: d('return_discount'),
+      profit: d('profit'),
+      returnProfit: d('return_profit'),
+      debt: 0,
+      category: (m['pcategory'] ?? m['category'] ?? '').toString(),
+      producttype: (m['producttype'] ?? '').toString(),
+
+    );
+  }
+  factory _BranchRow.sum(List<_BranchRow> rows) {
+    double cash = 0, momo = 0, card = 0, bank = 0, hubtel = 0, cheque = 0;
+    double credit = 0, cashReturns = 0, creditReturns = 0, discount = 0;
+    double returnDiscount = 0, profit = 0, returnProfit = 0, debt = 0;
+
+    for (final r in rows) {
+      cash += r.cash;
+      momo += r.momo;
+      card += r.card;
+      bank += r.bank;
+      hubtel += r.hubtel;
+      cheque += r.cheque;
+      credit += r.credit;
+      cashReturns += r.cashReturns;
+      creditReturns += r.creditReturns;
+      discount += r.discount;
+      returnDiscount += r.returnDiscount;
+      profit += r.profit;
+      returnProfit += r.returnProfit;
+      debt += r.debt;
+    }
+    return _BranchRow(
+      branchId: '',
+      branchName: 'Grand Total',
+      cash: cash,
+      momo: momo,
+      card: card,
+      bank: bank,
+      hubtel: hubtel,
+      cheque: cheque,
+      credit: credit,
+      cashReturns: cashReturns,
+      creditReturns: creditReturns,
+      discount: discount,
+      returnDiscount: returnDiscount,
+      profit: profit,
+      returnProfit: returnProfit,
+      debt: debt,
+      category: '',
+      producttype: '',
+
+    );
+  }
+
+  double get cashSales => cash + momo + card + bank + hubtel + cheque;
+  double get totalSales => cashSales + credit;
+  double get returns => cashReturns + creditReturns;
+  double get grossDiscount => discount + returnDiscount;
+  double get grossProfit => profit + returnProfit;
+  double get cashAtHand => cash - cashReturns;
+}
+
+class _TxnCol {
+  final String label;
+  final int flex;
+  final double minWidth;
+  final bool right;
+  const _TxnCol(this.label, this.flex, {this.minWidth = 0, this.right = false});
+}
 
 class SalesReport extends StatefulWidget {
   const SalesReport({super.key});
@@ -21,22 +170,646 @@ class SalesReport extends StatefulWidget {
 }
 
 class _SalesReportState extends State<SalesReport> {
-  String searchQuery = '';
   DateTimeRange? selectedDate;
   String? _selectedBranch;
+  final GlobalKey _branchKey = GlobalKey();
+
+  static final DateFormat _txnDateFmt = DateFormat('dd MMM yy, hh:mm a');
+  bool _isSearching = false;
+  int? _sortColumn;
+  bool _sortAscending = true;
+
+  String? _selectedType;
+  String? _selectedCategory;
+  final GlobalKey _typeKey = GlobalKey();
+  final GlobalKey _categoryKey = GlobalKey();
+  static const Color _accent = Color(0xFF6366F1);
 
   late final ScrollController verticalController;
   late final ScrollController horizontalController;
-  final TextEditingController _mainSearchController = TextEditingController();
   late final ScrollController _verticalController;
   late final ScrollController _horizontalController;
+  late final ScrollController _listController;
+  final TextEditingController _mainSearchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  static const int _rowsPerPage = 10;
+  int _mainPage = 0;
 
-  late final ScrollController _vverticalController;
-  late final ScrollController _vhorizontalController;
+  static const Color _backgroundColor = Color(0xFF101624);
+  static const Color _cardColor = Color(0xFF1B263B);
+  static const Color _headerColor = Color(0xFF0D1B2A);
+  static const Color _totalColor = Color(0xFF16213E);
+  static const Color _borderColor = Colors.white12;
+  static const Color _textColor = Colors.white;
 
-  String capitalize(String? text) {
-    if (text == null || text.isEmpty) return '';
-    return text[0].toUpperCase() + text.substring(1);
+  static const List<int> _colFlexes = [
+    1, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+  ];
+  static const List<String> _headers = [
+    '#',
+    'Branch',
+    'Cash Sales',
+    'MoMo',
+    'Hubtel',
+    'Card',
+    'Bank',
+    'Cheque',
+    'Credit Sales',
+    'Total Sales',
+    'Returns',
+    'Discount',
+    'Profit',
+    'Cash@Hand',
+  ];
+
+  static final NumberFormat _nf = NumberFormat('#,##0.00');
+
+  static const List<_TxnCol> _txnCols = [
+    _TxnCol('#', 1),
+    _TxnCol('Date', 4),
+    _TxnCol('Qty', 1, right: true),
+    _TxnCol('Price', 2, right: true),
+    _TxnCol('Disc', 2, right: true),
+    _TxnCol('Total', 2, right: true),
+    _TxnCol('Profit', 2, right: true),
+    _TxnCol('Type', 3),
+    _TxnCol('Customer', 3, minWidth: 820),
+    _TxnCol('Staff', 3),
+
+    _TxnCol('Sales Mode', 2, minWidth: 940),
+    _TxnCol('Price Mode', 2, minWidth: 1040),
+  ];
+
+  double _num(dynamic v) =>
+      v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+
+  String _q(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+
+  String _txnDate(dynamic d) {
+    if (d is Timestamp) return _txnDateFmt.format(d.toDate());
+    if (d is DateTime) return _txnDateFmt.format(d);
+    return '-';
+  }
+
+  bool _isRet(Map<String, dynamic> t) => t['isReturned'] == true;
+
+  String _txnType(Map<String, dynamic> t) {
+    if (_isRet(t)) {
+      return t['returnedTransMode'] == 'credit' ? 'Credit Return' : 'Cash Return';
+    }
+    final m = (t['transMode'] ?? '').toString();
+    return m.isEmpty ? 'Sale' : 'Sale · $m';
+  }
+
+  Color _txnColor(Map<String, dynamic> t) {
+    if (_isRet(t)) {
+      return t['returnedTransMode'] == 'credit'
+          ? Colors.orange
+          : Colors.redAccent;
+    }
+    return Colors.greenAccent;
+  }
+
+  Map<String, double> _txnSummary(List<Map<String, dynamic>> list) {
+    double cash = 0, credit = 0, cashRet = 0, creditRet = 0, returns = 0;
+    double saleDisc = 0, retDisc = 0, saleQty = 0, retQty = 0;
+    double saleProfit = 0, retProfit = 0;
+
+    for (final t in list) {
+      final total = _num(t['total']);
+      final disc = _num(t['discount']);
+      final qty = _num(t['qty']);
+      final profit = _num(t['profit']);
+
+      if (_isRet(t)) {
+        returns += total;
+        if (t['isCashReturn'] == true) cashRet += total;
+        if (t['isCreditReturn'] == true) creditRet += total;
+        retDisc += disc;
+        retQty += qty;
+        retProfit += profit;
+      } else {
+        if (t['isCredit'] == true) {
+          credit += total;
+        } else {
+          cash += total;
+        }
+        saleDisc += disc;
+        saleQty += qty;
+        saleProfit += profit;
+      }
+    }
+
+    return {
+      'cash': cash,
+      'credit': credit,
+      'cashRet': cashRet,
+      'creditRet': creditRet,
+      'returns': returns,
+      'saleDisc': saleDisc,
+      'retDisc': retDisc,
+      'discount': saleDisc - retDisc,
+      'saleQty': saleQty,
+      'retQty': retQty,
+      'qty': saleQty - retQty,
+      'saleProfit': saleProfit,
+      'retProfit': retProfit,
+      'profit': saleProfit - retProfit,
+      'net': cash + credit - returns,
+      'cashAtHand': cash - cashRet,
+    };
+  }
+
+
+
+  Widget _txnStat({
+    required String label,
+    required String value,
+    String? tip,
+    bool active = false,
+    VoidCallback? onTap,
+  }) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+
+    Widget w = InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      onLongPress:
+      (narrow && tip != null) ? () => _showBreakdown(label, tip) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: active ? _accent : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? _accent : Colors.white54,
+                fontSize: 10,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: active ? _accent : _textColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!narrow && tip != null) w = _tip(tip, w, title: label);
+    return w;
+  }
+
+  Widget _txnStats(
+      Map<String, double> s,
+      String? kind,
+      ValueChanged<String?> setKind,
+      ) {
+    void toggle(String k) => setKind(kind == k ? null : k);
+    double v(String k) => s[k] ?? 0;
+
+    return Wrap(
+      spacing: 14,
+      runSpacing: 6,
+      children: [
+        _txnStat(
+          label: 'Cash Sales',
+          value: _n(v('cash')),
+          tip: 'Cash sales: ${_n(v('cash'))}\n'
+              'Less cash returns: ${_n(v('cashRet'))}\n'
+              'Cash @ Hand: ${_n(v('cashAtHand'))}',
+          active: kind == 'cashSales',
+          onTap: () => toggle('cashSales'),
+        ),
+        _txnStat(
+          label: 'Credit Sales',
+          value: _n(v('credit')),
+          tip: 'Credit sales: ${_n(v('credit'))}\n'
+              'Less credit returns: ${_n(v('creditRet'))}\n'
+              'Net credit: ${_n(v('credit') - v('creditRet'))}',
+          active: kind == 'creditSales',
+          onTap: () => toggle('creditSales'),
+        ),
+        _txnStat(
+          label: 'Returns',
+          value: _n(v('returns')),
+          tip: 'Cash returns: ${_n(v('cashRet'))}\n'
+              'Credit returns: ${_n(v('creditRet'))}\n'
+              'Total returns: ${_n(v('returns'))}',
+          active: kind == 'totalReturns',
+          onTap: () => toggle('totalReturns'),
+        ),
+        _txnStat(
+          label: 'Discount',
+          value: _n(v('discount')),
+          tip: 'Discount given: ${_n(v('saleDisc'))}\n'
+              'Less discount on returns: ${_n(v('retDisc'))}\n'
+              'Net discount: ${_n(v('discount'))}',
+          active: kind == 'discount',
+          onTap: () => toggle('discount'),
+        ),
+        _txnStat(
+          label: 'Qty Sold',
+          value: _q(v('qty')),
+          tip: 'Qty sold: ${_q(v('saleQty'))}\n'
+              'Less qty returned: ${_q(v('retQty'))}\n'
+              'Net qty: ${_q(v('qty'))}',
+        ),
+        _txnStat(
+          label: 'Net Revenue',
+          value: _n(v('net')),
+          tip: 'Cash + credit sales: ${_n(v('cash') + v('credit'))}\n'
+              'Less returns: ${_n(v('returns'))}\n'
+              'Net revenue: ${_n(v('net'))}',
+        ),
+        _txnStat(
+          label: 'Profit',
+          value: _n(v('profit')),
+          tip: 'Profit on sales: ${_n(v('saleProfit'))}\n'
+              'Less profit on returns: ${_n(v('retProfit'))}\n'
+              'Net profit: ${_n(v('profit'))}',
+        ),
+      ],
+    );
+  }
+
+
+
+  Widget _typeBadge(Map<String, dynamic> t) {
+    final c = _txnColor(t);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.15),
+        border: Border.all(color: c.withOpacity(0.6)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        _txnType(t),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: c, fontSize: 10.5, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  String _txnCell(String label, Map<String, dynamic> t, int i) {
+    final ret = _isRet(t);
+    String sg(double v) => ret && v != 0 ? '-${_n(v)}' : _n(v);
+
+    switch (label) {
+      case '#':
+        return '${i + 1}';
+      case 'Date':
+        return _txnDate(t['date']);
+      case 'Qty':
+        {
+          final q = _num(t['qty']);
+          return ret && q != 0 ? '-${_q(q)}' : _q(q);
+        }
+      case 'Price':
+        return _n(_num(t['price']));
+      case 'Disc':
+        return sg(_num(t['discount']));
+      case 'Total':
+        return sg(_num(t['total']));
+      case 'Profit':
+        return sg(_num(t['profit']));
+      case 'Customer':
+        return (t['customer'] ?? '').toString();
+      case 'Staff':
+        return (t['staff'] ?? '').toString();
+
+      case 'Sales Mode':
+        return (t['salesMode'] ?? '').toString();
+
+      case 'Price Mode':
+        return (t['pricingMode'] ?? '').toString();
+      default:
+        return '';
+    }
+  }
+
+  Widget _txnRowShell(
+      List<_TxnCol> cols,
+      Widget Function(_TxnCol col, int c) cellBuilder, {
+        required Color color,
+        double vertical = 8,
+      }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: vertical),
+      decoration: BoxDecoration(
+        color: color,
+        border: const Border(
+          bottom: BorderSide(color: Color(0xFF475569), width: 0.7),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (int c = 0; c < cols.length; c++) ...[
+            if (c > 0) const SizedBox(width: 8),
+            Expanded(flex: cols[c].flex, child: cellBuilder(cols[c], c)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _txnTableRow(List<_TxnCol> cols, Map<String, dynamic> t, int i) {
+    final ret = _isRet(t);
+    return _txnRowShell(
+      cols,
+          (col, _) {
+        if (col.label == 'Type') {
+          return Align(alignment: Alignment.centerLeft, child: _typeBadge(t));
+        }
+        final numeric = col.right && col.label != 'Price';
+        return Text(
+          _txnCell(col.label, t, i),
+          textAlign: col.right ? TextAlign.right : TextAlign.left,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: ret && numeric ? Colors.redAccent : _textColor,
+            fontSize: 12,
+          ),
+        );
+      },
+        color: ret ? Colors.red.withOpacity(0.05) : _cardColor,
+    );
+  }
+
+  Widget _txnCard(Map<String, dynamic> t, int i) {
+    final ret = _isRet(t);
+    String sg(double v) => ret && v != 0 ? '-${_n(v)}' : _n(v);
+    final q = _num(t['qty']);
+    final qtyStr = ret && q != 0 ? '-${_q(q)}' : _q(q);
+
+    Widget kv(String k, String v) {
+      if (v.trim().isEmpty) return const SizedBox.shrink();
+      return Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$k: ',
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            TextSpan(
+              text: v,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ret ? Colors.red.withOpacity(0.08) : _cardColor,
+        border: Border.all(color: _borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('#${i + 1}',
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              const SizedBox(width: 8),
+              Flexible(child: _typeBadge(t)),
+              const Spacer(),
+              Text(
+                _txnDate(t['date']),
+                style: const TextStyle(color: Colors.white60, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '$qtyStr × ${_n(_num(t['price']))}',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const Spacer(),
+              Text(
+                sg(_num(t['total'])),
+                style: TextStyle(
+                  color: ret ? Colors.redAccent : _textColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            children: [
+              kv('Disc', sg(_num(t['discount']))),
+              kv('Profit', sg(_num(t['profit']))),
+              kv('Customer', (t['customer'] ?? '').toString()),
+              kv('Staff', (t['staff'] ?? '').toString()),
+
+              //kv('Branch', (t['branch'] ?? '').toString()),
+              kv('Sales mode', (t['salesMode'] ?? '').toString()),
+              kv('Price mode', (t['pricingMode'] ?? '').toString()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _txnBody(
+      List<Map<String, dynamic>> list,
+      Map<String, double> s,
+      ScrollController sc,
+      {int page = 0,
+      int totalPages = 1,
+      ValueChanged<int>? onPageChanged,
+      }) {
+    if (list.isEmpty) {
+      return const Center(
+        child: Text('No transactions found',
+            style: TextStyle(color: Colors.white70)),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final visible = list.skip(page * _rowsPerPage).take(_rowsPerPage).toList();
+
+        if (c.maxWidth < 600) {
+          return Column(
+            children: [
+              Expanded(
+                child: Scrollbar(
+                  controller: sc,
+                  child: ListView.builder(
+                    controller: sc,
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
+                    itemCount: visible.length,
+                    itemBuilder: (_, i) {
+                      return _txnCard(visible[i], page * _rowsPerPage + i);
+                    },
+                  ),
+                ),
+              ),
+              _txnTotalCard(list.length, s),
+            ],
+          );
+        }
+
+
+        final cols = _txnCols.where((x) => c.maxWidth >= x.minWidth).toList();
+
+        Widget total(_TxnCol col, int _) {
+          String text = '';
+          switch (col.label) {
+            case 'Date':
+              text = 'TOTAL (${list.length})';
+              break;
+            case 'Qty':
+              text = _q(s['qty'] ?? 0);
+              break;
+            case 'Disc':
+              text = _n(s['discount'] ?? 0);
+              break;
+            case 'Total':
+              text = _n(s['net'] ?? 0);
+              break;
+            case 'Profit':
+              text = _n(s['profit'] ?? 0);
+              break;
+          }
+          return Text(
+            text,
+            textAlign: col.right ? TextAlign.right : TextAlign.left,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          );
+        }
+
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _txnRowShell(
+                cols,
+                    (col, _) => Text(
+                  col.label,
+                  textAlign: col.right ? TextAlign.right : TextAlign.left,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _headerStyle,
+                ),
+                color: _cardColor,
+                vertical: 12,
+              ),
+              Expanded(
+                child: Scrollbar(
+                  controller: sc,
+                  thumbVisibility: true,
+                  child: ListView.builder(
+                    controller: sc,
+                    padding: EdgeInsets.zero,
+                    itemCount: visible.length,
+                    itemBuilder: (_, i) {
+                      return _txnTableRow(cols, visible[i], page * _rowsPerPage + i);
+                    },
+                  ),
+                ),
+              ),
+              _txnRowShell(cols, total, color: _totalColor),
+            ],
+        );
+      },
+    );
+  }
+
+  // Widget _itemTransactionsPager(
+  //     int page, int totalPages, int totalCount, ValueChanged<int> onPageChanged) {
+  //   return Container(
+  //     decoration: const BoxDecoration(
+  //       color: _cardColor,
+  //       border: Border(top: BorderSide(color: Color(0xFF475569), width: 0.7)),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Expanded(
+  //             child: Padding(
+  //                 padding: const EdgeInsets.all(8),
+  //                 child: Text('$totalCount Transactions',
+  //                     style: const TextStyle(color: Colors.white60, fontSize: 12)))),
+  //         IconButton(
+  //             padding: EdgeInsets.zero,
+  //             onPressed: page > 0 ? () => onPageChanged(page - 1) : null,
+  //             icon: const Icon(Icons.chevron_left)),
+  //         Text('${page + 1}/$totalPages',
+  //             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+  //         IconButton(
+  //             padding: EdgeInsets.zero,
+  //             onPressed: page < totalPages - 1 ? () => onPageChanged(page + 1) : null,
+  //             icon: const Icon(Icons.chevron_right)),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  bool _canSelect(Datafeed v) {
+    final r = v.normalizedAccessLevelNoSpaces;
+    return r == 'superadmin' || r == 'systemadmin' || r == 'admin';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    verticalController = ScrollController();
+    horizontalController = ScrollController();
+    _verticalController = ScrollController();
+    _horizontalController = ScrollController();
+    _listController = ScrollController();
+
+    Future.microtask(() {
+      if (!mounted) return;
+      final provider = context.read<Datafeed>();
+      provider.fetchBranches();
+      provider.updateSearch('');
+      _selectedBranch = _canSelect(provider)
+          ? null
+          : (provider.branchid.isEmpty ? null : provider.branchid);
+      setState(() {});
+      provider.fetchsalesreport(
+        selectedDate: selectedDate,
+        selectedBranch: _selectedBranch,
+        productType: _selectedType,
+        category: _selectedCategory,
+      );
+    });
   }
 
   @override
@@ -45,929 +818,1204 @@ class _SalesReportState extends State<SalesReport> {
     _selectedBranch = null;
     verticalController.dispose();
     horizontalController.dispose();
-    _mainSearchController.dispose();
     _verticalController.dispose();
     _horizontalController.dispose();
-
-    _vverticalController.dispose();
-    _vhorizontalController.dispose();
+    _listController.dispose();
+    _mainSearchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
-  @override
-  void initState() {
-    super.initState();
-    verticalController = ScrollController();
-    horizontalController = ScrollController();
-    _verticalController = ScrollController();
-    _horizontalController = ScrollController();
 
-    _vverticalController = ScrollController();
-    _vhorizontalController = ScrollController();
-    Future.microtask((){
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchsalesreport(selectedDate: selectedDate,);
+  void _openSearch() {
+    setState(() => _isSearching = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
     });
-
   }
-  @override
-  Widget build(BuildContext context) {
 
-    final screenWidth =MediaQuery.sizeOf(context).width;
-    final isMobile = screenWidth < 600;
-    return Consumer<Datafeed>(
-      builder: (context, value, child) {
-        final resultList = value.filterbranchsalesreport();
-        final totalCashSales = value.branchTotalCashSales;
-        final totalCreditSales = value.branchTotalCreditSales;
-        final totalCashReturns = value.branchTotalCashReturns;
-        final totalCreditReturns  = value.branchTotalCreditReturns;
-        final totalReturns = value.branchTotalReturns;
-        final totalDiscount = value.branchTotalDiscount;
-        final totalprofit   = value.branchTotalProfit;
-        final totalRowTotal  = value.branchTotalRowTotal;
-        final debttotal    = value.branchreportDebttotal;
-        final grandTotal   = value.branchGrandTotal;
-        final globalCashAtHand = value.branchCashAtHand ;
-        final totallcash = totalCashSales - totalCashReturns;
+  void _closeSearch(Datafeed value) {
+    setState(() {
+      _isSearching = false;
+      _mainSearchController.clear();
+    });
+    value.updateSearch('');
+  }
 
-        final totalsal = totalCashSales + totalCreditSales;
+  String _branchLabel(Datafeed value) {
+    if (!_canSelect(value)) return value.branch;
+    if (_selectedBranch == null) return 'All Branches';
+    final matches = value.branches.where((b) => b.branchname != 'Warehouse').where((b) => b.id == _selectedBranch);
+    if (matches.isEmpty) return 'All Branches';
+    return matches.first.branchname;
+  }
 
-        return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+  void _showBranchMenu(BuildContext context, Datafeed value) {
+    final RenderBox button =
+    _branchKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+    Overlay.of(context).context.findRenderObject() as RenderBox;
 
-         appBar: AppBar(
-           title: Column(
-             crossAxisAlignment: CrossAxisAlignment.start,
-             mainAxisSize: MainAxisSize.min,
-             children: [
-               const Text(
-                 'Sales Report',
-                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-               ),
-             ],
-           ),
-           centerTitle: true,
-           actions: [
-             TextButton(
-                 onPressed: (){
-                   Navigator.pushNamed(context, Routes.home);
-                 }, child: Text('Home',style: TextStyle(color: Colors.white),)
-             ),
-             ReusableDatePickerWidget(
-               onDateSelected: (selection) {
-                 setState(() => selectedDate = selection);
-                 context.read<Datafeed>().fetchsalesreport(
-                   selectedDate: selectedDate,
-                   selectedBranch: _selectedBranch,
-                 );
-               },
-               child: Padding(
-                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                 child: Icon(Icons.calendar_today_rounded, size: 22),
-               ),
-             ),
-           ],
-         ),
-          body: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: screenWidth),
+    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
+
+    final position = RelativeRect.fromRect(
+      Rect.fromLTWH(
+        buttonPosition.dx,
+        buttonPosition.dy + button.size.height,
+        button.size.width,
+        0,
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String?>(
+      context: context,
+      position: position,
+      color: _cardColor,
+      items: [
+        const PopupMenuItem<String?>(
+          value: '__ALL__',
+          child: Text(
+            'All Branches',
+            style: TextStyle(color: _textColor, fontSize: 13),
+          ),
+        ),
+        ...{
+          for (final b in value.branches) b.id: b,
+        }.values.where((b) => b.id != null && b.id!.isNotEmpty).map(
+              (b) => PopupMenuItem<String?>(
+            value: b.id,
+            child: Text(
+              b.branchname,
+              style: const TextStyle(color: _textColor, fontSize: 13),
+            ),
+          ),
+        ),
+      ],
+    ).then((picked) {
+      if (picked == null) return;
+      final branch = picked == '__ALL__' ? null : picked;
+      setState(() => _selectedBranch = branch);
+      _applyFilter(value);
+    });
+  }
+
+  Comparable _sortValue(_BranchRow r, int col) {
+    switch (col) {
+      case 1:
+        return r.branchName.toLowerCase();
+      case 2:
+        return r.cashSales;
+      case 3:
+        return r.credit;
+      case 4:
+        return r.totalSales;
+      case 5:
+        return r.returns;
+      case 6:
+        return r.discount;
+      case 7:
+        return r.profit;
+      case 8:
+        return r.cashAtHand;
+      default:
+        return 0.0;
+    }
+  }
+
+  List<_BranchRow> _rows(Datafeed value) {
+    final rows = value
+        .filterbranchsalesreport()
+        .map((m) => _BranchRow.fromMap(m))
+        .toList();
+    final col = _sortColumn;
+    if (col != null) {
+      rows.sort((a, b) {
+        final c = Comparable.compare(_sortValue(a, col), _sortValue(b, col));
+        return _sortAscending ? c : -c;
+      });
+    }
+    return rows;
+  }
+
+  String _n(double v) => _nf.format(v);
+
+  String _lines(
+      List<MapEntry<String, double>> parts,
+      String totalLabel,
+      double total, {
+        bool skipZero = false,
+      }) {
+    final lines = <String>[];
+    for (final p in parts) {
+      if (skipZero && p.value == 0) continue;
+      lines.add('${p.key}: ${_n(p.value)}');
+    }
+    lines.add('$totalLabel: ${_n(total)}');
+    return lines.join('\n');
+  }
+
+  String _tipCash(_BranchRow r) => _lines(
+    [
+      MapEntry('Cash', r.cash),
+      MapEntry('MoMo', r.momo),
+      MapEntry('Card', r.card),
+      MapEntry('Bank', r.bank),
+      MapEntry('Hubtel', r.hubtel),
+      MapEntry('Cheque', r.cheque),
+    ],
+    'Cash Sales',
+    r.cashSales,
+    skipZero: true,
+  );
+
+  String _tipCredit(_BranchRow r) {
+    final base = 'Credit Sales (on account): ${_n(r.credit)}';
+    if (r.debt == 0) return base;
+    return '$base\nDebt payments received: ${_n(r.debt)}';
+  }
+
+  String _tipTotal(_BranchRow r) => _lines(
+    [
+      MapEntry('Cash', r.cash),
+      MapEntry('MoMo', r.momo),
+      MapEntry('Card', r.card),
+      MapEntry('Bank', r.bank),
+      MapEntry('Hubtel', r.hubtel),
+      MapEntry('Cheque', r.cheque),
+      MapEntry('Credit', r.credit),
+    ],
+    'Total Sales',
+    r.totalSales,
+    skipZero: true,
+  );
+
+  String _tipReturns(_BranchRow r) => _lines(
+    [
+      MapEntry('Cash Returns', r.cashReturns),
+      MapEntry('Credit Returns', r.creditReturns),
+    ],
+    'Total Returns',
+    r.returns,
+  );
+
+  String _tipDiscount(_BranchRow r) =>
+      'Discount given: ${_n(r.grossDiscount)}\n'
+          'Less discount on returns: ${_n(r.returnDiscount)}\n'
+          'Net Discount: ${_n(r.discount)}';
+
+  String _tipProfit(_BranchRow r) =>
+      'Gross profit: ${_n(r.grossProfit)}\n'
+          'Less profit on returns: ${_n(r.returnProfit)}\n'
+          'Net Profit: ${_n(r.profit)}';
+
+  String _tipCashAtHand(_BranchRow r) =>
+      'Cash received: ${_n(r.cash)}\n'
+          'Less cash returns: ${_n(r.cashReturns)}\n'
+          'Cash @ Hand: ${_n(r.cashAtHand)}';
+
+  List<String> _tips(_BranchRow r) => [
+    _tipCash(r),
+    'MoMo: ${_n(r.momo)}',
+    'Hubtel: ${_n(r.hubtel)}',
+    'Card: ${_n(r.card)}',
+    'Bank: ${_n(r.bank)}',
+    'Cheque: ${_n(r.cheque)}',
+    _tipCredit(r),
+    _tipTotal(r),
+    _tipReturns(r),
+    _tipDiscount(r),
+    _tipProfit(r),
+    _tipCashAtHand(r),
+  ];
+
+  List<double> _values(_BranchRow r) => [
+    r.cash,
+    r.momo,
+    r.hubtel,
+    r.card,
+    r.bank,
+    r.cheque,
+    r.credit,
+    r.totalSales,
+    r.returns,
+    r.discount,
+    r.profit,
+    r.cashAtHand,
+  ];
+
+
+
+  Widget _tip(String message, Widget child, {String title = 'Breakdown'}) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _showBreakdown(title, message),
+        child: child,
+      );
+    }
+    return Tooltip(
+      message: message,
+      waitDuration: const Duration(milliseconds: 250),
+      showDuration: const Duration(seconds: 6),
+      preferBelow: false,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _headerColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white24),
+      ),
+      textStyle: const TextStyle(color: _textColor, fontSize: 12, height: 1.5),
+      child: child,
+    );
+  }
+
+  void _showBreakdown(String title, String message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _headerColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _textColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: const TextStyle(color: _textColor, fontSize: 14, height: 1.6),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tipStat(String title, double value, String tip) {
+    return _tip(tip, _miniStat(title, value), title: title);
+  }
+
+  Widget _dialogFilter({ required IconData icon, required String tooltip, required String allLabel, required List<String> options, required String? current, required ValueChanged<String?> onPicked,}) {
+    return PopupMenuButton<String>(
+      tooltip: tooltip,
+      color: _cardColor,
+      icon: Icon(icon, color: current != null ? _accent : Colors.white70, size: 21),
+      onSelected: (v) => onPicked(v == '__ALL__' ? null : v),
+      itemBuilder: (_) => [
+        PopupMenuItem<String>(
+          value: '__ALL__',
+          child: Text(
+            allLabel,
+            style: TextStyle(
+              color: current == null ? _accent : _textColor,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        ...options.map(
+              (o) => PopupMenuItem<String>(
+            value: o,
+            child: Text(
+              o,
+              style: TextStyle(
+                color: o == current ? _accent : _textColor,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _itemTable(
+      List<Map<String, dynamic>> maps,
+      List<_BranchRow> rows,
+      _BranchRow totals,
+      void Function(Map<String, dynamic>) onTap,
+      ) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              color: _cardColor,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              child: Row(
+                children: [
+                  for (int i = 0; i < _headers.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    Expanded(
+                      flex: _colFlexes[i],
+                      child: Text(
+                        i == 1 ? 'Item' : _headers[i],
+                        textAlign: i >= 2 ? TextAlign.right : TextAlign.left,
+                        overflow: TextOverflow.ellipsis,
+                        style: _headerStyle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: Scrollbar(
+                controller: verticalController,
+                thumbVisibility: true,
+                child: ListView.builder(
+                  controller: verticalController,
+                  padding: EdgeInsets.zero,
+                  itemCount: rows.length,
+                  itemBuilder: (context, index) {
+                    return InkWell(
+                      onTap: () => onTap(maps[index]),
+                      child: _dataRow(rows[index], index),
+                    );
+                  },
+                ),
+              ),
+            ),
+            _dataRow(totals, rows.length, total: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _itemMobileList(
+      List<Map<String, dynamic>> maps,
+      List<_BranchRow> rows,
+      _BranchRow totals,
+      void Function(Map<String, dynamic>) onTap,
+      ) {
+    return Column(
+      children: [
+        _mobileTotalsCard(totals),
+        const SizedBox(height: 10),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(top: 4, bottom: 16),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final r = rows[index];
+              final tips = _tips(r);
+              return InkWell(
+                onTap: () => onTap(maps[index]),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _borderColor),
+                  ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
                         children: [
-
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white.withOpacity(0.07)),
-                            ),
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              children: [
-                                if (selectedDate != null) ...[
-
-                                  SizedBox(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.access_time_rounded,
-                                              size: 14,
-                                              color: Colors.white.withOpacity(0.4),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Sales report for  ',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.white.withOpacity(0.5),
-                                              ),
-                                            ),
-
-                                          ],
-                                        ),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue.withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                                              ),
-                                              child: Text(
-                                                '${DateFormat.yMMMd().format(selectedDate!.start)}'
-                                                    ' — '
-                                                    '${DateFormat.yMMMd().format(selectedDate!.end)}',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.lightBlueAccent,
-                                                ),
-                                              ),
-                                            ),
-
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                SizedBox(height: 5,),
-
-                                isMobile
-                                    ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Container(
-                                      height: 42,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF0F172A),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                      ),
-                                      child: TextFormField(
-                                        controller: _mainSearchController,
-                                        onChanged: (val){
-                                          value.updateSearch(val);
-                                        },
-                                        style: const TextStyle(color: Colors.white),
-                                        decoration: const InputDecoration(
-                                          hintText: 'Search ...',
-                                          hintStyle: TextStyle(color: Colors.white54),
-                                          prefixIcon: Icon(Icons.search, color: Colors.white54),
-                                          filled: true,
-                                          fillColor: Color(0xFF22304A),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.all(Radius.circular(8)),
-                                            borderSide: BorderSide.none,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    ReusableDatePickerWidget(
-                                      onDateSelected: (selection) {
-                                        setState(() => selectedDate = selection);
-                                        context.read<Datafeed>().fetchsalesreport(
-                                          selectedDate: selectedDate,
-                                          selectedBranch: _selectedBranch,
-                                        );
-                                      },
-                                      child: Container(
-                                        height: 42,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF22304A),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.calendar_today_rounded,
-                                              size: 16,
-                                              color: Colors.white.withOpacity(0.5),
-                                            ),
-                                            const SizedBox(width: 7),
-                                            Text(
-                                              'Pick date range',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(0.6),
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                )
-                                    : Row(
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        height: 42,
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF0F172A),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                        ),
-                                        child: TextFormField(
-                                          controller: _mainSearchController,
-                                          onChanged: (val){
-                                            value.updateSearch(val);
-                                          },
-                                          style: const TextStyle(color: Colors.white),
-                                          decoration: const InputDecoration(
-                                            hintText: 'Search ...',
-                                            hintStyle: TextStyle(color: Colors.white54),
-                                            prefixIcon: Icon(Icons.search, color: Colors.white54),
-                                            filled: true,
-                                            fillColor: Color(0xFF22304A),
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.all(Radius.circular(8)),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    ReusableDatePickerWidget(
-                                      onDateSelected: (selection) {
-                                        setState(() => selectedDate = selection);
-                                        context.read<Datafeed>().fetchsalesreport(
-                                          selectedDate: selectedDate,
-                                          selectedBranch: _selectedBranch,
-                                        );
-                                      },
-                                      child: Container(
-                                        height: 42,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF22304A),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: Colors.white.withOpacity(0.08)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.calendar_today_rounded,
-                                              size: 16,
-                                              color: Colors.white.withOpacity(0.5),
-                                            ),
-                                            const SizedBox(width: 7),
-                                            Text(
-                                              'Pick date range',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(0.6),
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-
-
-                                isMobile
-                                    ? Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Row(
-                                      children: [
-
-                                        Expanded(
-                                          child: SizedBox(
-                                            height: 42,
-                                            child: DropdownButtonFormField<String>(
-                                              value: _selectedBranch ?? '',
-                                              isExpanded: true,
-                                              dropdownColor: const Color(0xFF22304A),
-                                              style: const TextStyle(color: Colors.white),
-                                              decoration: InputDecoration(
-                                                labelText: 'Select Branch',
-                                                labelStyle: const TextStyle(color: Colors.white70),
-                                                border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                enabledBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  borderSide: const BorderSide(color: Colors.white24),
-                                                ),
-                                                focusedBorder: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  borderSide: const BorderSide(color: Colors.blue),
-                                                ),
-                                                fillColor: const Color(0xFF22304A),
-                                                filled: true,
-                                              ),
-                                              items: [
-                                                const DropdownMenuItem<String>(
-                                                  value: '',
-                                                  child: Text('All Branches'),
-                                                ),
-                                                ...value.branches.map((branch) {
-                                                  return DropdownMenuItem<String>(
-                                                    value: branch.id,
-                                                    child: Text(branch.branchname),
-                                                  );
-                                                }).toList(),
-                                              ],
-                                              onChanged: (val) {
-                                                setState(() {
-                                                  _selectedBranch = (val == null || val.isEmpty)
-                                                      ? null
-                                                      : val;
-                                                });
-                                                value.fetchsalesreport(
-                                                  selectedDate: selectedDate,
-                                                  selectedBranch: _selectedBranch,
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                                        label: const Text(
-                                          'Print/Download',
-                                          style: TextStyle(color: Colors.white70),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF22304A),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(5),
-                                          ),
-                                        ),
-                                        onPressed: () {
-                                          final provider = context.read<Datafeed>();
-                                          final cashAtHand = totalCashSales - totalCashReturns;
-
-                                          printReportPdf(
-                                            context: context,
-                                            reportTitle: 'Sales Report',
-                                            companyName:  provider.company,
-                                            branchName: _selectedBranch ?? 'All Branches',
-                                            dateRange: selectedDate,
-                                            columns: const [
-                                              PdfColumn('#',width: 18),
-                                              PdfColumn('Branch',width: 100),
-                                              PdfColumn('Cash Sales',width: 52),
-                                              PdfColumn('Credit Sales',width: 52),
-                                              PdfColumn('Total Sales',width: 30),
-                                              PdfColumn('Cash Returns',width: 52),
-                                              PdfColumn('Credit Returns',width: 55),
-                                              PdfColumn('Total Returns',width: 42),
-                                              PdfColumn('Discount',width: 42),
-                                              PdfColumn('Profit',width: 45),
-                                              PdfColumn('Cash@Hand', width: 50),
-                                            ],
-                                            rows: resultList.asMap().entries.map((e) {
-                                              final i    = e.key;
-                                              final item = e.value;
-                                              final branch =   item['branchName']?.toString()   ?? '';
-                                              final cashsales = (item['cashSales'] ?? 0.0).toDouble();
-                                              final creditsales = (item['creditSales'] ?? 0.0).toDouble();
-                                              final totalsales = cashsales + creditsales;
-                                              final cashreturns = (item['cashReturns'] ?? 0.0).toDouble();
-                                              final creditreturns = (item['creditReturns'] ?? 0.0).toDouble();
-                                              final totalreturns = (item['totalReturns'] ?? 0.0).toDouble();
-                                              final discount = (item['discount'] ?? 0.0).toDouble();
-                                              final profit = (item['profit'] ?? 0.0).toDouble();
-                                              final cashtotal = cashsales - cashreturns;
-                                              return <String>[
-                                                '${i + 1}',
-                                                branch,
-                                                cashsales.toStringAsFixed(2),
-                                                creditsales.toStringAsFixed(2),
-                                                totalsales.toStringAsFixed(2),
-                                                cashreturns.toStringAsFixed(2),
-                                                creditreturns.toStringAsFixed(2),
-                                                totalreturns.toStringAsFixed(2),
-                                                discount.toStringAsFixed(2),
-                                                profit.toStringAsFixed(2),
-                                                cashtotal.toStringAsFixed(2),
-                                              ];
-                                            }).toList(),
-                                            totalsRow: [
-                                              '',
-                                              'Grand Total',
-                                              totalCashSales.toStringAsFixed(2),
-                                              totalCreditSales.toStringAsFixed(2),
-                                              totalsal.toStringAsFixed(2),
-                                              totalCashReturns.toStringAsFixed(2),
-                                              totalCreditReturns.toStringAsFixed(2),
-                                              totalReturns.toStringAsFixed(2),
-                                              totalDiscount.toStringAsFixed(2),
-                                              totalprofit.toStringAsFixed(2),
-                                              (totallcash).toStringAsFixed(2),
-                                            ],
-                                            summaryLines: [
-                                              PdfSummaryLine('Cash Sales',    totalCashSales),
-                                              PdfSummaryLine('Credit Sales',  totalCreditSales),
-                                              PdfSummaryLine('Total Returns', totalReturns),
-                                              PdfSummaryLine('Discount',      totalDiscount),
-                                              PdfSummaryLine('Profit',        totalprofit),
-                                              PdfSummaryLine('Debt Payment',  debttotal),
-                                              PdfSummaryLine('Grand Total',   totalRowTotal ),
-                                              PdfSummaryLine('Cash @ Hand',   cashAtHand, highlight: true),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                )
-                                    : Row(
-                                  children: [
-                                    Icon(
-                                      Icons.storefront_rounded,
-                                      size: 18,
-                                      color: Colors.white.withOpacity(0.35),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 42,
-                                        child: DropdownButtonFormField<String>(
-                                          value: _selectedBranch ?? '',
-                                          dropdownColor: const Color(0xFF22304A),
-                                          style: const TextStyle(color: Colors.white),
-                                          decoration: InputDecoration(
-                                            labelText: 'Select Branch',
-                                            labelStyle: const TextStyle(color: Colors.white70),
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.white24),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: const BorderSide(color: Colors.blue),
-                                            ),
-                                            fillColor: const Color(0xFF22304A),
-                                            filled: true,
-                                          ),
-                                          items: [
-                                            const DropdownMenuItem<String>(
-                                              value: '',
-                                              child: Text('All Branches'),
-                                            ),
-                                            ...value.branches.map((branch) {
-                                              return DropdownMenuItem<String>(
-                                                value: branch.id,
-                                                child: Text(branch.branchname),
-                                              );
-                                            }).toList(),
-                                          ],
-                                          onChanged: (val) {
-                                            setState(() {
-                                              _selectedBranch = (val == null || val.isEmpty)
-                                                  ? null
-                                                  : val;
-                                            });
-                                            value.fetchsalesreport(
-                                              selectedDate: selectedDate,
-                                              selectedBranch: _selectedBranch,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton.icon(
-                                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                                      label: const Text(
-                                        'Print/Download',
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF22304A),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(5),
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        final provider = context.read<Datafeed>();
-                                        final cashAtHand = totalCashSales - totalCashReturns;
-
-                                        printReportPdf(
-                                          context: context,
-                                          reportTitle: 'Sales Report',
-                                          companyName:  provider.company,
-                                          branchName: _selectedBranch ?? 'All Branches',
-                                          dateRange: selectedDate,
-                                          columns: const [
-                                            PdfColumn('#',width: 18),
-                                            PdfColumn('Branch',width: 100),
-                                            PdfColumn('Cash Sales',width: 52),
-                                            PdfColumn('Credit Sales',width: 52),
-                                            PdfColumn('Total Sales',width: 30),
-                                            PdfColumn('Cash Returns',width: 52),
-                                            PdfColumn('Credit Returns',width: 55),
-                                            PdfColumn('Total Returns',width: 42),
-                                            PdfColumn('Discount',width: 42),
-                                            PdfColumn('Profit',width: 45),
-                                            PdfColumn('Cash@Hand', width: 50),
-                                          ],
-                                          rows: resultList.asMap().entries.map((e) {
-                                            final i    = e.key;
-                                            final item = e.value;
-                                            final branch =   item['branchName']?.toString()   ?? '';
-                                            final cashsales = (item['cashSales'] ?? 0.0).toDouble();
-                                            final creditsales = (item['creditSales'] ?? 0.0).toDouble();
-                                            final totalsales = cashsales + creditsales;
-                                            final cashreturns = (item['cashReturns'] ?? 0.0).toDouble();
-                                            final creditreturns = (item['creditReturns'] ?? 0.0).toDouble();
-                                            final totalreturns = (item['totalReturns'] ?? 0.0).toDouble();
-                                            final discount = (item['discount'] ?? 0.0).toDouble();
-                                            final profit = (item['profit'] ?? 0.0).toDouble();
-                                            final cashtotal = cashsales - cashreturns;
-                                            return <String>[
-                                              '${i + 1}',
-                                              branch,
-                                              cashsales.toStringAsFixed(2),
-                                              creditsales.toStringAsFixed(2),
-                                              totalsales.toStringAsFixed(2),
-                                              cashreturns.toStringAsFixed(2),
-                                              creditreturns.toStringAsFixed(2),
-                                              totalreturns.toStringAsFixed(2),
-                                              discount.toStringAsFixed(2),
-                                              profit.toStringAsFixed(2),
-                                              cashtotal.toStringAsFixed(2),
-                                            ];
-                                          }).toList(),
-                                          totalsRow: [
-                                            '',
-                                            'Grand Total',
-                                            totalCashSales.toStringAsFixed(2),
-                                            totalCreditSales.toStringAsFixed(2),
-                                            totalsal.toStringAsFixed(2),
-                                            totalCashReturns.toStringAsFixed(2),
-                                            totalCreditReturns.toStringAsFixed(2),
-                                            totalReturns.toStringAsFixed(2),
-                                            totalDiscount.toStringAsFixed(2),
-                                            totalprofit.toStringAsFixed(2),
-                                            (totallcash).toStringAsFixed(2),
-                                          ],
-                                          summaryLines: [
-                                            PdfSummaryLine('Cash Sales',    totalCashSales),
-                                            PdfSummaryLine('Credit Sales',  totalCreditSales),
-                                            PdfSummaryLine('Total Returns', totalReturns),
-                                            PdfSummaryLine('Discount',      totalDiscount),
-                                            PdfSummaryLine('Profit',        totalprofit),
-                                            PdfSummaryLine('Debt Payment',  debttotal),
-                                            PdfSummaryLine('Grand Total',   totalRowTotal ),
-                                            PdfSummaryLine('Cash @ Hand',   cashAtHand, highlight: true),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-
-                              ],
+                          Text('#${index + 1}',
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 11)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              r.branchName,
+                              style: const TextStyle(
+                                color: Colors.amberAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
                             ),
                           ),
-
-
                         ],
                       ),
-
-                      SizedBox(height: 5,),
-
-                      Expanded(
-                        child: value.isloadingsalesreport
-                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
-                            : resultList.isEmpty
-                            ? const Center(
-                            child: Text('No Sales found',
-                                style: TextStyle(color: Colors.white70)))
-                            : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isDesktop = constraints.maxWidth > 600;
-
-                            final grandTotalRow    = value.calcGrandTotal(resultList);
-                            final totalQty         = grandTotalRow['sales_qty']     as double;
-                            final totalCashSales   = grandTotalRow['cashSales']     as double;
-                            final totalCreditSales = grandTotalRow['creditSales']   as double;
-                            final totalTotalSales  = grandTotalRow['totalSales']    as double;
-                            final totalCashRet     = grandTotalRow['cashReturns']   as double;
-                            final totalCreditRet   = grandTotalRow['creditReturns'] as double;
-                            final totalReturns     = grandTotalRow['totalReturns']  as double;
-                            final totalDiscount    = grandTotalRow['discount']      as double;
-                            final totalProfit      = grandTotalRow['profit']        as double;
-
-                            if (isDesktop) {
-
-                              return ScrollbarTheme(
-                                data: ScrollbarThemeData(
-                                  thumbColor:       MaterialStateProperty.all(const Color(0xFF415A77)),
-                                  trackColor:       MaterialStateProperty.all(const Color(0xFF22304A)),
-                                  trackBorderColor: MaterialStateProperty.all(const Color(0xFF1B263B)),
-                                  thickness:        MaterialStateProperty.all(10),
-                                  radius:           const Radius.circular(8),
-                                ),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    const widths = [30, 130, 90, 90, 90, 100, 90, 80, 80, 90];
-                                    const gap = 24.0;
-                                    final double contentWidth = widths.reduce((a, b) => a + b) +
-                                        (widths.length - 1) * gap +
-                                        32;
-                                    final double tableWidth =
-                                    constraints.maxWidth > contentWidth ? constraints.maxWidth : contentWidth;
-
-                                    Widget rowOf(List<Widget> cells, {Color? color}) {
-                                      return Container(
-                                        color: color,
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                        child: Row(
-                                          children: [
-                                            for (int i = 0; i < cells.length; i++) ...[
-                                              SizedBox(width: widths[i].toDouble(), child: cells[i]),
-                                              if (i != cells.length - 1) const SizedBox(width: gap),
-                                            ],
-                                          ],
-                                        ),
-                                      );
-                                    }
-
-                                    return Scrollbar(
-                                      controller: _vhorizontalController,
-                                      thumbVisibility: true,
-                                      trackVisibility: true,
-                                      child: SingleChildScrollView(
-                                        controller: _vhorizontalController,
-                                        scrollDirection: Axis.horizontal,
-                                        child: SizedBox(
-                                          width: tableWidth,
-                                          height: constraints.maxHeight.isFinite ? constraints.maxHeight : null,
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Container(
-                                                color: const Color(0xFF1B263B),
-                                                child: rowOf(const [
-                                                  Text("#", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                //  Text("Branch", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Cash Sales", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Credit Sales", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Total Sales", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Cash Returns", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Credit Returns", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Total Returns", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Discount", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Profit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                  Text("Cash@Hand", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                ]),
-                                              ),
-                                              Expanded(
-                                                child: Scrollbar(
-                                                  controller: _vverticalController,
-                                                  thumbVisibility: true,
-                                                  trackVisibility: true,
-                                                  child: ListView.builder(
-                                                    controller: _vverticalController,
-                                                    itemCount: resultList.length + 2,
-                                                    itemBuilder: (context, index) {
-                                                      if (index == resultList.length) {
-                                                        // Grand Total row
-                                                        return rowOf(
-                                                          [
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("Grand Total",
-                                                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                            Text(totalCashSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalCreditSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalTotalSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalCashRet.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalCreditRet.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalDiscount.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text((totalProfit).toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-
-                                                          ],
-                                                          color: const Color(0xFF16213E),
-                                                        );
-                                                      }
-                                                      if (index == resultList.length + 1) {
-                                                        // Total Cash @ Hand row
-                                                        return rowOf(
-                                                          [
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("Total Cash @ Hand",
-                                                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            const Text("", style: TextStyle(color: Colors.white)),
-                                                            Text(
-                                                              globalCashAtHand.toStringAsFixed(2),
-                                                              style: const TextStyle(
-                                                                color: Colors.greenAccent,
-                                                                fontWeight: FontWeight.bold,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                          color: const Color(0xFF1D3557),
-                                                        );
-                                                      }
-
-                                                      final row           = resultList[index];
-                                                      final branchId      = row['branchId']      ?? '';
-                                                      final branchName    = row['branchName']    ?? '';
-                                                      final cashSales     = (row['cashSales']    ?? 0.0) as double;
-                                                      final creditSales   = (row['creditSales']  ?? 0.0) as double;
-                                                      final totalSales    = (row['totalSales']   ?? 0.0) as double;
-                                                      final cashReturns   = (row['cashReturns']  ?? 0.0) as double;
-                                                      final creditReturns = (row['creditReturns']?? 0.0) as double;
-                                                      final returns       = (row['totalReturns'] ?? 0.0) as double;
-                                                      final discount      = (row['discount']     ?? 0.0) as double;
-                                                      final profit        = (row['profit']       ?? 0.0) as double;
-                                                      final cashAtHand    = cashSales - cashReturns;
-
-                                                      return InkWell(
-                                                        onTap: () => showBranchItemTransactionsDialog(
-                                                          context,
-                                                          itemId:   branchId,
-                                                          itemName: branchName,
-                                                          branchId: branchId,
-                                                        ),
-                                                        child: rowOf(
-                                                          [
-                                                            Text("${index + 1}", style: const TextStyle(color: Colors.white)),
-                                                           // Text(branchName, style: const TextStyle(color: Colors.white)),
-                                                            Text(cashSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(creditSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(totalSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(cashReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(creditReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(returns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(discount.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(profit.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                            Text(cashAtHand.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                          ],
-                                                          color: const Color(0xFF0D1B2A),
-                                                        ),
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
-                            }
-
-                            // mobile view
-                            return Column(
-                              children: [
-                                Container(
-                                  margin: const EdgeInsets.only(top: 12),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text("TOTAL CASH @ HAND",
-                                          style: TextStyle(
-                                              color: Colors.white, fontWeight: FontWeight.bold)),
-                                      Text(
-                                        "GHC ${globalCashAtHand.toStringAsFixed(2)}",
-                                        style: const TextStyle(
-                                          color: Colors.greenAccent,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Expanded(
-                                  child: ListView.separated(
-                                    itemCount: resultList.length,
-                                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                    itemBuilder: (context, index) {
-                                      final row           = resultList[index];
-                                      final branchId      = row['branchId']      ?? '';
-                                      final branchName    = row['branchName']    ?? '';
-                                      final company       = row['company']       ?? '';
-                                      final qty           = (row['sales_qty']    ?? 0.0) as double;
-                                      final cashSales     = (row['cashSales']    ?? 0.0) as double;
-                                      final creditSales   = (row['creditSales']  ?? 0.0) as double;
-                                      final cashReturns   = (row['cashReturns']  ?? 0.0) as double;
-                                      final creditReturns = (row['creditReturns']?? 0.0) as double;
-                                      final discount      = (row['discount']     ?? 0.0) as double;
-                                      final profit        = (row['profit']       ?? 0.0) as double;
-
-                                      return Container(
-                                        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF1B263B),
-                                          borderRadius: BorderRadius.circular(18),
-                                        ),
-                                        child: InkWell(
-                                          onTap: () => showBranchItemTransactionsDialog(
-                                            context,
-                                            itemId:   branchId,
-                                            itemName: branchName,
-                                            branchId: branchId,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(branchName,
-                                                  style: const TextStyle(
-                                                      color: Colors.amberAccent,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 16)),
-                                              if (company.isNotEmpty)
-                                                Text(company,
-                                                    style: const TextStyle(
-                                                        color: Colors.white54, fontSize: 12)),
-                                              const SizedBox(height: 10),
-                                              Wrap(
-                                                spacing: 12,
-                                                runSpacing: 12,
-                                                children: [
-                                                 // _miniStat("Qty",            qty),
-                                                  _miniStat("Cash Sales",     cashSales),
-                                                  _miniStat("Credit Sales",   creditSales),
-                                                  _miniStat("Cash Returns",   cashReturns),
-                                                  _miniStat("Credit Returns", creditReturns),
-                                                  _miniStat("Discount",       discount),
-                                                  _miniStat("Profit",         profit),
-                                                ],
-                                              ),
-                                              const Divider(color: Colors.white24),
-                                              _summaryTile("Total Cash Sales",   totalCashSales),
-                                              const SizedBox(height: 3),
-                                              _summaryTile("Total Credit Sales", totalCreditSales),
-                                              const SizedBox(height: 3),
-                                              _summaryTile("Total Sales",        totalTotalSales),
-                                              const SizedBox(height: 3),
-                                              _summaryTile("Total Returns",      totalReturns),
-                                              const SizedBox(height: 3),
-                                              _summaryTile("Total Discount",     totalDiscount),
-                                              const SizedBox(height: 3),
-                                              _summaryTile("Total Profit",       totalProfit),
-                                              const SizedBox(height: 3),
-                                              _summaryTile("Total Cash @ Hand",  globalCashAtHand),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _tipStat('Cash', r.cash, tips[0]),
+                          _tipStat('MoMo', r.momo, tips[1]),
+                          _tipStat('Hubtel', r.hubtel, tips[2]),
+                          _tipStat('Card', r.card, tips[3]),
+                          _tipStat('Bank', r.bank, tips[4]),
+                          _tipStat('Cheque', r.cheque, tips[5]),
+                          _tipStat('Credit', r.credit, tips[6]),
+                          _tipStat('Total Sales', r.totalSales, tips[7]),
+                          _tipStat('Returns', r.returns, tips[8]),
+                          _tipStat('Discount', r.discount, tips[9]),
+                          _tipStat('Profit', r.profit, tips[10]),
+                          _tipStat('Cash@Hand', r.cashAtHand, tips[11]),
+                        ],
                       ),
                     ],
                   ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _txnTotalCard(int count, Map<String, double> s) {
+    Widget kv(String k, String v) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(k, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        Text(v,
+            style: const TextStyle(
+                color: _textColor,
+                fontWeight: FontWeight.w800,
+                fontSize: 13)),
+      ],
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(top: 2, bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _totalColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('TOTAL ($count)',
+              style: const TextStyle(
+                  color: _textColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 20,
+            runSpacing: 6,
+            children: [
+              kv('Qty', _q(s['qty'] ?? 0)),
+              kv('Disc', _n(s['discount'] ?? 0)),
+              kv('Net Total', _n(s['net'] ?? 0)),
+              kv('Profit', _n(s['profit'] ?? 0)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerCell(int i) {
+    final label = _headers[i];
+    final numeric = i >= 2;
+    final sorted = _sortColumn == i;
+
+    if (i == 0) {
+      return Expanded(
+        flex: _colFlexes[i],
+        child: Text(label, style: _headerStyle),
+      );
+    }
+
+    return Expanded(
+      flex: _colFlexes[i],
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            if (sorted) {
+              _sortAscending = !_sortAscending;
+            } else {
+              _sortColumn = i;
+              _sortAscending = true;
+            }
+          });
+        },
+        child: Row(
+          mainAxisAlignment:
+          numeric ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: _headerStyle,
+              ),
+            ),
+            if (sorted)
+              Icon(
+                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                color: _textColor,
+                size: 14,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const TextStyle _headerStyle = TextStyle(
+    color: _textColor,
+    fontWeight: FontWeight.w700,
+    fontSize: 13,
+    letterSpacing: 0.4,
+  );
+
+  Widget _dataRow(_BranchRow r, int index, {bool total = false}) {
+    final tips = _tips(r);
+    final values = _values(r);
+
+    return Container(
+      color: total
+          ? _totalColor
+          : (index.isEven ? const Color(0xFF0D1B2A) : const Color(0xFF111E2F)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            flex: _colFlexes[0],
+            child: Text(
+              total ? '' : '${index + 1}',
+              style: const TextStyle(color: _textColor, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: _colFlexes[1],
+            child: Text(
+              r.branchName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _textColor,
+                fontSize: 13,
+                fontWeight: total ? FontWeight.w800 : FontWeight.w400,
+              ),
+            ),
+          ),
+          for (int i = 0; i < values.length; i++) ...[
+            const SizedBox(width: 12),
+            Expanded(
+              flex: _colFlexes[i + 2],
+              child: _tip(
+                tips[i],
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    _n(values[i]),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: i == values.length - 1 ? Colors.white : _textColor,
+                      fontSize: 13,
+                      fontWeight: total || i == values.length - 1
+                          ? FontWeight.w800
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(List<_BranchRow> rows, _BranchRow totals,
+      int page, int totalPages, int totalCount) {
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: _backgroundColor,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                color: _cardColor,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                child: Row(
+                  children: [
+                    for (int i = 0; i < _headers.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 12),
+                      _headerCell(i),
+                    ],
+                  ],
+                ),
+              ),
+              Flexible(
+                child: Scrollbar(
+                  controller: _listController,
+                  thumbVisibility: true,
+                  child: ListView.builder(
+                    controller: _listController,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: rows.length,
+                    itemBuilder: (context, index) {
+                      final r = rows[index];
+                      return InkWell(
+                        onTap: () => showBranchItemTransactionsDialog(
+                          context,
+                          itemId: r.branchId,
+                          itemName: r.branchName,
+                          branchId: r.branchId,
+                        ),
+                        child: _dataRow(r, index),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              _dataRow(totals, rows.length, total: true),
+              _salesReportPager(page, totalPages, totalCount),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+
+  Widget _buildMobileList(List<_BranchRow> rows, _BranchRow totals,
+      int page, int totalPages, int totalCount) {
+    return Column(
+      children: [
+        Align(alignment: Alignment.centerLeft, child: _mobileSortBar()),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(top: 4, bottom: 16),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final r = rows[index];
+              final tips = _tips(r);
+
+              return InkWell(
+                onTap: () => showBranchItemTransactionsDialog(
+                  context,
+                  itemId: r.branchId,
+                  itemName: r.branchName,
+                  branchId: r.branchId,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('#${page * _rowsPerPage + index + 1}',
+                              style: const TextStyle(
+                                  color: Colors.white54, fontSize: 11)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              r.branchName,
+                              style: const TextStyle(
+                                color: Colors.amberAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _tipStat('Cash', r.cash, tips[0]),
+                          _tipStat('MoMo', r.momo, tips[1]),
+                          _tipStat('Hubtel', r.hubtel, tips[2]),
+                          _tipStat('Card', r.card, tips[3]),
+                          _tipStat('Bank', r.bank, tips[4]),
+                          _tipStat('Cheque', r.cheque, tips[5]),
+                          _tipStat('Credit', r.credit, tips[6]),
+                          _tipStat('Total Sales', r.totalSales, tips[7]),
+                          _tipStat('Returns', r.returns, tips[8]),
+                          _tipStat('Discount', r.discount, tips[9]),
+                          _tipStat('Profit', r.profit, tips[10]),
+                          _tipStat('Cash@Hand', r.cashAtHand, tips[11]),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        _mobileTotalsCard(totals),
+        _salesReportPager(page, totalPages, totalCount),
+      ],
+    );
+  }
+
+  Widget _salesReportPager(int page, int totalPages, int totalCount) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: _cardColor,
+        border: Border(top: BorderSide(color: Color(0xFF475569), width: 0.7)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text('$totalCount Branches',
+                style: const TextStyle(color: Colors.white60, fontSize: 12)),
+          ),
+          IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: page > 0 ? () => setState(() => _mainPage = page - 1) : null,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Text('${page + 1}/$totalPages',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: page < totalPages - 1
+                ? () => setState(() => _mainPage = page + 1)
+                : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyFilter(Datafeed value) {
+    value.applySalesReportFilter(
+      selectedBranch: _selectedBranch,
+      productType: _selectedType,
+      category: _selectedCategory,
+    );
+  }
+
+  void _showFilterMenu(
+      GlobalKey key,
+      String allLabel,
+      List<String> options,
+      String? current,
+      ValueChanged<String?> onPicked,
+      ) {
+    final RenderBox button = key.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+    Overlay.of(context).context.findRenderObject() as RenderBox;
+    final p = button.localToGlobal(Offset.zero, ancestor: overlay);
+
+    final position = RelativeRect.fromRect(
+      Rect.fromLTWH(p.dx, p.dy + button.size.height, button.size.width, 0),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      color: _cardColor,
+      items: [
+        PopupMenuItem<String>(
+          value: '__ALL__',
+          child: Text(
+            allLabel,
+            style: TextStyle(
+              color: current == null ? _accent : _textColor,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        ...options.map(
+              (o) => PopupMenuItem<String>(
+            value: o,
+            child: Text(
+              o,
+              style: TextStyle(
+                color: o == current ? _accent : _textColor,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ).then((picked) {
+      if (picked == null) return;
+      onPicked(picked == '__ALL__' ? null : picked);
+    });
+  }
+
+  void _pickType(Datafeed value) {
+    _showFilterMenu(
+      _typeKey,
+      'All Product Types',
+      value.salesReportProductTypes,
+      _selectedType,
+          (v) {
+        setState(() => _selectedType = v);
+        _applyFilter(value);
+      },
+    );
+  }
+
+  void _pickCategory(Datafeed value) {
+    debugPrint('CATEGORY OPTIONS: ${value.salesReportCategories}');
+    _showFilterMenu(
+      _categoryKey,
+      'All Categories',
+      value.salesReportCategories,
+      _selectedCategory,
+          (v) {
+        setState(() => _selectedCategory = v);
+        _applyFilter(value);
+      },
+    );
+  }
+
+  String _filterSummary() {
+    final parts = <String>[
+      if (_selectedType != null) _selectedType!,
+      if (_selectedCategory != null) _selectedCategory!,
+    ];
+    return parts.isEmpty ? '' : ' • ${parts.join(' • ')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<Datafeed>(
+      builder: (context, value, child) {
+        final canSelect = _canSelect(value);
+        final rows = _rows(value);
+
+        final totals = _BranchRow.sum(rows);
+        final totalPages = rows.isEmpty ? 1 : ((rows.length - 1) ~/ _rowsPerPage) + 1;
+        final page = _mainPage.clamp(0, totalPages - 1);
+        final visibleRows = rows.skip(page * _rowsPerPage).take(_rowsPerPage).toList();
+
+        final effectiveStart = selectedDate?.start ?? DateTime.now();
+        final effectiveEnd = selectedDate?.end ?? DateTime.now();
+
+        return Scaffold(
+          backgroundColor: _backgroundColor,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(64),
+            child: AppBar(
+              backgroundColor: _cardColor,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: _textColor),
+              title: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 700;
+
+                  final periodText =
+                      '${DateFormat('dd MMM yyyy').format(effectiveStart)}'
+                      ' - '
+                      '${DateFormat('dd MMM yyyy').format(effectiveEnd)}';
+                  final branchLabel = _branchLabel(value);
+
+                  if (_isSearching) {
+                    return Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Close search',
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: _textColor,
+                            size: 21,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          onPressed: () => _closeSearch(value),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: _backgroundColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: TextField(
+                                controller: _mainSearchController,
+                                focusNode: _searchFocusNode,
+                                autofocus: true,
+                                style: const TextStyle(
+                                  color: _textColor,
+                                  fontSize: 15,
+                                ),
+                                cursorColor: _textColor,
+                                decoration: const InputDecoration(
+                                  hintText: 'Search sales report...',
+                                  hintStyle: TextStyle(color: Colors.white54),
+                                  border: InputBorder.none,
+                                  isCollapsed: true,
+                                ),
+                                onChanged: (text) {
+                                  setState(() {});
+                                  context.read<Datafeed>().updateSearch(text);
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_mainSearchController.text.isNotEmpty)
+                          IconButton(
+                            tooltip: 'Clear',
+                            icon: const Icon(
+                              Icons.clear,
+                              color: _textColor,
+                              size: 20,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                            onPressed: () {
+                              setState(() => _mainSearchController.clear());
+                              context.read<Datafeed>().updateSearch('');
+                              _searchFocusNode.requestFocus();
+                            },
+                          ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Sales Report',
+                              style: TextStyle(
+                                color: _textColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+
+                              isMobile
+                                  ? '$branchLabel${_filterSummary()} • $periodText'
+                                  : '$branchLabel${_filterSummary()} • Sales Report For The Period Of $periodText',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _textColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Search',
+                        icon: const Icon(
+                          Icons.search,
+                          color: _textColor,
+                          size: 21,
+                        ),
+                        onPressed: _openSearch,
+                      ),
+                      if (canSelect)
+                        IconButton(
+                          key: _branchKey,
+                          tooltip: 'Branch: $branchLabel',
+                          icon: const Icon(
+                            Icons.store_outlined,
+                            color: _textColor,
+                            size: 21,
+                          ),
+                          onPressed: () => _showBranchMenu(context, value),
+                        ),
+                      if (canSelect)
+                          Tooltip(
+                            message: 'Select date',
+                            child: ReusableDatePickerWidget(
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                child: Icon(
+                                  Icons.calendar_today_outlined,
+                                  color: _textColor,
+                                  size: 19,
+                                ),
+                              ),
+                              onDateSelected: (selection) {
+                                setState(() => selectedDate = selection);
+                                context.read<Datafeed>().fetchsalesreport(
+                                  selectedDate: selectedDate,
+                                  selectedBranch: _selectedBranch,
+                                  productType: _selectedType,
+                                  category: _selectedCategory,
+                                );
+                              },
+                            ),
+                          ),
+
+                      if (canSelect)
+                        IconButton(
+                          key: _typeKey,
+                          tooltip: 'Product type: ${_selectedType ?? 'All'}',
+                          icon: Icon(
+                            Icons.inventory_2_outlined,
+                            color: _selectedType != null ? _accent : _textColor,
+                            size: 21,
+                          ),
+                          onPressed: () => _pickType(value),
+                        ),
+                        if (canSelect)
+                          IconButton(
+                            key: _categoryKey,
+                            tooltip: 'Category: ${_selectedCategory ?? 'All'}',
+                            icon: Icon(
+                              Icons.category_outlined,
+                              color: _selectedCategory != null ? _accent : _textColor,
+                              size: 21,
+                            ),
+                            onPressed: () => _pickCategory(value),
+                          ),
+
+
+
+                      // ),
+
+                      PopupMenuButton<String>(
+                        tooltip: 'Print / Download',
+                        color: _cardColor,
+                        icon: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          color: _textColor,
+                          size: 20,
+                        ),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem<String>(
+                            value: 'print',
+                            child: Row(
+                              children: [
+                                Icon(Icons.print_outlined, size: 18, color: Colors.white70),
+                                SizedBox(width: 10),
+                                Text('Print'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'pdf',
+                            child: Row(
+                              children: [
+                                Icon(Icons.picture_as_pdf_outlined, size: 18, color: Colors.white70),
+                                SizedBox(width: 10),
+                                Text('Download PDF'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'excel',
+                            child: Row(
+                              children: [
+                                Icon(Icons.grid_on_outlined, size: 18, color: Colors.white70),
+                                SizedBox(width: 10),
+                                Text('Download Excel'),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onSelected: (selected) async {
+                          try {
+                            switch (selected) {
+                              case 'print':
+                                await _printMain(value, rows, totals);
+                                break;
+                              case 'pdf':
+                                await _downloadMainPdf(value, rows, totals);
+                                break;
+                              case 'excel':
+                                await _downloadMainExcel(value, rows, totals);
+                                break;
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Action failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Padding(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: value.isloadingsalesreport
+                    ? const Center(
+                  child: CircularProgressIndicator(color: _textColor),
+                )
+                    : rows.isEmpty
+                    ? const Center(
+                  child: Text(
+                    'No Sales Found',
+                    style: TextStyle(color: _textColor),
+                  ),
+                )
+                    : LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth > 700) {
+                      return _buildDesktopLayout(
+                          visibleRows, totals, page, totalPages, rows.length);
+                    }
+                    return _buildMobileList(
+                        visibleRows, totals, page, totalPages, rows.length);
+                  },
                 ),
               ),
             ),
@@ -975,7 +2023,6 @@ class _SalesReportState extends State<SalesReport> {
         );
       },
     );
-
   }
 
   Widget _miniStat(String title, double value) {
@@ -989,62 +2036,158 @@ class _SalesReportState extends State<SalesReport> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(
-                  color: Colors.white54, fontSize: 10)),
+              style: const TextStyle(color: Colors.white54, fontSize: 10)),
           Text(
-            value.toStringAsFixed(2),
+            _n(value),
             style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold),
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
-  Widget _miniStatstring(String title, dynamic value) {
+
+  Widget _mobileTotalsCard(_BranchRow totals) {
+    final tips = _tips(totals);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  color: Colors.white54, fontSize: 10)),
-          Text(
-            value.toString(),
-            style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold),
+          _tip(
+            _tipCashAtHand(totals),
+            Column(
+             // mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'TOTAL CASH@HAND',
+                  style: TextStyle(
+                      color: _textColor, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'GHC ${_n(totals.cashAtHand)}',
+                  style: const TextStyle(
+                    color: Colors.greenAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            title: 'Cash @ Hand',
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _tipStat('Cash Sales', totals.cashSales, tips[0]),
+              _tipStat('Credit Sales', totals.credit, tips[1]),
+              _tipStat('Total Sales', totals.totalSales, tips[2]),
+              _tipStat('Returns', totals.returns, tips[3]),
+              _tipStat('Discount', totals.discount, tips[4]),
+              _tipStat('Profit', totals.profit, tips[5]),
+            ],
           ),
         ],
       ),
     );
   }
-  Widget _summaryTile(String title, double value) {
+
+  Widget _mobileSortBar() {
+    const options = <int, String>{
+      1: 'Branch',
+      2: 'Cash Sales',
+      3: 'Credit Sales',
+      4: 'Total Sales',
+      5: 'Returns',
+      6: 'Discount',
+      7: 'Profit',
+      8: 'Cash@Hand',
+    };
+    final active = _sortColumn;
+
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title,
-            style: const TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.bold)),
-        Text(
-          "GHC ${value.toStringAsFixed(2)}",
-          style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold),
+        PopupMenuButton<int>(
+          tooltip: 'Sort by',
+          color: _cardColor,
+          onSelected: (i) => setState(() {
+            if (i == 0) {
+              _sortColumn = null;
+              _sortAscending = true;
+            } else if (_sortColumn == i) {
+              _sortAscending = !_sortAscending;
+            } else {
+              _sortColumn = i;
+              _sortAscending = true;
+            }
+          }),
+          itemBuilder: (_) => [
+            PopupMenuItem<int>(
+              value: 0,
+              child: Text(
+                'Default order',
+                style: TextStyle(
+                  color: active == null ? _accent : _textColor,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            ...options.entries.map(
+                  (e) => PopupMenuItem<int>(
+                value: e.key,
+                child: Text(
+                  e.value,
+                  style: TextStyle(
+                    color: active == e.key ? _accent : _textColor,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sort,
+                    size: 18, color: active != null ? _accent : Colors.white70),
+                const SizedBox(width: 6),
+                Text(
+                  active == null ? 'Sort' : 'Sort: ${options[active]}',
+                  style: TextStyle(
+                    color: active != null ? _accent : Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+        if (active != null)
+          IconButton(
+            tooltip: _sortAscending ? 'Ascending' : 'Descending',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(
+              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+              size: 16,
+              color: _accent,
+            ),
+            onPressed: () => setState(() => _sortAscending = !_sortAscending),
+          ),
       ],
     );
   }
 
-
-
-  Future<void> showBranchItemTransactionsDialog( BuildContext context, {required String itemId, required String itemName, required String? branchId,   }) async {
+  Future<void> showBranchItemTransactionsDialog(BuildContext context, { required String itemId,required String itemName, required String? branchId, }) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1052,598 +2195,88 @@ class _SalesReportState extends State<SalesReport> {
     );
 
     final provider = Provider.of<Datafeed>(context, listen: false);
-
     final previousSearch = provider.searchQuery;
     provider.updateSearch('');
-    final _dialogSearchController = TextEditingController();
-    try {
-      final startDate = selectedDate?.start ?? DateTime.now();
-      final endDate   = selectedDate?.end   ?? DateTime.now();
+    final dialogSearchController = TextEditingController();
 
+    try {
       await provider.loadBranchItemsReport(
-        startDate: startDate,
-        endDate:   endDate,
-        branchId:  branchId,
+        startDate: selectedDate?.start ?? DateTime.now(),
+        endDate: selectedDate?.end ?? DateTime.now(),
+        branchId: branchId,
       );
     } catch (e) {
       debugPrint('showBranchItemTransactionsDialog error: $e');
     }
 
     if (!context.mounted) {
-      _dialogSearchController.dispose();
+      dialogSearchController.dispose();
       return;
     }
     Navigator.of(context, rootNavigator: true).pop();
 
     DateTimeRange? dialogDateRange = selectedDate;
+    String? dType;
+    String? dCategory;
+    bool dLoading = false;
+    var itemPage = 0;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
-
-            final filteredList        = provider.filterBranchItems();
-            final totals              = provider.computeBranchItemTotals(filteredList);
-            final fTotalCashSales     = totals['totalCashSales']!;
-            final fTotalCreditSales   = totals['totalCreditSales']!;
-            final fTotalCashReturns   = totals['totalCashReturns']!;
-            final fTotalCreditReturns = totals['totalCreditReturns']!;
-            final fTotalReturns       = totals['totalReturns']!;
-            final fTotalDiscount      = totals['totalDiscount']!;
-            final fTotalProfit        = totals['totalProfit']!;
-            final fTotalRowTotal      = totals['totalRowTotal']!;
-            final fGrandTotal         = totals['grandTotal']!;
-            final fCashAtHand         = totals['globalCashAtHand']!;
-             final totalsales         =fTotalCreditSales+ fTotalCashSales;
-            return AlertDialog(
-              backgroundColor: const Color(0xFF101624),
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "$itemName — Branch Sales Report",
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, color: Colors.white),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _dialogSearchController,
-                          onChanged: (val) {
-                            provider.updateSearch(val);
-                            setDialogState(() {});
-                          },
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText:   "Search item...",
-                            hintStyle:  const TextStyle(color: Colors.white54),
-                            prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                            filled:     true,
-                            fillColor:  const Color(0xFF1A2235),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:   BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Date range picker
-                      ReusableDatePickerWidget(
-                        onDateSelected: (selection) {
-                          setState(() {
-                            selectedDate = selection;
-                          });
-
-                          context.read<Datafeed>().fetchsalesreport(
-                            selectedDate: selectedDate,
-                            selectedBranch: _selectedBranch,
-                          );
-                        },
-
-                        child: InkWell(
-                          onTap: () async {
-                            final picked = await showDateRangePicker(
-                              context: context,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime.now(),
-                              initialDateRange: dialogDateRange,
-                              builder: (context, child) => Theme(
-                                data: ThemeData.dark().copyWith(
-                                  colorScheme: const ColorScheme.dark(
-                                    primary: Color(0xFF415A77),
-                                    surface: Color(0xFF1B263B),
-                                  ),
-                                ),
-                                child: child!,
-                              ),
-                            );
-
-                            if (picked != null) {
-                              setState(() {
-                                dialogDateRange = picked;
-                                selectedDate = picked;
-                              });
-
-                              context.read<Datafeed>().fetchsalesreport(
-                                selectedDate: picked,
-                                selectedBranch: _selectedBranch,
-                              );
-                            }
-                          },
-
-                          borderRadius: BorderRadius.circular(10),
-
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A2235),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.date_range,
-                                  color: Colors.white70,
-                                  size: 18,
-                                ),
-
-                                const SizedBox(width: 6),
-
-                                Text(
-                                  dialogDateRange != null
-                                      ? "${DateFormat('dd MMM').format(dialogDateRange!.start)} - "
-                                      "${DateFormat('dd MMM yyyy').format(dialogDateRange!.end)}"
-                                      : "Pick dates",
-
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              content: SizedBox(
-                width:  double.maxFinite,
-                height: MediaQuery.sizeOf(context).height * 0.95,
-                child: provider.isloadingsalesreport
-                    ? const Center(
-                    child: CircularProgressIndicator(color: Colors.white))
-                    : filteredList.isEmpty
-                    ? const Center(
-                    child: Text('No Sales found',
-                        style: TextStyle(color: Colors.white70)))
-                    : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isDesktop = constraints.maxWidth > 600;
-
-                    // ── Desktop: DataTable
-                    if (isDesktop) {
-
-                      return LayoutBuilder(
-                        builder: (context, constraints) {
-                          const widths = [30, 180, 90, 90, 90, 90, 100, 90, 80, 80, 90];
-                          const gap = 24.0;
-                          final double contentWidth = widths.reduce((a, b) => a + b) +
-                              (widths.length - 1) * gap +
-                              32;
-                          final double tableWidth =
-                          constraints.maxWidth > contentWidth ? constraints.maxWidth : contentWidth;
-
-                          double _d(dynamic v) {
-                            if (v == null) return 0.0;
-                            if (v is double) return v;
-                            if (v is int) return v.toDouble();
-                            return (v as num).toDouble();
-                          }
-
-                          Widget rowOf(List<Widget> cells, {Color? color}) {
-                            return Container(
-                              color: color,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              constraints: const BoxConstraints(minHeight: 44, maxHeight: 60),
-                              alignment: Alignment.center,
-                              child: Row(
-                                children: [
-                                  for (int i = 0; i < cells.length; i++) ...[
-                                    SizedBox(width: widths[i].toDouble(), child: cells[i]),
-                                    if (i != cells.length - 1) const SizedBox(width: gap),
-                                  ],
-                                ],
-                              ),
-                            );
-                          }
-
-                          return ScrollbarTheme(
-                            data: ScrollbarThemeData(
-                              thumbColor: MaterialStateProperty.all(const Color(0xFF415A77)),
-                              trackColor: MaterialStateProperty.all(const Color(0xFF22304A)),
-                              trackBorderColor: MaterialStateProperty.all(const Color(0xFF1B263B)),
-                              thickness: MaterialStateProperty.all(10),
-                              radius: const Radius.circular(8),
-                            ),
-                            child: Scrollbar(
-                              controller: horizontalController,
-                              thumbVisibility: true,
-                              trackVisibility: true,
-                              child: SingleChildScrollView(
-                                controller: horizontalController,
-                                scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: tableWidth,
-                                  height: constraints.maxHeight.isFinite ? constraints.maxHeight : null,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Container(
-                                        color: const Color(0xFF1B263B),
-                                        child: rowOf(const [
-                                          Text("#", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Item", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Cash Sales", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Credit Sales", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Total Sales", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Cash Returns", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Credit Returns", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Total Returns", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Discount", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Profit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                          Text("Cash@Hand", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                        ]),
-                                      ),
-                                      Expanded(
-                                        child: Scrollbar(
-                                          controller: verticalController,
-                                          thumbVisibility: true,
-                                          trackVisibility: true,
-                                          child: ListView.builder(
-                                            controller: verticalController,
-                                            itemCount: filteredList.length + 2,
-                                            itemBuilder: (context, index) {
-                                              if (index == filteredList.length) {
-                                                // Grand Total row
-                                                return rowOf(
-                                                  [
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("Grand Total",
-                                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                    Text(fTotalCashSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fTotalCreditSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(totalsales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fTotalCashReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fTotalCreditReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fTotalReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fTotalDiscount.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fTotalProfit.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(fGrandTotal.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                  ],
-                                                  color: const Color(0xFF16213E),
-                                                );
-                                              }
-                                              if (index == filteredList.length + 1) {
-                                                // Total Cash @ Hand row
-                                                return rowOf(
-                                                  [
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("Total Cash @ Hand",
-                                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    const Text("", style: TextStyle(color: Colors.white)),
-                                                    Text(
-                                                      fCashAtHand.toStringAsFixed(2),
-                                                      style: const TextStyle(
-                                                        color: Colors.greenAccent,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                  color: const Color(0xFF1D3557),
-                                                );
-                                              }
-
-                                              final item = filteredList[index];
-                                              final rowBranchId = item['branchId'] ?? '';
-                                              final rowItemId   = item['itemid']   ?? '';
-                                              final rowItemName = item['item']     ?? '';
-
-                                              final cashSales     = _d(item['cashSales']);
-                                              final creditSales   = _d(item['creditSales']);
-                                              final cashReturns   = _d(item['cashReturns']);
-                                              final creditReturns = _d(item['creditReturns']);
-                                              final returns       = _d(item['returns']);
-                                              final profit        = _d(item['profit']);
-                                              final discount      = _d(item['discount']);
-                                              final rowtotal      = _d(item['rowtotal']);
-
-                                              return InkWell(
-                                                onTap: () {
-                                                  showSalesTransactionsDialog(
-                                                    context,
-                                                    itemId:   rowItemId,
-                                                    itemName: rowItemName,
-                                                    branchId: rowBranchId,
-                                                  );
-                                                },
-                                                child: rowOf(
-                                                  [
-                                                    Text("${index + 1}", style: const TextStyle(color: Colors.white)),
-                                                    Text(
-                                                      rowItemName,
-                                                      softWrap: true,
-                                                      overflow: TextOverflow.visible,
-                                                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                                                    ),
-                                                    Text(cashSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(creditSales.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text((cashSales + creditSales).toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(cashReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(creditReturns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(returns.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(discount.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(profit.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                    Text(rowtotal.toStringAsFixed(2), style: const TextStyle(color: Colors.white)),
-                                                  ],
-                                                  color: const Color(0xFF0D1B2A),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    // Mobile: Card list
-                    return Column(
-                      children: [
-                        // Cash @ Hand banner
-                        Container(
-                          margin: const EdgeInsets.only(top: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "TOTAL CASH @ HAND",
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                "GHC ${fCashAtHand.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: filteredList.length,
-                            separatorBuilder: (_, __) =>
-                            const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final reportItem    = filteredList[index];
-                              final item          = reportItem['item']   ?? '';
-                              final rowItemId     = reportItem['itemid'] ?? '';
-                              final rowBranchId   = reportItem['branchId'] ?? '';
-                              double _d(dynamic v) {
-                                if (v == null) return 0.0;
-                                if (v is double) return v;
-                                if (v is int)    return v.toDouble();
-                                return (v as num).toDouble();
-                              }
-                              final cashSales     = _d(reportItem['cashSales']);
-                              final creditSales   = _d(reportItem['creditSales']);
-                              final cashReturns   = _d(reportItem['cashReturns']);
-                              final creditReturns = _d(reportItem['creditReturns']);
-                              final profit        = _d(reportItem['profit']);
-                              final discount      = _d(reportItem['discount']);
-                              final salesQty      = _d(reportItem['sales_qty']);
-
-                              return Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 10, horizontal: 4),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1B263B),
-                                  borderRadius:
-                                  BorderRadius.circular(18),
-                                ),
-                                child: InkWell(
-                                  onTap: () {
-                                    showSalesTransactionsDialog(
-                                      context,
-                                      itemId:   rowItemId,
-                                      itemName: item,
-                                      branchId: rowBranchId,
-                                    );
-                                  },
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      Text(item,
-                                          style: const TextStyle(
-                                              color: Colors.amberAccent,
-                                              fontWeight:
-                                              FontWeight.bold)),
-                                      Wrap(
-                                        spacing:    12,
-                                        runSpacing: 12,
-                                        children: [
-                                      //    _miniStat("Quantity",       salesQty),
-                                          _miniStat("Cash Sales",     cashSales),
-                                          _miniStat("Credit Sales",   creditSales),
-                                          _miniStat("Cash Returns",   cashReturns),
-                                          _miniStat("Credit Returns", creditReturns),
-                                          _miniStat("Discount",       discount),
-                                          _miniStat("Profit",         profit),
-                                        ],
-                                      ),
-                                      const Divider(color: Colors.white24),
-                                      _summaryTile("Total Cash Sales",   fTotalCashSales),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Total Credit Sales", fTotalCreditSales),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Total  Sales", totalsales),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Total Returns",      fTotalReturns),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Total Discount",     fTotalDiscount),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Total Profit",       fTotalProfit),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Grand Total",        fGrandTotal),
-                                      const SizedBox(height: 3),
-                                      _summaryTile("Total Cash @ Hand",  fCashAtHand),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-
-              actions: [
-                TextButton(
-                  onPressed: () => printTransactionsbr(
-                      filteredList,
-                      itemName,
-                    '${DateFormat('d MMMM y').format(selectedDate?.start ?? DateTime.now())} ',
-
-                DateFormat('d MMMM y').format(selectedDate?.end ?? DateTime.now()),
-                  ),
-                  child: const Text("Print / Download",
-                      style: TextStyle(color: Colors.white70)),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text("Close",
-                      style: TextStyle(color: Colors.white70)),
-                ),
-              ],
+          builder: (ctx, setDialogState) {
+            final maps = provider.filterBranchItems(
+              productType: dType,
+              category: dCategory,
             );
-          },
-        );
-      },
-    ).then((_) {
-      provider.updateSearch(previousSearch);
-      _mainSearchController.text = previousSearch;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _dialogSearchController.dispose();
-      });
-    });
-  }
+            final rows = maps.map(_BranchRow.fromItem).toList();
+            final totals = _BranchRow.sum(rows);
+            final isSmall = MediaQuery.sizeOf(ctx).width < 600;
+            final Smallphone = MediaQuery.sizeOf(ctx).width < 300;
+            final totalPages = rows.isEmpty ? 1 : ((rows.length - 1) ~/ _rowsPerPage) + 1;
+            final visibleMaps = maps.skip(itemPage * _rowsPerPage).take(_rowsPerPage).toList();
+            final visibleRows = rows.skip(itemPage * _rowsPerPage).take(_rowsPerPage).toList();
 
-    Future<void> showSalesTransactionsDialog( BuildContext context, {required String itemId, required String itemName,required String? branchId, }) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+            Future<void> reload(DateTimeRange range) async {
+              setDialogState(() {
+                dialogDateRange = range;
+                dLoading = true;
+              });
+              setState(() => selectedDate = range);
+              await provider.loadBranchItemsReport(
+                startDate: range.start,
+                endDate: range.end,
+                branchId: branchId,
+              );
+              provider.fetchsalesreport(
+                selectedDate: range,
+                selectedBranch: _selectedBranch,
+                productType: _selectedType,
+                category: _selectedCategory,
+              );
+              if (!ctx.mounted) return;
+              setDialogState(() => dLoading = false);
+            }
 
-    final provider = Provider.of<Datafeed>(context, listen: false);
-    final previousSearch = provider.searchQuery;
-    provider.updateSearch('');
-    final _dialogSearchController = TextEditingController();
-    try {
-      final startDate = selectedDate?.start ?? DateTime.now();
-      final endDate = selectedDate?.end ?? DateTime.now();
-
-      await provider.loadItemSalesTransactions(
-        startDate: startDate,
-        endDate: endDate,
-        itemId: itemId,
-        itemName: itemName,
-        branchId: branchId,
-      );
-    } catch (e) {
-      print('Error from individual sales $e');
-    }
-
-    if (!context.mounted) {
-      _dialogSearchController.dispose();
-      return;
-    }
-
-    Navigator.of(context, rootNavigator: true).pop();
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        final isSmallScreen = MediaQuery.of(dialogContext).size.width < 600;
-
-        return Consumer<Datafeed>(
-          builder: (context, provider, _) {
-            final transactions = provider.filteredItemTransactions();
-            final stats = aggregateItemStats(transactions);
+            void openItem(Map<String, dynamic> m) {
+              showSalesTransactionsDialog(
+                context,
+                itemId: (m['itemid'] ?? '').toString(),
+                itemName: (m['item'] ?? '').toString(),
+                branchId: (m['branchId'] ?? branchId)?.toString(),
+                producttypr: (m['producttype']?? ''),
+                pcategory: (m['pcategory']?? ''),
+              );
+            }
 
             return AlertDialog(
-              backgroundColor: const Color(0xFF101624),
+              backgroundColor: _backgroundColor,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isSmall ? 8 : 24,
+                vertical: 12,
+              ),
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1652,7 +2285,7 @@ class _SalesReportState extends State<SalesReport> {
                     children: [
                       Expanded(
                         child: Text(
-                          "$itemName SALES TRANSACTIONS",
+                          '$itemName — Branch Sales Report',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -1662,415 +2295,259 @@ class _SalesReportState extends State<SalesReport> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 12),
-
-                  TextField(
-                    controller: _dialogSearchController,
-                    onChanged: provider.updateSearch,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: "Search staff...",
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                      filled: true,
-                      fillColor: const Color(0xFF1A2235),
-                      border: OutlineInputBorder(
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: dialogSearchController,
+                          onChanged: (val) {
+                            provider.updateSearch(val);
+                            itemPage = 0;
+                            setDialogState(() {});
+                          },
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Search item...',
+                            hintStyle: const TextStyle(color: Colors.white54),
+                            prefixIcon:
+                            const Icon(Icons.search, color: Colors.white70),
+                            filled: true,
+                            fillColor: const Color(0xFF1A2235),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      _dialogFilter(
+                        icon: Icons.inventory_2_outlined,
+                        tooltip: 'Product type: ${dType ?? 'All'}',
+                        allLabel: 'All Product Types',
+                        options: provider.branchItemProductTypes,
+                        current: dType,
+                        onPicked: (v) => setDialogState(() {
+                          dType = v;
+                          itemPage = 0;
+                        }),
+                      ),
+                      _dialogFilter(
+                        icon: Icons.category_outlined,
+                        tooltip: 'Category: ${dCategory ?? 'All'}',
+                        allLabel: 'All Categories',
+                        options: provider.branchItemCategories,
+                        current: dCategory,
+                        onPicked: (v) => setDialogState(() {
+                          dCategory = v;
+                          itemPage = 0;
+                        }),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      suffixIcon: _dialogSearchController.text.isNotEmpty
-                          ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.white54),
-                        onPressed: () {
-                          _dialogSearchController.clear();
-                          provider.updateSearch('');
-                        },
-                      )
-                          : null,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        InkWell(
-                          onTap: () => _showCategoryTransactionsPopup(
-                            context, 'Cash Sales',
-                            _filterTransactionsByCategory(transactions, 'cashSales'),
-                          ),
-                          child: _statChip("Cash Sales", stats['cashSales']),
-                        ),
-
-                        InkWell(
-                          onTap: () => _showCategoryTransactionsPopup(
-                            context, 'Credit Sales',
-                            _filterTransactionsByCategory(transactions, 'creditSales'),
-                          ),
-                          child: _statChip("Credit Sales", stats['creditSales']),
-                        ),
-
-
-                        InkWell(
-                          onTap: () => _showCategoryTransactionsPopup(
-                            context, 'Cash Returns',
-                            _filterTransactionsByCategory(transactions, 'cashReturns'),
-                          ),
-                          child: _statChip("Cash Returns", stats['cashReturns'], color: Colors.white70),
-                        ),
-
-
-                        InkWell(
-                          onTap: () => _showCategoryTransactionsPopup(
-                            context, 'Credit Returns',
-                            _filterTransactionsByCategory(transactions, 'creditReturns'),
-                          ),
-                          child: _statChip("Credit Returns", stats['creditReturns'], color: Colors.white70),
-                        ),
-
-                        InkWell(
-                          onTap: () => _showCategoryTransactionsPopup(
-                            context, 'Total Returns',
-                            _filterTransactionsByCategory(transactions, 'totalReturns'),
-                          ),
-                          child: _statChip("Total Returns", stats['totalReturns'], color: Colors.white70),
-                        ),
-                        InkWell(
-                          onTap: () => _showCategoryTransactionsPopup(
-                            context, 'Discount',
-                            _filterTransactionsByCategory(transactions, 'discount'),
-                          ),
-                          child: _statChip("Discount", stats['totalDiscount'], color: Colors.white70),
-                        ),
-
-                        _statChip("Qty Sold", stats['totalQty'], isCurrency: false),
-                        _statChip("Net Revenue", stats['total'], color: Colors.white70),
-                        _statChip("Profit", stats['profit'], color: Colors.white70),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              content: SizedBox(
-                width: double.maxFinite,
-                height: MediaQuery.sizeOf(context).height * 0.95,
-                child: transactions.isEmpty
-                    ? const Text(
-                  "No transactions found",
-                  style: TextStyle(color: Colors.white70),
-                )
-                    : isSmallScreen
-                    ? ListView.builder(
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    final t = transactions[index];
-                    final no = index + 1;
-
-                    final item = t['item'] ?? '';
-                    final qty = t['qty'] ?? '';
-                    final price = t['price'] ?? '';
-                    final profit = t['profit'] ?? '';
-                    final discount = t['discount'] ?? '';
-                    final total = t['total'] ?? '';
-                    final transMode = t['transMode'] ?? '';
-                    final salesMode = t['salesMode'] ?? '';
-                    final customer = t['customer'] ?? '';
-                    final branch = t['branch'] ?? '';
-                    final pricingMode = t['pricingMode'] ?? '';
-                    final staff = t['staff'] ?? '';
-                    final datte = t['date'];
-
-                    final formattedDate = datte != null
-                        ? DateFormat('dd MMM yyyy, hh:mm a').format(
-                      (datte as Timestamp).toDate(),
-                    )
-                        : '-';
-
-                    return Card(
-                      color: const Color(0xFF1A2235),
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '#$no',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: (t['isReturned'] == true ? Colors.redAccent : Colors.greenAccent)
-                                        .withOpacity(0.15),
-                                    border: Border.all(
-                                      color: (t['isReturned'] == true ? Colors.redAccent : Colors.greenAccent)
-                                          .withOpacity(0.6),
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    t['isReturned'] == true
-                                        ? ((t['returnedTransMode'] == 'credit') ? 'Credit Return' : 'Cash Return')
-                                        : 'Sale',
-                                    style: TextStyle(
-                                      color: t['isReturned'] == true ? Colors.redAccent : Colors.greenAccent,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                        onTap: () async {
+                          final picked = await showDateRangePicker(
+                            context: ctx,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                            initialDateRange: dialogDateRange,
+                            builder: (context, child) => Theme(
+                              data: ThemeData.dark().copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Color(0xFF415A77),
+                                  surface: Color(0xFF1B263B),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              item.toString(),
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
                               ),
+                              child: child!,
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              formattedDate,
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: [
-                                _miniStatstring("Qty", qty),
-                                _miniStatstring("Price", price),
-                                _miniStatstring("Profit", profit ),
-                                _miniStatstring("Discount", discount),
-                                _miniStatstring("Total", total),
-                                _miniStatstring("TransMode", transMode),
-                                _miniStatstring("SalesMode", salesMode),
-                                _miniStatstring("Customer", customer),
-                                _miniStatstring("Branch", branch),
-                                _miniStatstring("PricingMode", pricingMode),
-                                _miniStatstring("Staff", staff),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                )
-                    :
-
-                ScrollbarTheme(
-                  data: ScrollbarThemeData(
-                    thumbColor: MaterialStateProperty.all(const Color(0xFF415A77)),
-                    trackColor: MaterialStateProperty.all(const Color(0xFF22304A)),
-                    trackBorderColor: MaterialStateProperty.all(const Color(0xFF1B263B)),
-                    thickness: MaterialStateProperty.all(10),
-                    radius: const Radius.circular(8),
-                  ),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      const widths = [30, 150, 180, 50, 50, 50, 50, 50, 120, 80, 100, 90, 110, 100];
-                      const gap = 12.0;
-                      final double contentWidth = widths.reduce((a, b) => a + b) +
-                          (widths.length - 1) * gap +
-                          32;
-                      final double tableWidth =
-                      constraints.maxWidth > contentWidth ? constraints.maxWidth : contentWidth;
-
-                      Widget rowOf(List<Widget> cells, {Color? color}) {
-                        return Container(
-                          color: color,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          constraints: const BoxConstraints(minHeight: 44, maxHeight: 60),
-                          alignment: Alignment.center,
+                          );
+                          if (picked != null) await reload(picked);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A2235),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: Row(
                             children: [
-                              for (int i = 0; i < cells.length; i++) ...[
-                                SizedBox(width: widths[i].toDouble(), child: cells[i]),
-                                if (i != cells.length - 1) const SizedBox(width: gap),
+                              const Icon(
+                                Icons.date_range,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                              if (!isSmall) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  dialogDateRange != null
+                                      ? '${DateFormat('dd MMM').format(dialogDateRange!.start)} - '
+                                      '${DateFormat('dd MMM yyyy').format(dialogDateRange!.end)}'
+                                      : 'Pick dates',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
-                        );
-                      }
-
-                      return Scrollbar(
-                        controller: _horizontalController,
-                        thumbVisibility: true,
-                        trackVisibility: true,
-                        child: SingleChildScrollView(
-                          controller: _horizontalController,
-                          scrollDirection: Axis.horizontal,
-                          child: SizedBox(
-                            width: tableWidth,
-                            height: constraints.maxHeight.isFinite ? constraints.maxHeight : null,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Container(
-                                  color: const Color(0xFF1E2A3D),
-                                  child: rowOf(const [
-                                    Text('#', style: TextStyle(color: Colors.white70)),
-                                    Text('Date', style: TextStyle(color: Colors.white70)),
-                                    Text('Item', style: TextStyle(color: Colors.white70)),
-                                    Text('Qty', style: TextStyle(color: Colors.white70)),
-                                    Text('Price', style: TextStyle(color: Colors.white70)),
-                                    Text('Profit', style: TextStyle(color: Colors.white70)),
-                                    Text('Disc', style: TextStyle(color: Colors.white70)),
-                                    Text('Total', style: TextStyle(color: Colors.white70)),
-                                    Text('Trx Mode', style: TextStyle(color: Colors.white70)),
-                                    Text('Sales Mode', style: TextStyle(color: Colors.white70)),
-                                    Text('Customer', style: TextStyle(color: Colors.white70)),
-                                    Text('Branch', style: TextStyle(color: Colors.white70)),
-                                    Text('Price Mode', style: TextStyle(color: Colors.white70)),
-                                    Text('Staff', style: TextStyle(color: Colors.white70)),
-                                  ]),
-                                ),
-                                Divider(height: 1.2, thickness: 1.2, color: Colors.white.withOpacity(0.12)),
-                                Expanded(
-                                  child: Scrollbar(
-                                    controller: _verticalController,
-                                    thumbVisibility: true,
-                                    trackVisibility: true,
-                                    child: ListView.builder(
-                                      controller: _verticalController,
-                                      itemCount: transactions.length,
-                                      itemBuilder: (context, index) {
-                                        final t = transactions[index];
-
-                                        final item = t['item'] ?? '';
-                                        final qty = t['qty'] ?? '';
-                                        final price = t['price'] ?? '';
-                                        final profit = t['profit'].toStringAsFixed(2) ?? '';
-                                        final discount = t['discount'] ?? '';
-                                        final total = t['total'] ?? '';
-                                        final transMode = t['transMode'] ?? '';
-                                        final salesMode = t['salesMode'] ?? '';
-                                        final customer = t['customer'] ?? '';
-                                        final branch = t['branch'] ?? '';
-                                        final pricingMode = t['pricingMode'] ?? '';
-                                        final staff = t['staff'] ?? '';
-                                        final datte = t['date'];
-                                        final isReturned = t['isReturned'] == true;
-                                        final returnedTransMode = t['returnedTransMode'] ?? '';
-
-                                        final formattedDate = datte != null
-                                            ? DateFormat('dd MMM yyyy, hh:mm a')
-                                            .format((datte as Timestamp).toDate())
-                                            : '-';
-
-                                        final String rowTypeLabel = isReturned
-                                            ? (returnedTransMode == 'credit' ? 'Credit Return' : 'Cash Return')
-                                            : 'Sale';
-
-                                        final Color rowTypeColor = isReturned
-                                            ? (returnedTransMode == 'credit' ? Colors.orange : Colors.redAccent)
-                                            : Colors.greenAccent;
-
-                                        final Color? rowBg = isReturned ? Colors.red.withOpacity(0.08) : null;
-
-                                        return rowOf(
-                                          [
-                                            Text('${index + 1}', style: const TextStyle(color: Colors.white70)),
-                                            Text(formattedDate, style: const TextStyle(color: Colors.white70)),
-                                            Text(
-                                              item.toString(),
-                                              softWrap: true,
-                                              overflow: TextOverflow.visible,
-                                              style: const TextStyle(fontSize: 12, color: Colors.white70),
-                                            ),
-                                            Text(qty.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(price.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(profit.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(discount.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(total.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: rowTypeColor.withOpacity(0.15),
-                                                    border: Border.all(color: rowTypeColor.withOpacity(0.6)),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                  ),
-                                                  child: Text(
-                                                    rowTypeLabel,
-                                                    style: TextStyle(
-                                                      color: rowTypeColor,
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  isReturned ? returnedTransMode : transMode.toString(),
-                                                  style: const TextStyle(color: Colors.white70),
-                                                ),
-                                              ],
-                                            ),
-                                            Text(salesMode.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(customer.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(branch.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(pricingMode.toString(), style: const TextStyle(color: Colors.white70)),
-                                            Text(staff.toString(), style: const TextStyle(color: Colors.white70)),
-                                          ],
-                                          color: rowBg,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ),
-
-              actions: [
-                TextButton(
-                  onPressed: () => printTransactions(transactions, itemName,DateFormat('d MMMM y').format(selectedDate?.start ?? DateTime.now()),DateFormat('d MMMM y').format(selectedDate?.end ?? DateTime.now()),provider.company,_selectedBranch ?? 'All Branches'),
-                  child: const Text(
-                    "Print / Download",
+              content: SizedBox(
+                width: double.maxFinite,
+                height: MediaQuery.sizeOf(ctx).height * 0.95,
+                child: dLoading
+                    ? const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                )
+                    : rows.isEmpty
+                    ? const Center(
+                  child: Text(
+                    'No Sales found',
                     style: TextStyle(color: Colors.white70),
                   ),
+                )
+                    : LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth > 600) {
+                      return _itemTable(visibleMaps, visibleRows, totals, openItem);
+                    }
+                    return _itemMobileList(visibleMaps, visibleRows, totals, openItem);
+                  },
                 ),
+              ),
+              actions: [
+
+
+                PopupMenuButton<String>(
+                  tooltip: 'Print / Download',
+                  color: _cardColor,
+                  icon: const Icon(Icons.picture_as_pdf_outlined, color: _textColor, size: 20),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem<String>(
+                      value: 'print',
+                      child: Row(children: [
+                        Icon(Icons.print_outlined, size: 18, color: Colors.white70),
+                        SizedBox(width: 10),
+                        Text('Print'),
+                      ]),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'pdf',
+                      child: Row(children: [
+                        Icon(Icons.picture_as_pdf_outlined, size: 18, color: Colors.white70),
+                        SizedBox(width: 10),
+                        Text('Download PDF'),
+                      ]),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'excel',
+                      child: Row(children: [
+                        Icon(Icons.grid_on_outlined, size: 18, color: Colors.white70),
+                        SizedBox(width: 10),
+                        Text('Download Excel'),
+                      ]),
+                    ),
+                  ],
+                  onSelected: (selected) async {
+                    try {
+                      switch (selected) {
+                        case 'print':
+                          await _printReport(
+                            title: 'ITEM SALES REPORT',
+                            company: provider.company,
+                            branchLabel: itemName,
+                            countLabel: 'Items',
+                            firstColumn: 'ITEM',
+                            start: dialogDateRange?.start ?? DateTime.now(),
+                            end: dialogDateRange?.end ?? DateTime.now(),
+                            type: dType,
+                            category: dCategory,
+                            rows: rows,
+                            t: totals,
+                          );
+                          break;
+                        case 'pdf':
+                          await _downloadReportPdf(
+                            title: 'ITEM SALES REPORT',
+                            company: provider.company,
+                            branchLabel: itemName,
+                            countLabel: 'Items',
+                            firstColumn: 'ITEM',
+                            start: dialogDateRange?.start ?? DateTime.now(),
+                            end: dialogDateRange?.end ?? DateTime.now(),
+                            type: dType,
+                            category: dCategory,
+                            rows: rows,
+                            t: totals,
+                          );
+                          break;
+                        case 'excel':
+                          await _exportReportExcel(
+                            title: 'ITEM SALES REPORT',
+                            company: provider.company,
+                            branchLabel: itemName,
+                            countLabel: 'Items',
+                            firstColumn: 'ITEM',
+                            start: dialogDateRange?.start ?? DateTime.now(),
+                            end: dialogDateRange?.end ?? DateTime.now(),
+                            type: dType,
+                            category: dCategory,
+                            rows: rows,
+                            t: totals,
+                          );
+                          break;
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Action failed: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                TextButton(
+                  onPressed: itemPage > 0
+                      ? () => setDialogState(() => itemPage--)
+                      : null,
+                  child: const Icon(Icons.chevron_left),
+                ),
+                Text('${itemPage + 1}/$totalPages',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                TextButton(
+                  onPressed: itemPage < totalPages - 1
+                      ? () => setDialogState(() => itemPage++)
+                      : null,
+                  child: const Icon(Icons.chevron_right),
+                ),
+                if(Smallphone)...[
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text(
-                    "Close",
+                    'Close',
                     style: TextStyle(color: Colors.white70),
                   ),
                 ),
+                ],
               ],
             );
           },
@@ -2078,42 +2555,891 @@ class _SalesReportState extends State<SalesReport> {
       },
     ).then((_) {
       provider.updateSearch(previousSearch);
+      _mainSearchController.text = previousSearch;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _dialogSearchController.dispose();
+        dialogSearchController.dispose();
       });
     });
   }
 
-  Widget _statChip(String label,dynamic value, { Color color = Colors.white, bool isCurrency = true,}) {
-    final formatted = isCurrency
-        ? "GHC ${(value as double).toStringAsFixed(2)}"
-        : (value as double).toStringAsFixed(0);
 
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2235),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
+
+  Future<void> showSalesTransactionsDialog( BuildContext context, {required String itemId,required String itemName,required String? branchId,String?producttypr,String?pcategory}) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final provider = Provider.of<Datafeed>(context, listen: false);
+    final previousSearch = provider.searchQuery;
+    provider.updateSearch('');
+    final searchCtrl = TextEditingController();
+    final listCtrl = ScrollController();
+
+    try {
+      await provider.loadItemSalesTransactions(
+        startDate: selectedDate?.start ?? DateTime.now(),
+        endDate: selectedDate?.end ?? DateTime.now(),
+        itemId: itemId,
+        itemName: itemName,
+        branchId: branchId,
+      );
+    } catch (e) {
+      debugPrint('Error from individual sales $e');
+    }
+
+    if (!context.mounted) {
+      searchCtrl.dispose();
+      listCtrl.dispose();
+      return;
+    }
+    Navigator.of(context, rootNavigator: true).pop();
+
+    String? fStaff, fType, fCategory, fKind;
+    var transactionPage = 0;
+
+
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setD) {
+            final size = MediaQuery.sizeOf(ctx);
+            final isSmall = size.width < 600;
+            final insetH = isSmall ? 8.0 : 24.0;
+            final width = (size.width - insetH * 2).clamp(0.0, 1200.0).toDouble();
+
+            final kind = fKind;
+            final base = provider.filteredItemTransactions(
+              staff: fStaff,
+            );
+            final list =
+            kind == null ? base : _filterTransactionsByCategory(base, kind);
+            final s = _txnSummary(base);
+            final hasFilter = fStaff != null ||
+                kind != null;
+
+            return Dialog(
+              backgroundColor: _backgroundColor,
+              insetPadding: EdgeInsets.symmetric(horizontal: insetH, vertical: 16),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              child: SizedBox(
+                width: width,
+                height: size.height * 0.92,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      itemName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_branchLabel(provider)} • Sales transactions • ${list.length} record${list.length == 1 ? '' : 's'}',
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, color: Colors.white),
+                                onPressed: () => Navigator.of(dialogContext).pop(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 42,
+                                  child: TextField(
+                                    controller: searchCtrl,
+                                    onChanged: (val) {
+                                      provider.updateSearch(val);
+                                      setD(() => transactionPage = 0);
+                                    },
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 14),
+                                    decoration: InputDecoration(
+                                      hintText: 'Search receipt, customer, staff...',
+                                      hintStyle:
+                                      const TextStyle(color: Colors.white54),
+                                      prefixIcon: const Icon(Icons.search,
+                                          color: Colors.white70, size: 20),
+                                      suffixIcon: searchCtrl.text.isNotEmpty
+                                          ? IconButton(
+                                        icon: const Icon(Icons.clear,
+                                            color: Colors.white54,
+                                            size: 18),
+                                        onPressed: () {
+                                          searchCtrl.clear();
+                                          provider.updateSearch('');
+                                          setD(() {});
+                                        },
+                                      )
+                                          : null,
+                                      filled: true,
+                                      fillColor: const Color(0xFF1A2235),
+                                      isDense: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              _dialogFilter(
+                                icon: Icons.people_alt_outlined,
+                                tooltip: 'Staff: ${fStaff ?? 'All'}',
+                                allLabel: 'All Staff',
+                                options: provider.itemTxnStaff,
+                                current: fStaff,
+                                  onPicked: (v) => setD(() {
+                                    fStaff = v;
+                                    transactionPage = 0;
+                                  }),
+                              ),
+
+
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _txnStats(s, kind, (k) => setD(() {
+                            fKind = k;
+                            transactionPage = 0;
+                          })),
+                          if (isSmall)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Tap a total to filter • long-press for breakdown',
+                                style: TextStyle(
+                                    color: Colors.white38, fontSize: 10),
+                              ),
+                            ),
+                          if (hasFilter)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 0),
+                                  minimumSize: const Size(0, 28),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: const Icon(Icons.filter_alt_off,
+                                    size: 15, color: _accent),
+                                label: const Text('Clear filters',
+                                    style:
+                                    TextStyle(color: _accent, fontSize: 12)),
+                                onPressed: () => setD(() {
+                                  fStaff = null;
+                                  fKind = null;
+
+                                  transactionPage = 0;
+                                  fKind = null;
+                                  transactionPage = 0;
+                                }),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: _borderColor),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.all(isSmall ? 0 : 12),
+                        child: _txnBody(
+                          list,
+                          _txnSummary(list),
+                          listCtrl,
+                          page: transactionPage,
+                          totalPages: list.isEmpty
+                              ? 1
+                              : ((list.length - 1) ~/ _rowsPerPage) + 1,
+                          onPageChanged: (next) => setD(() => transactionPage = next),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, color: _borderColor),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+
+                          PopupMenuButton<String>(
+                            tooltip: 'Print / Download',
+                            color: _cardColor,
+                            icon: const Icon(
+                              Icons.picture_as_pdf_outlined,
+                              color: _textColor,
+                              size: 20,
+                            ),
+                            enabled: list.isNotEmpty,
+                            itemBuilder: (_) => [
+                              const PopupMenuItem<String>(
+                                value: 'print',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.print_outlined, size: 18, color: Colors.white70),
+                                    SizedBox(width: 10),
+                                    Text('Print'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'pdf',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.picture_as_pdf_outlined, size: 18, color: Colors.white70),
+                                    SizedBox(width: 10),
+                                    Text('Download PDF'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'excel',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.grid_on_outlined, size: 18, color: Colors.white70),
+                                    SizedBox(width: 10),
+                                    Text('Download Excel'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            onSelected: (selected) async {
+                              try {
+                                switch (selected) {
+                                  case 'print':
+                                    await _printItemTransactions(
+                                      company: provider.company,
+                                      itemName: itemName,
+                                      branchLabel: _branchLabel(provider),
+                                      start: selectedDate?.start ?? DateTime.now(),
+                                      end: selectedDate?.end ?? DateTime.now(),
+                                      rows: list,
+                                      s: _txnSummary(list),
+                                      staff: fStaff,
+                                      type: producttypr,
+                                      category: pcategory,
+                                      kind: kind,
+                                    );
+                                    break;
+                                  case 'pdf':
+                                    await _downloadItemTransactionsPdf(
+                                      company: provider.company,
+                                      itemName: itemName,
+                                      branchLabel: _branchLabel(provider),
+                                      start: selectedDate?.start ?? DateTime.now(),
+                                      end: selectedDate?.end ?? DateTime.now(),
+                                      rows: list,
+                                      s: _txnSummary(list),
+                                      staff: fStaff,
+                                      type: producttypr,
+                                      category: pcategory,
+                                      kind: kind,
+                                    );
+                                    break;
+                                  case 'excel':
+                                    await _exportItemTransactionsExcel(
+                                      company: provider.company,
+                                      itemName: itemName,
+                                      branchLabel: _branchLabel(provider),
+                                      start: selectedDate?.start ?? DateTime.now(),
+                                      end: selectedDate?.end ?? DateTime.now(),
+                                      rows: list,
+                                      s: _txnSummary(list),
+                                      staff: fStaff,
+                                      type: producttypr,
+                                      category: pcategory,
+                                      kind: kind,
+                                    );
+                                    break;
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Action failed: $e')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          TextButton(
+                            onPressed: transactionPage > 0
+                                ? () => setD(() => transactionPage--)
+                                : null,
+                            child: const Icon(Icons.chevron_left),
+                          ),
+                          Text(
+                            '${transactionPage + 1}/${list.isEmpty ? 1 : ((list.length - 1) ~/ _rowsPerPage) + 1}',
+                            style: const TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          TextButton(
+                            onPressed: transactionPage <
+                                    (list.isEmpty ? 1 : ((list.length - 1) ~/ _rowsPerPage) + 1) - 1
+                                ? () => setD(() => transactionPage++)
+                                : null,
+                            child: const Icon(Icons.chevron_right),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: const Text('Close',
+                                style: TextStyle(color: Colors.white70)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      provider.updateSearch(previousSearch);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        searchCtrl.dispose();
+        listCtrl.dispose();
+      });
+    });
+  }
+
+
+  Future<pw.Document> _buildItemTransactionsPdfDoc({
+    required String company,
+    required String itemName,
+    required String branchLabel,
+    required DateTime start,
+    required DateTime end,
+    required List<Map<String, dynamic>> rows,
+    required Map<String, double> s,
+    String? staff,
+    String? type,
+    String? category,
+    String? kind,
+  }) async {
+    final pdf = pw.Document(title: '$itemName sales transactions');
+
+    final regular =
+    pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+    final bold =
+    pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+
+    final nf = NumberFormat('#,##0.00');
+    final dateFmt = DateFormat('dd MMM yyyy');
+    final dtFmt = DateFormat('dd MMM yy, hh:mm a');
+    final now = DateTime.now();
+    final period = '${dateFmt.format(start)} - ${dateFmt.format(end)}';
+
+    const headerBg = PdfColors.white;
+    const totalBg = PdfColors.white;
+
+    double v(String k) => s[k] ?? 0;
+    String qf(double x) =>
+        x == x.roundToDouble() ? x.toStringAsFixed(0) : x.toStringAsFixed(2);
+
+    const kindLabels = {
+      'cashSales': 'Cash Sales',
+      'creditSales': 'Credit Sales',
+      'totalReturns': 'Returns',
+      'discount': 'With Discount',
+    };
+
+    pw.Widget cell(
+        String text, {
+          bool head = false,
+          bool isBold = false,
+          bool right = false,
+          PdfColor? color,
+        }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: pw.Text(
+          text,
+          textAlign: right ? pw.TextAlign.right : pw.TextAlign.left,
+          style: pw.TextStyle(
+            font: (head || isBold) ? bold : regular,
+            fontSize: head ? 8 : 9,
+            color: color ?? PdfColors.black,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget infoRow(String label, String val, {bool end = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Row(
+          mainAxisAlignment:
+          end ? pw.MainAxisAlignment.end : pw.MainAxisAlignment.start,
+          children: [
+            pw.Text('$label:  ', style: pw.TextStyle(font: bold, fontSize: 10)),
+            pw.Text(val, style: pw.TextStyle(font: regular, fontSize: 10)),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget sectionLabel(String text) => pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          font: bold,
+          fontSize: 10,
+          color: PdfColors.grey600,
+          letterSpacing: 1.4,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white54, fontSize: 10)),
-          const SizedBox(height: 2),
-          Text(formatted,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              )),
+    );
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(30),
+        footer: (ctx) => pw.Column(
+          children: [
+            pw.Divider(thickness: 0.1, color: PdfColors.grey),
+            pw.SizedBox(height: 6),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Generated: ${DateFormat('dd MMM yyyy, hh:mm a').format(now)}',
+                  style: pw.TextStyle(
+                      font: regular, fontSize: 9, color: PdfColors.grey500),
+                ),
+                pw.Text(
+                  'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+                  style: pw.TextStyle(
+                      font: regular, fontSize: 9, color: PdfColors.grey500),
+                ),
+              ],
+            ),
+          ],
+        ),
+        build: (ctx) => [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      company.toUpperCase(),
+                      style: pw.TextStyle(font: bold, fontSize: 22),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      itemName,
+                      style: pw.TextStyle(
+                          font: regular, fontSize: 11, color: PdfColors.grey700),
+                    ),
+                  ],
+                ),
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text('$branchLabel $itemName Sales Transactions',
+                      style: pw.TextStyle(font: bold, fontSize: 18)),
+                  pw.SizedBox(height: 5),
+
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    infoRow('Period', period),
+                    infoRow('Branch', branchLabel),
+                    infoRow('Transactions', '${rows.length}'),
+                    infoRow('Qty Sold', qf(v('qty'))),
+                  ],
+                ),
+              ),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    infoRow('Staff', staff ?? 'All', end: true),
+                    if(type!.isNotEmpty)
+                    infoRow('Product Type', type ?? '', end: true),
+                    if(category!.isNotEmpty)
+                    infoRow('Category', category ?? '', end: true),
+                    infoRow('Showing', kindLabels[kind] ?? '', end: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 10),
+          sectionLabel('TRANSACTIONS'),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.8),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(24),
+              1: const pw.FlexColumnWidth(2.1),
+              2: const pw.FlexColumnWidth(0.8),
+              3: const pw.FlexColumnWidth(1.2),
+              4: const pw.FlexColumnWidth(1.1),
+              5: const pw.FlexColumnWidth(1.3),
+              6: const pw.FlexColumnWidth(1.2),
+              7: const pw.FlexColumnWidth(1.6),
+              8: const pw.FlexColumnWidth(1.1),
+              9: const pw.FlexColumnWidth(1.7),
+              10: const pw.FlexColumnWidth(1.5),
+            //  11: const pw.FlexColumnWidth(1.3),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: headerBg),
+                children: [
+                  cell('#', head: true),
+                  cell('DATE', head: true),
+                  cell('QTY', head: true, right: true),
+                  cell('PRICE', head: true, right: true),
+                  cell('DISCOUNT', head: true, right: true),
+                  cell('TOTAL', head: true, right: true),
+                  cell('PROFIT', head: true, right: true),
+                  cell('TYPE', head: true),
+                  cell('MODE', head: true),
+                  cell('CUSTOMER', head: true),
+                  cell('STAFF', head: true),
+                 // cell('BRANCH', head: true),
+                ],
+              ),
+              ...rows.asMap().entries.map((e) {
+                final t = e.value;
+                final ret = t['isReturned'] == true;
+                String sg(double x) =>
+                    ret && x != 0 ? '-${nf.format(x)}' : nf.format(x);
+                final red = ret ? PdfColors.red700 : null;
+
+                final d = t['date'];
+                final dateStr = d is Timestamp
+                    ? dtFmt.format(d.toDate())
+                    : (d is DateTime ? dtFmt.format(d) : '-');
+
+                final typeStr = ret
+                    ? (t['returnedTransMode'] == 'credit'
+                    ? 'Credit Return'
+                    : 'Cash Return')
+                    : 'Sale / ${(t['transMode'] ?? '').toString()}';
+
+                return pw.TableRow(
+                  children: [
+                    cell('${e.key + 1}'),
+                    cell(dateStr),
+                    cell(ret ? '-${qf(_num(t['qty']))}' : qf(_num(t['qty'])),
+                        right: true, color: red),
+                    cell(nf.format(_num(t['price'])), right: true),
+                    cell(sg(_num(t['discount'])), right: true, color: red),
+                    cell(sg(_num(t['total'])),
+                        right: true, isBold: true, color: red),
+                    cell(sg(_num(t['profit'])), right: true, color: red),
+                    cell(typeStr, color: red),
+                    cell((t['salesMode'] ?? '').toString()),
+                    cell((t['customer'] ?? '').toString()),
+                    cell((t['staff'] ?? '').toString()),
+                   // cell((t['branch'] ?? '').toString()),
+                  ],
+                );
+              }),
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: totalBg),
+                children: [
+                  cell(''),
+                  cell('GRAND TOTAL', isBold: true),
+                  cell(qf(v('qty')), right: true, isBold: true),
+                  cell(''),
+                  cell(nf.format(v('discount')), right: true, isBold: true),
+                  cell(nf.format(v('net')), right: true, isBold: true),
+                  cell(nf.format(v('profit')), right: true, isBold: true),
+                  cell(''),
+                  cell(''),
+                  cell(''),
+                  cell(''),
+                  cell(''),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     );
+
+    return pdf;
   }
 
+  /// Opens the OS print / share dialog (unchanged behaviour).
+  Future<void> _printItemTransactions({
+    required String company,
+    required String itemName,
+    required String branchLabel,
+    required DateTime start,
+    required DateTime end,
+    required List<Map<String, dynamic>> rows,
+    required Map<String, double> s,
+    String? staff,
+    String? type,
+    String? category,
+    String? kind,
+  }) async {
+    final pdf = await _buildItemTransactionsPdfDoc(
+      company: company,
+      itemName: itemName,
+      branchLabel: branchLabel,
+      start: start,
+      end: end,
+      rows: rows,
+      s: s,
+      staff: staff,
+      type: type,
+      category: category,
+      kind: kind,
+    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+  }
+
+  /// Saves the PDF directly to disk / triggers a browser download — no
+  /// print dialog — on Android, iOS, Web, Windows, macOS and Linux.
+  Future<void> _downloadItemTransactionsPdf({
+    required String company,
+    required String itemName,
+    required String branchLabel,
+    required DateTime start,
+    required DateTime end,
+    required List<Map<String, dynamic>> rows,
+    required Map<String, double> s,
+    String? staff,
+    String? type,
+    String? category,
+    String? kind,
+  }) async {
+    final pdf = await _buildItemTransactionsPdfDoc(
+      company: company,
+      itemName: itemName,
+      branchLabel: branchLabel,
+      start: start,
+      end: end,
+      rows: rows,
+      s: s,
+      staff: staff,
+      type: type,
+      category: category,
+      kind: kind,
+    );
+
+    final bytes = await pdf.save();
+    final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final fileName =
+        '${itemName.replaceAll(' ', '_')}_transactions_$ts';
+
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'pdf',
+      mimeType: MimeType.pdf,
+    );
+  }
+
+  /// Exports the same transaction data to an .xlsx file, saved/downloaded
+  /// directly on every platform.
+  Future<void> _exportItemTransactionsExcel({
+    required String company,
+    required String itemName,
+    required String branchLabel,
+    required DateTime start,
+    required DateTime end,
+    required List<Map<String, dynamic>> rows,
+    required Map<String, double> s,
+    String? staff,
+    String? type,
+    String? category,
+    String? kind,
+  }) async {
+    final nf = NumberFormat('#,##0.00');
+    final dateFmt = DateFormat('dd MMM yyyy');
+    final dtFmt = DateFormat('dd MMM yy, hh:mm a');
+    final period = '${dateFmt.format(start)} - ${dateFmt.format(end)}';
+
+    double v(String k) => s[k] ?? 0;
+    String qf(double x) =>
+        x == x.roundToDouble() ? x.toStringAsFixed(0) : x.toStringAsFixed(2);
+
+    const kindLabels = {
+      'cashSales': 'Cash Sales',
+      'creditSales': 'Credit Sales',
+      'totalReturns': 'Returns',
+      'discount': 'With Discount',
+    };
+
+    final excelFile = xls.Excel.createExcel();
+    const sheetName = 'Item Transactions';
+    final sheet = excelFile[sheetName];
+    excelFile.delete('Sheet1');
+
+    final titleStyle = xls.CellStyle(bold: true, fontSize: 16);
+    final headerStyle = xls.CellStyle(
+      bold: true,
+      backgroundColorHex: xls.ExcelColor.fromHexString('#DDDDDD'),
+    );
+    final boldStyle = xls.CellStyle(bold: true);
+
+    // --- Title block ---
+    sheet.appendRow([xls.TextCellValue(company.toUpperCase())]);
+    sheet
+        .cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+        .cellStyle = titleStyle;
+    sheet.appendRow([xls.TextCellValue('ITEM SALES TRANSACTIONS')]);
+    sheet.appendRow([xls.TextCellValue('Item: $itemName')]);
+    sheet.appendRow([xls.TextCellValue('Branch: $branchLabel')]);
+    sheet.appendRow([xls.TextCellValue('Period: $period')]);
+    sheet.appendRow([xls.TextCellValue('Transactions: ${rows.length}')]);
+    sheet.appendRow([xls.TextCellValue('Qty Sold: ${qf(v('qty'))}')]);
+    sheet.appendRow([xls.TextCellValue('Staff: ${staff ?? 'All'}')]);
+    sheet.appendRow([xls.TextCellValue('Product Type: ${type ?? 'All'}')]);
+    sheet.appendRow([xls.TextCellValue('Category: ${category ?? 'All'}')]);
+    sheet.appendRow([xls.TextCellValue('Showing: ${kindLabels[kind] ?? 'All'}')]);
+    sheet.appendRow([]); // spacer
+
+    // --- Headers ---
+    final headers = <String>[
+      '#',
+      'DATE',
+      'QTY',
+      'PRICE',
+      'DISCOUNT',
+      'TOTAL',
+      'PROFIT',
+      'TYPE',
+      'MODE',
+      'CUSTOMER',
+      'STAFF',
+      'BRANCH',
+    ];
+    sheet.appendRow(headers.map((h) => xls.TextCellValue(h)).toList());
+    final headerRowIdx = sheet.maxRows - 1;
+    for (int c = 0; c < headers.length; c++) {
+      sheet
+          .cell(xls.CellIndex.indexByColumnRow(
+          columnIndex: c, rowIndex: headerRowIdx))
+          .cellStyle = headerStyle;
+    }
+
+    // --- Data rows ---
+    for (int i = 0; i < rows.length; i++) {
+      final t = rows[i];
+      final ret = t['isReturned'] == true;
+      double sg(double x) => ret && x != 0 ? -x : x;
+
+      final d = t['date'];
+      final dateStr = d is Timestamp
+          ? dtFmt.format(d.toDate())
+          : (d is DateTime ? dtFmt.format(d) : '-');
+
+      final typeStr = ret
+          ? (t['returnedTransMode'] == 'credit'
+          ? 'Credit Return'
+          : 'Cash Return')
+          : 'Sale / ${(t['transMode'] ?? '').toString()}';
+
+      final qty = _num(t['qty']);
+
+      sheet.appendRow([
+        xls.IntCellValue(i + 1),
+        xls.TextCellValue(dateStr),
+        xls.DoubleCellValue(ret ? -qty : qty),
+        xls.DoubleCellValue(_num(t['price'])),
+        xls.DoubleCellValue(sg(_num(t['discount']))),
+        xls.DoubleCellValue(sg(_num(t['total']))),
+        xls.DoubleCellValue(sg(_num(t['profit']))),
+        xls.TextCellValue(typeStr),
+        xls.TextCellValue((t['salesMode'] ?? '').toString()),
+        xls.TextCellValue((t['customer'] ?? '').toString()),
+        xls.TextCellValue((t['staff'] ?? '').toString()),
+        xls.TextCellValue((t['branch'] ?? '').toString()),
+      ]);
+    }
+
+    // --- Grand total row ---
+    sheet.appendRow([
+      xls.TextCellValue(''),
+      xls.TextCellValue('GRAND TOTAL'),
+      xls.DoubleCellValue(v('qty')),
+      xls.TextCellValue(''),
+      xls.DoubleCellValue(v('discount')),
+      xls.DoubleCellValue(v('net')),
+      xls.DoubleCellValue(v('profit')),
+      xls.TextCellValue(''),
+      xls.TextCellValue(''),
+      xls.TextCellValue(''),
+      xls.TextCellValue(''),
+      xls.TextCellValue(''),
+    ]);
+    final totalRowIdx = sheet.maxRows - 1;
+    for (int c = 0; c < headers.length; c++) {
+      sheet
+          .cell(xls.CellIndex.indexByColumnRow(
+          columnIndex: c, rowIndex: totalRowIdx))
+          .cellStyle = boldStyle;
+    }
+
+    // --- Save (works on web, Windows, macOS, Linux, Android, iOS) ---
+    final bytes = excelFile.encode();
+    if (bytes == null) {
+      throw Exception('Failed to encode Excel file — no data to export.');
+    }
+
+    final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final fileName =
+        '${itemName.replaceAll(' ', '_')}_transactions_$ts';
+
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
+    );
+  }
   Map<String, dynamic> aggregateItemStats(List<Map<String, dynamic>> transactions) {
     double cashSales = 0;
     double creditSales = 0;
@@ -2176,8 +3502,7 @@ class _SalesReportState extends State<SalesReport> {
     };
   }
 
-  List<Map<String, dynamic>> _filterTransactionsByCategory(
-      List<Map<String, dynamic>> transactions, String category) {
+  List<Map<String, dynamic>> _filterTransactionsByCategory(   List<Map<String, dynamic>> transactions, String category) {
     switch (category) {
       case 'cashSales':
         return transactions.where((t) =>
@@ -2206,119 +3531,8 @@ class _SalesReportState extends State<SalesReport> {
     }
   }
 
-  void _showCategoryTransactionsPopup(
-      BuildContext context, String title, List<Map<String, dynamic>> filtered) {
-    showDialog(
-      context: context,
-      builder: (_) {
-        const widths = [30, 130, 50, 60, 60, 60, 60, 60];
-        const gap = 12.0;
 
-        Widget rowOf(List<Widget> cells, {Color? color}) {
-          return Container(
-            color: color,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                for (int i = 0; i < cells.length; i++) ...[
-                  SizedBox(width: widths[i].toDouble(), child: cells[i]),
-                  if (i != cells.length - 1) const SizedBox(width: gap),
-                ],
-              ],
-            ),
-          );
-        }
-
-        double totalQty = 0, totalAmt = 0, totalDisc = 0, totalProfit = 0;
-        for (final t in filtered) {
-          totalQty += ((t['qty'] as num?) ?? 0).toDouble();
-          totalAmt += ((t['total'] as num?) ?? 0).toDouble();
-          totalDisc += ((t['discount'] as num?) ?? 0).toDouble();
-          totalProfit += ((t['profit'] as num?) ?? 0).toDouble();
-        }
-
-        return AlertDialog(
-          backgroundColor: const Color(0xFF101624),
-          title: Text(title, style: const TextStyle(color: Colors.amberAccent)),
-          content: SizedBox(
-            width: 640,
-            height: 480,
-            child: filtered.isEmpty
-                ? const Center(
-                child: Text('No transactions found',
-                    style: TextStyle(color: Colors.white70)))
-                : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  color: const Color(0xFF1E2A3D),
-                  child: rowOf(const [
-                    Text('#', style: TextStyle(color: Colors.white70)),
-                    Text('Item', style: TextStyle(color: Colors.white70)),
-                    Text('Qty', style: TextStyle(color: Colors.white70)),
-                    Text('Price', style: TextStyle(color: Colors.white70)),
-                    Text('Discount', style: TextStyle(color: Colors.white70)),
-                    Text('Total', style: TextStyle(color: Colors.white70)),
-                    Text('Profit', style: TextStyle(color: Colors.white70)),
-                    Text('Mode', style: TextStyle(color: Colors.white70)),
-                  ]),
-                ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final t = filtered[index];
-                      return rowOf(
-                        [
-                          Text('${index + 1}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['item'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['qty'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['price'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['discount'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['total'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['profit'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                          Text('${t['transMode'] ?? ''}', style: const TextStyle(color: Colors.white70)),
-                        ],
-                        color: index.isEven ? const Color(0xFF0D1B2A) : const Color(0xFF101C2E),
-                      );
-                    },
-                  ),
-                ),
-                rowOf(
-                  [
-                    const Text('', style: TextStyle(color: Colors.white)),
-                    const Text('TOTAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text(totalQty.toStringAsFixed(0), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    const Text('', style: TextStyle(color: Colors.white)),
-                    Text(totalDisc.toStringAsFixed(2), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text(totalAmt.toStringAsFixed(2), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    Text(totalProfit.toStringAsFixed(2), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    const Text('', style: TextStyle(color: Colors.white)),
-                  ],
-                  color: const Color(0xFF16213E),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close', style: TextStyle(color: Colors.white70)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> printTransactions(
-      List transactions,
-      String itemName,
-      String startdate,
-      String endDate,
-      String company,
-      String branch
-      ) async {
+  Future<void> printTransactions(List transactions, String itemName,String startdate, String endDate, String company, String branch ) async {
     final pdf = pw.Document(title: itemName);
 
     final baseFont = await PdfGoogleFonts.openSansRegular();
@@ -2377,7 +3591,7 @@ class _SalesReportState extends State<SalesReport> {
     // ── Colours
     const headerBg  = PdfColor.fromInt(0xFF1B263B);
     const rowEven   = PdfColor.fromInt(0xFFF4F6FA);
-    const returnBg  = PdfColor.fromInt(0x14FF5252); // red tint — matches UI rowBg
+    const returnBg  = PdfColor.fromInt(0x14FF5252);
     const accent    = PdfColor.fromInt(0xFF415A77);
 
     // ── Helpers
@@ -2505,11 +3719,10 @@ class _SalesReportState extends State<SalesReport> {
               4:  const pw.FixedColumnWidth(36),  // Price
               5:  const pw.FixedColumnWidth(44),  // Total
               6:  const pw.FlexColumnWidth(1.2),  // Txn Mode
-              7:  const pw.FlexColumnWidth(0.8),  // Sales Mode
-              8:  const pw.FlexColumnWidth(1.4),  // Customer
-              9:  const pw.FlexColumnWidth(0.9),  // Branch
-              10: const pw.FlexColumnWidth(0.8),  // Pricing Mode
-              11: const pw.FlexColumnWidth(1.2),  // Staff
+              7:  const pw.FlexColumnWidth(0.9),  // Sales Mode
+              8:  const pw.FlexColumnWidth(1.4),
+              9: const pw.FlexColumnWidth(0.9),  // Pricing Mode
+              10: const pw.FlexColumnWidth(1.2),  // Staff
             },
             children: [
               // Header row
@@ -2524,10 +3737,10 @@ class _SalesReportState extends State<SalesReport> {
                   cell('TOTAL',        header: true, right: true),
                   cell('TXN MODE',     header: true),
                   cell('SALES MODE',   header: true),
-                  cell('CUSTOMER',     header: true),
-                  cell('BRANCH',       header: true),
-                  cell('PRICING MODE', header: true),
                   cell('STAFF',        header: true),
+                  cell('CUSTOMER',     header: true),
+                  cell('PRICING MODE', header: true),
+
                 ],
               ),
 
@@ -2538,17 +3751,11 @@ class _SalesReportState extends State<SalesReport> {
                 final isReturned = t['isReturned'] == true;
                 final returnedTransMode = (t['returnedTransMode'] ?? '').toString();
 
-                // Row background: red tint for returns, alternating for sales
-                final bg = isReturned
-                    ? returnBg
-                    : (i.isEven ? rowEven : PdfColors.white);
-
-                // Label: matches UI exactly
                 final String rowTypeLabel = isReturned
                     ? (returnedTransMode == 'credit' ? 'Credit Return' : 'Cash Return')
                     : 'Sale';
 
-                // Colour: matches UI — orange=credit return, red=cash return, green=sale
+
                 final PdfColor labelColor = isReturned
                     ? (returnedTransMode == 'credit'
                     ? PdfColors.orange
@@ -2579,7 +3786,7 @@ class _SalesReportState extends State<SalesReport> {
                     : '$rowTypeLabel / $transMode';
 
                 return pw.TableRow(
-                  decoration: pw.BoxDecoration(color: bg),
+                  decoration: pw.BoxDecoration(),
                   children: [
                     cell('${i + 1}'),
                     cell(dateStr),
@@ -2590,7 +3797,6 @@ class _SalesReportState extends State<SalesReport> {
                     cell(txnModeDisplay, color: labelColor,  bold: true),
                     cell(salesMode),
                     cell(customer),
-                    cell(branch),
                     cell(pricingMode),
                     cell(staff),
                   ],
@@ -2638,7 +3844,7 @@ class _SalesReportState extends State<SalesReport> {
   }
   Future<void> printTransactionsbr(List<Map<String, dynamic>> filteredList, String itemName, String startDate,String endDate ) async {
     final pdf = pw.Document(title: itemName.trim().isEmpty ? 'Sales Report' : '$itemName Sales Report');
-   final provider = context.read<Datafeed>();
+    final provider = context.read<Datafeed>();
     double _d(dynamic v) {
       if (v == null) return 0.0;
       if (v is double) return v;
@@ -2677,11 +3883,11 @@ class _SalesReportState extends State<SalesReport> {
     final baseFont = await PdfGoogleFonts.openSansRegular();
     final boldFont = await PdfGoogleFonts.openSansBold();
 
-    const headerBg   = PdfColor.fromInt(0xFF1B263B); // dark navy
-    const rowEven    = PdfColor.fromInt(0xFFF4F6FA); // very light grey
+    const headerBg   = PdfColors.white;
+    const rowEven    = PdfColors.white;
     const rowOdd     = PdfColors.white;
-    const totalRowBg = PdfColor.fromInt(0xFF0D1B2A); // darker navy
-    const cashRowBg  = PdfColor.fromInt(0xFF1D3557); // mid navy
+    const totalRowBg = PdfColors.white;
+    const cashRowBg  = PdfColors.white;
     const accent     = PdfColor.fromInt(0xFF415A77); // muted blue
 
     pw.Widget cell(
@@ -2699,7 +3905,7 @@ class _SalesReportState extends State<SalesReport> {
           style: pw.TextStyle(
             font:      (header || bold) ? boldFont : baseFont,
             fontSize:  header ? 8 : 8,
-            color:     header ? PdfColors.white : (color ?? PdfColors.grey800),
+            color:     color ?? PdfColors.grey800,
           ),
         ),
       );
@@ -2726,7 +3932,7 @@ class _SalesReportState extends State<SalesReport> {
             ],
           ),
         );
-     pdf.addPage(
+    pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
         margin:     const pw.EdgeInsets.all(28),
@@ -2756,14 +3962,14 @@ class _SalesReportState extends State<SalesReport> {
                           font: baseFont, fontSize: 11, color: PdfColors.grey600),
                     ),
                     pw.Text(
-                      'Period $startDate \u002D $endDate',
+                      'Period $startDate - $endDate',
                       style: pw.TextStyle(
                           font: baseFont, fontSize: 11, color: PdfColors.grey600),
                     ),
                   ],
                 ),
                 pw.Text('Date${
-                  DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+                    DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
                   style: pw.TextStyle(
                       font: baseFont, fontSize: 9, color: PdfColors.grey500),
                 ),
@@ -2813,13 +4019,13 @@ class _SalesReportState extends State<SalesReport> {
               ...filteredList.asMap().entries.map((entry) {
                 final i    = entry.key;
                 final item = entry.value;
-                final bg   = i.isEven ? rowEven : rowOdd;
+
 
                 final profit = _d(item['profit']);
                 final profitColor = profit < 0 ? PdfColors.red700 : PdfColors.grey800;
 
                 return pw.TableRow(
-                  decoration: pw.BoxDecoration(color: bg),
+                  decoration: pw.BoxDecoration(),
                   children: [
                     cell('${i + 1}'),
                     cell(item['item']?.toString() ?? '-'),
@@ -2887,7 +4093,7 @@ class _SalesReportState extends State<SalesReport> {
 
           pw.SizedBox(height: 24),
 
-           pw.Align(
+          pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Container(
               width: 280,
@@ -2951,5 +4157,472 @@ class _SalesReportState extends State<SalesReport> {
     await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
+
+
+
+  Future<pw.Document> _buildReportPdfDoc({
+    required String title,
+    required String company,
+    required String branchLabel,
+    required String countLabel,
+    required String firstColumn,
+    required DateTime start,
+    required DateTime end,
+    required String? type,
+    required String? category,
+    required List<_BranchRow> rows,
+    required _BranchRow t,
+  }) async {
+    final pdf = pw.Document();
+
+    final regular =
+    pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+    final bold =
+    pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+
+    final nf = NumberFormat('#,##0.00');
+    final dateFmt = DateFormat('dd MMM yyyy');
+    final now = DateTime.now();
+    final period = '${dateFmt.format(start)} - ${dateFmt.format(end)}';
+
+    pw.Widget cell(
+        String text, {
+          bool head = false,
+          bool isBold = false,
+          bool right = false,
+          PdfColor? color,
+        }) {
+      return pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        child: pw.Text(
+          text,
+          textAlign: right ? pw.TextAlign.right : pw.TextAlign.left,
+          style: pw.TextStyle(
+            font: (head || isBold) ? bold : regular,
+            fontSize: head ? 9 : 10,
+            color: color ?? PdfColors.black,
+          ),
+        ),
+      );
+    }
+
+    pw.Widget infoRow(String label, String val, {bool end = false}) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 5),
+        child: pw.Row(
+          mainAxisAlignment:
+          end ? pw.MainAxisAlignment.end : pw.MainAxisAlignment.start,
+          children: [
+            pw.Text('$label:  ', style: pw.TextStyle(font: bold, fontSize: 10)),
+            pw.Text(val, style: pw.TextStyle(font: regular, fontSize: 10)),
+          ],
+        ),
+      );
+    }
+
+    pw.Widget sectionLabel(String text) => pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          font: bold,
+          fontSize: 10,
+          color: PdfColors.grey600,
+          letterSpacing: 1.4,
+        ),
+      ),
+    );
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.portrait,
+        margin: const pw.EdgeInsets.all(30),
+        footer: (ctx) => pw.Column(
+          children: [
+            pw.Divider(thickness: 0.1, color: PdfColors.grey),
+            pw.SizedBox(height: 6),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Generated: ${DateFormat('dd MMM yyyy, hh:mm a').format(now)}',
+                  style: pw.TextStyle(
+                      font: regular, fontSize: 9, color: PdfColors.grey500),
+                ),
+                pw.Text(
+                  'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
+                  style: pw.TextStyle(
+                      font: regular, fontSize: 9, color: PdfColors.grey500),
+                ),
+              ],
+            ),
+          ],
+        ),
+        build: (ctx) => [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    company.toUpperCase(),
+                    style: pw.TextStyle(font: bold, fontSize: 22),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    branchLabel,
+                    style: pw.TextStyle(
+                        font: regular, fontSize: 11, color: PdfColors.grey700),
+                  ),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(title, style: pw.TextStyle(font: bold, fontSize: 18)),
+
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    infoRow('Period', period),
+                    infoRow(countLabel, '${rows.length}'),
+                  ],
+                ),
+              ),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    infoRow('Product Type', type ?? 'All', end: true),
+                    infoRow('Category', category ?? 'All', end: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // pw.SizedBox(height: 1),
+          // sectionLabel('${firstColumn.toUpperCase()} SALES'),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.8),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(26),
+              1: const pw.FlexColumnWidth(3),
+              2: const pw.FlexColumnWidth(1.6),
+              3: const pw.FlexColumnWidth(1.6),
+              4: const pw.FlexColumnWidth(1.6),
+              5: const pw.FlexColumnWidth(1.6),
+              6: const pw.FlexColumnWidth(1.6),
+              7: const pw.FlexColumnWidth(1.6),
+              8: const pw.FlexColumnWidth(2.0),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(),
+                children: [
+                  cell('#', head: true),
+                  cell(firstColumn, head: true),
+                  cell('CASH SALES', head: true, right: true),
+                  cell('CREDIT SALES', head: true, right: true),
+                  cell('TOTAL SALES', head: true, right: true),
+                  cell('RETURNS', head: true, right: true),
+                  cell('DISCOUNT', head: true, right: true),
+                  cell('PROFIT', head: true, right: true),
+                  cell('CASH@HAND', head: true, right: true),
+                ],
+              ),
+              ...rows.asMap().entries.map((e) {
+                final r = e.value;
+                return pw.TableRow(
+                  children: [
+                    cell('${e.key + 1}'),
+                    cell(r.branchName, isBold: true),
+                    cell(nf.format(r.cashSales), right: true),
+                    cell(nf.format(r.credit), right: true),
+                    cell(nf.format(r.totalSales), right: true),
+                    cell(nf.format(r.returns), right: true),
+                    cell(nf.format(r.discount), right: true),
+                    cell(nf.format(r.profit), right: true),
+                    cell(nf.format(r.cashAtHand), right: true, isBold: true),
+                  ],
+                );
+              }),
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(),
+                children: [
+                  cell(''),
+                  cell('GRAND TOTAL', isBold: true),
+                  cell(nf.format(t.cashSales), right: true, isBold: true),
+                  cell(nf.format(t.credit), right: true, isBold: true),
+                  cell(nf.format(t.totalSales), right: true, isBold: true),
+                  cell(nf.format(t.returns), right: true, isBold: true),
+                  cell(nf.format(t.discount), right: true, isBold: true),
+                  cell(nf.format(t.profit), right: true, isBold: true),
+                  cell(nf.format(t.cashAtHand), right: true, isBold: true),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    return pdf;
+  }
+
+
+  Future<void> _printReport({
+    required String title,
+    required String company,
+    required String branchLabel,
+    required String countLabel,
+    required String firstColumn,
+    required DateTime start,
+    required DateTime end,
+    required String? type,
+    required String? category,
+    required List<_BranchRow> rows,
+    required _BranchRow t,
+  }) async {
+    final pdf = await _buildReportPdfDoc(
+      title: title,
+      company: company,
+      branchLabel: branchLabel,
+      countLabel: countLabel,
+      firstColumn: firstColumn,
+      start: start,
+      end: end,
+      type: type,
+      category: category,
+      rows: rows,
+      t: t,
+    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+  }
+
+
+  Future<void> _downloadReportPdf({
+    required String title,
+    required String company,
+    required String branchLabel,
+    required String countLabel,
+    required String firstColumn,
+    required DateTime start,
+    required DateTime end,
+    required String? type,
+    required String? category,
+    required List<_BranchRow> rows,
+    required _BranchRow t,
+  }) async {
+    final pdf = await _buildReportPdfDoc(
+      title: title,
+      company: company,
+      branchLabel: branchLabel,
+      countLabel: countLabel,
+      firstColumn: firstColumn,
+      start: start,
+      end: end,
+      type: type,
+      category: category,
+      rows: rows,
+      t: t,
+    );
+
+    final bytes = await pdf.save();
+    final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final safeTitle = title.replaceAll(' ', '_');
+    final fileName = '${company.replaceAll(' ', '_')}_${safeTitle}_$ts';
+
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'pdf',
+      mimeType: MimeType.pdf,
+    );
+  }
+
+
+  Future<void> _exportReportExcel({
+    required String title,
+    required String company,
+    required String branchLabel,
+    required String countLabel,
+    required String firstColumn,
+    required DateTime start,
+    required DateTime end,
+    required String? type,
+    required String? category,
+    required List<_BranchRow> rows,
+    required _BranchRow t,
+  }) async {
+    final nf = NumberFormat('#,##0.00');
+    final dateFmt = DateFormat('dd MMM yyyy');
+    final period = '${dateFmt.format(start)} - ${dateFmt.format(end)}';
+
+    final excelFile = xls.Excel.createExcel();
+    final sheetName = title.length > 31 ? title.substring(0, 31) : title;
+    final sheet = excelFile[sheetName];
+    excelFile.delete('Sheet1');
+
+    final titleStyle = xls.CellStyle(bold: true, fontSize: 16);
+    final headerStyle = xls.CellStyle(
+      bold: true,
+      backgroundColorHex: xls.ExcelColor.fromHexString('#DDDDDD'),
+    );
+    final boldStyle = xls.CellStyle(bold: true);
+
+    // --- Title block ---
+    sheet.appendRow([xls.TextCellValue(company.toUpperCase())]);
+    sheet
+        .cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+        .cellStyle = titleStyle;
+    sheet.appendRow([xls.TextCellValue(title)]);
+    sheet.appendRow([xls.TextCellValue(branchLabel)]);
+    sheet.appendRow([xls.TextCellValue('Period: $period')]);
+    sheet.appendRow([xls.TextCellValue('$countLabel: ${rows.length}')]);
+    sheet.appendRow([xls.TextCellValue('Product Type: ${type ?? 'All'}')]);
+    sheet.appendRow([xls.TextCellValue('Category: ${category ?? 'All'}')]);
+    sheet.appendRow([]); // spacer
+
+    // --- Headers ---
+    final headers = <String>[
+      '#',
+      firstColumn,
+      'CASH SALES',
+      'CREDIT SALES',
+      'TOTAL SALES',
+      'RETURNS',
+      'DISCOUNT',
+      'PROFIT',
+      'CASH@HAND',
+    ];
+    sheet.appendRow(headers.map((h) => xls.TextCellValue(h)).toList());
+    final headerRowIdx = sheet.maxRows - 1;
+    for (int c = 0; c < headers.length; c++) {
+      sheet
+          .cell(xls.CellIndex.indexByColumnRow(
+          columnIndex: c, rowIndex: headerRowIdx))
+          .cellStyle = headerStyle;
+    }
+
+    // --- Data rows ---
+    for (int i = 0; i < rows.length; i++) {
+      final r = rows[i];
+      sheet.appendRow([
+        xls.IntCellValue(i + 1),
+        xls.TextCellValue(r.branchName),
+        xls.DoubleCellValue(r.cashSales),
+        xls.DoubleCellValue(r.credit),
+        xls.DoubleCellValue(r.totalSales),
+        xls.DoubleCellValue(r.returns),
+        xls.DoubleCellValue(r.discount),
+        xls.DoubleCellValue(r.profit),
+        xls.DoubleCellValue(r.cashAtHand),
+      ]);
+    }
+
+    // --- Grand total row ---
+    sheet.appendRow([
+      xls.TextCellValue(''),
+      xls.TextCellValue('GRAND TOTAL'),
+      xls.DoubleCellValue(t.cashSales),
+      xls.DoubleCellValue(t.credit),
+      xls.DoubleCellValue(t.totalSales),
+      xls.DoubleCellValue(t.returns),
+      xls.DoubleCellValue(t.discount),
+      xls.DoubleCellValue(t.profit),
+      xls.DoubleCellValue(t.cashAtHand),
+    ]);
+    final totalRowIdx = sheet.maxRows - 1;
+    for (int c = 0; c < headers.length; c++) {
+      sheet
+          .cell(xls.CellIndex.indexByColumnRow(
+          columnIndex: c, rowIndex: totalRowIdx))
+          .cellStyle = boldStyle;
+    }
+
+    // --- Save (works on web, Windows, macOS, Linux, Android, iOS) ---
+    final bytes = excelFile.encode();
+    if (bytes == null) {
+      throw Exception('Failed to encode Excel file — no data to export.');
+    }
+
+    final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final safeTitle = title.replaceAll(' ', '_');
+    final fileName = '${company.replaceAll(' ', '_')}_${safeTitle}_$ts';
+
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
+    );
+  }
+
+  Future<void> _printMain(Datafeed value, List<_BranchRow> rows, _BranchRow t) {
+    final now = DateTime.now();
+    return _printReport(
+      title: 'SALES REPORT',
+      company: value.company,
+      branchLabel: _branchLabel(value),
+      countLabel: 'Branches',
+      firstColumn: 'BRANCH',
+      start: selectedDate?.start ?? now,
+      end: selectedDate?.end ?? now,
+      type: _selectedType,
+      category: _selectedCategory,
+      rows: rows,
+      t: t,
+    );
+  }
+
+  Future<void> _downloadMainPdf(Datafeed value, List<_BranchRow> rows, _BranchRow t) {
+    final now = DateTime.now();
+    return _downloadReportPdf(
+      title: 'SALES REPORT',
+      company: value.company,
+      branchLabel: _branchLabel(value),
+      countLabel: 'Branches',
+      firstColumn: 'BRANCH',
+      start: selectedDate?.start ?? now,
+      end: selectedDate?.end ?? now,
+      type: _selectedType,
+      category: _selectedCategory,
+      rows: rows,
+      t: t,
+    );
+  }
+
+  Future<void> _downloadMainExcel(Datafeed value, List<_BranchRow> rows, _BranchRow t) {
+    final now = DateTime.now();
+    return _exportReportExcel(
+      title: 'SALES REPORT',
+      company: value.company,
+      branchLabel: _branchLabel(value),
+      countLabel: 'Branches',
+      firstColumn: 'BRANCH',
+      start: selectedDate?.start ?? now,
+      end: selectedDate?.end ?? now,
+      type: _selectedType,
+      category: _selectedCategory,
+      rows: rows,
+      t: t,
+    );
+  }
+
+
+
+
 }
+
 
