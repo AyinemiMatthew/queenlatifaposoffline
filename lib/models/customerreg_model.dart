@@ -6,6 +6,7 @@ class CustomerRegModel {
   String branchid;
   String? amountpaid;
   String name;
+  String? namelower;
   String contact;
   String customertype;
   String? creditlimit;
@@ -18,13 +19,14 @@ class CustomerRegModel {
   String? deletedby;
   DateTime? deletedat;
   String staff;
-  String? creditBalance;
+  String creditBalance;
 
   CustomerRegModel({
     required this.id,
     required this.branchname,
     required this.branchid,
     required this.name,
+     this.namelower,
     required this.contact,
     required this.customertype,
     this.creditlimit,
@@ -37,7 +39,7 @@ class CustomerRegModel {
     this.deletedby,
     this.deletedat,
     required this.staff,
-    this.creditBalance,
+    this.creditBalance="0",
     this.amountpaid='0',
   });
 
@@ -48,6 +50,7 @@ class CustomerRegModel {
       'branchid': branchid,
       'id': id,
       'name': name,
+      'namelower': name.toLowerCase(),
       'contact': contact,
       'customertype': customertype,
       'creditlimit': creditlimit,
@@ -85,6 +88,7 @@ class CustomerRegModel {
       branchname: parseString(json['branchname']) ?? '',
       branchid: parseString(json['branchid']) ?? '',
       name: parseString(json['name']) ?? '',
+      namelower: parseString(json['namelower']) ?? '',
       contact: parseString(json['contact']) ?? '',
       customertype: parseString(json['customertype']) ?? '',
       creditlimit: parseString(json['creditlimit']),
@@ -97,7 +101,7 @@ class CustomerRegModel {
       deletedby: parseString(json['deletedby']),
       deletedat: parseDate(json['deletedat']),
       staff: parseString(json['staff']) ?? '',
-      creditBalance: parseString(json['creditBalance']),
+      creditBalance: parseString(json['creditBalance'])?? '',
       amountpaid:  parseString(json['amountpaid']),
     );
   }

@@ -22,53 +22,105 @@ class ReceivepaymentsPage extends StatefulWidget {
 class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
   final TextEditingController _searchController = TextEditingController();
   Debtor? _selectedDebtor;
+  List<Debtor> _searchResults = [];
   bool _isSearching = false;
-
+  Timer? _searchDebounce;
+  bool _ignoreSearchListener = false;
   @override
   void initState() {
     super.initState();
+
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  _performSearch(CashierProvider provider) async {
+  void _onSearchChanged() {
+    if (_ignoreSearchListener) return;
+
+    _searchDebounce?.cancel();
+
     final query = _searchController.text.trim();
 
-    setState(() {
-      _isSearching = true;
-    });
 
-    if (query.isEmpty) {
+    if (_selectedDebtor != null) {
       setState(() {
         _selectedDebtor = null;
-        _isSearching = false;
       });
+    }
+
+    if (query.length < 3) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
       return;
     }
 
-    // Search through debtors
-    Debtor? foundDebtor;
-    try {
-       final results = await provider.loadcustomers(query);
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 400),
+          () {
+        if (!mounted) return;
 
-        foundDebtor = results.isNotEmpty ? results.first : null;
+        final provider = Provider.of<CashierProvider>(
+          context,
+          listen: false,
+        );
 
-       print('Found debtor: ${foundDebtor?.name}');
-
-    } catch (e) {
-      foundDebtor = null;
-    }
-
-    setState(() {
-      _selectedDebtor = foundDebtor;
-      _isSearching = false;
-    });
+        _performSearch(provider, query);
+      },
+    );
   }
 
+  Future<void> _performSearch(
+      CashierProvider provider,
+      String query,
+      ) async {
+    if (query.trim().length < 3) return;
+
+    if (!mounted) return;
+
+    setState(() {
+      _isSearching = true;
+      _searchResults = [];
+    });
+
+    try {
+      final results = await provider.loadcustomers(query.trim(),);
+
+      if (!mounted) return;
+
+      final firstFive = results.take(5).toList();
+
+      setState(() {
+        _searchResults = firstFive;
+        _isSearching = false;
+      });
+
+      debugPrint(
+        'Found ${_searchResults.length} customers for "$query"',
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+
+      debugPrint(
+        'Customer search failed: $e',
+      );
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Consumer<CashierProvider>(
@@ -85,10 +137,19 @@ class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: () async {
+                onPressed: () {
+                  _searchDebounce?.cancel();
+
+                  _ignoreSearchListener = true;
+
+                  _searchController.clear();
+
+                  _ignoreSearchListener = false;
+
                   setState(() {
                     _selectedDebtor = null;
-                    _searchController.clear();
+                    _searchResults = [];
+                    _isSearching = false;
                   });
                 },
               ),
@@ -103,69 +164,73 @@ class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
                   const SizedBox(height: 12),
 
                   // Search Bar with Search Button
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            width: 200,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5F),
-                              borderRadius: BorderRadius.circular(12),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Container(
+                        width: 400,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E3A5F),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(
+                            color: Colors.white,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search customer by name',
+                            hintStyle: TextStyle(
+                              color: Colors.grey.shade400,
                             ),
-                            child: TextField(
-                              controller: _searchController,
-                              style: const TextStyle(color: Colors.white),
-                              onSubmitted: (value) => _performSearch(provider),
-                              decoration: InputDecoration(
-                                hintText: 'Search by phone number',
-                                hintStyle: TextStyle(color: Colors.grey.shade400),
-                                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                                filled: true,
-                                fillColor: const Color(0xFF22304A),
-                                suffixIcon: _searchController.text.isNotEmpty
-                                    ? IconButton(
-                                  icon: const Icon(Icons.clear, color: Colors.grey),
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                      _selectedDebtor = null;
-                                    });
-                                  },
-                                )
-                                    : null,
+                            prefixIcon: const Icon(
+                              Icons.person_search,
+                              color: Colors.grey,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFF22304A),
+
+                            suffixIcon: _isSearching
+                                ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor:
+                                  AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
                               ),
-                            ),
+                            )
+                                : _searchController.text.isNotEmpty
+                                ? IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                _searchDebounce?.cancel();
+
+                                _searchController.clear();
+
+                                setState(() {
+                                  _selectedDebtor = null;
+                                  _searchResults = [];
+                                  _isSearching = false;
+                                });
+                              },
+                            )
+                                : null,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _isSearching ? null : () => _performSearch(provider),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue.shade700,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isSearching
-                              ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                              : const Text(
-                            'Search',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -175,6 +240,8 @@ class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
                   Expanded(
                     child: _selectedDebtor != null
                         ? _buildSingleDebtorCard(provider)
+                        : _searchResults.isNotEmpty
+                        ? _buildSearchResults(provider)
                         : _buildEmptyState(provider),
                   ),
                 ],
@@ -230,82 +297,22 @@ class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
         onViewDetails: () {
           _showDebtorDetails(context, debtor);
         },
-        onBack: () {
-          setState(() {
-            _selectedDebtor = null;
+          onBack: () {
+            _searchDebounce?.cancel();
+
+            _ignoreSearchListener = true;
+
             _searchController.clear();
-          });
-        },
-      ),
-    );
-  }
 
-  Widget _buildSummaryCard(String title, String amount, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1E3A5F),
-            const Color(0xFF0D2A4A),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: color),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            amount,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            _ignoreSearchListener = false;
 
-  Widget _buildFilterChip(String label, String value, CashierProvider provider) {
-    return FilterChip(
-      label: Text(label),
-      selected: provider.statusFilter == value,
-      onSelected: (selected) {
-        provider.setStatusFilter(value);
-        // Clear selected debtor when filter changes
-        setState(() {
-          _selectedDebtor = null;
-          _searchController.clear();
-        });
-      },
-      backgroundColor: const Color(0xFF1E3A5F),
-      selectedColor: Colors.blue.shade700,
-      labelStyle: TextStyle(
-        color: provider.statusFilter == value ? Colors.white : Colors.grey.shade300,
+            setState(() {
+              _selectedDebtor = null;
+              _searchResults = [];
+              _isSearching = false;
+            });
+          },
       ),
-      checkmarkColor: Colors.white,
     );
   }
 
@@ -376,6 +383,107 @@ class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
           });
         },
       ),
+    );
+  }
+  Widget _buildSearchResults(CashierProvider provider) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final debtor = _searchResults[index];
+
+        return Center(
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width * 0.90
+                : MediaQuery.of(context).size.width * 0.35,
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              elevation: 3,
+              color: const Color(0xFF1E3A5F),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  setState(() {
+                    _selectedDebtor = debtor;
+                    _searchResults = [];
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: Colors.blue.shade700,
+                        child: Text(
+                          debtor.name.isNotEmpty
+                              ? debtor.name[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width < 600
+                            ? 150
+                            : 250,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              debtor.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+
+                            const SizedBox(height: 5),
+
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.phone,
+                                  size: 14,
+                                  color: Colors.grey.shade400,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    debtor.contact,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );      },
     );
   }
 }
@@ -514,7 +622,13 @@ class DebtorDetailCard extends StatelessWidget {
                     color: Colors.grey.shade700,
                   ),
                   Expanded(
-                    child: _buildDetailColumn('Balance', 'GHS ${NumberFormat('#,##0.00').format(debtor.balance)}', Colors.orange.shade400),
+                    child: _buildDetailColumn(
+                      'Balance',
+                      debtor.balance < 0
+                          ? 'GHS (${NumberFormat('#,##0.00').format(debtor.balance.abs())})'
+                          : 'GHS ${NumberFormat('#,##0.00').format(debtor.balance)}',
+                      Colors.orange.shade400,
+                    ),
                   ),
                 ],
               ),
@@ -1267,9 +1381,10 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
         builder: (context, provider, _) {
           String invoiceId=widget.debtor.id;
           String? selectedNetwork = provider.selectedNetworks[invoiceId];
-          paymentMethod = provider.selectedPaymentMethods[invoiceId] ?? 'cash';
+          paymentMethod = provider.selectedPaymentMethods[invoiceId] ?? 'select payment method';
           return Container(
             height: MediaQuery.of(context).size.height * 0.85,
+            width: MediaQuery.of(context).size.height * 0.65,
             decoration: const BoxDecoration(
               color: Color(0xFF0A1A2F),
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1288,448 +1403,481 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                 ),
                 const SizedBox(height: 20),
                 // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade800,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.payment, color: Colors.white),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Receive Payment',
-                              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            Text(
-                              'Debtor: ${widget.debtor.name}',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Balance info
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade900.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange.shade700),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Current Balance:',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                      Text(
-                        'GHS ${NumberFormat('#,##0.00').format(widget.debtor.balance)}',
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Form
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 500,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
                         children: [
-                          // Amount
-                          const Text('Amount to Pay *', style: TextStyle(color: Colors.grey)),
-                          TextFormField(
-                            controller: _amountController,
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                            ],
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
-                                prefixText: 'GHS ',
-                                prefixStyle: TextStyle(color: Colors.white),
-                                hintText: '0.00',
-                                hintStyle: TextStyle(color: Colors.white),
-                                filled: true,
-                                fillColor: const Color(0xFF1E3A5F)
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter amount';
-                              }
-                              if (double.tryParse(value) == null) {
-                                return 'Invalid amount';
-                              }
-                              if (double.parse(value) <= 0) {
-                                return 'Amount must be greater than 0';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 5),
-                          // Payment Method
-                          const Text('Payment Method *', style: TextStyle(color: Colors.grey,fontSize: 12)),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5F),
+                              color: Colors.blue.shade800,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _paymentMethods.contains(paymentMethod) ? paymentMethod : null,
-                                dropdownColor: const Color(0xFF1E3A5F),
-                                style: const TextStyle(color: Colors.white),
-                                isExpanded: true,
-                                items: _paymentMethods.map((String method) {
-                                  return DropdownMenuItem<String>(
-                                    value: method,
-                                    child: Row(
-                                      children: [
-                                        Icon(_getPaymentIcon(method), size: 18, color: Colors.grey),
-                                        const SizedBox(width: 8),
-                                        Text(method),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (String? value) {
-                                  if (value != null && value.isNotEmpty) {
-                                    final methodKey = value.toLowerCase() .replaceAll('_', ' ')
-                                        .trim();
-
-                                    setState(() {
-                                      paymentMethod = methodKey;
-                                      _selectedAccount = null;
-                                      provider.selectedPaymentMethods[invoiceId] = methodKey;
-                                      if (value.toLowerCase() == 'momo') {
-                                        provider.selectedNetworks[invoiceId] = 'mtn';
-                                      } else {
-                                        provider.selectedNetworks[invoiceId] = null;
-                                      }
-                                      if (methodKey != 'momo') {
-                                        provider.selectedNetworks[invoiceId] = null;
-                                      }
-
-                                      if (methodKey != 'card') {
-                                        provider.selectedCardTypes[invoiceId] = null;
-                                      }
-
-
-                                      if (value != null && value.isNotEmpty) {
-                                        print('Selected payment method: $methodKey');
-                                        _linkedAccounts = provider.linkedAccounts[methodKey]?.toList() ?? [];
-                                        // _linkedAccounts = provider.linkedAccounts[value]!.toList()?? [];
-                                      }
-                                    },
-
-                                    );
-                                  }
-                                },
-                              ),
+                            child: const Icon(
+                              Icons.payment,
+                              color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 5),
-                          // "hubtel" or "merchant"
 
-                          if (paymentMethod.toLowerCase() == 'momo') ...[
-                            // Select Network
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: DropdownButtonFormField<String>(
-                                value: selectedNetwork,
-                                dropdownColor: const Color(0xFF1E3A5A),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Select Network',
-                                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                                  prefixIcon: const Icon(Icons.sim_card, color: Colors.white70),
-                                  filled: true,
-                                  fillColor: const Color(0xFF1E3A5A),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                                items: momoNetworks.map((network) {
-                                  return DropdownMenuItem(
-                                    value: network.toLowerCase(),
-                                    child: Row(
-                                      children: [
-                                        Icon(_getNetworkIcon(network),
-                                            color: _getNetworkColor(network), size: 20),
-                                        const SizedBox(width: 8),
-                                        Text(network, style: const TextStyle(color: Colors.white)),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      provider.selectedNetworks[invoiceId] = value;
-                                    });
-                                  }
-                                },
-                                validator: (value) {
-                                  if (paymentMethod.toLowerCase() == 'momo' && value == null) {
-                                    return 'Please select a network';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
+                          const SizedBox(width: 12),
 
-                            const SizedBox(height: 5),
-
-                            // ✅ New dropdown for Hubtel vs Merchant
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: DropdownButtonFormField<String>(
-                                value: momoType,
-                                dropdownColor: const Color(0xFF1E3A5A),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Payment Type',
-                                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                                  prefixIcon: const Icon(Icons.account_balance_wallet, color: Colors.white70),
-                                  filled: true,
-                                  fillColor: const Color(0xFF1E3A5A),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: 'hubtel', child: Text('Hubtel')),
-                                  DropdownMenuItem(value: 'merchant', child: Text('Merchant')),
-                                ],
-                                onChanged: (value) {
-                                  setState(() {
-                                    momoType = value;
-                                  });
-                                },
-                                validator: (value) {
-                                  if (paymentMethod.toLowerCase() == 'momo' && value == null) {
-                                    return 'Please select payment type';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-
-// ✅ Conditionally show transaction fields only if Merchant is selected
-                          if (paymentMethod.toLowerCase() == 'momo' && momoType == 'merchant') ...[
-                            _buildMomoTransactionFields(),
-                          ],
-                          if (paymentMethod.toLowerCase() == 'momo' && momoType == 'hubtel') ...[
-                            const SizedBox(height: 5),
-                            TextFormField(
-                              controller: _contactController,
-                              style: TextStyle(color: Colors.white70),
-                              decoration:_inputDecoration(label: "Phone Number",
-                                prefix: Icons.phone,
-                                hint: 'Enter contact number',
-                              ),
-                              keyboardType: TextInputType.phone,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'[0-9+]'),
-                                ),
-                                LengthLimitingTextInputFormatter(13),
-                              ],
-                              validator: (v) {
-                                if (v == null || v.isEmpty) return 'Required';
-                                // Remove spaces and check format
-                                String cleaned = v.replaceAll(' ', '');
-                                // Ghana phone: 0XXXXXXXXX (10 digits) or +233XXXXXXXXX (13 chars)
-                                if (cleaned.startsWith('+233')) {
-                                  if (cleaned.length != 13 ||
-                                      !RegExp(r'^\+233\d{9}$').hasMatch(cleaned)) {
-                                    return 'Invalid format. Use +233XXXXXXXXX';
-                                  }
-                                } else if (cleaned.startsWith('0')) {
-                                  if (cleaned.length != 10 ||
-                                      !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
-                                    return 'Invalid format. Use 0XXXXXXXXX';
-                                  }
-                                } else {
-                                  return 'Phone must start with 0 or +233';
-                                }
-                                return null;
-                              },
-                            ),
-
-                          ],
-
-                          if (paymentMethod.toLowerCase() == 'bank_transfer'|| paymentMethod.toLowerCase() == 'cheque') ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: TextFormField(
-                                controller: referenceController,
-                                style: const TextStyle(color: Colors.white),
-                                keyboardType: TextInputType.text,
-                                decoration: InputDecoration(
-                                  labelText: 'Reference Number',
-                                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                                  hintText: 'Enter Reference Number',
-                                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                                  prefixIcon: const Icon(Icons.receipt, color: Colors.white70),
-                                  filled: true,
-                                  fillColor: const Color(0xFF1E3A5A),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                ),
-                                validator: (value) {
-                                  if (paymentMethod.toLowerCase() == 'cheque' && (value == null || value.isEmpty)) {
-                                    return 'Please enter reference number';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-
-                          ],
-                          const SizedBox(height: 5),
-                          _buildLinkedAccountDropdown(),
-                          const SizedBox(height: 5),
-                          // Date
-                          const Text('Payment Date *', style: TextStyle(color: Colors.grey)),
-                          InkWell(
-                            onTap: () async {
-                              DateTime? picked = await showDatePicker(
-                                context: context,
-                                initialDate: _selectedDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime.now(),
-                                builder: (context, child) {
-                                  return Theme(
-                                    data: ThemeData.dark().copyWith(
-                                      colorScheme: const ColorScheme.dark(primary: Colors.blue),
-                                    ),
-                                    child: child!,
-                                  );
-                                },
-                              );
-                              if (picked != null) {
-                                setState(() {
-                                  _selectedDate = picked;
-                                });
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5F),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    DateFormat('MMM dd, yyyy').format(_selectedDate),
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                  const Icon(Icons.calendar_today, color: Colors.grey, size: 20),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-
-                          // Note/Reference
-                          const Text('Narration', style: TextStyle(color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _referenceController,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
-                              hintText: 'Invoice number, description, etc.',
-                              hintStyle: TextStyle(color: Colors.grey),
-                              filled: true,
-                              fillColor: const Color(0xFF1E3A5F),
-                            ),
-                            maxLines: 3,
-                          ),
-                          const SizedBox(height: 15),
-
-                          // Submit Button
-                          Center(
-                            child: SizedBox(
-                              width: 200,
-                              child: ElevatedButton(
-                                onPressed: isLoading ? null : _submitPayment,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade700,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: isLoading
-                                    ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                                    : const Text(
-                                  'Record Payment',
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Receive Payment',
                                   style: TextStyle(
+                                    fontSize: 14,
+
                                     color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              ),
+
+                                Text(
+                                  'Customer: ${widget.debtor.name}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 20),                  ],
+                        ],
                       ),
                     ),
                   ),
                 ),
-              ],
+
+                Flexible(
+                    child: Center(
+                      child: ConstrainedBox(constraints:
+                      const BoxConstraints(maxWidth: 500, ),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container( margin: const EdgeInsets.symmetric(vertical: 4, ),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    //color: Colors.orange.shade900.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all( color: Colors.white, ), ),
+                                  child: Row( mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text( 'Current Balance:', style: TextStyle( color: Colors.white, fontSize: 14, ), ),
+                                      Flexible(
+                                        child: Text(
+                                          widget.debtor.balance < 0
+                                              ? 'GHS (${NumberFormat('#,##0.00').format(widget.debtor.balance.abs())})'
+                                              : 'GHS ${NumberFormat('#,##0.00').format(widget.debtor.balance)}',
+                                          textAlign: TextAlign.end,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ], ), ),
+                                const SizedBox(height: 12),
+                                // Amount
+                                TextFormField(
+                                  controller: _amountController,
+                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                                  ],
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: const InputDecoration(
+                                      labelText: 'Amount to pay',
+                                      labelStyle: const TextStyle(color: Colors.white70),
+                                      prefixText: 'GHS ',
+                                      prefixStyle: TextStyle(color: Colors.white),
+                                      hintText: '0.00',
+                                      hintStyle: TextStyle(color: Colors.white),
+                                      filled: true,
+                                      fillColor: const Color(0xFF1E3A5F)
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter amount';
+                                    }
+                                    if (double.tryParse(value) == null) {
+                                      return 'Invalid amount';
+                                    }
+                                    if (double.parse(value) <= 0) {
+                                      return 'Amount must be greater than 0';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height:12),
+                                // Payment Method
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E3A5F),
+                                    borderRadius: BorderRadius.circular(12),
+
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: _paymentMethods.contains(paymentMethod) ? paymentMethod : null,
+                                      hint: const Text(
+                                        'Select payment method',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      dropdownColor: const Color(0xFF1E3A5F),
+                                      style: const TextStyle(color: Colors.white),
+                                      isExpanded: true,
+                                      items: _paymentMethods.map((String method) {
+                                        return DropdownMenuItem<String>(
+                                          value: method,
+                                          child: Row(
+                                            children: [
+                                              Icon(_getPaymentIcon(method), size: 18, color: Colors.grey),
+                                              const SizedBox(width: 8),
+                                              Text(method),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (String? value) {
+                                        if (value != null && value.isNotEmpty) {
+                                          final methodKey = value.toLowerCase() .replaceAll('_', ' ')
+                                              .trim();
+
+                                          setState(() {
+                                            paymentMethod = methodKey;
+                                            _selectedAccount = null;
+                                            provider.selectedPaymentMethods[invoiceId] = methodKey;
+                                            if (value.toLowerCase() == 'momo') {
+                                              provider.selectedNetworks[invoiceId] = 'mtn';
+                                            } else {
+                                              provider.selectedNetworks[invoiceId] = null;
+                                            }
+                                            if (methodKey != 'momo') {
+                                              provider.selectedNetworks[invoiceId] = null;
+                                            }
+
+                                            if (methodKey != 'card') {
+                                              provider.selectedCardTypes[invoiceId] = null;
+                                            }
+
+
+                                            if (value != null && value.isNotEmpty) {
+                                              print('Selected payment method: $methodKey');
+                                              _linkedAccounts = provider.linkedAccounts[methodKey]?.toList() ?? [];
+                                            }
+                                          },
+
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // "hubtel" or "merchant"
+
+                                if (paymentMethod.toLowerCase() == 'momo') ...[
+                                  // Select Network
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E3A5F),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: DropdownButtonFormField<String>(
+                                      value: selectedNetwork,
+                                      dropdownColor: const Color(0xFF1E3A5A),
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        labelText: 'Select Network',
+                                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                        prefixIcon: const Icon(Icons.sim_card, color: Colors.white70),
+                                        filled: true,
+                                        fillColor: const Color(0xFF1E3A5A),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                      items: momoNetworks.map((network) {
+                                        return DropdownMenuItem(
+                                          value: network.toLowerCase(),
+                                          child: Row(
+                                            children: [
+                                              Icon(_getNetworkIcon(network),
+                                                  color: _getNetworkColor(network), size: 20),
+                                              const SizedBox(width: 8),
+                                              Text(network, style: const TextStyle(color: Colors.white)),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          setState(() {
+                                            provider.selectedNetworks[invoiceId] = value;
+                                          });
+                                        }
+                                      },
+                                      validator: (value) {
+                                        if (paymentMethod.toLowerCase() == 'momo' && value == null) {
+                                          return 'Please select a network';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  // New dropdown for Hubtel vs Merchant
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E3A5F),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: DropdownButtonFormField<String>(
+                                      value: momoType,
+                                      dropdownColor: const Color(0xFF1E3A5A),
+                                      style: const TextStyle(color: Colors.white),
+                                      decoration: InputDecoration(
+                                        labelText: 'Payment Type',
+                                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                        prefixIcon: const Icon(Icons.account_balance_wallet, color: Colors.white70),
+                                        filled: true,
+                                        fillColor: const Color(0xFF1E3A5A),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'hubtel', child: Text('Hubtel')),
+                                        DropdownMenuItem(value: 'merchant', child: Text('Merchant')),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          momoType = value;
+                                        });
+                                      },
+                                      validator: (value) {
+                                        if (paymentMethod.toLowerCase() == 'momo' && value == null) {
+                                          return 'Please select payment type';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+
+                                if (paymentMethod.toLowerCase() == 'momo' && momoType == 'merchant') ...[
+                                  _buildMomoTransactionFields(),
+                                  const SizedBox(height: 12),
+
+                                ],
+                                if (paymentMethod.toLowerCase() == 'momo' && momoType == 'hubtel') ...[
+                                  TextFormField(
+                                    controller: _contactController,
+                                    style: TextStyle(color: Colors.white70),
+                                    decoration:_inputDecoration(label: "Phone Number",
+                                      prefix: Icons.phone,
+                                      hint: 'Enter contact number',
+                                    ),
+                                    keyboardType: TextInputType.phone,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9+]'),
+                                      ),
+                                      LengthLimitingTextInputFormatter(13),
+                                    ],
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) return 'Required';
+                                      // Remove spaces and check format
+                                      String cleaned = v.replaceAll(' ', '');
+                                      // Ghana phone: 0XXXXXXXXX (10 digits) or +233XXXXXXXXX (13 chars)
+                                      if (cleaned.startsWith('+233')) {
+                                        if (cleaned.length != 13 ||
+                                            !RegExp(r'^\+233\d{9}$').hasMatch(cleaned)) {
+                                          return 'Invalid format. Use +233XXXXXXXXX';
+                                        }
+                                      } else if (cleaned.startsWith('0')) {
+                                        if (cleaned.length != 10 ||
+                                            !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
+                                          return 'Invalid format. Use 0XXXXXXXXX';
+                                        }
+                                      } else {
+                                        return 'Phone must start with 0 or +233';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                ],
+
+                                if (paymentMethod.toLowerCase() == 'bank_transfer'|| paymentMethod.toLowerCase() == 'cheque') ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E3A5F),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: TextFormField(
+                                      controller: referenceController,
+                                      style: const TextStyle(color: Colors.white),
+                                      keyboardType: TextInputType.text,
+                                      decoration: InputDecoration(
+                                        labelText: 'Reference Number',
+                                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                        hintText: 'Enter Reference Number',
+                                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                                        prefixIcon: const Icon(Icons.receipt, color: Colors.white70),
+                                        filled: true,
+                                        fillColor: const Color(0xFF1E3A5A),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                      validator: (value) {
+                                        if (paymentMethod.toLowerCase() == 'cheque' && (value == null || value.isEmpty)) {
+                                          return 'Please enter reference number';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                ],
+                                _buildLinkedAccountDropdown(),
+                                const SizedBox(height: 12),
+                                InkWell(
+                                  onTap: () async {
+                                    DateTime? picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _selectedDate,
+                                      firstDate: DateTime(2000),
+                                      lastDate: DateTime.now(),
+                                      builder: (context, child) {
+                                        return Theme(
+                                          data: ThemeData.dark().copyWith(
+                                            colorScheme: const ColorScheme.dark(primary: Colors.blue),
+                                          ),
+                                          child: child!,
+                                        );
+                                      },
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        _selectedDate = picked;
+                                      });
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1E3A5F),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          DateFormat('MMM dd, yyyy').format(_selectedDate),
+                                          style: const TextStyle(color: Colors.white),
+                                        ),
+                                        const Icon(Icons.calendar_today, color: Colors.grey, size: 20),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Note/Reference
+                                // const Text('Narration', style: TextStyle(color: Colors.grey,fontSize: 12)),
+
+                                TextFormField(
+                                  controller: _referenceController,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Narration',
+                                    labelStyle: const TextStyle(color: Colors.white70),
+                                    hintText: 'Invoice number, description, etc.',
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                    filled: true,
+                                    fillColor: const Color(0xFF1E3A5F),
+                                  ),
+                                  maxLines: 2,
+                                ),
+                                const SizedBox(height: 15),
+
+                                // Submit Button
+                                Center(
+                                  child: SizedBox(
+                                    width: 200,
+                                    child: ElevatedButton(
+                                      onPressed: isLoading ? null : _submitPayment,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green.shade700,
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      child: isLoading
+                                          ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                          : const Text(
+                                        'Record Payment',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),                  ],
+                            ),
+                          ),
+                        ),
+                      ),)
+                )],
             ),
           );
+
+
         });
   }
   Widget _buildLinkedAccountDropdown() {
@@ -2034,7 +2182,14 @@ class DebtorDetailsDialog extends StatelessWidget {
                         const Divider(color: Colors.grey),
                         _financialRow('Amount Paid', 'GHS ${NumberFormat('#,##0.00').format(debtor.amountpaid)}', Colors.white),
                         const Divider(color: Colors.grey),
-                        _financialRow('Balance', 'GHS ${NumberFormat('#,##0.00').format(debtor.balance)}', Colors.orange, bold: true),
+                        _financialRow(
+                          'Balance',
+                          debtor.balance < 0
+                              ? 'GHS (${NumberFormat('#,##0.00').format(debtor.balance.abs())})'
+                              : 'GHS ${NumberFormat('#,##0.00').format(debtor.balance)}',
+                          Colors.orange,
+                          bold: true,
+                        ),
                       ],
                     ),
                   ),
@@ -2411,6 +2566,9 @@ class DebtorDetailsDialog extends StatelessWidget {
               ),
               _buildSummaryCard(
                 "Balance",
+                  currentBalance< 0
+                      ? "GHS (${currentBalance.abs().toStringAsFixed(2)})"
+                      :
                 "GHS ${currentBalance.toStringAsFixed(2)}",
                 currentBalance > 0 ? PdfColors.orange700 : PdfColors.green700,
               ),
@@ -2631,145 +2789,3 @@ class DebtorDetailsDialog extends StatelessWidget {
 
 }
 
-class AddDebtorDialog extends StatefulWidget {
-  final Function(Debtor) onDebtorAdded;
-
-  const AddDebtorDialog({super.key, required this.onDebtorAdded});
-
-  @override
-  State<AddDebtorDialog> createState() => _AddDebtorDialogState();
-}
-
-class _AddDebtorDialogState extends State<AddDebtorDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _addressController = TextEditingController();
-  final _debtController = TextEditingController();
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    _addressController.dispose();
-    _debtController.dispose();
-    super.dispose();
-  }
-
-  void _submitDebtor() {
-    if (_formKey.currentState!.validate()) {
-      // Debtor newDebtor = Debtor(
-      //   id: 'DBT${DateTime.now().millisecondsSinceEpoch}',
-      //   name: _nameController.text.trim(),
-      //   contact: _phoneController.text.trim(),
-      //   branchId: _emailController.text.trim(),
-      //   branchName: _addressController.text.trim(),
-      //   creditBalance: double.parse(_debtController.text),
-      //   payments: [],
-      //   createdAt: DateTime.now(), companyId: '', companyName: '', customerType: '', paymentDuration: '', staff: '', creditLimit: '', amountpaid: null,
-      // );
-
-      // widget.onDebtorAdded(newDebtor);
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFF1E3A5F),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text(
-        'Add New Debtor',
-        style: TextStyle(color: Colors.white),
-      ),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Full Name *',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  hintText: 'Enter debtor\'s full name',
-                ),
-                validator: (value) => value?.isEmpty ?? true ? 'Please enter name' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number *',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  hintText: 'Enter phone number',
-                ),
-                validator: (value) => value?.isEmpty ?? true ? 'Please enter phone number' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  hintText: 'Enter email address',
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _addressController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Address',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  hintText: 'Enter physical address',
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _debtController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Total Debt Amount *',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  prefixText: 'GHS ',
-                  hintText: '0.00',
-                ),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                validator: (value) {
-                  if (value?.isEmpty ?? true) return 'Please enter amount';
-                  if (double.tryParse(value!) == null) return 'Invalid amount';
-                  if (double.parse(value) <= 0) return 'Amount must be greater than 0';
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          onPressed: _submitDebtor,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade700,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: const Text('Add Debtor'),
-        ),
-      ],
-    );
-  }
-}
