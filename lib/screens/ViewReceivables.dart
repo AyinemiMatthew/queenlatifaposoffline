@@ -674,6 +674,10 @@ class _EditPaymentFormDialogState extends State<EditPaymentFormDialog> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF1E3A5F),
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 0.5,
+                              ),
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
@@ -728,12 +732,18 @@ class _EditPaymentFormDialogState extends State<EditPaymentFormDialog> {
                             ),
                           ),
                           const SizedBox(height: 12),
+
+
                           if (paymentMethod.toLowerCase() == 'momo') ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E3A5F),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 0.5,
+                                ),
                               ),
                               child: DropdownButtonFormField<String>(
                                 value: selectedNetwork,
@@ -786,6 +796,10 @@ class _EditPaymentFormDialogState extends State<EditPaymentFormDialog> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E3A5F),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 0.5,
+                                ),
                               ),
                               child:TextFormField(
                                 controller: accountNumberController,
@@ -820,12 +834,17 @@ class _EditPaymentFormDialogState extends State<EditPaymentFormDialog> {
                             const SizedBox(height: 12),
 
                           ],
+
                           if (paymentMethod.toLowerCase() == 'bank_transfer' || paymentMethod.toLowerCase() == 'cheque') ...[
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E3A5F),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 0.5,
+                                ),
                               ),
                               child: TextFormField(
                                 controller: referenceController,
@@ -885,6 +904,10 @@ class _EditPaymentFormDialogState extends State<EditPaymentFormDialog> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E3A5F),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 0.5,
+                                ),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -901,11 +924,12 @@ class _EditPaymentFormDialogState extends State<EditPaymentFormDialog> {
                           const SizedBox(height: 12),
 
                           // Note/Reference
-                          const Text('Narration', style: TextStyle(color: Colors.grey)),
                           TextFormField(
                             controller: _referenceController,
                             style: const TextStyle(color: Colors.white),
                             decoration: const InputDecoration(
+                              labelText: 'Narration',
+                              labelStyle: TextStyle(color: Colors.white70),
                               hintText: 'Invoice number, description, etc.',
                               hintStyle: TextStyle(color: Colors.grey),
                               filled: true,

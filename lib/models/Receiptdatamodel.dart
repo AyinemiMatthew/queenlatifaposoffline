@@ -5,6 +5,7 @@ class ReceiptItem {
   final double price;
   final String mode;
   final bool isService;
+  final String? branch;
   ReceiptItem(
        {
         required this.name,
@@ -12,6 +13,7 @@ class ReceiptItem {
         required this.price,
         required this.mode,
         this.isService = false,
+         this.branch,
       }
    );
 }
@@ -23,6 +25,7 @@ class ReceiptData {
   final String Suppliertin;
   final String? transactionId;
   final String? branch;
+  final String? branchType;
   final String? address;
   final String Customertin;
   final String customername;
@@ -71,6 +74,7 @@ class ReceiptData {
     required this.Suppliertin,
     required this.receiptName,
      this.branch,
+     this.branchType,
     this.address,
     this.transactionId,
   });

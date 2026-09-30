@@ -11,6 +11,8 @@ import '../providers/cashier_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../widgets/momopaymentwidget.dart';
+
 class ReceivablesListPage extends StatefulWidget {
   const ReceivablesListPage({super.key});
 
@@ -878,7 +880,6 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   Widget build(BuildContext context) {
 
   return Consumer<CashierProvider>(
-
       builder: (context, provider, _) {
         String invoiceId=widget.debtor.id;
         String? selectedNetwork = provider.selectedNetworks[invoiceId];
@@ -1099,156 +1100,182 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
                     if (paymentMethod.toLowerCase() == 'momo') ...[
-          const SizedBox(height: 8),
-        // Select Network
-        Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F),
-        borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-          color: Colors.white,
-          width: 0.5,
-        ),
-        ),
-        child: DropdownButtonFormField<String>(
-        value: selectedNetwork,
-        dropdownColor: const Color(0xFF1E3A5A),
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-        labelText: 'Select Network',
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-        prefixIcon: const Icon(Icons.sim_card, color: Colors.white70),
-        filled: true,
-        fillColor: const Color(0xFF1E3A5A),
-        border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-        ),
-        ),
-        items: momoNetworks.map((network) {
-        return DropdownMenuItem(
-        value: network.toLowerCase(),
-        child: Row(
-        children: [
-        Icon(_getNetworkIcon(network),
-        color: _getNetworkColor(network), size: 20),
-        const SizedBox(width: 8),
-        Text(network, style: const TextStyle(color: Colors.white)),
-        ],
-        ),
-        );
-        }).toList(),
-        onChanged: (value) {
-        if (value != null) {
-        setState(() {
-        provider.selectedNetworks[invoiceId] = value;
-        });
-        }
-        },
-        validator: (value) {
-        if (paymentMethod.toLowerCase() == 'momo' && value == null) {
-        return 'Please select a network';
-        }
-        return null;
-        },
-        ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // New dropdown for Hubtel vs Merchant
-        Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F),
-        borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white,
-            width: 0.5,
-          ),
-        ),
-        child: DropdownButtonFormField<String>(
-        value: momoType,
-        dropdownColor: const Color(0xFF1E3A5A),
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-        labelText: 'Payment Type',
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-        prefixIcon: const Icon(Icons.account_balance_wallet, color: Colors.white70),
-        filled: true,
-        fillColor: const Color(0xFF1E3A5A),
-        border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-        ),
-        ),
-        items: const [
-        DropdownMenuItem(value: 'hubtel', child: Text('Hubtel')),
-        DropdownMenuItem(value: 'merchant', child: Text('Merchant')),
-        ],
-        onChanged: (value) {
-        setState(() {
-        momoType = value;
-        });
-        },
-        validator: (value) {
-        if (paymentMethod.toLowerCase() == 'momo' && value == null) {
-        return 'Please select payment type';
-        }
-        return null;
-        },
-        ),
-        ),
-          const SizedBox(height: 5),
-        ],
-
-//  Conditionally show transaction fields only if Merchant is selected
-                    if (paymentMethod.toLowerCase() == 'momo' && momoType == 'merchant') ...[
-                    const SizedBox(height: 5),
-                    _buildMomoTransactionFields(),
-        ],
-                    if (paymentMethod.toLowerCase() == 'momo' && momoType == 'hubtel') ...[
                       const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _contactController,
-                        style: TextStyle(color: Colors.white70),
-                        decoration:_inputDecoration(label: "Phone Number",
-                          prefix: Icons.phone,
-                          hint: 'Enter contact number',
-                        ),
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9+]'),
-                          ),
-                          LengthLimitingTextInputFormatter(13),
-                        ],
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Required';
-                          // Remove spaces and check format
-                          String cleaned = v.replaceAll(' ', '');
-                          // Ghana phone: 0XXXXXXXXX (10 digits) or +233XXXXXXXXX (13 chars)
-                          if (cleaned.startsWith('+233')) {
-                            if (cleaned.length != 13 ||
-                                !RegExp(r'^\+233\d{9}$').hasMatch(cleaned)) {
-                              return 'Invalid format. Use +233XXXXXXXXX';
-                            }
-                          } else if (cleaned.startsWith('0')) {
-                            if (cleaned.length != 10 ||
-                                !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
-                              return 'Invalid format. Use 0XXXXXXXXX';
-                            }
-                          } else {
-                            return 'Phone must start with 0 or +233';
-                          }
-                          return null;
-                        },
-                      ),
 
+                      MomoPaymentFields(
+                        selectedNetwork: selectedNetwork,
+                        momoType: momoType,
+                        networks: momoNetworks,
+
+                        onNetworkChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              provider.selectedNetworks[invoiceId] = value;
+                            });
+                          }
+                        },
+
+                        onMomoTypeChanged: (value) {
+                          setState(() {
+                            momoType = value;
+                          });
+                        },
+
+                        merchantFields: _buildMomoTransactionFields(),
+
+                        phoneController: _contactController,
+                      ),
                     ],
+
+        //             if (paymentMethod.toLowerCase() == 'momo') ...[
+        //   const SizedBox(height: 8),
+        // // Select Network
+        // Container(
+        // padding: const EdgeInsets.symmetric(horizontal: 12),
+        // decoration: BoxDecoration(
+        // color: const Color(0xFF1E3A5F),
+        // borderRadius: BorderRadius.circular(12),
+        //   border: Border.all(
+        //   color: Colors.white,
+        //   width: 0.5,
+        // ),
+        // ),
+        // child: DropdownButtonFormField<String>(
+        // value: selectedNetwork,
+        // dropdownColor: const Color(0xFF1E3A5A),
+        // style: const TextStyle(color: Colors.white),
+        // decoration: InputDecoration(
+        // labelText: 'Select Network',
+        // labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+        // prefixIcon: const Icon(Icons.sim_card, color: Colors.white70),
+        // filled: true,
+        // fillColor: const Color(0xFF1E3A5A),
+        // border: OutlineInputBorder(
+        // borderRadius: BorderRadius.circular(12),
+        // borderSide: BorderSide.none,
+        // ),
+        // ),
+        // items: momoNetworks.map((network) {
+        // return DropdownMenuItem(
+        // value: network.toLowerCase(),
+        // child: Row(
+        // children: [
+        // Icon(_getNetworkIcon(network),
+        // color: _getNetworkColor(network), size: 20),
+        // const SizedBox(width: 8),
+        // Text(network, style: const TextStyle(color: Colors.white)),
+        // ],
+        // ),
+        // );
+        // }).toList(),
+        // onChanged: (value) {
+        // if (value != null) {
+        // setState(() {
+        // provider.selectedNetworks[invoiceId] = value;
+        // });
+        // }
+        // },
+        // validator: (value) {
+        // if (paymentMethod.toLowerCase() == 'momo' && value == null) {
+        // return 'Please select a network';
+        // }
+        // return null;
+        // },
+        // ),
+        // ),
+        //
+        // const SizedBox(height: 10),
+        //
+        // // New dropdown for Hubtel vs Merchant
+        // Container(
+        // padding: const EdgeInsets.symmetric(horizontal: 12),
+        // decoration: BoxDecoration(
+        // color: const Color(0xFF1E3A5F),
+        // borderRadius: BorderRadius.circular(12),
+        //   border: Border.all(
+        //     color: Colors.white,
+        //     width: 0.5,
+        //   ),
+        // ),
+        // child: DropdownButtonFormField<String>(
+        // value: momoType,
+        // dropdownColor: const Color(0xFF1E3A5A),
+        // style: const TextStyle(color: Colors.white),
+        // decoration: InputDecoration(
+        // labelText: 'Payment Type',
+        // labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+        // prefixIcon: const Icon(Icons.account_balance_wallet, color: Colors.white70),
+        // filled: true,
+        // fillColor: const Color(0xFF1E3A5A),
+        // border: OutlineInputBorder(
+        // borderRadius: BorderRadius.circular(12),
+        // borderSide: BorderSide.none,
+        // ),
+        // ),
+        // items: const [
+        // DropdownMenuItem(value: 'hubtel', child: Text('Hubtel')),
+        // DropdownMenuItem(value: 'merchant', child: Text('Merchant')),
+        // ],
+        // onChanged: (value) {
+        // setState(() {
+        // momoType = value;
+        // });
+        // },
+        // validator: (value) {
+        // if (paymentMethod.toLowerCase() == 'momo' && value == null) {
+        // return 'Please select payment type';
+        // }
+        // return null;
+        // },
+        // ),
+        // ),
+        //   const SizedBox(height: 5),
+        // ],
+        //
+        //             if (paymentMethod.toLowerCase() == 'momo' && momoType == 'merchant') ...[
+        //             const SizedBox(height: 5),
+        //             _buildMomoTransactionFields(),
+        // ],
+        //             if (paymentMethod.toLowerCase() == 'momo' && momoType == 'hubtel') ...[
+        //               const SizedBox(height: 8),
+        //               TextFormField(
+        //                 controller: _contactController,
+        //                 style: TextStyle(color: Colors.white70),
+        //                 decoration:_inputDecoration(label: "Phone Number",
+        //                   prefix: Icons.phone,
+        //                   hint: 'Enter contact number',
+        //                 ),
+        //                 keyboardType: TextInputType.phone,
+        //                 inputFormatters: [
+        //                   FilteringTextInputFormatter.allow(
+        //                     RegExp(r'[0-9+]'),
+        //                   ),
+        //                   LengthLimitingTextInputFormatter(13),
+        //                 ],
+        //                 validator: (v) {
+        //                   if (v == null || v.isEmpty) return 'Required';
+        //                   // Remove spaces and check format
+        //                   String cleaned = v.replaceAll(' ', '');
+        //                   // Ghana phone: 0XXXXXXXXX (10 digits) or +233XXXXXXXXX (13 chars)
+        //                   if (cleaned.startsWith('+233')) {
+        //                     if (cleaned.length != 13 ||
+        //                         !RegExp(r'^\+233\d{9}$').hasMatch(cleaned)) {
+        //                       return 'Invalid format. Use +233XXXXXXXXX';
+        //                     }
+        //                   } else if (cleaned.startsWith('0')) {
+        //                     if (cleaned.length != 10 ||
+        //                         !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
+        //                       return 'Invalid format. Use 0XXXXXXXXX';
+        //                     }
+        //                   } else {
+        //                     return 'Phone must start with 0 or +233';
+        //                   }
+        //                   return null;
+        //                 },
+        //               ),
+        //
+        //             ],
 
                     if (paymentMethod.toLowerCase() == 'bank_transfer'|| paymentMethod.toLowerCase() == 'cheque') ...[
                       Container(
@@ -1398,6 +1425,34 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
     );
   });
   }
+
+  bool _isDuplicateMomoTransactionId(int currentIndex) {
+    final currentId = momoTransactionControllers[currentIndex]
+        .text
+        .trim()
+        .toLowerCase();
+
+    if (currentId.isEmpty) {
+      return false;
+    }
+
+    for (int i = 0; i < momoTransactionControllers.length; i++) {
+      if (i == currentIndex) {
+        continue;
+      }
+
+      final otherId = momoTransactionControllers[i]
+          .text
+          .trim()
+          .toLowerCase();
+
+      if (otherId.isNotEmpty && otherId == currentId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
   Widget _buildLinkedAccountDropdown() {
     final hasMethod = paymentMethod.isNotEmpty;
     final hasAccounts = _linkedAccounts.isNotEmpty;
@@ -1514,12 +1569,22 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                               controller: momoTransactionControllers[index],
                               style: const TextStyle(color: Colors.white),
                               keyboardType: TextInputType.text,
+                              onChanged: (value) {
+                                setState(() {});
+                              },
                               decoration: InputDecoration(
                                 labelText: 'Transaction ID',
-                                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                labelStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
                                 hintText: 'e.g., MTN12345678',
-                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                                prefixIcon: const Icon(Icons.receipt_long, color: Colors.white70),
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.receipt_long,
+                                  color: Colors.white70,
+                                ),
                                 filled: true,
                                 fillColor: const Color(0xFF0D1B2A),
                                 border: OutlineInputBorder(
@@ -1529,23 +1594,74 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                               ),
                             ),
                           ),
+
                           const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade700,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            onPressed: momoTransactionControllers[index].text.isEmpty
+                            onPressed: momoTransactionControllers[index]
+                                .text
+                                .trim()
+                                .isEmpty
                                 ? null
-                                : () => fetchMomoAmountForTransaction(index),
-                            child: const Text('Submit', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                : () {
+                              if (_isDuplicateMomoTransactionId(index)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'This transaction ID has already been entered.',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+
+                              fetchMomoAmountForTransaction(index);
+                            },
+                            child: const Text(
+                              'Submit',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
+                          // ElevatedButton(
+                          //   style: ElevatedButton.styleFrom(
+                          //     backgroundColor: Colors.blue.shade700,
+                          //     padding: const EdgeInsets.symmetric(
+                          //       horizontal: 12,
+                          //       vertical: 10,
+                          //     ),
+                          //     shape: RoundedRectangleBorder(
+                          //       borderRadius: BorderRadius.circular(8),
+                          //     ),
+                          //   ),
+                          //   onPressed: momoTransactionControllers[index]
+                          //       .text
+                          //       .trim()
+                          //       .isEmpty
+                          //       ? null
+                          //       : () => fetchMomoAmountForTransaction(index),
+                          //   child: const Text(
+                          //     'Submit',
+                          //     style: TextStyle(
+                          //       color: Colors.white,
+                          //       fontSize: 12,
+                          //     ),
+                          //   ),
+                          // ),
                         ],
-                      ),
-                      const SizedBox(height: 8),
+                      ),                      const SizedBox(height: 8),
                       TextFormField(
                         controller: momoTransactionAmountControllers[index],
                         readOnly: true,
