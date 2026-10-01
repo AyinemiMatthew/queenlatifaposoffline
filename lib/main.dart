@@ -3,14 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/providers/cart_provider.dart';
 import 'package:kologsoft/providers/cashier_provider.dart';
 import 'package:kologsoft/providers/dashboard_provider.dart';
+import 'package:kologsoft/providers/theme_provider.dart';
 import 'package:kologsoft/providers/routes.dart';
 import 'package:kologsoft/providers/SalesProvider.dart';
 import 'package:kologsoft/screens/home_dashboard.dart';
 import 'package:kologsoft/services/domain_detector.dart';
+import 'package:kologsoft/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
@@ -21,6 +24,7 @@ void main() async {
 
   // Initialize Hive
   await Hive.initFlutter();
+  final preferences = await SharedPreferences.getInstance();
 
   // Register Hive adapters
   // Hive.registerAdapter(ItemModelAdapter());
@@ -32,7 +36,7 @@ void main() async {
 
   // Initialize storage service
 
-  runApp(MyApp());
+  runApp(MyApp(preferences: preferences));
 }
 
 Future<void> _enableFirestoreOffline() async {
@@ -69,7 +73,9 @@ Future<void> _enableFirestoreOffline() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.preferences});
+
+  final SharedPreferences preferences;
 
   @override
   Widget build(BuildContext context) {
@@ -89,81 +95,23 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SalesProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(
+            preferences: preferences,
+            isLightTheme: preferences.getBool('isLightTheme') ?? false,
+          ),
+        ),
       ],
-      child: MaterialApp(
-        initialRoute: Routes.login,
-        routes: pages,
-        title: 'KologSoft POS',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.light,
-          colorScheme: const ColorScheme.light(
-            primary: Color(0xFF0D1A26), // blue-black
-            onPrimary: Colors.white,
-            secondary: Color(0xFF1976D2), // blue
-            onSecondary: Colors.white,
-            background: Colors.white,
-            onBackground: Color(0xFF0D1A26),
-            surface: Colors.white,
-            onSurface: Color(0xFF0D1A26),
-            surfaceVariant: Color(0xFFF4F6F8),
-            onSurfaceVariant: Color(0xFF656D78),
-            error: Colors.red,
-            onError: Colors.white,
-
-          ),
-          scaffoldBackgroundColor: Colors.white,
-          cardColor: Colors.white,
-          dialogBackgroundColor: Colors.white,
-          inputDecorationTheme: InputDecorationTheme(
-            fillColor: const Color(0xFFF4F6F8),
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-            ),
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
-            elevation: 2,
-          ),
-          useMaterial3: true,
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) => MaterialApp(
+          initialRoute: Routes.login,
+          routes: pages,
+          title: 'KologSoft POS',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeProvider.themeMode,
         ),
-        darkTheme: ThemeData(
-          brightness: Brightness.dark,
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF0D1A26),
-            onPrimary: Colors.white,
-            secondary: Color(0xFF90CAF9),
-            onSecondary: Colors.black,
-            background: Color(0xFF101624),
-            onBackground: Colors.white70,
-            surface: Color(0xFF122033),
-            onSurface: Colors.white70,
-            surfaceVariant: Color(0xFF1B263B),
-            onSurfaceVariant: Colors.white70,
-            error: Color(0xFFFF5252),
-            onError: Colors.white,
-          ),
-          scaffoldBackgroundColor: const Color(0xFF101624),
-          cardColor: const Color(0xFF112132),
-          dialogBackgroundColor: const Color(0xFF112132),
-          inputDecorationTheme: InputDecorationTheme(
-            fillColor: const Color(0xFF1B263B),
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-            ),
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
-            elevation: 2,
-          ),
-          useMaterial3: true,
-        ),
-        themeMode: ThemeMode.dark,
-        //home: const HomeDashboard(),
       ),
     );
   }

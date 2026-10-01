@@ -6,13 +6,13 @@ class TierFeatureConfigScreen extends StatefulWidget {
   const TierFeatureConfigScreen({Key? key}) : super(key: key);
 
   @override
-  State<TierFeatureConfigScreen> createState() => _TierFeatureConfigScreenState();
+  State<TierFeatureConfigScreen> createState() =>
+      _TierFeatureConfigScreenState();
 }
 
 class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
     with SingleTickerProviderStateMixin {
   static const List<Map<String, String>> allFeatures = [
-
     {'key': 'user_management', 'label': 'User Management'},
     {'key': 'register_staff', 'label': 'Register Staff'},
     {'key': 'view_staff', 'label': 'View Staff'},
@@ -130,7 +130,12 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
     {'key': 'salesunovalidate', 'label': 'Sales Upload (Without Validation)'},
   ];
 
-  static const List<String> tiers = ['free_trial','starter', 'professional', 'enterprise'];
+  static const List<String> tiers = [
+    'free_trial',
+    'starter',
+    'professional',
+    'enterprise',
+  ];
 
   late TabController _tabController;
   Map<String, Set<String>> _selections = {
@@ -155,7 +160,9 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
 
     setState(() {
       for (final tier in tiers) {
-        _selections[tier] = Set<String>.from(datafeed.tierFeatureSelections[tier] ?? []);
+        _selections[tier] = Set<String>.from(
+          datafeed.tierFeatureSelections[tier] ?? [],
+        );
       }
       _loading = false;
     });
@@ -179,7 +186,12 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving: $e', style: const TextStyle(color: Colors.white))),
+        SnackBar(
+          content: Text(
+            'Error saving: $e',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
       );
     }
 
@@ -214,7 +226,10 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
               return CheckboxListTile(
                 value: isChecked,
                 title: Text(label),
-                subtitle: Text(key, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                subtitle: Text(
+                  key,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
                 onChanged: (value) => _toggleFeature(tier, key, value ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
                 activeColor: const Color(0xFF1976D2),
@@ -234,14 +249,20 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
               ),
               child: _saving
                   ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : Text(
-                'Save ${tier[0].toUpperCase()}${tier.substring(1)} Tier',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
+                      'Save ${tier[0].toUpperCase()}${tier.substring(1)} Tier',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
             ),
           ),
         ),
@@ -251,16 +272,22 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Subscription Tier Features'),
-        backgroundColor: const Color(0xFF0D1A26),
-        foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          indicatorColor: Colors.greenAccent,
+          labelColor: Theme.of(context).brightness == Brightness.light
+              ? colorScheme.onSurface
+              : Colors.white,
+          unselectedLabelColor: Theme.of(context).brightness == Brightness.light
+              ? colorScheme.onSurfaceVariant
+              : Colors.white54,
+          indicatorColor: Theme.of(context).brightness == Brightness.light
+              ? colorScheme.secondary
+              : Colors.greenAccent,
           isScrollable: true,
           tabs: const [
             Tab(text: 'free_trial'),
@@ -273,9 +300,9 @@ class _TierFeatureConfigScreenState extends State<TierFeatureConfigScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
-        controller: _tabController,
-        children: tiers.map(_buildTierList).toList(),
-      ),
+              controller: _tabController,
+              children: tiers.map(_buildTierList).toList(),
+            ),
     );
   }
 

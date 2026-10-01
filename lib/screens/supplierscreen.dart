@@ -29,14 +29,16 @@ class _SupplierRegistrationState extends State<SupplierRegistration> {
       'text': (val) => val.isEmpty ? 'Required' : null,
       'phone': (val) {
         if (val.isEmpty) return 'Phone number is required';
-        if (!RegExp(r'^\+?[0-9]+$').hasMatch(val)) return 'Enter a valid phone number';
+        if (!RegExp(r'^\+?[0-9]+$').hasMatch(val))
+          return 'Enter a valid phone number';
         final length = val.replaceAll('+', '').length;
         if (length < 9 || length > 15) return 'Enter a valid phone number';
         return null;
       },
       'email': (val) {
         if (val.isEmpty) return 'Email is required';
-        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val)) return 'Enter a valid email';
+        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val))
+          return 'Enter a valid email';
         return null;
       },
     };
@@ -46,6 +48,7 @@ class _SupplierRegistrationState extends State<SupplierRegistration> {
 
     return null;
   }
+
   @override
   void initState() {
     super.initState();
@@ -66,199 +69,276 @@ class _SupplierRegistrationState extends State<SupplierRegistration> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final formWidth = screenWidth > 900 ? screenWidth * 0.6 : screenWidth * 0.95;
+    final formWidth = screenWidth > 900
+        ? screenWidth * 0.6
+        : screenWidth * 0.95;
 
-    return Consumer<Datafeed>(builder: (context, value, child) {
-      return Scaffold(
-        backgroundColor: const Color(0xFF101624),
-        appBar: AppBar(
-          title: const Text('Register Supplier'), // header stays consistent
-        ),
-        body: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
-                child: Container(
-                  width: formWidth,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B263B),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Supplier field
-                        TextFormField(
-                          controller: _supplierController,
-                          cursorColor: Colors.white,
-                          style: const TextStyle(color: Colors.white70),
-                          decoration: _inputDecoration('Supplier', Icons.store),
-                          validator: (v) => validateField(v, type: 'text')
-                        ),
-                        const SizedBox(height: 14),
-                        // Contact field
-                        TextFormField(
-                          controller: _contactController,
-                          cursorColor: Colors.white,
-                          style: const TextStyle(color: Colors.white70),
-                          decoration: _inputDecoration('Contact', Icons.phone),
-                          validator: (v) => validateField(v, type: 'phone')
-                        ),
-                        const SizedBox(height: 20),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            // Save
-                            SizedBox(
-                              width:200,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                  Colors.lightBlue,
-                                  padding:
-                                  const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:  BorderRadius.circular(
-                                      8,
-                                    ),
-                                  ),
-                                ),
-
-                                onPressed: _isSubmitting
-                                    ? null
-                                    : () async {
-                                  if (!_formKey.currentState!.validate() || _isSubmitting) return;
-                                  setState(() => _isSubmitting = true);
-
-                                  final nameInput = _supplierController.text.trim();
-
-                                  final query = await value.db
-                                      .collection('suppliers')
-                                      .where('supplier', isEqualTo: nameInput)
-                                      .where('companyid', isEqualTo: value.companyid)
-                                      .limit(1)
-                                      .get();
-
-                                  if (query.docs.isNotEmpty && query.docs.first.id != widget.supplier?.id) {
-                                    setState(() => _isSubmitting = false);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        backgroundColor: Colors.red,
-                                        content: Text('A supplier with this name already exists'),
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  final id = widget.supplier?.id ??
-                                      '${value.companyid}_${value.staffPosition}_${nameInput.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '')}';
-
-                                  final supplier = Supplier(
-                                    id: id,
-                                    supplier: nameInput,
-                                    contact: _contactController.text.trim(),
-                                    company: value.company,
-                                    companyid: value.companyid,
-                                    branchid: value.branchid,
-                                    datecreated: Timestamp.now(),
-                                    staff: value.staff,
-                                  );
-
-                                 await value.addOrUpdateSupplier(supplier);
-
-                                  setState(() {
-                                    _isSubmitting = false;
-                                    _supplierController.clear();
-                                    _contactController.clear();
-                                  });
-
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    backgroundColor: Colors.green,
-                                    content: Text(
-                                      widget.supplier == null ? 'Supplier saved successfully' : 'Supplier updated successfully',
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                  ));
-
-                                  if (!mounted) return;
-                                  if (widget.supplier?.id != null) {
-                                    Navigator.pop(context);
-                                  }
-                                },
-                                child: _isSubmitting
-                                    ? const CircularProgressIndicator(
-                                    color: Colors.white)
-                                    : Text(widget.supplier == null ? 'Save Supplier' : 'Update Supplier',
-                                   style: TextStyle(color: Colors.white70),
-                                ),
-                              ),
-                            ),
-                            // View
-                            SizedBox(
-                              width: 200,
-                              child: OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.white70),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.view_list, color: Colors.white70),
-                                label: const Text(
-                                  "View",
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                                onPressed: () {
-                                  Navigator.pushNamed(context, Routes.supplierlist);
-                                },
-                              ),
-                            ),
-                          ],
+    return Consumer<Datafeed>(
+      builder: (context, value, child) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final isLight = theme.brightness == Brightness.light;
+        final borderColor = isLight
+            ? Colors.grey.shade300
+            : colorScheme.outlineVariant;
+        return Scaffold(
+          backgroundColor: isLight
+              ? Colors.white
+              : theme.scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: const Text('Register Supplier'),
+            backgroundColor: isLight ? Colors.white : colorScheme.surface,
+            foregroundColor: colorScheme.onSurface,
+          ),
+          body: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 700),
+                  child: Container(
+                    width: formWidth,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: isLight
+                          ? Colors.white
+                          : colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
                       ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Supplier field
+                          TextFormField(
+                            controller: _supplierController,
+                            cursorColor: Theme.of(
+                              context,
+                            ).colorScheme.secondary,
+                            style: TextStyle(color: colorScheme.onSurface),
+                            decoration: _inputDecoration(
+                              'Supplier',
+                              Icons.store,
+                            ),
+                            validator: (v) => validateField(v, type: 'text'),
+                          ),
+                          const SizedBox(height: 14),
+                          // Contact field
+                          TextFormField(
+                            controller: _contactController,
+                            cursorColor: Theme.of(
+                              context,
+                            ).colorScheme.secondary,
+                            style: TextStyle(color: colorScheme.onSurface),
+                            decoration: _inputDecoration(
+                              'Contact',
+                              Icons.phone,
+                            ),
+                            validator: (v) => validateField(v, type: 'phone'),
+                          ),
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              // Save
+                              SizedBox(
+                                width: 200,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: colorScheme.secondary,
+                                    foregroundColor: colorScheme.onSecondary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+
+                                  onPressed: _isSubmitting
+                                      ? null
+                                      : () async {
+                                          if (!_formKey.currentState!
+                                                  .validate() ||
+                                              _isSubmitting)
+                                            return;
+                                          setState(() => _isSubmitting = true);
+
+                                          final nameInput = _supplierController
+                                              .text
+                                              .trim();
+
+                                          final query = await value.db
+                                              .collection('suppliers')
+                                              .where(
+                                                'supplier',
+                                                isEqualTo: nameInput,
+                                              )
+                                              .where(
+                                                'companyid',
+                                                isEqualTo: value.companyid,
+                                              )
+                                              .limit(1)
+                                              .get();
+
+                                          if (query.docs.isNotEmpty &&
+                                              query.docs.first.id !=
+                                                  widget.supplier?.id) {
+                                            setState(
+                                              () => _isSubmitting = false,
+                                            );
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                backgroundColor: Colors.red,
+                                                content: Text(
+                                                  'A supplier with this name already exists',
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+
+                                          final id =
+                                              widget.supplier?.id ??
+                                              '${value.companyid}_${value.staffPosition}_${nameInput.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '')}';
+
+                                          final supplier = Supplier(
+                                            id: id,
+                                            supplier: nameInput,
+                                            contact: _contactController.text
+                                                .trim(),
+                                            company: value.company,
+                                            companyid: value.companyid,
+                                            branchid: value.branchid,
+                                            datecreated: Timestamp.now(),
+                                            staff: value.staff,
+                                          );
+
+                                          await value.addOrUpdateSupplier(
+                                            supplier,
+                                          );
+
+                                          setState(() {
+                                            _isSubmitting = false;
+                                            _supplierController.clear();
+                                            _contactController.clear();
+                                          });
+
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: Colors.green,
+                                              content: Text(
+                                                widget.supplier == null
+                                                    ? 'Supplier saved successfully'
+                                                    : 'Supplier updated successfully',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          );
+
+                                          if (!mounted) return;
+                                          if (widget.supplier?.id != null) {
+                                            Navigator.pop(context);
+                                          }
+                                        },
+                                  child: _isSubmitting
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                      : Text(
+                                          widget.supplier == null
+                                              ? 'Save Supplier'
+                                              : 'Update Supplier',
+                                          style: TextStyle(
+                                            color: colorScheme.onPrimary,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              // View
+                              SizedBox(
+                                width: 200,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: colorScheme.primary,
+                                    side: BorderSide(color: borderColor),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  icon: Icon(
+                                    Icons.view_list,
+                                    color: colorScheme.onPrimary,
+                                  ),
+                                  label: Text(
+                                    "View",
+                                    style: TextStyle(
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      Routes.supplierlist,
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      labelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
       ),
-      fillColor: const Color(0xFF22304A),
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       filled: true,
     );
   }

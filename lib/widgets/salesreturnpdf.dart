@@ -10,16 +10,19 @@ class SalesReturnPdf {
   static Future<void> generate({
     required Map<String, dynamic> header,
     required Map<String, dynamic> itemsMap,
+    String heading = 'RETURN SALES',
   }) async {
     final pdf = pw.Document(
-      title: 'Sales Return - ${header['receiptid'] ?? ''}',
+      title: '$heading - ${header['receiptid'] ?? ''}',
       author: header['createdby'] ?? '',
     );
 
-    final ttfRegular =
-    pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
-    final ttfBold =
-    pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+    final ttfRegular = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
+    );
+    final ttfBold = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
+    );
 
     final timestamp = header['createdat'];
     final DateTime date = timestamp is Timestamp
@@ -31,9 +34,15 @@ class SalesReturnPdf {
     final dateFormat = DateFormat('dd MMM yyyy');
     final timeFormat = DateFormat('hh:mm a');
 
-    // All items as list, already remapped (plain keys)
-    final List<Map<String, dynamic>> items =
-    itemsMap.values.whereType<Map<String, dynamic>>().toList();
+    final items = itemsMap.values.whereType<Map>().map((rawItem) {
+      final item = Map<String, dynamic>.from(rawItem);
+      return item.map(
+        (key, value) => MapEntry(
+          key.startsWith('returned_') ? key.substring(9) : key,
+          value,
+        ),
+      );
+    }).toList();
 
     // Grand total from returned_totalamount (already remapped → totalamount)
     final double grandTotal = items.fold(0.0, (sum, item) {
@@ -42,10 +51,7 @@ class SalesReturnPdf {
     });
 
     // ── Colors ──
-    const headerBg = PdfColor.fromInt(0xFF1B263B);
-    const accentColor = PdfColor.fromInt(0xFFFFCA28); // amber
     const dividerColor = PdfColor.fromInt(0xFFDDDDDD);
-    const lightGrey = PdfColor.fromInt(0xFFF5F5F5);
     const darkText = PdfColor.fromInt(0xFF1A1A2E);
     const mutedText = PdfColor.fromInt(0xFF666666);
 
@@ -57,10 +63,6 @@ class SalesReturnPdf {
           //HEADER
           pw.Container(
             padding: const pw.EdgeInsets.all(20),
-            decoration: pw.BoxDecoration(
-              color: headerBg,
-              borderRadius: pw.BorderRadius.circular(12),
-            ),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -75,7 +77,7 @@ class SalesReturnPdf {
                           style: pw.TextStyle(
                             font: ttfBold,
                             fontSize: 20,
-                            color: PdfColors.white,
+                            color: darkText,
                           ),
                         ),
                         pw.SizedBox(height: 4),
@@ -84,7 +86,7 @@ class SalesReturnPdf {
                           style: pw.TextStyle(
                             font: ttfRegular,
                             fontSize: 12,
-                            color: PdfColors.white,
+                            color: darkText,
                           ),
                         ),
                       ],
@@ -92,20 +94,12 @@ class SalesReturnPdf {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: pw.BoxDecoration(
-                            color: accentColor,
-                            borderRadius: pw.BorderRadius.circular(6),
-                          ),
-                          child: pw.Text(
-                            'SALES RETURN',
-                            style: pw.TextStyle(
-                              font: ttfBold,
-                              fontSize: 11,
-                              color: darkText,
-                            ),
+                        pw.Text(
+                          heading.toUpperCase(),
+                          style: pw.TextStyle(
+                            font: ttfBold,
+                            fontSize: 11,
+                            color: darkText,
                           ),
                         ),
                         pw.SizedBox(height: 6),
@@ -114,7 +108,7 @@ class SalesReturnPdf {
                           style: pw.TextStyle(
                             font: ttfRegular,
                             fontSize: 11,
-                            color: PdfColors.white,
+                            color: darkText,
                           ),
                         ),
                         pw.Text(
@@ -122,7 +116,7 @@ class SalesReturnPdf {
                           style: pw.TextStyle(
                             font: ttfRegular,
                             fontSize: 10,
-                            color: PdfColors.white,
+                            color: darkText,
                           ),
                         ),
                       ],
@@ -131,18 +125,17 @@ class SalesReturnPdf {
                 ),
 
                 pw.SizedBox(height: 16),
-                pw.Divider(color: PdfColors.white, thickness: 0.5),
+                pw.Divider(color: dividerColor, thickness: 0.5),
                 pw.SizedBox(height: 12),
 
-                // Receipt + Staff row
+                // Return reference + Staff row
                 pw.Row(
                   children: [
                     _infoChip(
                       ttfRegular: ttfRegular,
                       ttfBold: ttfBold,
-                      label: 'RECEIPT',
-                      value:
-                      '#${header['receiptid']?.toString() ?? ''}',
+                      label: 'RETURN SALES',
+                      value: '#${header['receiptid']?.toString() ?? ''}',
                     ),
                     pw.SizedBox(width: 16),
                     _infoChip(
@@ -156,7 +149,9 @@ class SalesReturnPdf {
                       ttfRegular: ttfRegular,
                       ttfBold: ttfBold,
                       label: 'TRANS MODE',
-                      value: (header['transmode'] ?? '').toString().toUpperCase(),
+                      value: (header['transmode'] ?? '')
+                          .toString()
+                          .toUpperCase(),
                     ),
                   ],
                 ),
@@ -181,22 +176,20 @@ class SalesReturnPdf {
           pw.Table(
             border: pw.TableBorder(
               bottom: pw.BorderSide(color: dividerColor, width: 0.5),
-              horizontalInside:
-              pw.BorderSide(color: dividerColor, width: 0.3),
+              horizontalInside: pw.BorderSide(color: dividerColor, width: 0.3),
             ),
             columnWidths: const {
-              0: pw.FlexColumnWidth(0.4),  // #
-              1: pw.FlexColumnWidth(2.8),  // Item
-              2: pw.FlexColumnWidth(0.8),  // Qty
-              3: pw.FlexColumnWidth(0.9),  // Mode
-              4: pw.FlexColumnWidth(0.9),  // Price
-              5: pw.FlexColumnWidth(0.9),  // Total
-              6: pw.FlexColumnWidth(1.2),  // Condition
+              0: pw.FlexColumnWidth(0.4), // #
+              1: pw.FlexColumnWidth(2.8), // Item
+              2: pw.FlexColumnWidth(0.8), // Qty
+              3: pw.FlexColumnWidth(0.9), // Mode
+              4: pw.FlexColumnWidth(0.9), // Price
+              5: pw.FlexColumnWidth(0.9), // Total
+              6: pw.FlexColumnWidth(1.2), // Condition
             },
             children: [
               // Table header
               pw.TableRow(
-                decoration: const pw.BoxDecoration(color: lightGrey),
                 children: [
                   _th('#', ttfBold),
                   _th('ITEM', ttfBold),
@@ -211,9 +204,9 @@ class SalesReturnPdf {
               ...items.asMap().entries.map((entry) {
                 final i = entry.key;
                 final item = entry.value;
-                final isEven = i % 2 == 0;
-
-                final qty = item['quantity']?.toString() ?? '0';
+                final qty =
+                    (item['quantity'] ?? item['totalpieces'])?.toString() ??
+                    '0';
                 final mode = item['mode']?.toString() ?? '';
                 final price = item['price']?.toString() ?? '0';
                 final total = item['totalamount']?.toString() ?? '0';
@@ -221,16 +214,13 @@ class SalesReturnPdf {
                 final itemName = item['item']?.toString() ?? '';
 
                 return pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    color: isEven ? PdfColors.white : lightGrey,
-                  ),
                   children: [
                     _td('${i + 1}', ttfRegular, center: true),
                     _td(itemName, ttfBold),
                     _td(qty, ttfRegular, center: true),
                     _td(mode, ttfRegular),
-                    _td('GHC $price', ttfRegular),
-                    _td('GHC $total', ttfBold),
+                    _td('GHS $price', ttfRegular),
+                    _td('GHS $total', ttfBold),
                     _tdCondition(condition, ttfRegular),
                   ],
                 );
@@ -246,10 +236,6 @@ class SalesReturnPdf {
             child: pw.Container(
               width: 240,
               padding: const pw.EdgeInsets.all(16),
-              decoration: pw.BoxDecoration(
-                color: headerBg,
-                borderRadius: pw.BorderRadius.circular(10),
-              ),
               child: pw.Column(
                 children: [
                   pw.Row(
@@ -258,21 +244,23 @@ class SalesReturnPdf {
                       pw.Text(
                         'Items Returned:',
                         style: pw.TextStyle(
-                            font: ttfRegular,
-                            fontSize: 11,
-                            color: PdfColors.white),
+                          font: ttfRegular,
+                          fontSize: 11,
+                          color: darkText,
+                        ),
                       ),
                       pw.Text(
                         '${items.length}',
                         style: pw.TextStyle(
-                            font: ttfBold,
-                            fontSize: 11,
-                            color: PdfColors.white),
+                          font: ttfBold,
+                          fontSize: 11,
+                          color: darkText,
+                        ),
                       ),
                     ],
                   ),
                   pw.SizedBox(height: 8),
-                  pw.Divider(color: PdfColors.white, thickness: 0.5),
+                  pw.Divider(color: dividerColor, thickness: 0.5),
                   pw.SizedBox(height: 8),
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -280,16 +268,18 @@ class SalesReturnPdf {
                       pw.Text(
                         'TOTAL RETURN:',
                         style: pw.TextStyle(
-                            font: ttfBold,
-                            fontSize: 13,
-                            color: accentColor),
+                          font: ttfBold,
+                          fontSize: 13,
+                          color: darkText,
+                        ),
                       ),
                       pw.Text(
-                        'GHC ${grandTotal.toStringAsFixed(2)}',
+                        'GHS ${grandTotal.toStringAsFixed(2)}',
                         style: pw.TextStyle(
-                            font: ttfBold,
-                            fontSize: 14,
-                            color: PdfColors.white),
+                          font: ttfBold,
+                          fontSize: 14,
+                          color: darkText,
+                        ),
                       ),
                     ],
                   ),
@@ -307,16 +297,17 @@ class SalesReturnPdf {
             child: pw.Text(
               'This is a computer-generated sales return document.',
               style: pw.TextStyle(
-                  font: ttfRegular, fontSize: 9, color: mutedText),
+                font: ttfRegular,
+                fontSize: 9,
+                color: mutedText,
+              ),
             ),
           ),
         ],
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   // ── Helpers
@@ -333,13 +324,19 @@ class SalesReturnPdf {
         pw.Text(
           label,
           style: pw.TextStyle(
-              font: ttfRegular, fontSize: 8, color: PdfColors.white),
+            font: ttfRegular,
+            fontSize: 8,
+            color: const PdfColor.fromInt(0xFF666666),
+          ),
         ),
         pw.SizedBox(height: 2),
         pw.Text(
           value,
           style: pw.TextStyle(
-              font: ttfBold, fontSize: 11, color: PdfColors.white),
+            font: ttfBold,
+            fontSize: 11,
+            color: const PdfColor.fromInt(0xFF1A1A2E),
+          ),
         ),
       ],
     );
@@ -359,8 +356,7 @@ class SalesReturnPdf {
     );
   }
 
-  static pw.Widget _td(String text, pw.Font font,
-      {bool center = false}) {
+  static pw.Widget _td(String text, pw.Font font, {bool center = false}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       child: pw.Text(
@@ -376,30 +372,14 @@ class SalesReturnPdf {
   }
 
   static pw.Widget _tdCondition(String condition, pw.Font font) {
-    // Color-code condition
-    PdfColor bg = const PdfColor.fromInt(0xFFE8F5E9);
-    PdfColor fg = const PdfColor.fromInt(0xFF2E7D32);
-
-    if (condition.toLowerCase().contains('damage')) {
-      bg = const PdfColor.fromInt(0xFFFFEBEE);
-      fg = const PdfColor.fromInt(0xFFC62828);
-    } else if (condition.toLowerCase().contains('expir')) {
-      bg = const PdfColor.fromInt(0xFFFFF3E0);
-      fg = const PdfColor.fromInt(0xFFE65100);
-    }
-
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-      child: pw.Container(
-        padding:
-        const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: pw.BoxDecoration(
-          color: bg,
-          borderRadius: pw.BorderRadius.circular(4),
-        ),
-        child: pw.Text(
-          condition,
-          style: pw.TextStyle(font: font, fontSize: 8, color: fg),
+      child: pw.Text(
+        condition,
+        style: pw.TextStyle(
+          font: font,
+          fontSize: 8,
+          color: const PdfColor.fromInt(0xFF222222),
         ),
       ),
     );

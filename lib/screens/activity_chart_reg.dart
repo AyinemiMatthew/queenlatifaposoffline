@@ -36,8 +36,7 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
     'Creditors Payment',
     'Debtors Payment',
     'Journal Entry',
-    'Bank Transfer'
-
+    'Bank Transfer',
   ];
 
   @override
@@ -96,14 +95,38 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
         _ensureAccountsFuture(value);
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final colorScheme = Theme.of(context).colorScheme;
+        final pageColor = isDark
+            ? const Color(0xFF101A23)
+            : colorScheme.surface;
+        final appBarColor = isDark
+            ? const Color(0xFF0D1A26)
+            : colorScheme.surface;
+        final cardColor = isDark
+            ? const Color(0xFF182232)
+            : colorScheme.surface;
+        final fieldColor = isDark
+            ? const Color(0xFF22304A)
+            : colorScheme.surfaceContainerHighest;
+        final foregroundColor = isDark ? Colors.white : colorScheme.onSurface;
+        final secondaryColor = isDark
+            ? Colors.white70
+            : colorScheme.onSurfaceVariant;
+        final borderColor = isDark
+            ? Colors.white24
+            : colorScheme.outlineVariant;
+        final buttonForegroundColor = isDark
+            ? Colors.white
+            : colorScheme.onPrimary;
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: pageColor,
           appBar: AppBar(
             title: Text(
               widget.chart != null ? 'EDIT ACTIVITY CHART' : 'ACTIVITY CHART',
             ),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
+            backgroundColor: appBarColor,
+            foregroundColor: foregroundColor,
             elevation: 2,
           ),
           body: Center(
@@ -116,7 +139,7 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                   child: ListView(
                     children: [
                       Card(
-                        color: const Color(0xFF182232),
+                        color: cardColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -126,29 +149,23 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                             children: [
                               DropdownButtonFormField<String>(
                                 value: _selectedActivity,
-                                dropdownColor: const Color(0xFF22304A),
-                                style: const TextStyle(color: Colors.white),
+                                dropdownColor: fieldColor,
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'ACTIVITY NAME',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
-                                  ),
+                                  labelStyle: TextStyle(color: secondaryColor),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.blue,
-                                    ),
+                                    borderSide: BorderSide(color: Colors.blue),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldColor,
                                   filled: true,
                                 ),
                                 items: _activities.map((type) {
@@ -166,9 +183,9 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                     ? 'Please select an activity'
                                     : null,
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: 14),
                               if (value.companyid.isEmpty)
-                                const Padding(
+                                Padding(
                                   padding: EdgeInsets.only(top: 8.0),
                                   child: Text(
                                     'Company not set. Please sign in again.',
@@ -191,7 +208,7 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                         padding: const EdgeInsets.only(top: 8),
                                         child: Text(
                                           'Failed to load accounts: ${snapshot.error}',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: Colors.orangeAccent,
                                           ),
                                         ),
@@ -200,7 +217,7 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
 
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
-                                      return const Padding(
+                                      return Padding(
                                         padding: EdgeInsets.only(top: 8),
                                         child: Center(
                                           child: CircularProgressIndicator(),
@@ -243,14 +260,14 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                           dropdownColor: const Color(
                                             0xFF22304A,
                                           ),
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: foregroundColor,
                                           ),
                                           isExpanded: true,
                                           decoration: InputDecoration(
                                             labelText: 'DEBIT ACCOUNT',
-                                            labelStyle: const TextStyle(
-                                              color: Colors.white70,
+                                            labelStyle: TextStyle(
+                                              color: secondaryColor,
                                             ),
                                             border: OutlineInputBorder(
                                               borderRadius:
@@ -259,18 +276,18 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                             enabledBorder: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
-                                                color: Colors.white24,
+                                              borderSide: BorderSide(
+                                                color: borderColor,
                                               ),
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
+                                              borderSide: BorderSide(
                                                 color: Colors.blue,
                                               ),
                                             ),
-                                            fillColor: const Color(0xFF22304A),
+                                            fillColor: fieldColor,
                                             filled: true,
                                           ),
                                           items: buildItems(_selectedCreditId),
@@ -300,20 +317,20 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                               ? 'Select a debit account'
                                               : null,
                                         ),
-                                        const SizedBox(height: 14),
+                                        SizedBox(height: 14),
                                         DropdownButtonFormField<String>(
                                           value: _selectedCreditId,
                                           dropdownColor: const Color(
                                             0xFF22304A,
                                           ),
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: foregroundColor,
                                           ),
                                           isExpanded: true,
                                           decoration: InputDecoration(
                                             labelText: 'CREDIT ACCOUNT',
-                                            labelStyle: const TextStyle(
-                                              color: Colors.white70,
+                                            labelStyle: TextStyle(
+                                              color: secondaryColor,
                                             ),
                                             border: OutlineInputBorder(
                                               borderRadius:
@@ -322,18 +339,18 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                             enabledBorder: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
-                                                color: Colors.white24,
+                                              borderSide: BorderSide(
+                                                color: borderColor,
                                               ),
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius:
                                                   BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
+                                              borderSide: BorderSide(
                                                 color: Colors.blue,
                                               ),
                                             ),
-                                            fillColor: const Color(0xFF22304A),
+                                            fillColor: fieldColor,
                                             filled: true,
                                           ),
                                           items: buildItems(_selectedDebitId),
@@ -363,7 +380,7 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                               : null,
                                         ),
                                         if (!hasAccounts)
-                                          const Padding(
+                                          Padding(
                                             padding: EdgeInsets.only(top: 8.0),
                                             child: Text(
                                               'No chart of accounts found.',
@@ -376,7 +393,7 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                     );
                                   },
                                 ),
-                              const SizedBox(height: 30),
+                              SizedBox(height: 30),
                               Wrap(
                                 runSpacing: 15,
                                 spacing: 15,
@@ -390,146 +407,159 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                       onPressed: _isSaving
                                           ? null
                                           : () async {
-                                        if (!_formKey.currentState!
-                                            .validate()) {
-                                          return;
-                                        }
-                                        if (_selectedDebitId ==
-                                            _selectedCreditId) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Debit and credit accounts must be different',
-                                              ),
-                                              backgroundColor: Colors.orange,
-                                            ),
-                                          );
-                                          return;
-                                        }
+                                              if (!_formKey.currentState!
+                                                  .validate()) {
+                                                return;
+                                              }
+                                              if (_selectedDebitId ==
+                                                  _selectedCreditId) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Debit and credit accounts must be different',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.orange,
+                                                  ),
+                                                );
+                                                return;
+                                              }
 
-                                        setState(() {
-                                          _isSaving = true;
-                                        });
+                                              setState(() {
+                                                _isSaving = true;
+                                              });
 
-                                        try {
-                                          final debitMeta =
-                                          await _loadAccountMeta(
-                                            value,
-                                            _selectedDebitId,
-                                          );
-                                          final creditMeta =
-                                          await _loadAccountMeta(
-                                            value,
-                                            _selectedCreditId,
-                                          );
-                                          final chart = ActivityModel(
-                                            id: widget.chart?.id ?? '',
-                                            activityName: _selectedActivity!,
-                                            subclass:
-                                            debitMeta['subclass'] ?? '',
-                                            subtype:
-                                            debitMeta['subtype'] ?? '',
-                                            debitSubclass:
-                                            debitMeta['subclass'] ?? '',
-                                            debitSubtype:
-                                            debitMeta['subtype'] ?? '',
-                                            creditSubclass:
-                                            creditMeta['subclass'] ?? '',
-                                            creditSubtype:
-                                            creditMeta['subtype'] ?? '',
-                                            debitAccountId: _selectedDebitId!,
-                                            debitAccountName:
-                                            _selectedDebitName ?? '',
-                                            creditAccountId:
-                                            _selectedCreditId!,
-                                            creditAccountName:
-                                            _selectedCreditName ?? '',
-                                            staff: '',
-                                            companyid: value.companyid,
-                                            companyemail: value.companyemail,
-                                            date: DateTime.now(),
-                                            updatedat: DateTime.now(),
-                                            deletedat: DateTime.now(),
-                                            updatedby: '',
-                                            deletedby: '',
-                                          );
+                                              try {
+                                                final debitMeta =
+                                                    await _loadAccountMeta(
+                                                      value,
+                                                      _selectedDebitId,
+                                                    );
+                                                final creditMeta =
+                                                    await _loadAccountMeta(
+                                                      value,
+                                                      _selectedCreditId,
+                                                    );
+                                                final chart = ActivityModel(
+                                                  id: widget.chart?.id ?? '',
+                                                  activityName:
+                                                      _selectedActivity!,
+                                                  subclass:
+                                                      debitMeta['subclass'] ??
+                                                      '',
+                                                  subtype:
+                                                      debitMeta['subtype'] ??
+                                                      '',
+                                                  debitSubclass:
+                                                      debitMeta['subclass'] ??
+                                                      '',
+                                                  debitSubtype:
+                                                      debitMeta['subtype'] ??
+                                                      '',
+                                                  creditSubclass:
+                                                      creditMeta['subclass'] ??
+                                                      '',
+                                                  creditSubtype:
+                                                      creditMeta['subtype'] ??
+                                                      '',
+                                                  debitAccountId:
+                                                      _selectedDebitId!,
+                                                  debitAccountName:
+                                                      _selectedDebitName ?? '',
+                                                  creditAccountId:
+                                                      _selectedCreditId!,
+                                                  creditAccountName:
+                                                      _selectedCreditName ?? '',
+                                                  staff: '',
+                                                  companyid: value.companyid,
+                                                  companyemail:
+                                                      value.companyemail,
+                                                  date: DateTime.now(),
+                                                  updatedat: DateTime.now(),
+                                                  deletedat: DateTime.now(),
+                                                  updatedby: '',
+                                                  deletedby: '',
+                                                );
 
-                                          await value
-                                              .addOrUpdateActivityChart(
-                                            chart,
-                                          );
+                                                await value
+                                                    .addOrUpdateActivityChart(
+                                                      chart,
+                                                    );
 
-                                          if (widget.chart != null) {
-                                            Navigator.pop(context);
-                                          }
+                                                if (widget.chart != null) {
+                                                  Navigator.pop(context);
+                                                }
 
-                                          setState(() {
-                                            _selectedActivity = null;
-                                            _selectedDebitId = null;
-                                            _selectedDebitName = null;
-                                            _selectedCreditId = null;
-                                            _selectedCreditName = null;
-                                          });
+                                                setState(() {
+                                                  _selectedActivity = null;
+                                                  _selectedDebitId = null;
+                                                  _selectedDebitName = null;
+                                                  _selectedCreditId = null;
+                                                  _selectedCreditName = null;
+                                                });
 
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                widget.chart != null
-                                                    ? 'Activity chart updated successfully'
-                                                    : 'Activity chart saved successfully',
-                                              ),
-                                              backgroundColor: Colors.green,
-                                            ),
-                                          );
-                                        } catch (e) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Operation failed: $e',
-                                              ),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() {
-                                              _isSaving = false;
-                                            });
-                                          }
-                                        }
-                                      },
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      widget.chart != null
+                                                          ? 'Activity chart updated successfully'
+                                                          : 'Activity chart saved successfully',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                );
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Operation failed: $e',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              } finally {
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isSaving = false;
+                                                  });
+                                                }
+                                              }
+                                            },
                                       child: _isSaving
-                                          ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                          AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
-                                          ),
-                                        ),
-                                      )
+                                          ? SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(buttonForegroundColor),
+                                              ),
+                                            )
                                           : Text(
-                                        widget.chart != null
-                                            ? 'Update'
-                                            : 'Add',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                                              widget.chart != null
+                                                  ? 'Update'
+                                                  : 'Add',
+                                              style: TextStyle(
+                                                color: foregroundColor,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   SizedBox(
@@ -541,21 +571,30 @@ class _ActivityChartRegState extends State<ActivityChartReg> {
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                          side: BorderSide(color: Colors.white70)
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          side: BorderSide(
+                                            color: secondaryColor,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () {
-                                        Navigator.pushNamed(context, Routes.activityChartView);
+                                        Navigator.pushNamed(
+                                          context,
+                                          Routes.activityChartView,
+                                        );
                                       },
                                       child: Text(
-                                          "View",
-                                        style: TextStyle(color: Colors.white),
+                                        "View",
+                                        style: TextStyle(
+                                          color: buttonForegroundColor,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         ),

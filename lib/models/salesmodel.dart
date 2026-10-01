@@ -47,7 +47,7 @@ class SalesModel {
   Timestamp? stockCheckedAt;
   String paymentStatus;
   int timestamp;
-
+  final String? dailyreceiptno;
   Map<String, dynamic> items;
 
   /// OPTIONAL PAYMENT FIELDS
@@ -64,6 +64,7 @@ class SalesModel {
   String? week;
   String? month;
   String? year;
+
 
   SalesModel({
     required this.id,
@@ -117,6 +118,7 @@ class SalesModel {
     this.supplyat,
     this.supplyby,
     required this.supplystatus,
+    this.dailyreceiptno,
 
   });
 
@@ -166,6 +168,7 @@ class SalesModel {
       'supplystatus':supplystatus,
       'supplyat':supplyat,
       'supplyby':supplyby,
+      'dailyreceiptno': dailyreceiptno ?? '',
     };
 
     if (customerCreditLimit != null) {
@@ -246,6 +249,9 @@ class SalesModel {
       payments: map['payments'] is List
           ? List<dynamic>.from(map['payments'])
           : null,
+      dailyreceiptno: (map['dailyreceiptno'] ?? '').toString().isEmpty
+          ? null
+          : map['dailyreceiptno'].toString(),
     );
   }
 

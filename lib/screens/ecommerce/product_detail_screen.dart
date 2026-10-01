@@ -47,7 +47,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             Container(
               height: 300,
               width: double.infinity,
-              color: Colors.grey[200],
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: widget.product.imageurl.isNotEmpty
                   ? Image.network(
                       widget.product.imageurl,
@@ -78,7 +78,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Product Code/Barcode
                   Text(
                     'Code: ${widget.product.barcode}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -127,7 +130,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -237,7 +242,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.3),
@@ -308,7 +313,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
           Text(
             value,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),

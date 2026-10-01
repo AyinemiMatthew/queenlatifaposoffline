@@ -143,7 +143,7 @@ Future<void> printReportPdf({
                   spacing: 16,
                   runSpacing: 4,
                   children: summaryLines.map((s) => pw.Text(
-                    '${s.label}: GHC ${s.value.toStringAsFixed(2)}',
+                    '${s.label}: GHS ${s.value.toStringAsFixed(2)}',
                     style: pw.TextStyle(
                       font: ttfRegular,
                       color: s.highlight ? const PdfColor.fromInt(0xFF90EE90) : white,
@@ -247,7 +247,7 @@ Future<void> printReportPdf({
                     children: summaryLines
                         .where((s) => s.highlight)
                         .map((s) => pw.Text(
-                      '${s.label}:  GHC ${s.value.toStringAsFixed(2)}',
+                      '${s.label}:  GHS ${s.value.toStringAsFixed(2)}',
                       style: pw.TextStyle(
                         font: ttfRegular,
                         color: const PdfColor.fromInt(0xFF90EE90),

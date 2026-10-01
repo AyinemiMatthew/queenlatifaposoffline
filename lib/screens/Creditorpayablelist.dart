@@ -1,5 +1,3 @@
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,34 +9,38 @@ import '../providers/Datafeed.dart';
 import '../widgets/datepicker.dart';
 import 'Creditorpayable.dart';
 
-
 class CreditorPayablelistScreen extends StatefulWidget {
   const CreditorPayablelistScreen({super.key});
 
   @override
-  State<CreditorPayablelistScreen> createState() => _CreditorPayablelistScreenState();
+  State<CreditorPayablelistScreen> createState() =>
+      _CreditorPayablelistScreenState();
 }
 
 class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
+  static const _allKey = '__all__';
+
   String searchQuery = '';
   DateTimeRange? selectedDate;
   String _selectedBranch = '';
   int? _sortColumnIndex;
   bool _sortAscending = true;
-  int _rowsPerPage = 10;
+  bool _searchOpen = false; // mobile only
+  final _searchCtrl = TextEditingController();
   final verticalController = ScrollController();
   final horizontalController = ScrollController();
 
+  bool get _isMobile => MediaQuery.of(context).size.width < 800;
+
   void _sort<T>(
-      Comparable<T> Function(dynamic d) getField,
-      int columnIndex,
-      bool ascending,
-      List list,
-      ) {
+    Comparable<T> Function(dynamic d) getField,
+    int columnIndex,
+    bool ascending,
+    List list,
+  ) {
     list.sort((a, b) {
       final aValue = getField(a);
       final bValue = getField(b);
-
       return ascending
           ? Comparable.compare(aValue, bValue)
           : Comparable.compare(bValue, aValue);
@@ -48,391 +50,478 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
       _sortAscending = ascending;
     });
   }
-  String capitalize(String? text) {
-    if (text == null || text.isEmpty) return '';
-    return text[0].toUpperCase() + text.substring(1);
-  }
 
   @override
   void initState() {
     super.initState();
-    Future.microtask((){
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchCreditorPaylist(selectedDate, _selectedBranch);
+    Future.microtask(() async {
+      if (!mounted) return;
+      final df = context.read<Datafeed>();
+      await df.getdata();
+      df.fetchBranches();
+      _load();
     });
+  }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    verticalController.dispose();
+    horizontalController.dispose();
+    super.dispose();
+  }
+
+  String _effectiveBranch(Datafeed df) =>
+      df.isAdminLevel ? _selectedBranch : df.branchid;
+
+  void _load() {
+    if (!mounted) return;
+    final df = context.read<Datafeed>();
+    df.fetchCreditorPaylist(selectedDate, _effectiveBranch(df));
+  }
+
+  void _closeSearch() {
+    setState(() {
+      _searchOpen = false;
+      _searchCtrl.clear();
+      searchQuery = '';
+    });
+  }
+
+  Widget _expandableSearch() {
+    final w = (MediaQuery.of(context).size.width * 0.22).clamp(180.0, 280.0);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      alignment: Alignment.centerRight,
+      child: _searchOpen
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(width: w, child: _searchField(autofocus: true)),
+            )
+          : IconButton(
+              tooltip: 'Search',
+              icon: const Icon(Icons.search, size: 24),
+              onPressed: () => setState(() => _searchOpen = true),
+            ),
+    );
+  }
+
+  Widget _searchField({bool autofocus = false}) {
+    return SizedBox(
+      height: 40,
+      child: TextField(
+        controller: _searchCtrl,
+        autofocus: autofocus,
+        onChanged: (v) => setState(() => searchQuery = v),
+        style: TextStyle(color: _C.textPri(context), fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Search creditor, account, reference…',
+          hintStyle: TextStyle(color: _C.textMuted(context), fontSize: 13),
+          prefixIcon: Icon(Icons.search, color: _C.textSub(context), size: 20),
+          // desktop: ✕ collapses; mobile: ✕ only clears (the AppBar icon closes)
+          suffixIcon: (_isMobile && _searchCtrl.text.isEmpty)
+              ? null
+              : IconButton(
+                  icon: Icon(Icons.close, color: _C.textSub(context), size: 18),
+                  onPressed: () {
+                    if (_isMobile) {
+                      _searchCtrl.clear();
+                      setState(() => searchQuery = '');
+                    } else {
+                      _closeSearch();
+                    }
+                  },
+                ),
+          filled: true,
+          fillColor: _C.field(context),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _openPaymentDialog(CreditorBalance? creditor) {
     showDialog(
       context: context,
-      builder: (_) => _CreditorPaymentDialog(
-        creditinfo: creditor,
+      builder: (_) => _CreditorPaymentDialog(creditinfo: creditor),
+    );
+  }
 
+  Widget _branchSelector(Datafeed df, {required bool compact}) {
+    final branches = df.branches
+        .where((b) => b.branchtype != 'Warehouse')
+        .toList();
 
+    // Non-admin: fixed label, no menu
+    if (!df.isAdminLevel) {
+      if (compact) return const SizedBox.shrink();
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _C.field(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _C.divider(context)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.store_mall_directory_outlined,
+              color: _C.textSub(context),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                df.branch,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _C.textPri(context), fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final match = branches.where((b) => b.id == _selectedBranch);
+    final label = match.isEmpty ? 'All Branches' : match.first.branchname;
+
+    return PopupMenuButton<String>(
+      tooltip: 'Select branch',
+      color: _C.card(context),
+      offset: const Offset(0, 46),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (v) {
+        setState(() => _selectedBranch = v == _allKey ? '' : v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem<String>(
+          value: _allKey,
+          child: Text(
+            'All Branches',
+            style: TextStyle(
+              color: _selectedBranch.isEmpty ? _C.primary : _C.textSub(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ...branches.map(
+          (b) => PopupMenuItem<String>(
+            value: b.id,
+            child: Text(
+              b.branchname,
+              style: TextStyle(
+                color: _selectedBranch == b.id
+                    ? _C.primary
+                    : _C.textPri(context),
+              ),
+            ),
+          ),
+        ),
+      ],
+      child: compact
+          ? Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(
+                Icons.store_mall_directory_outlined,
+                color: _C.textPri(context),
+                size: 24,
+              ),
+            )
+          : Container(
+              constraints: const BoxConstraints(maxWidth: 220),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _C.bg(context),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _C.divider(context)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.store_mall_directory_outlined,
+                    color: _C.textSub(context),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _C.textPri(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: _C.textSub(context),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(Datafeed df, int recordCount) {
+    final mobile = _isMobile;
+
+    final Widget title = mobile
+        ? (_searchOpen
+              ? _searchField(autofocus: true)
+              : Text(
+                  'Creditor Payments',
+                  style: TextStyle(
+                    color: _C.textPri(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ))
+        : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Creditor Payments',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _C.textPri(context),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'View, edit and delete payments made to creditors',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _C.textSub(context), fontSize: 11),
+              ),
+            ],
+          );
+
+    return AppBar(
+      backgroundColor: _C.header(context),
+      foregroundColor: _C.textPri(context),
+      elevation: 2,
+      titleSpacing: 0,
+      toolbarHeight: mobile ? kToolbarHeight : 64,
+      leading: BackButton(color: _C.textPri(context)),
+      title: title,
+      actions: [
+        _branchSelector(df, compact: mobile),
+        if (mobile)
+          IconButton(
+            tooltip: _searchOpen ? 'Close search' : 'Search',
+            icon: Icon(_searchOpen ? Icons.close : Icons.search, size: 24),
+            onPressed: () => _searchOpen
+                ? _closeSearch()
+                : setState(() => _searchOpen = true),
+          )
+        else
+          _expandableSearch(),
+        if (df.isAdminLevel && !(mobile && _searchOpen))
+          ReusableDatePickerWidget(
+            child: const Icon(Icons.calendar_today, size: 22),
+            onDateSelected: (selection) {
+              setState(() => selectedDate = selection);
+              _load();
+            },
+          ),
+        if (!(mobile && _searchOpen))
+          IconButton(
+            icon: const Icon(Icons.home, size: 25),
+            tooltip: 'Home',
+            onPressed: () => Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/home', (route) => false),
+          ),
+        if (!mobile)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _C.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _C.primary.withOpacity(0.25)),
+                ),
+                child: Text(
+                  '$recordCount record${recordCount == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: _C.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (mobile) const SizedBox(width: 4),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: _C.divider(context)),
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, value, child) {
-        final filteredCreditorpayment = value.filterCreditorPaylist(searchQuery);
-
+        final filteredCreditorpayment = value.filterCreditorPaylist(
+          searchQuery,
+        );
         final screenWidth = MediaQuery.of(context).size.width;
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
-          appBar: AppBar(
-            title: const Text('Creditor Payment list View List'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.home, size: 25),
-                tooltip: 'Home',
-                onPressed: () {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-                },
-              ),
-              ReusableDatePickerWidget(
-                child: Icon(Icons.calendar_today, size: 25),
-                onDateSelected: (selection) {
-                  setState(() {
-                    selectedDate = selection;
-
-                  });
-                  context.read<Datafeed>().fetchCreditorPaylist(selectedDate,_selectedBranch);
-                },
-              ),
-            ],
-          ),
-
+          backgroundColor: _C.bg(context),
+          appBar: _buildAppBar(value, filteredCreditorpayment.length),
           floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
-            child: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreditorPayableScreen()),
-              );
-            },
+            backgroundColor: _C.primary,
+            child: const Icon(Icons.add, color: Colors.white),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreditorPayableScreen()),
+            ),
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(20),
+          body: SafeArea(
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
-                child: Column(
-                  children: [
-
-                    DropdownButtonFormField<String>(
-                      value: _selectedBranch,
-                      dropdownColor: const Color(0xFF22304A),
-                      isExpanded: true,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Select Branch',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.blue),
-                        ),
-                        fillColor: const Color(0xFF22304A),
-                        filled: true,
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: '',
-                          child: Text('All Branches'),
-                        ),
-                        ...value.branches.where((branch) => branch.branchtype != 'Warehouse').map((branch) {
-                          return DropdownMenuItem<String>(
-                            value: branch.id,
-                            child: Text(branch.branchname),
-                          );
-                        }),
-                      ],
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedBranch = val ?? '';
-                        });
-                        value.fetchCreditorPaylist(selectedDate, _selectedBranch);
-                      },
-                    ),
-
-
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      onChanged: (v) => setState(() => searchQuery = v),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Search ...',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        prefixIcon:
-                        Icon(Icons.search, color: Colors.white54),
-                        filled: true,
-                        fillColor: Color(0xFF22304A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-
-
-                    Expanded(
-                      child: value.isLoadingcreditpaylist
-                          ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                          : value.creditorpayList.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Creditor record  found',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                          : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isDesktop = screenWidth > 900;
-
-
-                          if (isDesktop) {
-                            return ScrollbarTheme(
-                              data: ScrollbarThemeData(
-                                thumbColor: MaterialStateProperty.all(
-                                  const Color(0xFF415A77),
-                                ),
-                                trackColor: MaterialStateProperty.all(
-                                  const Color(0xFF22304A),
-                                ),
-                                trackBorderColor: MaterialStateProperty.all(
-                                  const Color(0xFF1B263B),
-                                ),
-                                thickness: MaterialStateProperty.all(10),
-                                radius: const Radius.circular(8),
+                constraints: BoxConstraints(maxWidth: _isMobile ? 950 : 1400),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      if (_isMobile)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${filteredCreditorpayment.length} record${filteredCreditorpayment.length == 1 ? '' : 's'}',
+                              style: TextStyle(
+                                color: _C.textMuted(context),
+                                fontSize: 12,
                               ),
-                              child: Scrollbar(
-                                controller: verticalController,
-                                thumbVisibility: true,
-                                trackVisibility: true,
-                                child: Scrollbar(
-                                  controller: horizontalController,
-                                  thumbVisibility: true,
-                                  trackVisibility: true,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    controller: horizontalController,
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(maxWidth: 1000, minWidth: 1000),
-                                      child: _CreditorListTable(
-                                        creditlist: filteredCreditorpayment,
-                                        context: context,
-                                        sort: _sort,
-                                        handleDelete: _handleDelete,
-                                        handleEdit: _handleEdit,
-                                        sortColumnIndex: _sortColumnIndex,
-                                        sortAscending: _sortAscending,
-                                        verticalController: verticalController,
-                                      ),
-                                    ),
-                                  ),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: value.isLoadingcreditpaylist
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: _C.primary,
                                 ),
+                              )
+                            : filteredCreditorpayment.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No Creditor record found',
+                                  style: TextStyle(color: _C.textSub(context)),
+                                ),
+                              )
+                            : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isDesktop = screenWidth > 900;
+
+                                  if (isDesktop) {
+                                    return ScrollbarTheme(
+                                      data: ScrollbarThemeData(
+                                        thumbColor: MaterialStateProperty.all(
+                                          _C.primary,
+                                        ),
+                                        trackColor: MaterialStateProperty.all(
+                                          _C.surface(context),
+                                        ),
+                                        trackBorderColor:
+                                            MaterialStateProperty.all(
+                                              _C.divider(context),
+                                            ),
+                                        thickness: MaterialStateProperty.all(
+                                          10,
+                                        ),
+                                        radius: const Radius.circular(8),
+                                      ),
+                                      child: Scrollbar(
+                                        controller: verticalController,
+                                        thumbVisibility: true,
+                                        trackVisibility: true,
+                                        child: Scrollbar(
+                                          controller: horizontalController,
+                                          thumbVisibility: true,
+                                          trackVisibility: true,
+                                          child: SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            controller: horizontalController,
+                                            child: ConstrainedBox(
+                                              constraints: const BoxConstraints(
+                                                maxWidth: 1000,
+                                                minWidth: 1000,
+                                              ),
+                                              child: _CreditorListTable(
+                                                creditlist:
+                                                    filteredCreditorpayment,
+                                                context: context,
+                                                sort: _sort,
+                                                handleDelete: _handleDelete,
+                                                handleEdit: _handleEdit,
+                                                sortColumnIndex:
+                                                    _sortColumnIndex,
+                                                sortAscending: _sortAscending,
+                                                verticalController:
+                                                    verticalController,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  /// MOBILE
+                                  return ListView.separated(
+                                    itemCount: filteredCreditorpayment.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 12),
+                                    itemBuilder: (context, index) {
+                                      final creditorinfo =
+                                          filteredCreditorpayment[index];
+                                      return _buildMobileCard(creditorinfo);
+                                    },
+                                  );
+                                },
                               ),
-                            );
-                          }
-
-                          /// MOBILE
-                          return ListView.separated(
-                            itemCount: filteredCreditorpayment.length,
-                            separatorBuilder: (_, _) =>
-                            const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final creditorinfo = filteredCreditorpayment[index];
-
-                              final id = creditorinfo.id;
-                              final creditorname = creditorinfo.creditorName;
-                              final amount = creditorinfo.amount;
-
-                              final paymentMode = creditorinfo.paymentMode;
-                              final paymentaccount = creditorinfo.paymentaccount;
-                              final transactionRef = creditorinfo.transactionRef;
-                              final createdAt = creditorinfo.date;
-
-                              return Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1B263B),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all( color: Colors.white.withOpacity(0.05)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.amberAccent.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          "Creditor: $creditorname",
-                                          softWrap: true,
-                                          style: const TextStyle(
-                                            color: Colors.amberAccent,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 1.1,
-                                          ),
-                                        ),
-                                      ),
-
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-
-                                            Text("Amount: GHC $amount",
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text("Payment Method: $paymentMode",
-                                              style: const TextStyle(
-                                                color: Colors.white70,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text("Payment Account: $paymentaccount",
-                                              style: const TextStyle(
-                                                color: Colors.white70,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              "Transaction Ref: $transactionRef",
-                                              maxLines: 2,
-                                              softWrap: false,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Colors.white70,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-
-                                            const Divider(color: Colors.white24),
-
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                _buildFooterLabel(
-                                                  Icons.calendar_today_outlined,
-                                                  "Date: ${createdAt != null ? DateFormat.yMMMd().format(createdAt) : ''}",
-                                                ),
-                                              ],
-                                            ),
-
-                                            const SizedBox(width: 12),
-                                            Row(
-                                              crossAxisAlignment: CrossAxisAlignment.center,
-                                              mainAxisSize: MainAxisSize.min,
-
-                                              children: [
-                                                Expanded(
-                                                  child: const Text(
-                                                    "TOTAL AMOUNT",
-                                                    maxLines: 1,
-                                                    style: TextStyle(
-                                                      color: Colors.white54,
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                ),
-                                                SizedBox(width: 5,),
-                                                Expanded(
-                                                  child: Text(
-                                                    "GHC $amount",
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w900,
-                                                    ),
-                                                  ),
-                                                ),
-
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          Expanded(
-                                              child:  _buildActionButton(
-                                                Icons.edit, "Edit",
-                                                Colors.blueAccent,
-                                                    () {
-                                                  _handleEdit( context,
-                                                    id,
-                                                    creditorinfo,
-                                                  );
-                                                },
-                                              ),
-                                          ),
-                                          Expanded(
-                                              child: _buildActionButton(
-                                                Icons.delete_outline, "Delete",
-                                                Colors.redAccent, () =>
-                                                  _handleDelete(context,creditorinfo, id),
-                                              ),
-                                          ),
-
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-
-                            },
-
-                          );
-                        },
                       ),
-                    )
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -440,19 +529,124 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
         );
       },
     );
-
   }
+
+  Widget _buildMobileCard(CreditorBalance creditorinfo) {
+    final id = creditorinfo.id;
+    final creditorname = creditorinfo.creditorName;
+    final amount = creditorinfo.amount;
+    final paymentMode = creditorinfo.paymentMode;
+    final paymentaccount = creditorinfo.paymentaccount;
+    final transactionRef = creditorinfo.transactionRef;
+    final createdAt = creditorinfo.date;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: _C.card(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _C.divider(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: _C.header(context),
+              child: Text(
+                'Creditor: $creditorname',
+                softWrap: true,
+                style: const TextStyle(
+                  color: _C.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Amount: GHS $amount',
+                    style: TextStyle(
+                      color: _C.textPri(context),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Payment Method: $paymentMode',
+                    style: TextStyle(color: _C.textSub(context), fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Payment Account: ${paymentaccount ?? ''}',
+                    style: TextStyle(color: _C.textSub(context), fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Transaction Ref: $transactionRef',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _C.textSub(context), fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Divider(color: _C.divider(context)),
+                  _buildFooterLabel(
+                    Icons.calendar_today_outlined,
+                    'Date: ${createdAt != null ? DateFormat.yMMMd().format(createdAt) : ''}',
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: _C.divider(context)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: _buildActionButton(
+                    Icons.edit,
+                    'Edit',
+                    _C.primary,
+                    () => _handleEdit(context, id, creditorinfo),
+                  ),
+                ),
+                Expanded(
+                  child: _buildActionButton(
+                    Icons.delete_outline,
+                    'Delete',
+                    _C.negative(context),
+                    () => _handleDelete(context, creditorinfo, id),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFooterLabel(IconData icon, String label) {
     return SizedBox(
       width: double.infinity,
       child: Row(
-        mainAxisSize: MainAxisSize.max,
         children: [
-          Icon(
-            icon,
-            size: 13,
-            color: Colors.white54,
-          ),
+          Icon(icon, size: 13, color: _C.textMuted(context)),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
@@ -460,10 +654,7 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: _C.textMuted(context), fontSize: 11),
             ),
           ),
         ],
@@ -471,35 +662,50 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _buildActionButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return TextButton.icon(
       onPressed: onTap,
       icon: Icon(icon, color: color, size: 20),
       label: Text(label, style: TextStyle(color: color, fontSize: 13)),
     );
   }
-  Future<void> _handleDelete(BuildContext context, CreditorBalance? creditdata, String id) async {
+
+  Future<void> _handleDelete(
+    BuildContext context,
+    CreditorBalance? creditdata,
+    String id,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (innerContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: _C.card(context),
         title: Text(
-            "Delete close sale by ${creditdata?.creditorName}?",
-            style: const TextStyle(color: Colors.white)
+          'Delete payment to ${creditdata?.creditorName}?',
+          style: TextStyle(color: _C.textPri(context)),
         ),
         content: Text(
-          "This action cannot be undone. Are you sure?",
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          'This action cannot be undone. Are you sure?',
+          style: TextStyle(color: _C.textSub(context)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(innerContext, false),
-            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: _C.textMuted(context)),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _C.negative(context),
+            ),
             onPressed: () => Navigator.pop(innerContext, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -507,13 +713,14 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
 
     if (confirm == true) {
       try {
-        // Accessing the provider
-        await context.read<Datafeed>().deleteCreditorpay(creditdata,id);
+        await context.read<Datafeed>().deleteCreditorpay(creditdata, id);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("${creditdata?.creditorName}'s Creditor payement deleted successfully"),
+              content: Text(
+                "${creditdata?.creditorName}'s creditor payment deleted successfully",
+              ),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
@@ -522,8 +729,8 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Failed to delete item"),
+            SnackBar(
+              content: Text('Failed to delete item'),
               backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),
@@ -532,17 +739,16 @@ class _CreditorPayablelistScreenState extends State<CreditorPayablelistScreen> {
       }
     }
   }
-  Future<void> _handleEdit( BuildContext context, String id, CreditorBalance? creditdata, ) async {
+
+  Future<void> _handleEdit(
+    BuildContext context,
+    String id,
+    CreditorBalance? creditdata,
+  ) async {
     _openPaymentDialog(creditdata);
-
   }
-
 }
 
-/// Desktop table rendered with a fixed header row + ListView.builder body,
-/// replacing the previous PaginatedDataTable/DataTableSource implementation.
-/// Column set, sort mapping and row content are unchanged from the original
-/// CreditorDataSource — only the rendering mechanism changed.
 class _CreditorListTable extends StatelessWidget {
   final List<CreditorBalance> creditlist;
   final BuildContext context;
@@ -573,7 +779,12 @@ class _CreditorListTable extends StatelessWidget {
   static const double _colDate = 100;
   static const double _colAction = 110;
 
-  Widget _headerCell(String label, double width, {int? columnIndex, Comparable Function(dynamic d)? getField}) {
+  Widget _headerCell(
+    String label,
+    double width, {
+    int? columnIndex,
+    Comparable Function(dynamic d)? getField,
+  }) {
     final isSorted = columnIndex != null && sortColumnIndex == columnIndex;
     return SizedBox(
       width: width,
@@ -581,18 +792,19 @@ class _CreditorListTable extends StatelessWidget {
         onTap: (columnIndex == null || getField == null)
             ? null
             : () {
-          final ascending = isSorted ? !sortAscending : true;
-          sort(getField, columnIndex, ascending, creditlist);
-        },
+                final ascending = isSorted ? !sortAscending : true;
+                sort(getField, columnIndex, ascending, creditlist);
+              },
         child: Row(
           children: [
             Flexible(
               child: Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                style: TextStyle(
+                  color: _C.textSub(context),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  letterSpacing: 0.5,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -601,7 +813,7 @@ class _CreditorListTable extends StatelessWidget {
               Icon(
                 sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
                 size: 14,
-                color: Colors.white70,
+                color: _C.primary,
               ),
           ],
         ),
@@ -614,7 +826,7 @@ class _CreditorListTable extends StatelessWidget {
       width: width,
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: _C.textPri(context), fontSize: 13),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -627,52 +839,53 @@ class _CreditorListTable extends StatelessWidget {
       children: [
         // Header row
         Container(
-          color: const Color(0xFF1B263B),
+          color: _C.card(context),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           child: Row(
             children: [
-              _headerCell("#", _colHash),
+              _headerCell('#', _colHash),
               _headerCell(
-                "Creditor",
+                'Creditor',
                 _colCreditor,
                 columnIndex: 1,
                 getField: (d) => d.creditorName ?? '',
               ),
               _headerCell(
-                "Amount",
+                'Amount',
                 _colAmount,
                 columnIndex: 2,
                 getField: (d) => d.amount,
               ),
               _headerCell(
-                "Payment Method",
+                'Payment Method',
                 _colPaymentMethod,
                 columnIndex: 3,
-                getField: (d) => d.paymentaccount ?? '',
-              ),
-              _headerCell(
-                "Payment Account",
-                _colPaymentAccount,
-                columnIndex: 4,
                 getField: (d) => d.paymentMode ?? '',
               ),
               _headerCell(
-                "Reference",
+                'Payment Account',
+                _colPaymentAccount,
+                columnIndex: 4,
+                getField: (d) => d.paymentaccount ?? '',
+              ),
+              _headerCell(
+                'Reference',
                 _colReference,
                 columnIndex: 5,
                 getField: (d) => d.transactionRef ?? '',
               ),
               _headerCell(
-                "Date",
+                'Date',
                 _colDate,
                 columnIndex: 6,
-                getField: (d) => d.date ?? '',
+                getField: (d) =>
+                    d.date ?? DateTime.fromMillisecondsSinceEpoch(0),
               ),
-              _headerCell("Action", _colAction),
+              _headerCell('Action', _colAction),
             ],
           ),
         ),
-        Container(height: 0.5, color: Colors.white24),
+        Container(height: 1, color: _C.divider(context)),
 
         // Body
         ConstrainedBox(
@@ -693,18 +906,28 @@ class _CreditorListTable extends StatelessWidget {
               final createdAt = creditview.date;
 
               return Container(
-                color: index.isEven ? const Color(0xFF0D1B2A) : const Color(0xFF0F2033),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: index.isEven ? _C.bg(context) : _C.surface(context),
+                  border: Border(
+                    bottom: BorderSide(color: _C.divider(context), width: 0.5),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
-                    _dataCell("${index + 1}", _colHash),
+                    _dataCell('${index + 1}', _colHash),
                     _dataCell(creditor, _colCreditor),
-                    _dataCell("GHC $amount", _colAmount),
+                    _dataCell('GHS $amount', _colAmount),
                     _dataCell(paymentMode, _colPaymentMethod),
                     _dataCell(paymentAccount ?? '', _colPaymentAccount),
                     _dataCell(transactionRef, _colReference),
                     _dataCell(
-                      createdAt != null ? DateFormat.yMMMd().format(createdAt) : '',
+                      createdAt != null
+                          ? DateFormat.yMMMd().format(createdAt)
+                          : '',
                       _colDate,
                     ),
                     SizedBox(
@@ -712,18 +935,17 @@ class _CreditorListTable extends StatelessWidget {
                       child: Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blueAccent),
-                            onPressed: () {
-                              handleEdit(
-                                context,
-                                id,
-                                creditview,
-                              );
-                            },
+                            icon: const Icon(Icons.edit, color: _C.primary),
+                            onPressed: () =>
+                                handleEdit(context, id, creditview),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.redAccent),
-                            onPressed: () => handleDelete(context, creditview, id),
+                            icon: Icon(
+                              Icons.delete,
+                              color: _C.negative(context),
+                            ),
+                            onPressed: () =>
+                                handleDelete(context, creditview, id),
                           ),
                         ],
                       ),
@@ -739,73 +961,129 @@ class _CreditorListTable extends StatelessWidget {
   }
 }
 
+// ─── Edit payment dialog
 class _CreditorPaymentDialog extends StatefulWidget {
-  //final String selectedBranch;
   final CreditorBalance? creditinfo;
-  const _CreditorPaymentDialog({
-    //required this.selectedBranch,
-    this.creditinfo,
-  });
+  const _CreditorPaymentDialog({this.creditinfo});
 
   @override
   State<_CreditorPaymentDialog> createState() => _CreditorPaymentDialogState();
 }
 
 class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
-  final _formKey   = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
   final _referenceCtrl = TextEditingController();
   final _narationCtrl = TextEditingController();
   final _phoneController = TextEditingController();
-  final _dateCtrl   = TextEditingController();
+  final _dateCtrl = TextEditingController();
+
   DateTime? _selectedDate;
   String? _paymentMode;
   String? _paymentAccount;
-  bool   _saving = false;
+  bool _saving = false;
+  bool _ready = false;
   String? selectedMomoNetwork = 'MTN';
-  final db =FirebaseFirestore.instance;
+  List<String> _allowed = [];
+
+  String _key(String m) => m
+      .toLowerCase()
+      .replaceAll('_', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  List<String> _payModes() {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final m in _allowed) {
+      final name = m.toString().trim();
+      if (name.isEmpty) continue;
+      final k = _key(name);
+      if (k.contains('credit')) continue;
+      if (seen.add(k)) out.add(name);
+    }
+    return out;
+  }
+
+  List<String> _accountsFor(Datafeed datafeed) {
+    final mode = _paymentMode;
+    if (mode == null || mode.isEmpty) return <String>[];
+    final k = _key(mode);
+    final result = <String>{};
+    for (final e in datafeed.linkedAccounts.entries) {
+      if (_key(e.key) == k) {
+        for (final a in e.value) {
+          final name = a.toString().trim();
+          if (name.isNotEmpty) result.add(name);
+        }
+      }
+    }
+    return result.toList();
+  }
+
+  void _syncAccountToMode(Datafeed datafeed) {
+    final accounts = _accountsFor(datafeed);
+    _paymentAccount = accounts.length == 1 ? accounts.first : null;
+  }
 
   void showMessage(BuildContext context, Color color, String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: const TextStyle(color: Colors.white)),
         backgroundColor: color,
       ),
     );
   }
 
+  void _prefill(List<String> allowed) {
+    final data = widget.creditinfo;
+    if (data == null) return;
+
+    _amountCtrl.text = data.amount.toString();
+    _referenceCtrl.text = data.transactionRef;
+    _narationCtrl.text = data.naration ?? '';
+    _phoneController.text = data.phone ?? '';
+    selectedMomoNetwork =
+        ['MTN', 'Vodafone', 'AirtelTigo'].contains(data.networktype)
+        ? data.networktype
+        : 'MTN';
+
+    if (data.date != null) {
+      _selectedDate = data.date;
+      _dateCtrl.text = DateFormat('dd/MM/yyyy').format(data.date!);
+    }
+
+    final saved = _key(data.paymentMode);
+    final match = allowed.where(
+      (m) => _key(m) == saved || (saved == 'momo' && _key(m).contains('momo')),
+    );
+    _paymentMode = match.isEmpty ? null : match.first;
+    _paymentAccount = data.paymentaccount;
+  }
+
   @override
   void initState() {
     super.initState();
-
     Future.microtask(() async {
       if (!mounted) return;
-      final datafeed = Provider.of<Datafeed>(context, listen: false);
-      await datafeed.getdata();
-      context.read<Datafeed>().fetchPaymentMethods();
-      final data = widget.creditinfo;
-
-      if (data != null) {
-        _amountCtrl.text = data.amount?.toString() ?? '';
-
-        _referenceCtrl.text = data.transactionRef;
-
-        _narationCtrl.text = data.naration ?? '';
-
-        _paymentMode = data.paymentMode.trim();
-
-        _paymentAccount =  data.paymentaccount;
-        _phoneController.text =data.phone!;
-        selectedMomoNetwork = data.networktype;
-
-        if (data.date != null) {
-          _selectedDate = data.date;
-          _dateCtrl.text =
-              DateFormat('dd/MM/yyyy')
-                  .format(data.date!);
-        }
-
-        setState(() {});
+      final df = context.read<Datafeed>();
+      try {
+        await df.getdata();
+        final allowedSnapshot = List<String>.from(df.allowedPaymentMethods);
+        await df.fetchpaiymentMethods();
+        if (!mounted) return;
+        final companyModes = df.linkedAccounts.keys.toList();
+        final modes = df.isAdminLevel && allowedSnapshot.isEmpty
+            ? companyModes
+            : allowedSnapshot;
+        setState(() {
+          _allowed = modes;
+          _prefill(modes);
+          _ready = true;
+        });
+      } catch (_) {
+        if (mounted) setState(() => _ready = true);
       }
     });
   }
@@ -813,39 +1091,29 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
   @override
   void dispose() {
     _amountCtrl.dispose();
+    _referenceCtrl.dispose();
+    _narationCtrl.dispose();
+    _phoneController.dispose();
     _dateCtrl.dispose();
     super.dispose();
   }
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
 
-    final datafeed = Provider.of<Datafeed>(context);
-
-    if (!datafeed.isLoadingPaymentMethods &&
-        datafeed.allowedPaymentMethods.isNotEmpty &&
-        _paymentMode != null) {
-      setState(() {});
-    }
-  }
   Future<void> _pickDate() async {
-    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       builder: (ctx, child) => Theme(
-        data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(
-              primary: _C.primary, surface: _C.card),
+        data: Theme.of(ctx).copyWith(
+          colorScheme: Theme.of(
+            ctx,
+          ).colorScheme.copyWith(primary: _C.primary, surface: _C.card(ctx)),
         ),
         child: child!,
       ),
     );
-    if (picked != null) {
-      _dateCtrl.text =
-      '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    if (picked != null && mounted) {
       setState(() {
         _selectedDate = picked;
         _dateCtrl.text = DateFormat('dd/MM/yyyy').format(picked);
@@ -853,41 +1121,39 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
     }
   }
 
-
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    print(_paymentMode);
-    if ((_paymentMode ?? '').toLowerCase().contains('MOMO') &&
+
+    final modeKey = _key(_paymentMode ?? '');
+    final isMomo = modeKey.contains('momo') || modeKey.contains('mobile money');
+
+    if (isMomo &&
         (selectedMomoNetwork == null || selectedMomoNetwork!.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select MoMo network')),
-      );
+      showMessage(context, Colors.red, 'Please select MoMo network');
       return;
     }
 
-    // Guard: prevent concurrent
+    // Guard: prevent concurrent saves
     if (_saving) return;
     setState(() => _saving = true);
 
-
-    final datafeed    = Provider.of<Datafeed>(context, listen: false);
-    final docId       = widget.creditinfo?.id;
-    final supplierid  = widget.creditinfo?.creditorId;
-    final oldAmount   = widget.creditinfo?.amount;        // snapshot now
-    final amountText  = _amountCtrl.text.trim();          // snapshot now
-    final transRef    = _referenceCtrl.text.trim();
-    final naration    = _narationCtrl.text.trim();
-    final phone       = _phoneController.text.trim();
-    final paymentMode = _paymentMode ?? '';
-    final payAccount  = _paymentAccount ?? '';
+    final datafeed = Provider.of<Datafeed>(context, listen: false);
+    final docId = widget.creditinfo?.id;
+    final supplierid = widget.creditinfo?.creditorId;
+    final oldAmount = widget.creditinfo?.amount;
+    final amountText = _amountCtrl.text.trim();
+    final transRef = _referenceCtrl.text.trim();
+    final naration = _narationCtrl.text.trim();
+    final phone = _phoneController.text.trim();
+    final paymentMode = isMomo ? 'momo' : modeKey; // normalized
+    final payAccount = _paymentAccount ?? '';
     final selectedDate = _selectedDate;
 
-    // ── Validate critical
-    if (docId == null || docId.isEmpty || supplierid == null || supplierid.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid record: missing ID')),
-      );
+    if (docId == null ||
+        docId.isEmpty ||
+        supplierid == null ||
+        supplierid.isEmpty) {
+      showMessage(context, Colors.red, 'Invalid record: missing ID');
       setState(() => _saving = false);
       return;
     }
@@ -896,48 +1162,46 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
     try {
       newAmount = double.parse(amountText);
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid amount entered')),
-      );
+      showMessage(context, Colors.red, 'Invalid amount entered');
       setState(() => _saving = false);
       return;
     }
 
-    // Delta: edit → difference; new record → full amount
+    // Delta: edit -> difference; new record -> full amount
     final double debitIncrement = (oldAmount != null)
         ? newAmount - oldAmount
         : newAmount;
 
     final now = DateTime.now();
-
     final day = DateFormat('EEEE').format(now);
-
     final year = now.year.toString();
-
     final month = '${now.year}.${now.month}';
-
     final weekNumber =
         ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
-
     final week = '${now.year}.$weekNumber';
+
+    // dateymd follows the payment date the user picked
+    final dateymd = DateFormat('yyyy-MM-dd').format(selectedDate ?? now);
+
     final creditpay = CreditorBalance(
-      id:             docId,
-      creditorId:     widget.creditinfo!.creditorId,
-      creditorName:   widget.creditinfo!.creditorName,
-      amount:         newAmount,
-      type:           'credit payment',
-      paymentMode:    paymentMode,
+      id: docId,
+      creditorId: supplierid,
+      creditorName: widget.creditinfo!.creditorName,
+      amount: newAmount,
+      type: 'credit payment',
+      paymentMode: paymentMode,
       transactionRef: transRef,
-      naration:       naration,
-      phone:          phone,
-      date:           selectedDate,
-      branchid:       datafeed.branchid,
-      companyid:      datafeed.companyid,
-      companyemail:   datafeed.companyemail,
+      naration: naration,
+      phone: phone,
+      date: selectedDate,
+      branchid: widget.creditinfo?.branchid ?? datafeed.branchid,
+      companyid: datafeed.companyid,
+      companyemail: datafeed.companyemail,
       paymentaccount: payAccount,
-      staff:          datafeed.staff,
-      updatedby:      datafeed.staff,
-      updatedat:      DateTime.now(),
+      staff: datafeed.staff,
+      updatedby: datafeed.staff,
+      updatedat: DateTime.now(),
+      networktype: isMomo ? selectedMomoNetwork : null,
       day: day,
       week: week,
       month: month,
@@ -948,67 +1212,65 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
       final batch = datafeed.db.batch();
 
       // 1. Upsert the payment document
-      batch.set(
-        datafeed.db.collection('creditor_payments').doc(docId),
-        creditpay.toMap(),
-      );
+      batch.set(datafeed.db.collection('creditor_payments').doc(docId), {
+        ...creditpay.toMap(),
+        'dateymd': dateymd,
+      });
 
       // 2. Apply delta only
       if (debitIncrement != 0) {
-        batch.update(
-          FirebaseFirestore.instance.collection('suppliers').doc(supplierid),
-          {'debitaccount': FieldValue.increment(debitIncrement)},
-        );
+        batch.update(datafeed.db.collection('suppliers').doc(supplierid), {
+          'debitaccount': FieldValue.increment(debitIncrement),
+        });
       }
 
-      await batch.commit(); // single atomic
-      final indexed = datafeed.creditorpayList.indexWhere((t)=>t.id==docId);
-      if(indexed == -1){
+      await batch.commit();
+
+      final indexed = datafeed.creditorpayList.indexWhere((t) => t.id == docId);
+      if (indexed == -1) {
         datafeed.creditorpayList.add(creditpay);
-      }
-      else{
-        datafeed.creditorpayList[indexed]=creditpay;
+      } else {
+        datafeed.creditorpayList[indexed] = creditpay;
       }
       datafeed.notifyListeners();
+
       if (!mounted) return;
 
-      // Clear form only after
-      _amountCtrl.clear();
-      _dateCtrl.clear();
-      _referenceCtrl.clear();
-      _narationCtrl.clear();
-      setState(() {
-        _paymentMode    = null;
-        _paymentAccount = null;
-      });
-
-      // Show snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment updated successfully'),
-          backgroundColor: _C.positive,
-        ),
-      );
-
-      Navigator.pop(context); // pop AFTER
-
+      showMessage(context, Colors.green, 'Payment updated successfully');
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: _C.negative),
-      );
+      showMessage(context, _C.negative(context), 'Error: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, datafeed, _) {
-
+        if (!_ready) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            child: SizedBox(
+              height: 160,
+              child: Center(
+                child: CircularProgressIndicator(color: _C.primary),
+              ),
+            ),
+          );
+        }
+        final payModes = _payModes();
+        final accountList = _accountsFor(datafeed);
+        final safeAccount = accountList.contains(_paymentAccount)
+            ? _paymentAccount
+            : null;
+        final modeKey = _key(_paymentMode ?? '');
+        final isMomo =
+            modeKey.contains('momo') || modeKey.contains('mobile money');
+        final isBank = modeKey.contains('bank');
+        final isCheque = modeKey.contains('cheque');
 
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -1018,313 +1280,285 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Container(
-                color: _C.bg,
+                color: _C.card(context),
                 child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
                   child: Form(
                     key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // ── Header
-                        Container(
-                          color: _C.header,
-                          padding: const EdgeInsets.fromLTRB(20, 0, 12, 5),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'PAYABLES — ${widget.creditinfo!.creditorName.toUpperCase()}',
-                                      style: const TextStyle(
-                                          color: _C.primary,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.4),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Amount: ${widget.creditinfo!.amount} GHC',
-                                      style: const TextStyle(
-                                          color: _C.textSub, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: _C.textSub, size: 20),
-                                onPressed: () => Navigator.pop(context),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            cursorColor: Theme.of(
+                              context,
+                            ).colorScheme.secondary,
+                            controller: _amountCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'^\d*\.?\d*'),
                               ),
                             ],
+                            style: TextStyle(color: _C.textPri(context)),
+                            decoration: _fieldDecoration('Amount'),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty)
+                                return 'Amount is required';
+                              final n = double.tryParse(v.trim());
+                              if (n == null) return 'Enter a valid number';
+                              if (n <= 0)
+                                return 'Amount must be greater than 0';
+                              return null;
+                            },
                           ),
-                        ),
+                          const SizedBox(height: 14),
 
-                        Container(height: 1, color: _C.divider),
-
-                        // ── Form body
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-
-                              // Amount
-                              _FormLabel('Amount', required: true),
-                              const SizedBox(height: 5),
-                              TextFormField(
-                                cursorColor: Colors.white,
-                                controller: _amountCtrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                                ],
-                                style: const TextStyle(color: _C.textPri),
-                                decoration: _fieldDecoration(
-                                    'Input the amount you are paying to ${widget.creditinfo!.creditorName}'),
-                                validator: (v) {
-                                  if (v == null || v.trim().isEmpty) return 'Amount is required';
-                                  if (double.tryParse(v.trim()) == null) return 'Enter a valid number';
-                                  if (double.parse(v.trim()) <= 0) return 'Amount must be greater than 0';
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 5),
-                              // Payment Mode
-                              _FormLabel('Payment Mode', required: true),
-                              const SizedBox(height: 5),
-                              DropdownButtonFormField<String>(
-                                value: datafeed.allowedPaymentMethods.any(
-                                      (m) => m.trim() == _paymentMode?.trim(), )
-                                    ? datafeed.allowedPaymentMethods.firstWhere(
-                                      (m) => m.trim() == _paymentMode?.trim(), )
-                                    : null,
-                                isExpanded: true,
-                                dropdownColor: _C.card,
-                                style: const TextStyle(color: _C.textPri),
-
-                                hint: const Text(
-                                  'Select Payment Mode',
-                                  style: TextStyle(color: _C.textMuted),
-                                ),
-
-                                decoration: _fieldDecoration(null),
-
-                                //  CORRECT SOURCE
-                                items: datafeed.allowedPaymentMethods
-                                    .map((m) => DropdownMenuItem<String>(
-                                  value: m,
-                                  child: Text(m),
-                                ))
-                                    .toList(),
-
-                                onChanged: (v) {
-                                  setState(() {
-                                    // _paymentMode = v;
-                                    // _paymentAccount = null; // reset account
-                                    _paymentMode    = v;
-                                    // _paymentAccount = null;
-                                    final accounts = (v == null || v.isEmpty)  ? <String>[] : datafeed.getAccounts(v);
-                                    if (accounts.length == 1) {
-                                      _paymentAccount = accounts.first;
-                                    } else {
-                                      _paymentAccount = null;
-                                    }
-                                  });
-                                },
-
-                                validator: (v) =>
-                                (v == null || v.isEmpty) ? 'Select payment mode' : null,
-                              ),
-
-                              const SizedBox(height: 5),
-                              // Payment Account
-                              _FormLabel('Payment Account', required: true),
-                              const SizedBox(height: 5),
-                              DropdownButtonFormField<String>(
-                                value: (_paymentAccount != null && _paymentAccount!.isNotEmpty)
-                                    ? _paymentAccount
-                                    : null,
-
-                                dropdownColor: _C.card,
-                                style: const TextStyle(color: _C.textPri),
-
-                                hint: const Text(
-                                  'Select account',
-                                  style: TextStyle(color: _C.textMuted),
-                                ),
-
-                                decoration: _fieldDecoration(null),
-
-                                //SAFE ITEMS
-                                items: (_paymentMode == null || _paymentMode!.isEmpty)
-                                    ? []
-                                    : datafeed.getAccounts(_paymentMode!)
-                                    .map((a) => DropdownMenuItem<String>(value: a,child: Text(a),)).toList(),
-
-                                onChanged: (_paymentMode == null || _paymentMode!.isEmpty)
-                                    ? null
-                                    : (v) => setState(() => _paymentAccount = v),
-
-                                validator: (v) {
-                                  if (_paymentMode == null || _paymentMode!.isEmpty) {
-                                    return 'Select payment mode first';
-                                  }
-                                  if (v == null || v.isEmpty) {
-                                    return 'Select a payment account';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: 5),
-                              if ((_paymentMode ?? '').toLowerCase().contains('momo'))...[
-                                _FormLabel('Select Network type', required: true),
-                                const SizedBox(height: 5),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    color: _C.card,
-                                    borderRadius: BorderRadius.circular(12),
+                          DropdownButtonFormField<String>(
+                            value: payModes.contains(_paymentMode)
+                                ? _paymentMode
+                                : null,
+                            isExpanded: true,
+                            dropdownColor: _C.card(context),
+                            style: TextStyle(color: _C.textPri(context)),
+                            decoration: _fieldDecoration('Payment Mode'),
+                            items: payModes
+                                .map(
+                                  (m) => DropdownMenuItem<String>(
+                                    value: m,
+                                    child: Text(m),
                                   ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      // ← guard: only use value if it exists in the list, else null
-                                      value: ['MTN', 'Vodafone', 'AirtelTigo'].contains(selectedMomoNetwork)
-                                          ? selectedMomoNetwork
-                                          : 'MTN',
-                                      isExpanded: true,
-                                      hint: const Text(
-                                        'Select MOMO Network',
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                                      dropdownColor: _C.card,
-                                      style: const TextStyle(color: Colors.white),
-                                      items: ['MTN', 'Vodafone', 'AirtelTigo'].map(
-                                            (network) => DropdownMenuItem<String>(
-                                          value: network,
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.sim_card,
-                                                color: network == 'MTN'
-                                                    ? Colors.yellow
-                                                    : network == 'Vodafone'
-                                                    ? Colors.red
-                                                    : Colors.blue,
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Text(network),
-                                            ],
+                                )
+                                .toList(),
+                            onChanged: (v) => setState(() {
+                              _paymentMode = v;
+                              _paymentAccount = null;
+                              _syncAccountToMode(datafeed);
+                            }),
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Select payment mode'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+
+                          DropdownButtonFormField<String>(
+                            key: ValueKey('acct_${_paymentMode ?? 'none'}'),
+                            value: safeAccount,
+                            isExpanded: true,
+                            dropdownColor: _C.card(context),
+                            style: TextStyle(color: _C.textPri(context)),
+                            decoration: _fieldDecoration(
+                              _paymentMode == null
+                                  ? 'Payment Account (select mode first)'
+                                  : accountList.isEmpty
+                                  ? 'No account for this mode'
+                                  : 'Payment Account',
+                            ),
+                            items: accountList
+                                .map(
+                                  (a) => DropdownMenuItem<String>(
+                                    value: a,
+                                    child: Text(a),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: accountList.isEmpty
+                                ? null
+                                : (v) => setState(() => _paymentAccount = v),
+                            validator: (v) {
+                              if (_paymentMode == null ||
+                                  _paymentMode!.isEmpty) {
+                                return 'Select payment mode first';
+                              }
+                              if (accountList.isNotEmpty &&
+                                  (v == null || v.isEmpty)) {
+                                return 'Select a payment account';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+
+                          if (isMomo) ...[
+                            DropdownButtonFormField<String>(
+                              value:
+                                  [
+                                    'MTN',
+                                    'Vodafone',
+                                    'AirtelTigo',
+                                  ].contains(selectedMomoNetwork)
+                                  ? selectedMomoNetwork
+                                  : 'MTN',
+                              isExpanded: true,
+                              dropdownColor: _C.card(context),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              decoration: _fieldDecoration('Network'),
+                              items: ['MTN', 'Vodafone', 'AirtelTigo']
+                                  .map(
+                                    (n) => DropdownMenuItem<String>(
+                                      value: n,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.sim_card,
+                                            color: n == 'MTN'
+                                                ? Colors.yellow
+                                                : n == 'Vodafone'
+                                                ? Colors.red
+                                                : Colors.blue,
                                           ),
-                                        ),
-                                      ).toList(),
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(() => selectedMomoNetwork = value);
-                                        }
-                                      },
+                                          const SizedBox(width: 8),
+                                          Text(n),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                _FormLabel('Phone number', required: true),
-                                TextFormField(
-                                  controller: _phoneController,
-                                  keyboardType: TextInputType.phone,
-                                  style: const TextStyle(color: _C.textPri),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r'^\+?\d*')),
-                                  ],
-                                  decoration: _fieldDecoration(
-                                      'Input the Phone number you are paying to ${widget.creditinfo?.creditorName}'),
-                                  validator: (value) {
-                                    final isMomo = (_paymentMode ?? '').toLowerCase().contains('momo');
-                                    if (!isMomo) return null;
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Phone number is required for MoMo payment';
-                                    }
-                                    if (!RegExp(r'^(?:\+233|0)\d{9}$').hasMatch(value.trim())) {
-                                      return 'Enter a valid number (e.g. 0240**** or +23324****)';
-                                    }
-                                    return null;
-                                  },
+                                  )
+                                  .toList(),
+                              onChanged: (v) {
+                                if (v != null)
+                                  setState(() => selectedMomoNetwork = v);
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
+                              style: TextStyle(color: _C.textPri(context)),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\+?\d*'),
                                 ),
                               ],
-                              const SizedBox(height: 5),
+                              decoration: _fieldDecoration('Phone number'),
+                              validator: (value) {
+                                if (!isMomo) return null;
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Phone number is required for MoMo payment';
+                                }
+                                if (!RegExp(
+                                  r'^(?:\+233|0)\d{9}$',
+                                ).hasMatch(value.trim())) {
+                                  return 'Enter a valid number (e.g. 0240**** or +23324****)';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                          ],
 
-                              // Date
-                              _FormLabel('Date', required: true),
-                              const SizedBox(height: 5),
-                              TextFormField(
-                                controller: _dateCtrl,
-                                readOnly: true,
-                                onTap: _pickDate,
-                                style: const TextStyle(color: _C.textPri),
-                                decoration: _fieldDecoration('dd / mm / yyyy').copyWith(
-                                  suffixIcon: const Icon(Icons.calendar_today_outlined,
-                                      color: _C.textSub, size: 18),
+                          TextFormField(
+                            controller: _dateCtrl,
+                            readOnly: true,
+                            onTap: _pickDate,
+                            style: TextStyle(color: _C.textPri(context)),
+                            decoration: _fieldDecoration(
+                              'Date',
+                              suffix: Icon(
+                                Icons.calendar_today,
+                                color: _C.textSub(context),
+                                size: 20,
+                              ),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Date is required'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+
+                          TextFormField(
+                            cursorColor: Theme.of(
+                              context,
+                            ).colorScheme.secondary,
+                            controller: _referenceCtrl,
+                            keyboardType: TextInputType.text,
+                            style: TextStyle(color: _C.textPri(context)),
+                            decoration: _fieldDecoration(
+                              isCheque
+                                  ? 'Cheque number *'
+                                  : isBank
+                                  ? 'Bank transfer reference'
+                                  : 'Reference',
+                            ),
+                            validator: (v) =>
+                                (isCheque && (v == null || v.trim().isEmpty))
+                                ? 'Please enter cheque number'
+                                : null,
+                          ),
+                          const SizedBox(height: 22),
+
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 10,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 200,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _C.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  onPressed: _saving ? null : _save,
+                                  child: _saving
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Update',
+                                          style: TextStyle(color: Colors.white),
+                                        ),
                                 ),
-                                validator: (v) =>
-                                (v == null || v.trim().isEmpty) ? 'Date is required' : null,
                               ),
-
-                              const SizedBox(height: 5),
-                              _FormLabel('Reference', required: false),
-                              const SizedBox(height: 5),
-                              TextFormField(
-                                cursorColor: Colors.white,
-                                controller: _referenceCtrl,
-                                keyboardType: TextInputType.text,
-
-                                style: const TextStyle(color: _C.textPri),
-                                decoration: _fieldDecoration(
-                                    'Input the Reference you are paying to ${widget.creditinfo!.creditorName}'),
-
-                              ),
-                              const SizedBox(height: 5),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _ActionButton(
-                                    label: 'Save',
-                                    color: const Color(0xFF2DA58E),
-                                    loading: _saving,
-                                    onPressed: _save,
+                              SizedBox(
+                                width: 200,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _C.card(context),
+                                    foregroundColor: _C.textPri(context),
+                                    shadowColor: Colors.transparent,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      side: BorderSide(
+                                        color: _C.divider(context),
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  _ActionButton(
-                                    label: 'View Records',
-                                    color: _C.primary,
-                                    onPressed: () {
-                                      Navigator.push(context, MaterialPageRoute(
-                                        builder: (context)=> CreditorPayablelistScreen(),
-                                      )
-                                      );
-                                    },
+                                  onPressed: () =>
+                                      setState(() => _prefill(_allowed)),
+                                  icon: Icon(
+                                    Icons.refresh,
+                                    color: _C.textPri(context),
+                                    size: 18,
                                   ),
-                                  const SizedBox(width: 12),
-                                  _ActionButton(
-                                    label: 'Reset',
-                                    color: const Color(0xFF4B6CB7),
-                                    onPressed: () {
-                                      _amountCtrl.text = widget.creditinfo!.amount.toString();
-                                      _referenceCtrl.text = widget.creditinfo!.transactionRef ?? '';
-                                      _narationCtrl.text = widget.creditinfo!.naration ?? '';
-                                      _dateCtrl.clear();
-                                      setState(() {
-                                        _paymentMode    = 'Cash Payment';
-                                        _paymentAccount = null;
-                                      });
-                                    },
+                                  label: Text(
+                                    'Reset',
+                                    style: TextStyle(
+                                      color: _C.textPri(context),
+                                    ),
                                   ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1336,63 +1570,97 @@ class _CreditorPaymentDialogState extends State<_CreditorPaymentDialog> {
     );
   }
 
-  InputDecoration _fieldDecoration(String? hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: _C.textMuted, fontSize: 13),
-    filled: true,
-    fillColor: _C.card,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-    enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _C.divider)),
-    focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _C.primary, width: 1.5)),
-    errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _C.negative)),
-    focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _C.negative, width: 1.5)),
-  );
+  InputDecoration _fieldDecoration(String label, {Widget? suffix}) =>
+      InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: _C.field(context),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _C.negative(context)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _C.negative(context), width: 1.5),
+        ),
+      );
 }
+
 class _C {
-  static const bg       = Color(0xFF0F1117);
-  static const surface  = Color(0xFF1A1D27);
-  static const card     = Color(0xFF1F2333);
-  static const header   = Color(0xFF0D1A26);
-  static const divider  = Color(0xFF2C2F3E);
-  static const primary  = Color(0xFF3B82F6);
-  static const positive = Color(0xFF22C55E);
-  static const negative = Color(0xFFEF4444);
-  static const warning  = Color(0xFFF59E0B);
-  static const textPri  = Color(0xFFE2E8F0);
-  static const textSub  = Color(0xFF94A3B8);
-  static const textMuted= Color(0xFF4B5563);
+  static Color bg(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+  static Color surface(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+  static Color card(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+  static Color header(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.light
+        ? theme.colorScheme.surface
+        : theme.colorScheme.primary;
+  }
+
+  static Color divider(BuildContext context) =>
+      Theme.of(context).colorScheme.outline;
+  static const primary = Color(0xFF3A6FF8);
+  static Color negative(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.light
+      ? const Color(0xFFB91C1C)
+      : const Color(0xFFFF5252);
+  static Color textPri(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
+  static Color textSub(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+  static Color textMuted(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+  static Color field(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
 }
+
 class _FormLabel extends StatelessWidget {
   final String text;
-  final bool   required;
+  final bool required;
   const _FormLabel(this.text, {this.required = false});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(text,
-            style: const TextStyle(
-                color: _C.textSub, fontSize: 12, fontWeight: FontWeight.w500)),
+        Text(
+          text,
+          style: TextStyle(
+            color: _C.textSub(context),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         if (required)
-          const Text(' *', style: TextStyle(color: _C.negative, fontSize: 12)),
+          Text(
+            ' *',
+            style: TextStyle(color: _C.negative(context), fontSize: 12),
+          ),
       ],
     );
   }
 }
 
 class _ActionButton extends StatelessWidget {
-  final String  label;
-  final Color   color;
-  final bool    loading;
+  final String label;
+  final Color color;
+  final bool loading;
   final VoidCallback? onPressed;
 
   const _ActionButton({
@@ -1414,8 +1682,14 @@ class _ActionButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: loading
-          ? const SizedBox(width: 16, height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
           : Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
     );
   }

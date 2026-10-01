@@ -64,7 +64,8 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Reorder level set to ${value.toStringAsFixed(0)}',style: TextStyle(color: Colors.white),
+            'Reorder level set to ${value.toStringAsFixed(0)}',
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.green,
         ),
@@ -87,23 +88,29 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
   @override
   Widget build(BuildContext context) {
     final datafeed = context.watch<Datafeed>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foregroundColor = isDark ? Colors.white : Colors.black87;
+    final secondaryForegroundColor = isDark ? Colors.white70 : Colors.black54;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Set Reorder Level'),
-        backgroundColor: const Color(0xFF101624),
-        foregroundColor: Colors.white,
+        backgroundColor: isDark
+            ? Theme.of(context).scaffoldBackgroundColor
+            : Theme.of(context).colorScheme.surface,
+        foregroundColor: foregroundColor,
       ),
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 600,
-            ),
+            constraints: const BoxConstraints(maxWidth: 600),
 
             child: Card(
+              color: isDark
+                  ? Theme.of(context).colorScheme.surface
+                  : Colors.white,
               elevation: 3,
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -111,21 +118,21 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                    const Text(
+                    Text(
                       'Reorder Level',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
+                        color: foregroundColor,
                       ),
                     ),
 
                     const SizedBox(height: 8),
 
-                    const Text(
+                    Text(
                       'Set the minimum stock quantity that should trigger a reorder warning.',
                       style: TextStyle(
-                        color: Colors.grey,
+                        color: secondaryForegroundColor,
                         fontSize: 14,
                       ),
                     ),
@@ -135,7 +142,7 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
                     Text(
                       'Current reorder level',
                       style: TextStyle(
-                        color: Colors.grey.shade700,
+                        color: secondaryForegroundColor,
                         fontSize: 14,
                       ),
                     ),
@@ -167,9 +174,35 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
                       decoration: InputDecoration(
                         labelText: 'New reorder level',
                         hintText: 'Enter quantity',
-                        prefixIcon: const Icon(Icons.tune),
+                        labelStyle: TextStyle(color: secondaryForegroundColor),
+                        floatingLabelStyle: TextStyle(
+                          color: isDark
+                              ? Colors.white
+                              : secondaryForegroundColor,
+                        ),
+                        hintStyle: TextStyle(color: secondaryForegroundColor),
+                        prefixIcon: Icon(
+                          Icons.tune,
+                          color: secondaryForegroundColor,
+                        ),
                         errorText: _errorText,
-                        border: const OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isDark ? Colors.white24 : Colors.black26,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: isDark ? Colors.white24 : Colors.black26,
+                          ),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.blue),
+                        ),
+                        filled: true,
+                        fillColor: isDark
+                            ? const Color(0xFF22304A)
+                            : Colors.white,
                       ),
                     ),
 
@@ -177,9 +210,9 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
 
                     Text(
                       'Items with a balance above 0 up to this number '
-                          'will show as Reorder.',
+                      'will show as Reorder.',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: secondaryForegroundColor,
                         fontSize: 13,
                       ),
                     ),
@@ -193,13 +226,13 @@ class _ReorderLevelPageState extends State<ReorderLevelPage> {
                         onPressed: _saving ? null : _save,
                         icon: _saving
                             ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : const Icon(Icons.save),
                         label: Text(
                           _saving ? 'Saving...' : 'Save Reorder Level',

@@ -1172,7 +1172,7 @@ class _MobileSalesPreviewState extends State<MobileSalesPreview> {
           ),
 
           const Divider(color: Colors.white24),
-          _row("Total", "GHC ${widget.items.fold(0.0, (sum, item) => sum + (item['total'] ?? 0.0)).toStringAsFixed(2)}", bold: true),
+          _row("Total", "GHS ${widget.items.fold(0.0, (sum, item) => sum + (item['total'] ?? 0.0)).toStringAsFixed(2)}", bold: true),
           const SizedBox(height: 18),
 
           Wrap(
@@ -1219,10 +1219,10 @@ class _MobileSalesPreviewState extends State<MobileSalesPreview> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _line(name, "GHC ${price.toStringAsFixed(2)}"),
+              _line(name, "GHS ${price.toStringAsFixed(2)}"),
               _line("Mode", mode),
               _line("Qty", "$qty"),
-              _line("Total", "GHC ${total.toStringAsFixed(2)}"),
+              _line("Total", "GHS ${total.toStringAsFixed(2)}"),
             ],
           ),
         ),

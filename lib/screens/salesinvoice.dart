@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -23,30 +22,56 @@ class _SalesInvoiceState extends State<SalesInvoice> {
   bool _sortAscending = true;
   final now = DateTime.now();
 
-
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
   final ScrollController _horizontalController = ScrollController();
-  final ScrollController _verticalController   = ScrollController();
+  final ScrollController _verticalController = ScrollController();
   final ScrollController _mobileListController = ScrollController();
 
-  static const Color   _scrollColor     = Color(0xFF415A77);
-  static const double  _scrollThickness = 8.0;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _mutedTextColor => Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _backgroundColor =>
+      _isLightTheme ? Colors.white : Theme.of(context).scaffoldBackgroundColor;
+  Color get _cardColor => _isLightTheme
+      ? Colors.white
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _headerColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF0D1B2A);
+  Color get _fieldColor => _isLightTheme
+      ? Colors.white
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _borderColor => _isLightTheme
+      ? Colors.grey.shade300
+      : Colors.white.withValues(alpha: 0.1);
+
+  Color _tableRowColor(int index) => _isLightTheme
+      ? Colors.white
+      : index.isEven
+      ? const Color(0xFF0D1B2A)
+      : const Color(0xFF111E2F);
+
+  static const Color _scrollColor = Color(0xFF415A77);
+  static const double _scrollThickness = 8.0;
 
   ScrollbarThemeData get _scrollbarTheme => ScrollbarThemeData(
-    thumbColor:       WidgetStateProperty.all(_scrollColor),
-    trackColor:       WidgetStateProperty.all(_scrollColor.withOpacity(0.15)),
+    thumbColor: WidgetStateProperty.all(_scrollColor),
+    trackColor: WidgetStateProperty.all(_scrollColor.withOpacity(0.15)),
     trackBorderColor: WidgetStateProperty.all(_scrollColor.withOpacity(0.30)),
-    thickness:        WidgetStateProperty.all(_scrollThickness),
-    radius:           const Radius.circular(6),
-    thumbVisibility:  WidgetStateProperty.all(true),
-    trackVisibility:  WidgetStateProperty.all(true),
+    thickness: WidgetStateProperty.all(_scrollThickness),
+    radius: const Radius.circular(6),
+    thumbVisibility: WidgetStateProperty.all(true),
+    trackVisibility: WidgetStateProperty.all(true),
   );
 
-  void _sort<T>(Comparable<T> Function(dynamic d) getField,
-      int columnIndex, bool ascending, List list) {
+  void _sort<T>(
+    Comparable<T> Function(dynamic d) getField,
+    int columnIndex,
+    bool ascending,
+    List list,
+  ) {
     list.sort((a, b) {
       final aValue = getField(a);
       final bValue = getField(b);
@@ -56,7 +81,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     });
     setState(() {
       _sortColumnIndex = columnIndex;
-      _sortAscending   = ascending;
+      _sortAscending = ascending;
     });
   }
 
@@ -100,24 +125,28 @@ class _SalesInvoiceState extends State<SalesInvoice> {
   }
 
   void _showViewModal(BuildContext context, dynamic salesview) {
-    final receipt  = salesview.receiptNumber;
+    final receipt = salesview.receiptNumber;
     final customerName = (salesview.customerName?.toString().isNotEmpty == true)
-        ? salesview.customerName.toString() : '-';
+        ? salesview.customerName.toString()
+        : '-';
 
-    final Map<String, dynamic> itemMap =
-    Map<String, dynamic>.from(salesview.items);
+    final Map<String, dynamic> itemMap = Map<String, dynamic>.from(
+      salesview.items,
+    );
     final numberFormat = NumberFormat('#,##0.00');
 
     final totalamountt = itemMap.values.fold<double>(0, (sum, item) {
       if (item is Map<String, dynamic>) {
-        return sum +  (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
+        return sum +
+            (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
       }
       return sum;
     });
 
     final totalQty = itemMap.values.fold<double>(0, (sum, item) {
       if (item is Map<String, dynamic>) {
-        return sum + (double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0);
+        return sum +
+            (double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0);
       }
       return sum;
     });
@@ -129,12 +158,13 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       builder: (ctx) {
         final isSmall = MediaQuery.sizeOf(ctx).width < 600;
         return Dialog(
-          backgroundColor: const Color(0xFF101624),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: _backgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth:  isSmall ? double.infinity : 680,
+              maxWidth: isSmall ? double.infinity : 680,
               maxHeight: MediaQuery.sizeOf(ctx).height * 0.88,
             ),
             child: Column(
@@ -142,27 +172,35 @@ class _SalesInvoiceState extends State<SalesInvoice> {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 14),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1B263B),
-                    borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(16)),
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.receipt_long,
-                          color: Colors.white, size: 18),
+                      Icon(Icons.receipt_long, color: _textColor, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text('Receipt  #$receipt',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15)),
+                        child: Text(
+                          'Receipt  #$receipt',
+                          style: TextStyle(
+                            color: _textColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Colors.white54, size: 20),
+                        icon: Icon(
+                          Icons.close,
+                          color: _mutedTextColor,
+                          size: 20,
+                        ),
                         onPressed: () {
                           modalScrollController.dispose();
                           Navigator.pop(ctx);
@@ -187,21 +225,36 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                             spacing: 10,
                             runSpacing: 8,
                             children: [
-                              _chip(Icons.person_outline, 'Customer',
-                                  customerName),
-                              _chip(Icons.person_outline, 'Staff',
-                                  salesview.createdBy ?? '-'),
                               _chip(
-                                  Icons.calendar_today_outlined,
-                                  'Date',
-                                  salesview.dateymd != null && salesview.dateymd!.isNotEmpty
-                                      ? DateFormat('dd MMM yyyy, hh:mm a')
-                                      .format(DateTime.parse(salesview.dateymd!))
-                                      : '-'),
-                              _chip(Icons.swap_horiz, 'Trans Mode',
-                                  salesview.transMode ?? '-'),
-                              _chip(Icons.payment, 'Status',
-                                  salesview.paymentStatus ?? '-'),
+                                Icons.person_outline,
+                                'Customer',
+                                customerName,
+                              ),
+                              _chip(
+                                Icons.person_outline,
+                                'Staff',
+                                salesview.createdBy ?? '-',
+                              ),
+                              _chip(
+                                Icons.calendar_today_outlined,
+                                'Date',
+                                salesview.dateymd != null &&
+                                        salesview.dateymd!.isNotEmpty
+                                    ? DateFormat('dd MMM yyyy, hh:mm a').format(
+                                        DateTime.parse(salesview.dateymd!),
+                                      )
+                                    : '-',
+                              ),
+                              _chip(
+                                Icons.swap_horiz,
+                                'Trans Mode',
+                                salesview.transMode ?? '-',
+                              ),
+                              _chip(
+                                Icons.payment,
+                                'Status',
+                                salesview.paymentStatus ?? '-',
+                              ),
                             ],
                           ),
                           const SizedBox(height: 18),
@@ -215,55 +268,65 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1B263B),
+                                color: _fieldColor,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: Colors.white.withOpacity(0.06)),
+                                border: Border.all(color: _borderColor),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           (item['item'] ?? '')
                                               .toString()
                                               .toUpperCase(),
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 13),
+                                          style: TextStyle(
+                                            color: _textColor,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
-                                      Text('GHC ${item['totalamount']}',
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13)),
+                                      Text(
+                                        'GHS ${item['totalamount']}',
+                                        style: TextStyle(
+                                          color: _textColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  const Divider(
-                                      color: Colors.white10, height: 14),
+                                  Divider(color: _borderColor, height: 14),
                                   Wrap(
                                     spacing: 18,
                                     runSpacing: 8,
                                     children: [
-                                      _pair('Qty',
-                                          '${item['quantity']} (${item['mode']})'),
-                                      _pair('Pieces in receipt',
-                                          totalQty.toStringAsFixed(0)),
-                                      _pair('Price', 'GHC ${item['price']}'),
+                                      _pair(
+                                        'Qty',
+                                        '${item['quantity']} (${item['mode']})',
+                                      ),
+                                      _pair(
+                                        'Pieces in receipt',
+                                        totalQty.toStringAsFixed(0),
+                                      ),
+                                      _pair('Price', 'GHS ${item['price']}'),
                                       _pair('Discount', '${item['discount']}'),
                                       _pair(
-                                          'Price Mode',
-                                          capitalize(
-                                              item['pricemode']?.toString())),
+                                        'Price Mode',
+                                        capitalize(
+                                          item['pricemode']?.toString(),
+                                        ),
+                                      ),
                                       if (item['cp'] != null)
-                                        _pair('Cost Price',
-                                            'GHC ${item['cp']}'),
+                                        _pair(
+                                          'Cost Price',
+                                          'GHS ${item['cp']}',
+                                        ),
                                       if (item['barcode'] != null)
                                         _pair('Barcode', '${item['barcode']}'),
                                     ],
@@ -272,22 +335,26 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                               ),
                             );
                           }),
-                          const Divider(color: Colors.white12),
+                          Divider(color: _borderColor),
                           const SizedBox(height: 6),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('TOTAL AMOUNT',
-                                  style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 11,
-                                      letterSpacing: 1.2)),
                               Text(
-                                'GHC ${numberFormat.format(totalamountt)}',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900),
+                                'TOTAL AMOUNT',
+                                style: TextStyle(
+                                  color: _mutedTextColor,
+                                  fontSize: 11,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Text(
+                                'GHS ${numberFormat.format(totalamountt)}',
+                                style: TextStyle(
+                                  color: _textColor,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
                             ],
                           ),
@@ -298,11 +365,14 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1B263B),
-                    borderRadius:
-                    BorderRadius.vertical(bottom: Radius.circular(16)),
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _cardColor,
+                    borderRadius: BorderRadius.vertical(
+                      bottom: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -312,8 +382,10 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                           modalScrollController.dispose();
                           Navigator.pop(ctx);
                         },
-                        child: const Text('Close',
-                            style: TextStyle(color: Colors.white54)),
+                        child: Text(
+                          'Close',
+                          style: TextStyle(color: _mutedTextColor),
+                        ),
                       ),
                     ],
                   ),
@@ -325,33 +397,36 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       },
     );
   }
-  Widget _sectionLabel(String text) => Text(text,
-      style: const TextStyle(
-          color: Colors.white38, fontSize: 10, letterSpacing: 1.6));
+
+  Widget _sectionLabel(String text) => Text(
+    text,
+    style: TextStyle(color: _mutedTextColor, fontSize: 10, letterSpacing: 1.6),
+  );
 
   Widget _chip(IconData icon, String label, String value) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
     decoration: BoxDecoration(
-      color: const Color(0xFF1B263B),
+      color: _fieldColor,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.white.withOpacity(0.07)),
+      border: Border.all(color: _borderColor),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.white30, size: 13),
+        Icon(icon, color: _mutedTextColor, size: 13),
         const SizedBox(width: 6),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: const TextStyle(
-                    color: Colors.white38, fontSize: 9)),
-            Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(color: _mutedTextColor, fontSize: 9)),
+            Text(
+              value,
+              style: TextStyle(
+                color: _textColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ],
@@ -361,19 +436,21 @@ class _SalesInvoiceState extends State<SalesInvoice> {
   Widget _pair(String label, String value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label,
-          style: const TextStyle(color: Colors.white38, fontSize: 9)),
-      Text(value,
-          style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600)),
+      Text(label, style: TextStyle(color: _mutedTextColor, fontSize: 9)),
+      Text(
+        value,
+        style: TextStyle(
+          color: _textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     ],
   );
 
   Widget _buildBranchDropdown(Datafeed value) {
     final currentId =
-    value.branches.any((b) => b.id == value.selectedBranch?.id)
+        value.branches.any((b) => b.id == value.selectedBranch?.id)
         ? value.selectedBranch?.id
         : null;
 
@@ -382,22 +459,24 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: _fieldColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: currentId,
-          dropdownColor: const Color(0xFF22304A),
-          icon: const Icon(Icons.expand_more, color: Colors.white54, size: 16),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
+          dropdownColor: _cardColor,
+          icon: Icon(Icons.expand_more, color: _mutedTextColor, size: 16),
+          style: TextStyle(color: _textColor, fontSize: 12),
           isDense: true,
           isExpanded: true,
           items: [
             const DropdownMenuItem<String?>(
-                value: null, child: Text('All Branches')),
+              value: null,
+              child: Text('All Branches'),
+            ),
             ...{for (final b in value.branches) b.id: b}.values.map(
-                  (b) => DropdownMenuItem<String?>(
+              (b) => DropdownMenuItem<String?>(
                 value: b.id,
                 child: Text(b.branchname, overflow: TextOverflow.ellipsis),
               ),
@@ -406,7 +485,9 @@ class _SalesInvoiceState extends State<SalesInvoice> {
           onChanged: (val) {
             setState(() => _selectedBranch = val);
             value.fetchsalesview(
-                selectedDate: selectedDate, selectedBranch: val);
+              selectedDate: selectedDate,
+              selectedBranch: val,
+            );
           },
         ),
       ),
@@ -417,11 +498,17 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     return TextField(
       controller: _searchController,
       focusNode: _searchFocusNode,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-      cursorColor: Colors.white,
-      decoration: const InputDecoration(
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 14,
+      ),
+      cursorColor: Theme.of(context).colorScheme.secondary,
+      decoration: InputDecoration(
         hintText: 'Search receipt, customer...',
-        hintStyle: TextStyle(color: Colors.white38, fontSize: 13),
+        hintStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 13,
+        ),
         border: InputBorder.none,
         isDense: true,
       ),
@@ -429,9 +516,6 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     );
   }
 
-  /// Resolves the display name for the currently selected branch,
-  /// falling back to "All Branches" when none is selected or the id
-  /// no longer matches anything in the branches list.
   String _branchLabel(Datafeed value) {
     if (_selectedBranch == null) return 'All Branches';
     final match = value.branches.where((b) => b.id == _selectedBranch);
@@ -439,23 +523,30 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     return match.first.branchname;
   }
 
-  Widget _buildTitleWithPeriod(DateTime start, DateTime end, String branchName) {
+  Widget _buildTitleWithPeriod(
+    DateTime start,
+    DateTime end,
+    String branchName,
+  ) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('Sales Invoice List',
-            style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 16)),
+        Text(
+          'Sales Invoice List',
+          style: TextStyle(
+            color: _textColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(
           '$branchName sales invoice for the period '
-              '${DateFormat('yyyy MMM dd').format(start)}  –  '
-              '${DateFormat('yyyy MMM dd').format(end)}',
-          style: const TextStyle(color: Colors.white38, fontSize: 10),
+          '${DateFormat('yyyy MMM dd').format(start)}  -  '
+          '${DateFormat('yyyy MMM dd').format(end)}',
+          style: TextStyle(color: _mutedTextColor, fontSize: 10),
           overflow: TextOverflow.ellipsis,
         ),
       ],
@@ -466,62 +557,71 @@ class _SalesInvoiceState extends State<SalesInvoice> {
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, value, child) {
-        final effectiveStart = selectedDate?.start ?? now.subtract(const Duration(days: 0));
+        final effectiveStart =
+            selectedDate?.start ?? now.subtract(const Duration(days: 0));
         final effectiveEnd = selectedDate?.end ?? now;
         final filteredSalesview = value.filtersalesview();
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: _backgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF1B263B),
+            backgroundColor: _cardColor,
+            foregroundColor: _textColor,
             elevation: 0,
             toolbarHeight: 64,
             titleSpacing: _isSearching ? 4 : 12,
             leading: _isSearching
                 ? IconButton(
-              tooltip: "close",
-              icon: const Icon(Icons.arrow_back, color: Colors.white70),
-              onPressed: () => _closeSearch(value),
-            )
+                    tooltip: "close",
+                    icon: Icon(Icons.arrow_back, color: _mutedTextColor),
+                    onPressed: () => _closeSearch(value),
+                  )
                 : null,
             automaticallyImplyLeading: _isSearching,
             title: _isSearching
                 ? _buildSearchField(value)
                 : _buildTitleWithPeriod(
-                effectiveStart, effectiveEnd, _branchLabel(value)),
-            iconTheme: const IconThemeData(color: Colors.white),
+                    effectiveStart,
+                    effectiveEnd,
+                    _branchLabel(value),
+                  ),
+            iconTheme: IconThemeData(color: _textColor),
             actions: _isSearching
                 ? [
-              if (_searchController.text.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
-                  onPressed: () {
-                    _searchController.clear();
-                    value.updateSearch('');
-                    setState(() {});
-                  },
-                ),
-            ]
+                    if (_searchController.text.isNotEmpty)
+                      IconButton(
+                        icon: Icon(Icons.close, color: _mutedTextColor),
+                        onPressed: () {
+                          _searchController.clear();
+                          value.updateSearch('');
+                          setState(() {});
+                        },
+                      ),
+                  ]
                 : [
-              _buildBranchDropdown(value),
-              IconButton(
-                icon: const Icon(Icons.search, color: Colors.white70),
-                onPressed: _openSearch,
-              ),
-              ReusableDatePickerWidget(
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(Icons.calendar_today,
-                      size: 20, color: Colors.white70),
-                ),
-                onDateSelected: (selection) {
-                  setState(() => selectedDate = selection);
-                  context.read<Datafeed>().fetchsalesview(
-                      selectedDate: selectedDate,
-                      selectedBranch: _selectedBranch);
-                },
-              ),
-            ],
+                    _buildBranchDropdown(value),
+                    IconButton(
+                      icon: Icon(Icons.search, color: _mutedTextColor),
+                      onPressed: _openSearch,
+                    ),
+                    ReusableDatePickerWidget(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Icon(
+                          Icons.calendar_today,
+                          size: 20,
+                          color: _mutedTextColor,
+                        ),
+                      ),
+                      onDateSelected: (selection) {
+                        setState(() => selectedDate = selection);
+                        context.read<Datafeed>().fetchsalesview(
+                          selectedDate: selectedDate,
+                          selectedBranch: _selectedBranch,
+                        );
+                      },
+                    ),
+                  ],
           ),
           body: Align(
             alignment: Alignment.topCenter,
@@ -529,34 +629,43 @@ class _SalesInvoiceState extends State<SalesInvoice> {
               constraints: const BoxConstraints(maxWidth: 1200),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
                       child: value.isloadingsalesview
-                          ? const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.white))
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            )
                           : value.salesview.isEmpty
-                          ? const Center(
-                          child: Text('No Sales found',
-                              style: TextStyle(
-                                  color: Colors.white38)))
+                          ? Center(
+                              child: Text(
+                                'No Sales found',
+                                style: TextStyle(color: _mutedTextColor),
+                              ),
+                            )
                           : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isDesktop =  constraints.maxWidth > 900;
-                          if (isDesktop) {
-                            return _buildDesktopLayout(
-                                context,
-                                filteredSalesview,
-                                value,
-                                constraints.maxWidth);
-                          }
-                          return _buildMobileList(
-                              context, filteredSalesview);
-                        },
-                      ),
+                              builder: (context, constraints) {
+                                final isDesktop = constraints.maxWidth > 900;
+                                if (isDesktop) {
+                                  return _buildDesktopLayout(
+                                    context,
+                                    filteredSalesview,
+                                    value,
+                                    constraints.maxWidth,
+                                  );
+                                }
+                                return _buildMobileList(
+                                  context,
+                                  filteredSalesview,
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -567,7 +676,6 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       },
     );
   }
-
 
   List<_SalesColumn> _salesColumns() {
     return const [
@@ -583,20 +691,23 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     ];
   }
 
-  Widget _buildDesktopLayout(BuildContext context, List filteredSalesview,
-      Datafeed value, double availableWidth) {
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    List filteredSalesview,
+    Datafeed value,
+    double availableWidth,
+  ) {
     final columns = _salesColumns();
     const double gap = 24.0;
     final double totalColsWidth =
         columns.fold<double>(0, (s, c) => s + c.width) +
-            (columns.length - 1) * gap +
-            32;
+        (columns.length - 1) * gap +
+        32;
 
     return ScrollbarTheme(
       data: _scrollbarTheme,
       child: LayoutBuilder(
         builder: (context, constraints) {
-
           final double contentWidth = totalColsWidth;
           return Scrollbar(
             controller: _horizontalController,
@@ -614,11 +725,11 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ── Header (tap-to-sort)
+                    // -- Header (tap-to-sort)
                     Container(
                       width: contentWidth,
                       height: 44,
-                      color: const Color(0xFF1B263B),
+                      color: _cardColor,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         children: [
@@ -638,11 +749,8 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                         ],
                       ),
                     ),
-                    Divider(
-                        height: 0.4,
-                        thickness: 0.4,
-                        color: Colors.white.withOpacity(0.06)),
-                    // ── Body (virtualized rows)
+                    Divider(height: 0.4, thickness: 0.4, color: _borderColor),
+                    // -- Body (virtualized rows)
                     Expanded(
                       child: Scrollbar(
                         controller: _verticalController,
@@ -652,11 +760,12 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                           controller: _verticalController,
                           itemCount: filteredSalesview.length,
                           itemBuilder: (context, index) => _buildDesktopRow(
-                              context,
-                              filteredSalesview[index],
-                              index,
-                              columns,
-                              gap),
+                            context,
+                            filteredSalesview[index],
+                            index,
+                            columns,
+                            gap,
+                          ),
                         ),
                       ),
                     ),
@@ -670,8 +779,12 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     );
   }
 
-  Widget _sortableHeaderCell(String label, int columnIndex,
-      {bool numeric = false, required List filteredSalesview}) {
+  Widget _sortableHeaderCell(
+    String label,
+    int columnIndex, {
+    bool numeric = false,
+    required List filteredSalesview,
+  }) {
     final isSorted = _sortColumnIndex == columnIndex;
 
     Comparable Function(dynamic) getField;
@@ -697,7 +810,9 @@ class _SalesInvoiceState extends State<SalesInvoice> {
           final m = Map<String, dynamic>.from(d.items);
           return m.values.fold<double>(0, (s, item) {
             if (item is Map<String, dynamic>) {
-              return s + (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
+              return s +
+                  (double.tryParse(item['totalamount']?.toString() ?? '0') ??
+                      0);
             }
             return s;
           });
@@ -711,18 +826,23 @@ class _SalesInvoiceState extends State<SalesInvoice> {
 
     return InkWell(
       onTap: sortable
-          ? () => _sort(getField, columnIndex,
-          isSorted ? !_sortAscending : true, filteredSalesview)
+          ? () => _sort(
+              getField,
+              columnIndex,
+              isSorted ? !_sortAscending : true,
+              filteredSalesview,
+            )
           : null,
       child: Row(
-        mainAxisAlignment:
-        numeric ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: numeric
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           Flexible(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _textColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
                 letterSpacing: 0.4,
@@ -735,7 +855,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
             Icon(
               _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
               size: 13,
-              color: Colors.white70,
+              color: _mutedTextColor,
             ),
           ],
         ],
@@ -743,19 +863,27 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     );
   }
 
-  Widget _buildDesktopRow(BuildContext context, dynamic sv, int index,
-      List<_SalesColumn> columns, double gap) {
+  Widget _buildDesktopRow(
+    BuildContext context,
+    dynamic sv,
+    int index,
+    List<_SalesColumn> columns,
+    double gap,
+  ) {
     final receipt = sv.receiptNumber;
 
     final customerName = (sv.customerName?.toString().isNotEmpty == true)
-        ? sv.customerName.toString() : '-';
+        ? sv.customerName.toString()
+        : '-';
     final branchName = (sv.branchName?.toString().isNotEmpty == true)
-        ? sv.branchName.toString() : '-';
+        ? sv.branchName.toString()
+        : '-';
     final itemMap = Map<String, dynamic>.from(sv.items);
 
     final total = itemMap.values.fold<double>(0, (s, item) {
       if (item is Map<String, dynamic>) {
-        return s + (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
+        return s +
+            (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
       }
       return s;
     });
@@ -769,42 +897,64 @@ class _SalesInvoiceState extends State<SalesInvoice> {
         : '-';
 
     final cells = <Widget>[
-      Text('${index + 1}',
-          style: const TextStyle(color: Colors.white54, fontSize: 13)),
+      Text(
+        '${index + 1}',
+        style: TextStyle(color: _mutedTextColor, fontSize: 13),
+      ),
       GestureDetector(
         onTap: () async {
           await Clipboard.setData(ClipboardData(text: '#$receipt'));
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  backgroundColor: Colors.green,
-                  content: Text('Receipt copied',style: TextStyle(color: Colors.white),)));
+            const SnackBar(
+              backgroundColor: Colors.green,
+              content: Text(
+                'Receipt copied',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          );
         },
-        child: Text('#$receipt',
-            style: const TextStyle(color: Colors.white, fontSize: 13)),
+        child: Text(
+          '#$receipt',
+          style: TextStyle(color: _textColor, fontSize: 13),
+        ),
       ),
-      Text(customerName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 13)),
-      Text(branchName,
-          style: const TextStyle(color: Colors.white, fontSize: 13)),
-      Text(dateStr,
-          style: const TextStyle(color: Colors.white, fontSize: 13)),
-      Text(dateymd,
-          style: const TextStyle(color: Colors.white, fontSize: 13)),
-      Text(sv.transMode ?? '-',
-          style: const TextStyle(color: Colors.white, fontSize: 13)),
-      Text('GHC ${nf.format(total)}',
-          textAlign: TextAlign.right,
-          style: const TextStyle(color: Colors.white, fontSize: 13)),
+      Text(
+        customerName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: _textColor, fontSize: 13),
+      ),
+      Text(branchName, style: TextStyle(color: _textColor, fontSize: 13)),
+      Text(dateStr, style: TextStyle(color: _textColor, fontSize: 13)),
+      Text(dateymd, style: TextStyle(color: _textColor, fontSize: 13)),
+      Text(
+        sv.transMode ?? '-',
+        style: TextStyle(color: _textColor, fontSize: 13),
+      ),
+      Text(
+        'GHS ${nf.format(total)}',
+        textAlign: TextAlign.right,
+        style: TextStyle(color: _textColor, fontSize: 13),
+      ),
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _actionIcon(Icons.visibility, Colors.white, 'View', () =>
-              Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => SalesDetailPage(salesview: sv)))),
-          _actionIcon(Icons.print,  Colors.white, 'Print',
-                  () => printSalesModelReceipt(context, sv),),
+          _actionIcon(
+            Icons.visibility,
+            _textColor,
+            'View',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SalesDetailPage(salesview: sv)),
+            ),
+          ),
+          _actionIcon(
+            Icons.print,
+            _textColor,
+            'Print',
+            () => printSalesModelReceipt(context, sv),
+          ),
         ],
       ),
     ];
@@ -814,16 +964,21 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       child: Container(
         constraints: const BoxConstraints(minHeight: 48, maxHeight: 64),
         alignment: Alignment.center,
-        color: index.isEven
-            ? const Color(0xFF0D1B2A)
-            : const Color(0xFF111E2F),
+        decoration: BoxDecoration(
+          color: _tableRowColor(index),
+          border: Border(
+            bottom: BorderSide(
+              color: _isLightTheme ? _borderColor : Colors.transparent,
+              width: 0.5,
+            ),
+          ),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
             for (int i = 0; i < columns.length; i++) ...[
               SizedBox(width: columns[i].width, child: cells[i]),
-              if (i != columns.length - 1)
-                SizedBox(width: gap),
+              if (i != columns.length - 1) SizedBox(width: gap),
             ],
           ],
         ),
@@ -831,13 +986,10 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     );
   }
 
-
   Widget _buildMobileList(BuildContext context, List filteredSalesview) {
     return Consumer<Datafeed>(
       builder: (context, value, _) => Column(
-
         children: [
-
           const SizedBox(height: 8),
           Expanded(
             child: Scrollbar(
@@ -849,111 +1001,154 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final sv = filteredSalesview[index];
-                  final id = sv.id;
                   final receipt = sv.receiptNumber;
-                  final customerName = (sv.customerName?.toString().isNotEmpty == true)
+                  final customerName =
+                      (sv.customerName?.toString().isNotEmpty == true)
                       ? sv.customerName.toString()
                       : '-';
-                  final branchName = (sv.branchName?.toString().isNotEmpty == true)
+                  final branchName =
+                      (sv.branchName?.toString().isNotEmpty == true)
                       ? sv.branchName.toString()
                       : '-';
 
-                  final Map<String, dynamic> iMap = Map<String, dynamic>.from(sv.items);
+                  final Map<String, dynamic> iMap = Map<String, dynamic>.from(
+                    sv.items,
+                  );
                   final total = iMap.values.fold<double>(0, (s, item) {
                     if (item is Map<String, dynamic>) {
-                      return s + (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
+                      return s +
+                          (double.tryParse(
+                                item['totalamount']?.toString() ?? '0',
+                              ) ??
+                              0);
                     }
                     return s;
                   });
                   final nf = NumberFormat('#,##0.00');
 
-
                   return GestureDetector(
                     onTap: () => _showViewModal(context, sv),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B263B),
+                        color: _cardColor,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        border: Border.all(color: _borderColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // card header
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0D1B2A),
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _headerColor,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(12),
+                              ),
                             ),
                             child: Row(
                               children: [
-                                Text('#${index + 1}',
-                                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                                Text(
+                                  '#${index + 1}',
+                                  style: TextStyle(
+                                    color: _mutedTextColor,
+                                    fontSize: 11,
+                                  ),
+                                ),
                                 const SizedBox(width: 8),
-
-
                               ],
                             ),
                           ),
-                          SizedBox(height: 5,),
+                          SizedBox(height: 5),
                           GestureDetector(
-
                             onTap: () async {
-                              await Clipboard.setData(ClipboardData(text: 'Receipt #$receipt'));
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(const SnackBar(content: Text('Copied')));
+                              await Clipboard.setData(
+                                ClipboardData(text: 'Receipt #$receipt'),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Copied')),
+                              );
                             },
-                            child: Text('Receipt #$receipt',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13)),
+                            child: Text(
+                              'Receipt #$receipt',
+                              style: TextStyle(
+                                color: _textColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
-                          SizedBox(height: 5,),
+                          SizedBox(height: 5),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0D1B2A),
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _headerColor,
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(12),
+                              ),
                             ),
                             child: Row(
                               children: [
                                 const SizedBox(width: 8),
 
                                 const Spacer(),
-                                Text('GHC ${nf.format(total)}',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 13)),
+                                Text(
+                                  'GHS ${nf.format(total)}',
+                                  style: TextStyle(
+                                    color: _textColor,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                           // card body
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.person_outline, color: Colors.white38, size: 13),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(branchName,
-                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis),
+                                    Icon(
+                                      Icons.person_outline,
+                                      color: _mutedTextColor,
+                                      size: 13,
                                     ),
                                     const SizedBox(width: 6),
                                     Expanded(
-                                      child: Text(customerName,
-                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis),
+                                      child: Text(
+                                        branchName,
+                                        style: TextStyle(
+                                          color: _mutedTextColor,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        customerName,
+                                        style: TextStyle(
+                                          color: _mutedTextColor,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
@@ -963,14 +1158,23 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                   children: [
                                     _pair('Mode', sv.transMode ?? '-'),
                                     _pair('Status', sv.paymentStatus ?? '-'),
-                                    _pair('Date',
-                                        sv.createdAt != null
-                                            ? DateFormat('dd MMM yyyy').format(sv.createdAt!.toDate())
-                                            : '-'),
-                                    _pair('Trx Date',
-                                        sv.dateymd != null && sv.dateymd!.isNotEmpty
-                                            ? DateFormat('dd MMM yyyy').format(DateTime.parse(sv.dateymd!))
-                                            : '-'),
+                                    _pair(
+                                      'Date',
+                                      sv.createdAt != null
+                                          ? DateFormat(
+                                              'dd MMM yyyy',
+                                            ).format(sv.createdAt!.toDate())
+                                          : '-',
+                                    ),
+                                    _pair(
+                                      'Trx Date',
+                                      sv.dateymd != null &&
+                                              sv.dateymd!.isNotEmpty
+                                          ? DateFormat('dd MMM yyyy').format(
+                                              DateTime.parse(sv.dateymd!),
+                                            )
+                                          : '-',
+                                    ),
                                   ],
                                 ),
                               ],
@@ -978,28 +1182,43 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                           ),
                           // card footer actions
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0D1B2A),
-                              borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _headerColor,
+                              borderRadius: BorderRadius.vertical(
+                                bottom: Radius.circular(12),
+                              ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.visibility, color: Colors.white, size: 20),
+                                  icon: Icon(
+                                    Icons.visibility,
+                                    color: _textColor,
+                                    size: 20,
+                                  ),
                                   tooltip: 'View',
-                                  onPressed: () =>Navigator.push(
+                                  onPressed: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => SalesDetailPage(salesview: sv),
+                                      builder: (_) =>
+                                          SalesDetailPage(salesview: sv),
                                     ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.print, color:Colors.white, size: 20),
+                                  icon: Icon(
+                                    Icons.print,
+                                    color: _textColor,
+                                    size: 20,
+                                  ),
                                   tooltip: 'Print',
-                                  onPressed: () => printSalesModelReceipt(context, sv),
+                                  onPressed: () =>
+                                      printSalesModelReceipt(context, sv),
                                 ),
                               ],
                             ),
@@ -1017,19 +1236,22 @@ class _SalesInvoiceState extends State<SalesInvoice> {
     );
   }
 
-  Widget _actionIcon(IconData icon, Color color, String tooltip,
-      VoidCallback onTap) =>
-      Tooltip(
-        message: tooltip,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(icon, color: color, size: 18),
-          ),
-        ),
-      );
+  Widget _actionIcon(
+    IconData icon,
+    Color color,
+    String tooltip,
+    VoidCallback onTap,
+  ) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(icon, color: color, size: 18),
+      ),
+    ),
+  );
 }
 
 class _SalesColumn {

@@ -18,6 +18,14 @@ class _JournalEntryViewState extends State<JournalEntryView> {
   late Stream<QuerySnapshot> _journalsStream;
   bool _isDeleting = false;
 
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _mutedColor => Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _surfaceColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF182232);
+  Color get _borderColor =>
+      _isLightTheme ? Colors.grey.shade300 : Colors.white12;
+
   @override
   void initState() {
     super.initState();
@@ -37,14 +45,14 @@ class _JournalEntryViewState extends State<JournalEntryView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF182232),
-        title: const Text(
+        backgroundColor: _surfaceColor,
+        title: Text(
           'Delete Journal Entry',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: _textColor),
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to delete this journal entry? This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: _mutedColor),
         ),
         actions: [
           TextButton(
@@ -98,20 +106,18 @@ class _JournalEntryViewState extends State<JournalEntryView> {
   void _editJournal(JournalEntryModel journal) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => JournalEntries(journal: journal),
-      ),
+      MaterialPageRoute(builder: (context) => JournalEntries(journal: journal)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101A23),
+      backgroundColor: _isLightTheme ? Colors.white : const Color(0xFF101A23),
       appBar: AppBar(
         title: const Text("JOURNAL ENTRIES"),
-        backgroundColor: const Color(0xFF0D1A26),
-        foregroundColor: Colors.white,
+        backgroundColor: _isLightTheme ? Colors.white : const Color(0xFF0D1A26),
+        foregroundColor: _textColor,
         elevation: 2,
         actions: [
           Padding(
@@ -129,7 +135,8 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                 icon: const Icon(Icons.add),
                 label: const Text('New Entry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 ),
               ),
             ),
@@ -143,15 +150,13 @@ class _JournalEntryViewState extends State<JournalEntryView> {
             return Center(
               child: Text(
                 'Error: ${snapshot.error}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: _textColor),
               ),
             );
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -159,18 +164,11 @@ class _JournalEntryViewState extends State<JournalEntryView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.book_outlined,
-                    size: 80,
-                    color: Colors.white30,
-                  ),
+                  Icon(Icons.book_outlined, size: 80, color: _mutedColor),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'No journal entries found',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 18,
-                    ),
+                    style: TextStyle(color: _mutedColor, fontSize: 18),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
@@ -185,7 +183,8 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                     icon: const Icon(Icons.add),
                     label: const Text('Create First Entry'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
                   ),
                 ],
@@ -198,11 +197,7 @@ class _JournalEntryViewState extends State<JournalEntryView> {
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  _buildJournalsList(journals),
-                ],
-              ),
+              child: Column(children: [_buildJournalsList(journals)]),
             ),
           );
         },
@@ -217,14 +212,11 @@ class _JournalEntryViewState extends State<JournalEntryView> {
         final journal = JournalEntryModel.fromJson(data);
 
         return Card(
-          color: const Color(0xFF182232),
+          color: _surfaceColor,
           margin: const EdgeInsets.only(bottom: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(
-              color: Colors.white12,
-              width: 1,
-            ),
+            side: BorderSide(color: _borderColor, width: 1),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -241,19 +233,18 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                         children: [
                           Text(
                             'Entry ID: ${journal.id}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
+                            style: TextStyle(color: _mutedColor, fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             journal.date != null
-                                ? DateFormat('MMM dd, yyyy').format(journal.date!)
+                                ? DateFormat(
+                                    'MMM dd, yyyy',
+                                  ).format(journal.date!)
                                 : 'N/A',
-                            style: const TextStyle(
-                              color: Colors.blue,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
@@ -263,24 +254,21 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                     ),
                     Chip(
                       label: Text(
-                        'GHC ${journal.amount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        'GHS ${journal.amount.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: _textColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      backgroundColor: Colors.green.withOpacity(0.3),
-                      side: const BorderSide(
-                        color: Colors.green,
-                      ),
+                      backgroundColor: _isLightTheme
+                          ? Colors.green.shade50
+                          : Colors.green.withOpacity(0.3),
+                      side: BorderSide(color: Colors.green.shade700),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Divider(
-                  color: Colors.white12,
-                  height: 1,
-                ),
+                Divider(color: _borderColor, height: 1),
                 const SizedBox(height: 12),
 
                 // Account information
@@ -325,10 +313,7 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildInfoColumn(
-                        label: 'Day',
-                        value: journal.day,
-                      ),
+                      child: _buildInfoColumn(label: 'Day', value: journal.day),
                     ),
                     Expanded(
                       child: _buildInfoColumn(
@@ -345,10 +330,7 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Divider(
-                  color: Colors.white12,
-                  height: 1,
-                ),
+                Divider(color: _borderColor, height: 1),
                 const SizedBox(height: 12),
 
                 // Action buttons
@@ -360,7 +342,10 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                       icon: const Icon(Icons.edit, size: 18),
                       label: const Text('Edit'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
@@ -375,8 +360,11 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                       icon: const Icon(Icons.delete, size: 18),
                       label: const Text('Delete'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.withOpacity(0.7),
-                        disabledBackgroundColor: Colors.red.withOpacity(0.3),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor: Theme.of(context).colorScheme.onError,
+                        disabledBackgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.error.withValues(alpha: 0.3),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
@@ -387,31 +375,22 @@ class _JournalEntryViewState extends State<JournalEntryView> {
                 ),
               ],
             ),
-          )
+          ),
         );
       }).toList(),
     );
   }
 
-  Widget _buildInfoColumn({
-    required String label,
-    required String value,
-  }) {
+  Widget _buildInfoColumn({required String label, required String value}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 11,
-          ),
-        ),
+        Text(label, style: TextStyle(color: _mutedColor, fontSize: 11)),
         const SizedBox(height: 4),
         Text(
           value.isEmpty ? 'N/A' : value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: _textColor,
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),

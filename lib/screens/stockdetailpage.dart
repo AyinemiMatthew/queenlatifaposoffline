@@ -1,6 +1,3 @@
-import 'dart:ui';
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -54,14 +51,17 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0D1B2A),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
       appBar: AppBar(
         title: Text(
           "Invoice ${widget.data['invoice']}",
         ),
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
       ),
 
       body: Center(
@@ -74,8 +74,8 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
 
               Text(
                 "Supplier: ${widget.data['suppliername']}",
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -85,8 +85,8 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
 
             Text(
               "Branch: ${widget.data['branchname']}",
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
                 fontSize: 16,
               ),
             ),
@@ -106,10 +106,10 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
                   padding: const EdgeInsets.all(12),
 
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B263B),
+                    color: colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white12,
+                      color: colorScheme.outlineVariant,
                     ),
                   ),
 
@@ -133,19 +133,23 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
                           child: Center(
                             child: DataTable(
                             headingRowColor: WidgetStateProperty.all(
-                              const Color(0xFF243B55),
+                              colorScheme.surfaceContainerHighest,
                             ),
 
+                            dataRowColor: WidgetStateProperty.all(
+                              colorScheme.surface,
+                            ),
+                            dividerThickness: 1,
                             columnSpacing: 40,
 
-                            headingTextStyle: const TextStyle(
-                              color: Colors.white,
+                            headingTextStyle: TextStyle(
+                              color: colorScheme.onSurface,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
 
-                            dataTextStyle: const TextStyle(
-                              color: Colors.white,
+                            dataTextStyle: TextStyle(
+                              color: colorScheme.onSurface,
                               fontSize: 14,
                             ),
 
@@ -173,13 +177,8 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
 
                               return DataRow(
 
-                                color: WidgetStateProperty.resolveWith<Color?>(
-                                      (Set<WidgetState> states) {
-
-                                    return index.isEven
-                                        ? const Color(0xFF0D1B2A)
-                                        : const Color(0xFF16263A);
-                                  },
+                                color: WidgetStatePropertyAll<Color?>(
+                                  colorScheme.surface,
                                 ),
 
                                 cells: [
@@ -198,13 +197,13 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
 
                                   DataCell(
                                     Text(
-                                      "GHC ${unitCost.toStringAsFixed(2)}",
+                                      "GHS ${unitCost.toStringAsFixed(2)}",
                                     ),
                                   ),
 
                                   DataCell(
                                     Text(
-                                      "GHC ${total.toStringAsFixed(2)}",
+                                      "GHS ${total.toStringAsFixed(2)}",
                                     ),
                                   ),
                                   DataCell(
@@ -217,7 +216,8 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
                                     ):
                                           ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blueAccent,
+                                        backgroundColor: colorScheme.secondary,
+                                        foregroundColor: colorScheme.onSecondary,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 12,
                                           vertical: 8,
@@ -236,15 +236,9 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
                                       },
                                       icon: const Icon(
                                         Icons.sync,
-                                        color: Colors.white,
                                         size: 16,
                                       ),
-                                      label: const Text(
-                                        "Sync",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                                      label: const Text("Sync"),
                                     ),
                                   ),
                                 ],
@@ -272,9 +266,11 @@ class _StockDetailsPageState extends State<StockDetailsPage> {
 
     final overlayEntry = OverlayEntry(
       builder: (context) => Container(
-        color: Colors.black.withOpacity(0.5),
-        child: const Center(
-          child: CircularProgressIndicator(),
+        color: Colors.black.withValues(alpha: 0.5),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.secondary,
+          ),
         ),
       ),
     );

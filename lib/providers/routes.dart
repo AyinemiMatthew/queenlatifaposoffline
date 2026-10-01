@@ -1,10 +1,9 @@
-
+import 'package:kologsoft/providers/route_guard.dart';
 import 'package:kologsoft/screens/account_type_view.dart';
 import 'package:kologsoft/screens/activity_chart_reg.dart';
 import 'package:kologsoft/screens/activity_chart_view.dart';
 import 'package:kologsoft/screens/branch_reg.dart';
 import 'package:kologsoft/screens/cashier_desk.dart';
-
 import 'package:kologsoft/screens/damages.dart';
 import 'package:kologsoft/screens/debtors_bal_view.dart';
 import 'package:kologsoft/screens/debtors_balance.dart';
@@ -21,26 +20,25 @@ import 'package:kologsoft/screens/payment_methods.dart';
 import 'package:kologsoft/screens/product_category_reg.dart';
 import 'package:kologsoft/screens/productcategory_view.dart';
 import 'package:kologsoft/screens/sales_page.dart';
+import 'package:kologsoft/screens/sms_management.dart';
 import 'package:kologsoft/screens/staff_profile.dart';
-import 'package:kologsoft/providers/route_guard.dart';
 import 'package:kologsoft/screens/staff_view.dart';
 import 'package:kologsoft/screens/sub_account_form.dart';
 import 'package:kologsoft/screens/sub_account_form_view.dart';
 import 'package:kologsoft/screens/transfer_page.dart';
 import 'package:kologsoft/screens/transfers.dart';
-import 'package:kologsoft/screens/sms_management.dart';
+import 'package:provider/provider.dart';
 
 import '../screens/Creditorpayable.dart';
 import '../screens/Creditorpayablelist.dart';
+import '../screens/Receivables.dart';
 import '../screens/StockBalanceSync.dart';
+import '../screens/ViewReceivables.dart';
 import '../screens/account_type_reg.dart';
 import '../screens/add_community.dart';
-import '../screens/addtaxvat.dart';
-import '../screens/addtaxvatview.dart';
 import '../screens/banktransfer.dart';
 import '../screens/banktransferview.dart';
 import '../screens/branch_view.dart';
-import '../screens/branchbalancereport.dart';
 import '../screens/branchprice.dart';
 import '../screens/bundlesale.dart';
 import '../screens/bundlesaleview.dart';
@@ -56,11 +54,7 @@ import '../screens/creditopenbalance.dart';
 import '../screens/creditopenbalancelist.dart';
 import '../screens/crop_registration.dart';
 import '../screens/customer_registration.dart';
-
-import '../screens/damagereport.dart';
 import '../screens/damagesslist.dart';
-import '../screens/ViewReceivables.dart';
-import '../screens/Receivables.dart';
 import '../screens/debtorreport.dart';
 import '../screens/deletedstock.dart';
 import '../screens/discounmangerpage.dart';
@@ -68,36 +62,32 @@ import '../screens/discountmangerpagview.dart';
 import '../screens/farmer_reg.dart';
 import '../screens/finishedstockreport.dart';
 import '../screens/generalledger.dart';
-import '../screens/hamperreport.dart';
 import '../screens/home_dashboard.dart';
-
 import '../screens/itemlist.dart';
 import '../screens/itemreg.dart';
-import '../screens/journal_entry_view.dart';
 import '../screens/languageregistration.dart';
 import '../screens/momoreport.dart';
+import '../screens/pagereceipt.dart';
+import '../screens/payment_report.dart';
 import '../screens/printbarcodes.dart';
 import '../screens/profit_and_loss.dart';
 import '../screens/purchase_returns.dart';
-import '../screens/receivpayments.dart';
-import '../screens/reorderstock.dart';
-import '../screens/reorderstockreport.dart';
-import '../screens/role_access_dashboard.dart';
 import '../screens/purchasereturns_view.dart';
 import '../screens/receivestock.dart';
+import '../screens/receivpayments.dart';
 import '../screens/registereducationlevel.dart';
+import '../screens/reorderstock.dart';
+import '../screens/reorderstockreport.dart';
 import '../screens/return_reasons.dart';
+import '../screens/role_access_dashboard.dart';
 import '../screens/salereportssummary.dart';
 import '../screens/sales_upload_page.dart';
 import '../screens/salesinvoice.dart';
-import '../screens/salesregisterreport.dart';
 import '../screens/salesreport.dart';
-
 import '../screens/salesreturn.dart';
 import '../screens/salesreturnlist.dart';
 import '../screens/salesview.dart';
 import '../screens/smsconfig.dart';
-import '../screens/payment_report.dart';
 import '../screens/staff.dart';
 import '../screens/stock_report.dart';
 import '../screens/stockcostanalysis.dart';
@@ -110,12 +100,12 @@ import '../screens/stocksupply.dart';
 import '../screens/stocktake.dart';
 import '../screens/stockvaluepage.dart';
 import '../screens/supplierlist.dart';
-import '../screens/supplierreport.dart';
+import '../screens/supplier_balance_report.dart';
 import '../screens/supplierscreen.dart';
 import '../screens/synitemnotinstockreport.dart';
 import '../screens/systemAdminpage.dart';
+import '../screens/transactionsupplyreport.dart';
 import '../screens/transferlisttable.dart';
-import '../screens/uploaditem.dart';
 import '../screens/uploadreceipt.dart';
 import '../screens/uploadreceiptview.dart';
 import '../screens/uploadstock.dart';
@@ -123,9 +113,7 @@ import '../screens/uploadtransfer.dart';
 import '../screens/viewfarmers.dart';
 import '../screens/warehousehomescreen.dart';
 import '../screens/warehousereg.dart';
-import 'package:provider/provider.dart';
 import '../screens/warehousesupplyreport.dart';
-import '../screens/transactionsupplyreport.dart';
 import 'Datafeed.dart';
 
 class Routes {
@@ -237,146 +225,1069 @@ class Routes {
   static const String momoreport = '/momoreport';
   static const String damagereport = '/damagereport';
   static const String debtorreport = '/debtorreport';
-  static const String systemadmin ='/systemadmin';
-  static const String finishedstock ='/finishedstock';
-  static const String reorderStock ='/reorderStock';
-  static const String warehousehomescreen ='/warehousehomescreen';
-  static const String collectionmanager ='/collectionmanager';
-  static const String salesupload ='/salesupload';
-  static const String salesunovalidate ='/salesunovalidate';
-  static const String synczero ='/synczero';
-  static const String updatecostp ='/updatecostp';
-  static const String uploadstock ='/uploadstock';
-  static const String uploadstocktransfer ='/uploadstocktransfer';
-  static const String warehousesupplyreport ='/warehousesupplyreport';
+  static const String systemadmin = '/systemadmin';
+  static const String finishedstock = '/finishedstock';
+  static const String reorderStock = '/reorderStock';
+  static const String warehousehomescreen = '/warehousehomescreen';
+  static const String collectionmanager = '/collectionmanager';
+  static const String salesupload = '/salesupload';
+  static const String salesunovalidate = '/salesunovalidate';
+  static const String synczero = '/synczero';
+  static const String updatecostp = '/updatecostp';
+  static const String uploadstock = '/uploadstock';
+  static const String uploadstocktransfer = '/uploadstocktransfer';
+  static const String warehousesupplyreport = '/warehousesupplyreport';
   static const String transactionsupplyreport = '/transactionsupplyreport';
   static const String stockvaluepage = '/stockvaluepage';
   static const String receivepayments = '/receivepayments';
   static const String stocktake = '/stocktake';
   static const String reordercount = '/reordercount';
-
+  static const String pagereceipt = '/pagereceipt';
 }
 
 final pages = {
   Routes.login: (context) => const LoginScreen(),
   Routes.home: (context) => const RouteGuard(child: HomeDashboard()),
-  Routes.roleAccessDashboard: (context) => const RouteGuard(child: RoleAccessDashboard()),
+  Routes.roleAccessDashboard: (context) =>
+      const RouteGuard(child: RoleAccessDashboard()),
   Routes.branchreg: (context) => const RouteGuard(child: BranchRegistration()),
-  Routes.supplierreg: (context) => const RouteGuard(child: SupplierRegistration()),
+  Routes.supplierreg: (context) =>
+      const RouteGuard(child: SupplierRegistration()),
   Routes.stockingmode: (context) => const RouteGuard(child: StockingMode()),
   Routes.supplierlist: (context) => const RouteGuard(child: SupplierListPage()),
-  Routes.companyreg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin','systemadmin'], child: CompanyRegPage()),
-  Routes.companylist: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin','systemadmin'], child: CompanyListPage()),
-  Routes.warehousereg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: WarehouseRegistration()),
-  Routes.itemreg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant', 'warehouse','systemadmin'], child: ItemRegPage()),
-  Routes.itemlist: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant', 'warehouse','systemadmin'], child: ItemListPage()),
-  Routes.branchview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: BranchView()),
-  Routes.customerreg: (context) => RouteGuard(allowedAccessLevels: ['sales', 'sales attendance', 'sales manager', 'admin', 'super admin', 'operations officers','systemadmin'], child: CustomerRegistration()),
-  Routes.productcatereg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: ProductCategoryReg()),
-  Routes.productcateview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: ProductCategoryView()),
-  Routes.paymentdurationreg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: PaymentDurationReg()),
-  Routes.paymentdurationview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: PaymentDurationView()),
-  Routes.newstock: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: NewStock()),
-  Routes.staffreg: (context) => RouteGuard(allowedAccessLevels: ['admin','super admin','systemadmin'], child: Staff()),
+  Routes.companyreg: (context) => RouteGuard(
+    allowedAccessLevels: ['admin', 'super admin', 'systemadmin'],
+    child: CompanyRegPage(),
+  ),
+  Routes.companylist: (context) => RouteGuard(
+    allowedAccessLevels: ['admin', 'super admin', 'systemadmin'],
+    child: CompanyListPage(),
+  ),
+  Routes.warehousereg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: WarehouseRegistration(),
+  ),
+  Routes.itemreg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'warehouse',
+      'systemadmin',
+    ],
+    child: ItemRegPage(),
+  ),
+  Routes.itemlist: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'warehouse',
+      'systemadmin',
+    ],
+    child: ItemListPage(),
+  ),
+  Routes.branchview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: BranchView(),
+  ),
+  Routes.customerreg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'admin',
+      'super admin',
+      'operations officers',
+      'systemadmin',
+    ],
+    child: CustomerRegistration(),
+  ),
+  Routes.productcatereg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: ProductCategoryReg(),
+  ),
+  Routes.productcateview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: ProductCategoryView(),
+  ),
+  Routes.paymentdurationreg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: PaymentDurationReg(),
+  ),
+  Routes.paymentdurationview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: PaymentDurationView(),
+  ),
+  Routes.newstock: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: NewStock(),
+  ),
+  Routes.staffreg: (context) => RouteGuard(
+    allowedAccessLevels: ['admin', 'super admin', 'systemadmin'],
+    child: Staff(),
+  ),
   Routes.staffprofile: (context) => const RouteGuard(child: StaffProfile()),
-  Routes.sales: (context) => const RouteGuard(allowedAccessLevels: ['sales', 'sales attendance', 'sales manager', 'admin', 'super admin', 'operations officers','systemadmin'], child: SalesPage()),
-  Routes.transfers: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: NewTransfer()),
-  Routes.transferlist: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: StockTransferDetails()),
-  Routes.stocklist: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: StockListPage()),
-  Routes.staffView: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers','systemadmin'], child: StaffView()),
-  Routes.branchprice: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: BranchPricePage()),
-  Routes.stockrequest: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'sales manager','systemadmin'], child: StockRequest()),
-  Routes.stockrequestlist: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'sales manager','systemadmin'], child: StockRequestDetails()),
-  Routes.activityChartReg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ActivityChartReg()),
-  Routes.subAccountForm: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: SubAccountForm()),
-  Routes.coa: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: AccountTypeReg()),
-  Routes.stocksupply: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: StockSupply()),
-  Routes.paymentaccounts: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: PaymentMethodsListScreen()),
-  Routes.accountTypeView: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: AccountTypeView()),
-  Routes.activityChartView: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ActivityChartView()),
-  Routes.subAccountView: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: SubAccountFormView()),
-  Routes.damages: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: Damages()),
-  Routes.receivestock: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: StockReceiving()),
-  Routes.salesreturn: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'sales', 'sales attendance', 'sales manager','systemadmin'], child: Salesreturn()),
-  Routes.expense: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ExpenseEntry()),
-  Routes.expenseview: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ExpenseEntryView()),
-  Routes.paymentMethod: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: PaymentMethods()),
-  Routes.salesreturnlist: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: SalesreturnListPage()),
-  Routes.damagelist: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: DamagesListPage()),
-  Routes.cashier: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'sales', 'sales attendance', 'sales manager', 'cashier','systemadmin'], child: ReceiptDashboardScreen()),
-  Routes.purchaseReturns: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: PurchaseReturn()),
-  Routes.purchaseReturnsView: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: PurchaseReturnTableScreen()),
-  Routes.cashierPage: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'sales', 'sales attendance', 'sales manager', 'cashier','systemadmin'], child: CashierPage()),
-  Routes.salesview: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'sales','operations officers', 'sales attendance', 'sales manager','systemadmin'], child: SalesViewPage()),
-  Routes.salesinvoice: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'sales', 'sales attendance', 'sales manager','systemadmin'], child: SalesInvoice()),
-  Routes.salesreport: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant', 'sales manager','systemadmin'], child: SalesReport()),
-  Routes.salesreportsummary: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant', 'sales manager','systemadmin'], child: SalesSummaryPage()),
-  Routes.paymentreport: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant', 'sales manager','systemadmin'], child: PaymentReportPage()),
-  Routes.salesregister: (context) => const RouteGuard(allowedAccessLevels: ['sales', 'sales attendance', 'sales manager', 'admin', 'super admin', 'operations officers','systemadmin'], child: SalesRegister()),
-  Routes.staffsalereport: (context) => const RouteGuard(allowedAccessLevels: ['sales', 'sales attendance', 'sales manager', 'admin', 'super admin', 'operations officers','systemadmin'], child: SalesRegister()),
-  Routes.stockreport: (context) => const RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant', 'sales manager', 'sales attendance','systemadmin'], child: StockReportPage()),
-  Routes.configurevat: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ConfigureVatreg()),
-  Routes.configurevatview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ConfigurevatView()),
-  Routes.addvat: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: addTaxVat()),
-  Routes.addvatview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: AddTaxVatvatView()),
-  Routes.printbarcodes: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: PrintBarcodes()),
-  Routes.bundlesale: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'sales', 'sales attendance', 'sales manager','systemadmin'], child: BundlePage()),
-  Routes.bundlesaleview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'sales', 'sales attendance', 'sales manager','systemadmin'], child: bundleSaleViewPage()),
-  Routes.uploadreceipt: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: ReceiptUploadPage()),
-  Routes.uploadreceiptview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: uploadReceiptViewPage()),
- // Routes.uploaditem: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: ItemUploadPage()),
-  Routes.closesale: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'cashier', 'sales manager','systemadmin'], child: CloseSalesPage ()),
-  Routes.creditopenbal: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: creditOpenBalScreen ()),
-  Routes.creditopenbalview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: creditOpenBalViewPage ()),
-  Routes.creditorpayable: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: CreditorPayableScreen ()),
-  Routes.creditorpayableview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: CreditorPayablelistScreen ()),
-  Routes.debtorlist: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ReceivablesListPage ()),
-  Routes.debtpayments: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: ViewReceivables ()),
-    Routes.debtorBal: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: DebtorsBalance ()),
-  Routes.debtorBalView: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: DebtorsBalView ()),
-  Routes.banktransfer: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: Banktransfer ()),
-  Routes.banktransferview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: BanktransferView()),
-  Routes.journalEntry: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: JournalEntries()),
-  Routes.returnreasons: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: ReturnReasons()),
-  Routes.discountmanager: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: DiscountCodeRegisterPage()),
-  Routes.discountmanagerview: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: DiscountCodeListPage()),
-  Routes.farmerreg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'sales attendance', 'sales manager','systemadmin'], child: FarmerRegistration()),
-  Routes.registercrop: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers','systemadmin'], child: CropRegistration()),
-  Routes.registerlanguage: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers','systemadmin'], child: LanguageRegistration()),
-  Routes.educationlevel: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers','systemadmin'], child: EducationLevelRegistration()),
-  Routes.branchbalance: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: branchBalanceReportPage()),
-  Routes.registercommunity: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'sales', 'sales attendance', 'sales manager','systemadmin'], child: communityRegistration()),
-  Routes.generalledger: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: generalLedger()),
-  Routes.profitAndLoss: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: const ProfitAndLossPage()),
-  Routes.categorysalereport: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: CategorySalesReport()),
-  Routes.stocklisttable: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin','warehouse'], child: StockListTable()),
-  Routes.journalView: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'accountant','systemadmin'], child: JournalEntryView()),
-  Routes.viewfarmers: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'sales attendance', 'sales manager','systemadmin'], child: FarmerListPage()),
-  Routes.hampersalereport: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'sales', 'sales attendance', 'sales manager','systemadmin'], child: HamperSalesReport()),
-  Routes.stockbalancesync: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer','systemadmin'], child: StockBalanceSync()),
-  Routes.SmsConfiguration: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'systemadmin'], child: SmsConfiguration()),
-  Routes.supplierreport: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: SupplierReport()),
-  Routes.stocktransferlist: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin','warehouse'], child: StockTransferDetailsList()),
-  Routes.deletedstock: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: DeletedStockScreen()),
-  Routes.momoreport: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: MomoReportPage()),
-  Routes.damagereport: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: DamageReport()),
-  Routes.debtorreport: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin'], child: DebtorReport()),
-  Routes.warehousehomescreen: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'operations officers', 'stock officer', 'accountant','systemadmin','warehouse'], child: SupplyQueueHome()),
-  Routes.systemadmin: (context) => RouteGuard(allowedAccessLevels: ['super admin','admin','systemadmin'], child: SystemAdminPage()),
-  Routes.finishedstock: (context) => RouteGuard(allowedAccessLevels: ['super admin','admin','systemadmin'], child: finishedStockPage()),
-  Routes.reorderStock: (context) => RouteGuard(allowedAccessLevels: ['super admin','admin','systemadmin'], child: reOrderStockPage()),
-  Routes.collectionmanager: (context) => RouteGuard(allowedAccessLevels: ['super admin','systemadmin'], child: CollectionManagerPage()),
-  Routes.salesupload: (context) => RouteGuard(allowedAccessLevels: ['super admin','systemadmin'], child: SalesUploadPage()),
- Routes.synczero: (context) => RouteGuard(allowedAccessLevels: ['super admin','systemadmin'], child: SyncItemtoZero()),
-  Routes.updatecostp: (context) => RouteGuard(allowedAccessLevels: ['super admin','systemadmin'], child: StockCostAnalysisPage()),
-  Routes.uploadstock: (context) => RouteGuard(allowedAccessLevels: ['super admin','systemadmin'], child: StockUploadPage()),
-  Routes.uploadstocktransfer: (context) => RouteGuard(allowedAccessLevels: ['super admin','systemadmin'], child: StockTransferUploadPage()),
-  Routes.smsManagement: (context) => RouteGuard(child: Consumer<Datafeed>(builder: (context, datafeed, _) => SMSManagement(companyId: datafeed.companyid, branchId: datafeed.branchid, staffName: datafeed.staff,),),),
-  Routes.warehousesupplyreport: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: SupplyReportPage()),
-  Routes.transactionsupplyreport: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: TransactionSupplyReportPage()),
-  Routes.stockvaluepage: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: StockValuePage()),
-  Routes.receivepayments: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: ReceivepaymentsPage()),
-  Routes.stocktake: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'operations officers', 'stock officer', 'warehouse'], child: StockTake()),
-  Routes.reordercount: (context) => RouteGuard(allowedAccessLevels: ['super admin', 'admin', 'systemadmin', 'stock officer', 'warehouse'], child: ReorderLevelPage()),
+  Routes.sales: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'admin',
+      'super admin',
+      'operations officers',
+      'systemadmin',
+    ],
+    child: SalesPage(),
+  ),
+  Routes.transfers: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: NewTransfer(),
+  ),
+  Routes.transferlist: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: StockTransferDetails(),
+  ),
+  Routes.stocklist: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: StockListPage(),
+  ),
+  Routes.staffView: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'systemadmin',
+    ],
+    child: StaffView(),
+  ),
+  Routes.branchprice: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: BranchPricePage(),
+  ),
+  Routes.stockrequest: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: StockRequest(),
+  ),
+  Routes.stockrequestlist: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: StockRequestDetails(),
+  ),
+  Routes.activityChartReg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ActivityChartReg(),
+  ),
+  Routes.subAccountForm: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: SubAccountForm(),
+  ),
+  Routes.coa: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: AccountTypeReg(),
+  ),
+  Routes.stocksupply: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: StockSupply(),
+  ),
+  Routes.paymentaccounts: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: PaymentMethodsListScreen(),
+  ),
+  Routes.accountTypeView: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: AccountTypeView(),
+  ),
+  Routes.activityChartView: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ActivityChartView(),
+  ),
+  Routes.subAccountView: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: SubAccountFormView(),
+  ),
+  Routes.damages: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: Damages(),
+  ),
+  Routes.receivestock: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: StockReceiving(),
+  ),
+  Routes.salesreturn: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: Salesreturn(),
+  ),
+  Routes.expense: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ExpenseEntry(),
+  ),
+  Routes.expenseview: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ExpenseEntryView(),
+  ),
+  Routes.paymentMethod: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: PaymentMethods(),
+  ),
+  Routes.salesreturnlist: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: SalesreturnListPage(),
+  ),
+  Routes.damagelist: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DamagesListPage(),
+  ),
+  Routes.cashier: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'cashier',
+      'systemadmin',
+    ],
+    child: ReceiptDashboardScreen(),
+  ),
+  Routes.purchaseReturns: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: PurchaseReturn(),
+  ),
+  Routes.purchaseReturnsView: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: PurchaseReturnTableScreen(),
+  ),
+  Routes.cashierPage: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'cashier',
+      'systemadmin',
+    ],
+    child: CashierPage(),
+  ),
+  Routes.salesview: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'sales',
+      'operations officers',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: SalesViewPage(),
+  ),
+  Routes.salesinvoice: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: SalesInvoice(),
+  ),
+  Routes.salesreport: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: SalesReport(),
+  ),
+  Routes.salesreportsummary: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: SalesSummaryPage(),
+  ),
+  Routes.paymentreport: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: PaymentReportPage(),
+  ),
 
+  Routes.stockreport: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'sales manager',
+      'sales attendance',
+      'systemadmin',
+    ],
+    child: StockReportPage(),
+  ),
+  Routes.configurevat: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ConfigureVatreg(),
+  ),
+  Routes.configurevatview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ConfigurevatView(),
+  ),
+
+  Routes.printbarcodes: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: PrintBarcodes(),
+  ),
+  Routes.bundlesale: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: BundlePage(),
+  ),
+  Routes.bundlesaleview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: bundleSaleViewPage(),
+  ),
+  Routes.uploadreceipt: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ReceiptUploadPage(),
+  ),
+  Routes.uploadreceiptview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: uploadReceiptViewPage(),
+  ),
+
+  Routes.closesale: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'cashier',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: CloseSalesPage(),
+  ),
+  Routes.creditopenbal: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: creditOpenBalScreen(),
+  ),
+  Routes.creditopenbalview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: creditOpenBalViewPage(),
+  ),
+  Routes.creditorpayable: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: CreditorPayableScreen(),
+  ),
+  Routes.creditorpayableview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: CreditorPayablelistScreen(),
+  ),
+  Routes.debtorlist: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ReceivablesListPage(),
+  ),
+  Routes.debtpayments: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ViewReceivables(),
+  ),
+  Routes.debtorBal: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DebtorsBalance(),
+  ),
+  Routes.debtorBalView: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DebtorsBalView(),
+  ),
+  Routes.banktransfer: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: Banktransfer(),
+  ),
+  Routes.banktransferview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: BanktransferView(),
+  ),
+  Routes.journalEntry: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: JournalEntries(),
+  ),
+  Routes.returnreasons: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: ReturnReasons(),
+  ),
+  Routes.discountmanager: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DiscountCodeRegisterPage(),
+  ),
+  Routes.discountmanagerview: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DiscountCodeListPage(),
+  ),
+  Routes.farmerreg: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: FarmerRegistration(),
+  ),
+  Routes.registercrop: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'systemadmin',
+    ],
+    child: CropRegistration(),
+  ),
+  Routes.registerlanguage: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'systemadmin',
+    ],
+    child: LanguageRegistration(),
+  ),
+  Routes.educationlevel: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'systemadmin',
+    ],
+    child: EducationLevelRegistration(),
+  ),
+
+  Routes.registercommunity: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'sales',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: communityRegistration(),
+  ),
+  Routes.generalledger: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: generalLedger(),
+  ),
+  Routes.profitAndLoss: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: const ProfitAndLossPage(),
+  ),
+  Routes.categorysalereport: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: CategorySalesReport(),
+  ),
+  Routes.stocklisttable: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+      'warehouse',
+    ],
+    child: StockListTable(),
+  ),
+  Routes.journalView: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'accountant',
+      'systemadmin',
+    ],
+    child: JournalEntryView(),
+  ),
+  Routes.viewfarmers: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'sales attendance',
+      'sales manager',
+      'systemadmin',
+    ],
+    child: FarmerListPage(),
+  ),
+
+  Routes.stockbalancesync: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'systemadmin',
+    ],
+    child: StockBalanceSync(),
+  ),
+  Routes.SmsConfiguration: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: SmsConfiguration(),
+  ),
+  Routes.supplierreport: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: SupplierReport(),
+  ),
+  Routes.stocktransferlist: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+      'warehouse',
+    ],
+    child: StockTransferDetailsList(),
+  ),
+  Routes.deletedstock: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DeletedStockScreen(),
+  ),
+  Routes.momoreport: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: MomoReportPage(),
+  ),
+
+  Routes.debtorreport: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DebtorReport(),
+  ),
+  Routes.warehousehomescreen: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+      'warehouse',
+    ],
+    child: SupplyQueueHome(),
+  ),
+  Routes.systemadmin: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'admin', 'systemadmin'],
+    child: SystemAdminPage(),
+  ),
+  Routes.finishedstock: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'admin', 'systemadmin'],
+    child: finishedStockPage(),
+  ),
+  Routes.reorderStock: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'admin', 'systemadmin'],
+    child: reOrderStockPage(),
+  ),
+  Routes.collectionmanager: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: CollectionManagerPage(),
+  ),
+  Routes.salesupload: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: SalesUploadPage(),
+  ),
+  Routes.synczero: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: SyncItemtoZero(),
+  ),
+  Routes.updatecostp: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: StockCostAnalysisPage(),
+  ),
+  Routes.uploadstock: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: StockUploadPage(),
+  ),
+  Routes.uploadstocktransfer: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: StockTransferUploadPage(),
+  ),
+  Routes.smsManagement: (context) => RouteGuard(
+    child: Consumer<Datafeed>(
+      builder: (context, datafeed, _) => SMSManagement(
+        companyId: datafeed.companyid,
+        branchId: datafeed.branchid,
+        staffName: datafeed.staff,
+      ),
+    ),
+  ),
+  Routes.warehousesupplyreport: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'operations officers',
+      'stock officer',
+      'warehouse',
+    ],
+    child: SupplyReportPage(),
+  ),
+  Routes.transactionsupplyreport: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'operations officers',
+      'stock officer',
+      'warehouse',
+    ],
+    child: TransactionSupplyReportPage(),
+  ),
+  Routes.stockvaluepage: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'operations officers',
+      'stock officer',
+      'warehouse',
+    ],
+    child: StockValuePage(),
+  ),
+  Routes.receivepayments: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'operations officers',
+      'stock officer',
+      'warehouse',
+    ],
+    child: ReceivepaymentsPage(),
+  ),
+  Routes.stocktake: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'operations officers',
+      'stock officer',
+      'warehouse',
+    ],
+    child: StockTake(),
+  ),
+  Routes.reordercount: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'stock officer',
+      'warehouse',
+    ],
+    child: ReorderLevelPage(),
+  ),
+  Routes.pagereceipt: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'super admin',
+      'admin',
+      'systemadmin',
+      'stock officer',
+      'warehouse',
+    ],
+    child: ProformaInvoiceScreen(),
+  ),
 };

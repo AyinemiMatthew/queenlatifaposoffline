@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +7,34 @@ import '../providers/Datafeed.dart';
 import '../widgets/datepicker.dart';
 import 'creditopenbalance.dart';
 
+class _C {
+  static Color bg(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+  static Color card(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+  static Color header(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.brightness == Brightness.light
+        ? theme.colorScheme.surface
+        : theme.colorScheme.primary;
+  }
+
+  static Color divider(BuildContext context) =>
+      Theme.of(context).colorScheme.outline;
+  static const primary = Color(0xFF3A6FF8);
+  static Color field(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
+  static Color negative(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.light
+      ? const Color(0xFFB91C1C)
+      : const Color(0xFFFF5252);
+  static Color textPri(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
+  static Color textSub(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+  static Color textMuted(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+}
 
 class creditOpenBalViewPage extends StatefulWidget {
   const creditOpenBalViewPage({super.key});
@@ -17,383 +44,464 @@ class creditOpenBalViewPage extends StatefulWidget {
 }
 
 class _creditOpenBalViewPageState extends State<creditOpenBalViewPage> {
+  static const _allKey = '__all__';
+
   String searchQuery = '';
   DateTimeRange? selectedDate;
   String _selectedBranch = '';
   int? _sortColumnIndex;
   bool _sortAscending = true;
+  bool _searchOpen = false; // mobile only
+  final _searchCtrl = TextEditingController();
   final verticalController = ScrollController();
 
-  void _sort<T>(
-      Comparable<T> Function(dynamic d) getField,
-      int columnIndex,
-      bool ascending,
-      List list,
-      ) {
-    list.sort((a, b) {
-      final aValue = getField(a);
-      final bValue = getField(b);
-
-      return ascending
-          ? Comparable.compare(aValue, bValue)
-          : Comparable.compare(bValue, aValue);
-    });
-    setState(() {
-      _sortColumnIndex = columnIndex;
-      _sortAscending = ascending;
-    });
-  }
-
-  String capitalize(String? text) {
-    if (text == null || text.isEmpty) return '';
-    return text[0].toUpperCase() + text.substring(1);
-  }
+  bool get _isMobile => MediaQuery.of(context).size.width < 800;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      context.read<Datafeed>().fetchBranches().then((_) {
-        final datafeed = Provider.of<Datafeed>(context, listen: false);
-
-        final isSystemOrSuperAdmin =
-            datafeed.normalizedAccessLevelNoSpaces == 'systemadmin' ||
-                datafeed.isSuperAdmin;
-
-        setState(() {
-          _selectedBranch = isSystemOrSuperAdmin ? '' : datafeed.branchid;
-        });
-
-        context.read<Datafeed>().fetchcreditoropenbal(selectedDate, _selectedBranch);
-      });
+    Future.microtask(() async {
+      if (!mounted) return;
+      final df = context.read<Datafeed>();
+      await df.getdata();
+      if (df.isAdminLevel) df.fetchBranches();
+      _load();
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<Datafeed>(
-      builder: (context, value, child) {
-        final filteredCreditorbal = value.filtercreditorBalance(searchQuery);
-        final screenWidth = MediaQuery.of(context).size.width;
+  void dispose() {
+    _searchCtrl.dispose();
+    verticalController.dispose();
+    super.dispose();
+  }
 
-        return Scaffold(
-          backgroundColor: const Color(0xFF101624),
-          appBar: AppBar(
-            title: const Text('Creditor Open Balance View List'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.home, size: 25),
-                tooltip: 'Home',
-                onPressed: () {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-                },
+  String _effectiveBranch(Datafeed df) =>
+      df.isAdminLevel ? _selectedBranch : df.branchid;
+
+  void _load() {
+    if (!mounted) return;
+    final df = context.read<Datafeed>();
+    // no date picked -> load everything so non-admins are not stuck on "today"
+    final range =
+        selectedDate ??
+        DateTimeRange(start: DateTime(2000), end: DateTime.now());
+    df.fetchcreditoropenbal(range, _effectiveBranch(df));
+  }
+
+  List<CreditorBalance> _sortRows(List<CreditorBalance> rows) {
+    final sorted = List<CreditorBalance>.from(rows);
+    if (_sortColumnIndex == null) return sorted;
+
+    sorted.sort((a, b) {
+      int cmp;
+      switch (_sortColumnIndex) {
+        case 1:
+          cmp = a.creditorName.toLowerCase().compareTo(
+            b.creditorName.toLowerCase(),
+          );
+          break;
+        case 2:
+          cmp = a.amount.compareTo(b.amount);
+          break;
+        case 3:
+          cmp = (a.date?.millisecondsSinceEpoch ?? 0).compareTo(
+            b.date?.millisecondsSinceEpoch ?? 0,
+          );
+          break;
+        default:
+          return 0;
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
+    return sorted;
+  }
+
+  void _onSort(int columnIndex) {
+    setState(() {
+      if (_sortColumnIndex == columnIndex) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumnIndex = columnIndex;
+        _sortAscending = true;
+      }
+    });
+  }
+
+  void _closeSearch() {
+    setState(() {
+      _searchOpen = false;
+      _searchCtrl.clear();
+      searchQuery = '';
+    });
+  }
+
+  Widget _expandableSearch() {
+    final w = (MediaQuery.of(context).size.width * 0.22).clamp(180.0, 280.0);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      alignment: Alignment.centerRight,
+      child: _searchOpen
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: SizedBox(width: w, child: _searchField(autofocus: true)),
+            )
+          : IconButton(
+              tooltip: 'Search',
+              icon: const Icon(Icons.search, size: 24),
+              onPressed: () => setState(() => _searchOpen = true),
+            ),
+    );
+  }
+
+  String _money(num v) => NumberFormat('#,##0.00').format(v);
+
+  // ─── App bar pieces
+  Widget _searchField({bool autofocus = false}) {
+    return SizedBox(
+      height: 40,
+      child: TextField(
+        controller: _searchCtrl,
+        autofocus: autofocus,
+        onChanged: (v) => setState(() => searchQuery = v),
+        style: TextStyle(color: _C.textPri(context), fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Search creditor, phone, amount…',
+          hintStyle: TextStyle(color: _C.textMuted(context), fontSize: 13),
+          prefixIcon: Icon(Icons.search, color: _C.textSub(context), size: 20),
+          // desktop: ✕ always collapses; mobile: ✕ only clears (the AppBar icon closes)
+          suffixIcon: (_isMobile && _searchCtrl.text.isEmpty)
+              ? null
+              : IconButton(
+                  icon: Icon(Icons.close, color: _C.textSub(context), size: 18),
+                  onPressed: () {
+                    if (_isMobile) {
+                      _searchCtrl.clear();
+                      setState(() => searchQuery = '');
+                    } else {
+                      _closeSearch();
+                    }
+                  },
+                ),
+          filled: true,
+          fillColor: _C.field(context),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _branchSelector(Datafeed df, {required bool compact}) {
+    final branches = df.branches
+        .where((b) => b.branchtype != 'Warehouse')
+        .toList();
+
+    // Non-admin: fixed label, no menu
+    if (!df.isAdminLevel) {
+      if (compact) return const SizedBox.shrink();
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _C.field(context),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _C.divider(context)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.store_mall_directory_outlined,
+              color: _C.textSub(context),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                df.branch,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _C.textPri(context), fontSize: 13),
               ),
-              ReusableDatePickerWidget(
-                child: Icon(Icons.calendar_today, size: 25),
-                onDateSelected: (selection) {
-                  setState(() {
-                    selectedDate = selection;
-                  });
-                  context.read<Datafeed>().fetchcreditoropenbal(selectedDate, _selectedBranch);
-                },
+            ),
+          ],
+        ),
+      );
+    }
+
+    final match = branches.where((b) => b.id == _selectedBranch);
+    final label = match.isEmpty ? 'All Branches' : match.first.branchname;
+
+    return PopupMenuButton<String>(
+      tooltip: 'Select branch',
+      color: _C.card(context),
+      offset: const Offset(0, 46),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onSelected: (v) {
+        setState(() => _selectedBranch = v == _allKey ? '' : v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem<String>(
+          value: _allKey,
+          child: Text(
+            'All Branches',
+            style: TextStyle(
+              color: _selectedBranch.isEmpty ? _C.primary : _C.textSub(context),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ...branches.map(
+          (b) => PopupMenuItem<String>(
+            value: b.id,
+            child: Text(
+              b.branchname,
+              style: TextStyle(
+                color: _selectedBranch == b.id
+                    ? _C.primary
+                    : _C.textPri(context),
+              ),
+            ),
+          ),
+        ),
+      ],
+      child: compact
+          ? Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(
+                Icons.store_mall_directory_outlined,
+                color: _C.textPri(context),
+                size: 24,
+              ),
+            )
+          : Container(
+              constraints: const BoxConstraints(maxWidth: 220),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _C.field(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _C.divider(context)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.store_mall_directory_outlined,
+                    color: _C.textSub(context),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _C.textPri(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: _C.textSub(context),
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(Datafeed df, int recordCount) {
+    final mobile = _isMobile;
+
+    final Widget title = mobile
+        ? (_searchOpen
+              ? _searchField(autofocus: true)
+              : Text(
+                  'Opening Balances',
+                  style: TextStyle(
+                    color: _C.textPri(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ))
+        : Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Creditor Opening Balances',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _C.textPri(context),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'View, edit and delete creditor opening balances',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _C.textSub(context), fontSize: 11),
               ),
             ],
-          ),
+          );
 
-          floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
-            child: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const creditOpenBalScreen()),
-              );
+    return AppBar(
+      backgroundColor: _C.header(context),
+      foregroundColor: _C.textPri(context),
+      elevation: 2,
+      titleSpacing: 0,
+      toolbarHeight: mobile ? kToolbarHeight : 64,
+      leading: BackButton(color: _C.textPri(context)),
+      title: title,
+      actions: [
+        _branchSelector(df, compact: mobile),
+        if (mobile)
+          IconButton(
+            tooltip: _searchOpen ? 'Close search' : 'Search',
+            icon: Icon(_searchOpen ? Icons.close : Icons.search, size: 24),
+            onPressed: () => _searchOpen
+                ? _closeSearch()
+                : setState(() => _searchOpen = true),
+          )
+        else
+          _expandableSearch(),
+        // Date range: admin levels only
+        if (df.isAdminLevel && !(mobile && _searchOpen))
+          ReusableDatePickerWidget(
+            child: const Icon(Icons.calendar_today, size: 22),
+            onDateSelected: (selection) {
+              setState(() => selectedDate = selection);
+              _load();
             },
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(20),
+        if (!(mobile && _searchOpen))
+          IconButton(
+            icon: const Icon(Icons.home, size: 25),
+            tooltip: 'Home',
+            onPressed: () => Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/home', (route) => false),
+          ),
+        if (!mobile)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _C.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: _C.primary.withOpacity(0.25)),
+                ),
+                child: Text(
+                  '$recordCount record${recordCount == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: _C.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (mobile) const SizedBox(width: 4),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: _C.divider(context)),
+      ),
+    );
+  }
+
+  // ─── Build
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<Datafeed>(
+      builder: (context, df, _) {
+        final rows = _sortRows(df.filtercreditorBalance(searchQuery));
+
+        return Scaffold(
+          backgroundColor: _C.bg(context),
+          appBar: _buildAppBar(df, rows.length),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: _C.primary,
+            child: const Icon(Icons.add, color: Colors.white),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const creditOpenBalScreen()),
+            ),
+          ),
+          body: SafeArea(
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
+                constraints: const BoxConstraints(maxWidth: 900),
                 child: Column(
                   children: [
-                    DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: _selectedBranch.isEmpty ? null : _selectedBranch,
-                      dropdownColor: const Color(0xFF22304A),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Select Branch',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.blue),
-                        ),
-                        fillColor: const Color(0xFF22304A),
-                        filled: true,
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: '',
-                          child: Text('All Branches', style: TextStyle(color: Colors.white70)),
-                        ),
-                        ...value.branches
-                            .where((branch) => branch.branchtype != 'Warehouse')
-                            .map((branch) => DropdownMenuItem<String>(
-                          value: branch.id,
-                          child: Text(branch.branchname),
-                        )),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedBranch = val);
-                          value.fetchcreditoropenbal(selectedDate, _selectedBranch);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      onChanged: (v) => setState(() => searchQuery = v),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Search ...',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        prefixIcon:
-                        Icon(Icons.search, color: Colors.white54),
-                        filled: true,
-                        fillColor: Color(0xFF22304A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide.none,
+                    if (_isMobile)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${rows.length} record${rows.length == 1 ? '' : 's'}',
+                            style: TextStyle(
+                              color: _C.textMuted(context),
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    if (selectedDate != null)...[
-                      const Text('Close Sales View List for the period of:'),
-                      Text(
-                        "${DateFormat.yMMMd().format(selectedDate!.start)} - ${DateFormat.yMMMd().format(selectedDate!.end)}",
-                        style: const TextStyle(fontSize: 12,color: Colors.white),
+                    if (selectedDate != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Period: ${DateFormat.yMMMd().format(selectedDate!.start)} - ${DateFormat.yMMMd().format(selectedDate!.end)}',
+                            style: TextStyle(
+                              color: _C.textSub(context),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ),
-                    ],
-
                     Expanded(
-                      child: value.isloadingcreditbal
+                      child: df.isloadingcreditbal
                           ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                          : value.creditoropenbal.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Creditor record  found',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                          : LayoutBuilder(
-                        builder: (context, constraints) {
-
-                          if (screenWidth > 800) {
-                            return Column(
-                              children: [
-                                _buildTableHeader(filteredCreditorbal),
-                                const Divider(color: Colors.white24, height: 1),
-                                Expanded(
-                                  child: ScrollbarTheme(
-                                    data: ScrollbarThemeData(
-                                      thumbColor: MaterialStateProperty.all(
-                                        const Color(0xFF415A77),
-                                      ),
-                                      trackColor: MaterialStateProperty.all(
-                                        const Color(0xFF22304A),
-                                      ),
-                                      trackBorderColor: MaterialStateProperty.all(
-                                        const Color(0xFF1B263B),
-                                      ),
-                                      thickness: MaterialStateProperty.all(10),
-                                      radius: const Radius.circular(8),
-                                    ),
-                                    child: Scrollbar(
-                                      controller: verticalController,
-                                      thumbVisibility: true,
-                                      trackVisibility: true,
-                                      child: ListView.builder(
-                                        controller: verticalController,
-                                        itemCount: filteredCreditorbal.length,
-                                        itemBuilder: (context, index) {
-                                          return _buildTableRow(
-                                            filteredCreditorbal[index],
-                                            index,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }
-
-                          /// MOBILE
-                          return ListView.separated(
-                            itemCount: filteredCreditorbal.length,
-                            separatorBuilder: (_, _) =>
-                            const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final creditorinfo = filteredCreditorbal[index];
-
-                              final id = creditorinfo.id;
-                              final creditorname = creditorinfo.creditorName;
-                              final amount = creditorinfo.amount;
-                              // final paymentMode = creditorinfo.paymentMode;
-                              // final transactionRef = creditorinfo.transactionRef;
-                              final createdAt = creditorinfo.date;
-
-                              return Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1B263B),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all( color: Colors.white.withOpacity(0.05)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        color: Colors.white.withOpacity(0.03),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amberAccent.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular( 8),),
-                                              child: Text(
-                                                creditorname,
-                                                style: const TextStyle(
-                                                  color: Colors.amberAccent,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 1.1,
-                                                ),
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            Text("#: ${index + 1}",
-                                              style: TextStyle(
-                                                  color: Colors.white.withOpacity( 0.5),
-                                                  fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-
-                                            Text("Amount: GHC $amount",
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            // Text("Payment Method: $paymentMode",
-                                            //    style: const TextStyle(
-                                            //      color: Colors.white70,
-                                            //      fontSize: 14,
-                                            //    ),
-                                            //  ),
-                                            const SizedBox(height: 4),
-                                            _buildFooterLabel(
-                                              Icons.calendar_today_outlined,
-                                              "Date: ${createdAt != null ? DateFormat.yMMMd().format(createdAt) : ''}",
-                                            ),
-                                            const SizedBox(height: 4),
-
-                                            const Divider(color: Colors.white24),
-
-
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.end,
-                                              children: [
-                                                const Text("TOTAL AMOUNT",
-                                                    style: TextStyle(
-                                                        color: Colors.white54,
-                                                        fontSize: 8)),
-                                                Text(
-                                                  "GHS $amount",
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w900,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-
-                                          ],
-                                        ),
-                                      ),
-
-
-                                      Container(
-                                        color: Colors.black26,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                          children: [
-                                            Expanded(child:
-                                            _buildActionButton(
-                                              Icons.edit, "Edit",
-                                              Colors.blueAccent,
-                                                  () {
-                                                _handleEdit( context,
-                                                  id,
-                                                  creditorinfo,
-                                                );
-                                              },
-                                            ),
-                                            ),
-                                           Expanded(child: _buildActionButton(
-                                             Icons.delete_outline, "Delete",
-                                             Colors.redAccent, () =>
-                                               _handleDelete(context, creditorinfo, id),
-                                           ),),
-
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-
-                            },
-
-                          );
-                        },
-                      ),
-                    )
+                              child: CircularProgressIndicator(
+                                color: _C.primary,
+                              ),
+                            )
+                          : rows.isEmpty
+                          ? _buildEmptyState()
+                          : (_isMobile
+                                ? _mobileList(rows)
+                                : _desktopTable(rows)),
+                    ),
                   ],
                 ),
               ),
@@ -402,189 +510,416 @@ class _creditOpenBalViewPageState extends State<creditOpenBalViewPage> {
         );
       },
     );
-
   }
 
-  Widget _buildTableHeader(List<CreditorBalance> filteredCreditorbal) {
-    Widget headerCell(String label, int columnIndex, int flex, {bool numeric = false}) {
-      return Expanded(
-        flex: flex,
-        child: InkWell(
-          onTap: () {
-            final ascending = _sortColumnIndex == columnIndex ? !_sortAscending : true;
-            switch (columnIndex) {
-              case 1:
-                _sort((d) => d.creditorName ?? '', columnIndex, ascending, filteredCreditorbal);
-                break;
-              case 2:
-                _sort((d) => d.amount, columnIndex, ascending, filteredCreditorbal);
-                break;
-              case 3:
-                _sort((d) => d.date ?? '', columnIndex, ascending, filteredCreditorbal);
-                break;
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            child: Row(
-              mainAxisAlignment: numeric ? MainAxisAlignment.end : MainAxisAlignment.start,
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _C.card(context),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.receipt_long_outlined,
+              size: 40,
+              color: _C.textMuted(context),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            searchQuery.isEmpty
+                ? 'No opening balance found'
+                : 'No results for "$searchQuery"',
+            style: TextStyle(
+              color: _C.textSub(context),
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Mobile cards
+  Widget _mobileList(List<CreditorBalance> rows) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+      itemCount: rows.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        final c = rows[i];
+        return Container(
+          decoration: BoxDecoration(
+            color: _C.card(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _C.divider(context)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                if (_sortColumnIndex == columnIndex)
-                  Icon(
-                    _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                    size: 14,
-                    color: Colors.white,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      color: const Color(0xFF1B263B),
-      child: Row(
-        children: [
-          const SizedBox(width: 40, child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text("#", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          )),
-          headerCell("Creditor", 1, 3),
-          headerCell("Amount", 2, 2, numeric: true),
-          headerCell("Date", 3, 2),
-          const SizedBox(
-            width: 96,
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              child: Text("Action", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTableRow(CreditorBalance creditview, int index) {
-    final id = creditview.id;
-    final creditor = creditview.creditorName;
-    final amount = creditview.amount;
-    final createdAt = creditview.date;
-
-    return Container(
-      color: index.isEven ? const Color(0xFF0D1B2A) : const Color(0xFF10202F),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text("${index + 1}", style: const TextStyle(color: Colors.white)),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-              child: Text(creditor, style: const TextStyle(color: Colors.white)),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-              child: Text("GHC $amount",
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(color: Colors.white)),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-              child: Text(
-                createdAt != null ? DateFormat.yMMMd().format(createdAt) : '',
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 96,
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.blueAccent, size: 20),
-                  onPressed: () => _handleEdit(context, id, creditview),
+                  color: _C.header(context),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          c.creditorName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _C.primary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '#${i + 1}',
+                        style: TextStyle(
+                          color: _C.textMuted(context),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                  onPressed: () => _handleDelete(context, creditview, id),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'GHS ${_money(c.amount)}',
+                        style: TextStyle(
+                          color: _C.textPri(context),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 13,
+                            color: _C.textMuted(context),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            c.date != null
+                                ? DateFormat.yMMMd().format(c.date!)
+                                : '',
+                            style: TextStyle(
+                              color: _C.textSub(context),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: _C.divider(context)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _actionButton(
+                        Icons.edit,
+                        'Edit',
+                        _C.primary,
+                        () => _handleEdit(context, c.id, c),
+                      ),
+                    ),
+                    Expanded(
+                      child: _actionButton(
+                        Icons.delete_outline,
+                        'Delete',
+                        _C.negative(context),
+                        () => _handleDelete(context, c, c.id),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildFooterLabel(IconData icon, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          icon,
-          color: Colors.white38,
-          size: 14,
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            text,
-            softWrap: true,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _actionButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return TextButton.icon(
       onPressed: onTap,
       icon: Icon(icon, color: color, size: 20),
       label: Text(label, style: TextStyle(color: color, fontSize: 13)),
     );
   }
-  Future<void> _handleDelete(BuildContext context, CreditorBalance? creditdata, String id) async {
+
+  // ─── Desktop table (header + ListView.builder)
+  Widget _headerCell(String label, {int? columnIndex, bool numeric = false}) {
+    final isSorted = columnIndex != null && _sortColumnIndex == columnIndex;
+    return InkWell(
+      onTap: columnIndex == null ? null : () => _onSort(columnIndex),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: numeric
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: _C.textSub(context),
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              letterSpacing: 0.5,
+            ),
+          ),
+          if (columnIndex != null) ...[
+            const SizedBox(width: 2),
+            Icon(
+              isSorted
+                  ? (_sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
+                  : Icons.unfold_more,
+              size: 14,
+              color: isSorted ? _C.primary : _C.textMuted(context),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _desktopTable(List<CreditorBalance> rows) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _C.card(context),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            // Header
+            Container(
+              height: 44,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              color: _C.card(context),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      '#',
+                      style: TextStyle(
+                        color: _C.textSub(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 3,
+                    child: _headerCell('Creditor', columnIndex: 1),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _headerCell(
+                        'Amount',
+                        columnIndex: 2,
+                        numeric: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 2, child: _headerCell('Date', columnIndex: 3)),
+                  SizedBox(
+                    width: 96,
+                    child: Text(
+                      'Action',
+                      style: TextStyle(
+                        color: _C.textSub(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(height: 1, color: _C.divider(context)),
+
+            // Rows
+            Expanded(
+              child: Scrollbar(
+                controller: verticalController,
+                thumbVisibility: true,
+                child: ListView.builder(
+                  controller: verticalController,
+                  itemCount: rows.length,
+                  itemBuilder: (context, i) {
+                    final c = rows[i];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: i.isEven
+                            ? _C.card(context)
+                            : _C.field(context).withOpacity(0.55),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: _C.divider(context),
+                            width: 0.5,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 32,
+                            child: Text(
+                              '${i + 1}',
+                              style: TextStyle(
+                                color: _C.textSub(context),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              c.creditorName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _C.textPri(context),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'GHS ${_money(c.amount)}',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: _C.textPri(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              c.date != null
+                                  ? DateFormat.yMMMd().format(c.date!)
+                                  : '',
+                              style: TextStyle(
+                                color: _C.textSub(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 96,
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  tooltip: 'Edit',
+                                  icon: Icon(
+                                    Icons.edit,
+                                    color: _C.primary,
+                                    size: 20,
+                                  ),
+                                  onPressed: () =>
+                                      _handleEdit(context, c.id, c),
+                                ),
+                                IconButton(
+                                  tooltip: 'Delete',
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: _C.negative(context),
+                                    size: 20,
+                                  ),
+                                  onPressed: () =>
+                                      _handleDelete(context, c, c.id),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Actions
+  Future<void> _handleDelete(
+    BuildContext context,
+    CreditorBalance? creditdata,
+    String id,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (innerContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: _C.card(context),
         title: Text(
-            "Delete close sale by ${creditdata?.creditorName}?",
-            style: const TextStyle(color: Colors.white)
+          'Delete opening balance for ${creditdata?.creditorName}?',
+          style: TextStyle(color: _C.textPri(context)),
         ),
         content: Text(
-          "This action cannot be undone. Are you sure?",
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          'This action cannot be undone. Are you sure?',
+          style: TextStyle(color: _C.textSub(context)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(innerContext, false),
-            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: _C.textMuted(context)),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _C.negative(context),
+            ),
             onPressed: () => Navigator.pop(innerContext, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -592,14 +927,15 @@ class _creditOpenBalViewPageState extends State<creditOpenBalViewPage> {
 
     if (confirm == true) {
       try {
-        // Accessing the provider
-        await context.read<Datafeed>().deletecreditoropenbal(creditdata,id);
-
+        await context.read<Datafeed>().deletecreditoropenbal(creditdata, id);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("${creditdata?.creditorName}'s Creditor deleted successfully",style: TextStyle(color: Colors.white),),
-              backgroundColor: Colors.red,
+              content: Text(
+                "${creditdata?.creditorName}'s opening balance deleted successfully",
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -607,8 +943,11 @@ class _creditOpenBalViewPageState extends State<creditOpenBalViewPage> {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Failed to delete item",style: TextStyle(color: Colors.white),),
+            SnackBar(
+              content: Text(
+                'Failed to delete item',
+                style: TextStyle(color: Colors.white),
+              ),
               backgroundColor: Colors.redAccent,
               behavior: SnackBarBehavior.floating,
             ),
@@ -617,15 +956,17 @@ class _creditOpenBalViewPageState extends State<creditOpenBalViewPage> {
       }
     }
   }
-  Future<void> _handleEdit( BuildContext context, String id, CreditorBalance? creditdata, ) async {
-    Navigator.push( context,
+
+  Future<void> _handleEdit(
+    BuildContext context,
+    String id,
+    CreditorBalance? creditdata,
+  ) async {
+    await Navigator.push(
+      context,
       MaterialPageRoute(
-        builder: (context) => creditOpenBalScreen(
-          docId: id,
-          item: creditdata,
-        ),
+        builder: (_) => creditOpenBalScreen(docId: id, item: creditdata),
       ),
     );
   }
-
 }

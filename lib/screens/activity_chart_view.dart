@@ -20,9 +20,12 @@ class _ActivityChartViewState extends State<ActivityChartView> {
   late Future<List<QueryDocumentSnapshot>> _activityFuture;
 
   Future<List<QueryDocumentSnapshot>> _getActivityChart() async {
-    final provider=Provider.of<Datafeed>(context,listen: false);
+    final provider = Provider.of<Datafeed>(context, listen: false);
 
-    QuerySnapshot snapshot = await db.collection('activity_chart').where('companyId', isEqualTo: provider.companyid).get();
+    QuerySnapshot snapshot = await db
+        .collection('activity_chart')
+        .where('companyId', isEqualTo: provider.companyid)
+        .get();
     return snapshot.docs;
   }
 
@@ -54,29 +57,44 @@ class _ActivityChartViewState extends State<ActivityChartView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final pageColor = isDark ? const Color(0xFF101624) : colorScheme.surface;
+    final appBarColor = isDark ? const Color(0xFF1B263B) : colorScheme.surface;
+    final cardColor = isDark ? const Color(0xFF182232) : colorScheme.surface;
+    final foregroundColor = isDark ? Colors.white : colorScheme.onSurface;
+    final secondaryColor = isDark
+        ? Colors.white70
+        : colorScheme.onSurfaceVariant;
+    final subtleBorderColor = isDark
+        ? Colors.white12
+        : colorScheme.outlineVariant;
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: pageColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: appBarColor,
+        foregroundColor: foregroundColor,
         title: Text("Activities"),
       ),
       body: FutureBuilder<List<QueryDocumentSnapshot>>(
         future: _activityFuture,
-        builder: (context, snapshot){
+        builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
             return Center(child: Text("Error: ${snapshot.error}"));
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-                child: Text("No account found.",
-                    style: TextStyle(color: Colors.white70, fontSize: 16)));
+            return Center(
+              child: Text(
+                "No account found.",
+                style: TextStyle(color: secondaryColor, fontSize: 16),
+              ),
+            );
           }
 
           final docs = snapshot.data!;
-
 
           final activities = docs.map((doc) {
             final activity = ActivityModel.fromJson(
@@ -97,13 +115,13 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
                     child: TextField(
                       controller: _searchController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: foregroundColor),
                       decoration: InputDecoration(
                         hintText: "Search Activity by name...",
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                        hintStyle: TextStyle(color: secondaryColor),
+                        prefixIcon: Icon(Icons.search, color: secondaryColor),
                         filled: true,
-                        fillColor: const Color(0xFF182232),
+                        fillColor: cardColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -117,15 +135,25 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                       builder: (context, value, child) {
                         final indexedAccounts = List.generate(
                           activities.length,
-                              (index) => MapEntry(index, activities[index]),
+                          (index) => MapEntry(index, activities[index]),
                         );
-                        final filtered = indexedAccounts.where((entry) => _matchesSearch(entry.value, value.text.trim())).toList();
+                        final filtered = indexedAccounts
+                            .where(
+                              (entry) => _matchesSearch(
+                                entry.value,
+                                value.text.trim(),
+                              ),
+                            )
+                            .toList();
 
                         if (filtered.isEmpty) {
-                          return const Center(
+                          return Center(
                             child: Text(
                               "No matching activity found.",
-                              style: TextStyle(color: Colors.white70, fontSize: 16),
+                              style: TextStyle(
+                                color: secondaryColor,
+                                fontSize: 16,
+                              ),
                             ),
                           );
                         }
@@ -134,7 +162,7 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                           padding: const EdgeInsets.all(12),
                           itemCount: filtered.length,
                           separatorBuilder: (context, index) =>
-                          const SizedBox(height: 10),
+                              SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final entry = filtered[index];
                             final doc = docs[entry.key];
@@ -143,9 +171,9 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                             return Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF182232),
+                                color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white12),
+                                border: Border.all(color: subtleBorderColor),
                               ),
                               child: Row(
                                 children: [
@@ -155,36 +183,43 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                                       color: Colors.blue.withOpacity(0.2),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child:
-                                    const Icon(Icons.store, color: Colors.blue),
+                                    child: Icon(
+                                      Icons.store,
+                                      color: Colors.blue,
+                                    ),
                                   ),
 
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
 
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           acc.activityName,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: foregroundColor,
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         Text(
                                           "Debit Account: ${acc.debitAccountName}",
-                                          style: const TextStyle(
-                                              color: Colors.white70, fontSize: 13),
+                                          style: TextStyle(
+                                            color: secondaryColor,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                         Text(
                                           "Credit Account: ${acc.creditAccountName}",
-                                          style: const TextStyle(
-                                              color: Colors.white60, fontSize: 12),
+                                          style: TextStyle(
+                                            color: secondaryColor,
+                                            fontSize: 12,
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                       ],
                                     ),
                                   ),
@@ -195,38 +230,48 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => ActivityChartReg(chart: acc),
+                                              builder: (_) =>
+                                                  ActivityChartReg(chart: acc),
                                             ),
                                           ).then((_) => _refreshActivities());
                                         },
-                                        child: const Icon(Icons.edit,
-                                            color: Colors.orange),
+                                        child: Icon(
+                                          Icons.edit,
+                                          color: Colors.orange,
+                                        ),
                                       ),
 
-                                      const SizedBox(width: 8),
+                                      SizedBox(width: 8),
                                       InkWell(
                                         onTap: () async {
-                                          final confirm =
-                                          await showDialog<bool>(
+                                          final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (_) => AlertDialog(
-                                              title: const Text("Delete Activity"),
+                                              title: Text("Delete Activity"),
                                               content: Text(
-                                                  "Delete ${acc.activityName}?"),
+                                                "Delete ${acc.activityName}?",
+                                              ),
                                               actions: [
                                                 TextButton(
                                                   onPressed: () =>
                                                       Navigator.pop(
-                                                          context, false),
-                                                  child: const Text("Cancel"),
+                                                        context,
+                                                        false,
+                                                      ),
+                                                  child: Text("Cancel"),
                                                 ),
                                                 TextButton(
                                                   onPressed: () =>
                                                       Navigator.pop(
-                                                          context, true),
-                                                  child: const Text("Delete",
-                                                      style: TextStyle(
-                                                          color: Colors.red)),
+                                                        context,
+                                                        true,
+                                                      ),
+                                                  child: Text(
+                                                    "Delete",
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -242,11 +287,13 @@ class _ActivityChartViewState extends State<ActivityChartView> {
                                             _refreshActivities();
                                           }
                                         },
-                                        child: const Icon(Icons.delete_forever,
-                                            color: Colors.red),
+                                        child: Icon(
+                                          Icons.delete_forever,
+                                          color: Colors.red,
+                                        ),
                                       ),
                                     ],
-                                  )
+                                  ),
                                 ],
                               ),
                             );

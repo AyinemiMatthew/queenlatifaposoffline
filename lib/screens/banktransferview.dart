@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/models/appModuls.dart';
@@ -9,7 +8,6 @@ import '../providers/Datafeed.dart';
 import '../widgets/datepicker.dart';
 import 'banktransfer.dart';
 
-
 class BanktransferView extends StatefulWidget {
   const BanktransferView({super.key});
 
@@ -18,9 +16,11 @@ class BanktransferView extends StatefulWidget {
 }
 
 class _BanktransferViewState extends State<BanktransferView> {
-  String searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   DateTimeRange? selectedDate;
   String? _selectedBranch;
+  bool _showSearch = false;
+  bool _showBranchSelector = false;
   int? _sortColumnIndex;
   bool _sortAscending = true;
   int _rowsPerPage = 10;
@@ -29,11 +29,11 @@ class _BanktransferViewState extends State<BanktransferView> {
   late final ScrollController horizontalController;
 
   void _sort<T>(
-      Comparable<T> Function(dynamic d) getField,
-      int columnIndex,
-      bool ascending,
-      List list,
-      ) {
+    Comparable<T> Function(dynamic d) getField,
+    int columnIndex,
+    bool ascending,
+    List list,
+  ) {
     list.sort((a, b) {
       final aValue = getField(a);
       final bValue = getField(b);
@@ -68,14 +68,104 @@ class _BanktransferViewState extends State<BanktransferView> {
         _selectedBranch,
       );
     });
-
   }
 
   @override
   void dispose() {
     verticalController.dispose();
     horizontalController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Widget _buildBranchSelector(Datafeed value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DropdownButtonFormField<String?>(
+      value: _selectedBranch,
+      isExpanded: true,
+      dropdownColor: colorScheme.surfaceContainerHighest,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: InputDecoration(
+        labelText: 'Branch',
+        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        floatingLabelStyle: TextStyle(color: colorScheme.onSurface),
+        isDense: true,
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        prefixIcon: Icon(
+          Icons.store_outlined,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.primary),
+        ),
+      ),
+      items: [
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('All Branches'),
+        ),
+        ...value.branches.map(
+          (branch) => DropdownMenuItem<String?>(
+            value: branch.id,
+            child: Text(branch.branchname, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (branchId) {
+        setState(() {
+          _selectedBranch = branchId;
+          _showBranchSelector = false;
+        });
+        value.fetchBankTransfers(selectedDate, branchId);
+      },
+    );
+  }
+
+  Widget _buildSearchField() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextField(
+      controller: _searchController,
+      autofocus: true,
+      onChanged: (text) {
+        context.read<Datafeed>().updateSearch(text);
+      },
+      style: TextStyle(color: colorScheme.onSurface),
+      cursorColor: colorScheme.primary,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Search transfers...',
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.primary),
+        ),
+      ),
+    );
   }
 
   // ── Sortable header cell used by the desktop ListView table
@@ -85,33 +175,63 @@ class _BanktransferViewState extends State<BanktransferView> {
       onTap: columnIndex == null
           ? null
           : () {
-        final ascending = isSorted ? !_sortAscending : true;
-        switch (columnIndex) {
-          case 1:
-            _sort((d) => d.transferAccount ?? '', columnIndex, ascending, context.read<Datafeed>().filterBankTransfer());
-            break;
-          case 2:
-            _sort((d) => d.receivingAccount ?? '', columnIndex, ascending, context.read<Datafeed>().filterBankTransfer());
-            break;
-          case 3:
-            _sort((d) => d.narration ?? '', columnIndex, ascending, context.read<Datafeed>().filterBankTransfer());
-            break;
-          case 4:
-            _sort((d) => d.amount, columnIndex, ascending, context.read<Datafeed>().filterBankTransfer());
-            break;
-          case 5:
-            _sort((d) => d.date ?? DateTime(1970), columnIndex, ascending, context.read<Datafeed>().filterBankTransfer());
-            break;
-        }
-      },
+              final ascending = isSorted ? !_sortAscending : true;
+              switch (columnIndex) {
+                case 1:
+                  _sort(
+                    (d) => d.transferAccount ?? '',
+                    columnIndex,
+                    ascending,
+                    context.read<Datafeed>().filterBankTransfer(),
+                  );
+                  break;
+                case 2:
+                  _sort(
+                    (d) => d.receivingAccount ?? '',
+                    columnIndex,
+                    ascending,
+                    context.read<Datafeed>().filterBankTransfer(),
+                  );
+                  break;
+                case 3:
+                  _sort(
+                    (d) => d.narration ?? '',
+                    columnIndex,
+                    ascending,
+                    context.read<Datafeed>().filterBankTransfer(),
+                  );
+                  break;
+                case 4:
+                  _sort(
+                    (d) => d.amount,
+                    columnIndex,
+                    ascending,
+                    context.read<Datafeed>().filterBankTransfer(),
+                  );
+                  break;
+                case 5:
+                  _sort(
+                    (d) => d.date ?? DateTime(1970),
+                    columnIndex,
+                    ascending,
+                    context.read<Datafeed>().filterBankTransfer(),
+                  );
+                  break;
+              }
+            },
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: numeric ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: numeric
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-                color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
           ),
           if (columnIndex != null) ...[
             const SizedBox(width: 2),
@@ -120,7 +240,9 @@ class _BanktransferViewState extends State<BanktransferView> {
                   ? (_sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
                   : Icons.unfold_more,
               size: 14,
-              color: isSorted ? Colors.white : Colors.white38,
+              color: isSorted
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ],
         ],
@@ -136,7 +258,9 @@ class _BanktransferViewState extends State<BanktransferView> {
 
     final start = safePage * _rowsPerPage;
     final end = (start + _rowsPerPage).clamp(0, totalRows);
-    final pageRows = totalRows == 0 ? <BankTransferModel>[] : rows.sublist(start, end);
+    final pageRows = totalRows == 0
+        ? <BankTransferModel>[]
+        : rows.sublist(start, end);
 
     return Column(
       children: [
@@ -144,18 +268,53 @@ class _BanktransferViewState extends State<BanktransferView> {
         Container(
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          color: const Color(0xFF1B263B),
+          color: Theme.of(context).colorScheme.surface,
           child: Row(
             children: [
-              const SizedBox(width: 32, child: Text('#', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13))),
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '#',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
-              Expanded(flex: 3, child: _headerCell('Transfer Acc', columnIndex: 1)),
-              Expanded(flex: 3, child: _headerCell('Receive Acc', columnIndex: 2)),
-              Expanded(flex: 3, child: _headerCell('Narration', columnIndex: 3)),
-              Expanded(flex: 2, child: Align(alignment: Alignment.centerRight, child: _headerCell('Amount', columnIndex: 4, numeric: true))),
+              Expanded(
+                flex: 3,
+                child: _headerCell('Transfer Acc', columnIndex: 1),
+              ),
+              Expanded(
+                flex: 3,
+                child: _headerCell('Receive Acc', columnIndex: 2),
+              ),
+              Expanded(
+                flex: 3,
+                child: _headerCell('Narration', columnIndex: 3),
+              ),
+              Expanded(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _headerCell('Amount', columnIndex: 4, numeric: true),
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(flex: 2, child: _headerCell('Date', columnIndex: 5)),
-              const SizedBox(width: 90, child: Text('Action', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13))),
+              SizedBox(
+                width: 90,
+                child: Text(
+                  'Action',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -164,89 +323,145 @@ class _BanktransferViewState extends State<BanktransferView> {
         // Rows
         Expanded(
           child: pageRows.isEmpty
-              ? const Center(
-              child: Text('No Bank transfer record found', style: TextStyle(color: Colors.white70)))
+              ? Center(
+                  child: Text(
+                    'No Bank transfer record found',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                )
               : ListView.builder(
-            itemCount: pageRows.length,
-            itemBuilder: (context, i) {
-              final b = pageRows[i];
-              final globalIndex = start + i;
-              final transferbank = b.transferAccount ?? '';
-              final receivebank = b.receivingAccount ?? '';
-              final amount = b.amount;
-              final naration = b.narration ?? '';
-              final date = b.date;
+                  itemCount: pageRows.length,
+                  itemBuilder: (context, i) {
+                    final b = pageRows[i];
+                    final globalIndex = start + i;
+                    final transferbank = b.transferAccount ?? '';
+                    final receivebank = b.receivingAccount ?? '';
+                    final amount = b.amount;
+                    final naration = b.narration ?? '';
+                    final date = b.date;
 
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0D1B2A),
-                  border: Border(bottom: BorderSide(color: Colors.white12, width: 0.5)),
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      child: Text('${globalIndex + 1}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: Text(transferbank,
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(receivebank,
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(naration,
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text('GHC $amount',
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: Text(date != null ? DateFormat.yMMMd().format(date) : '',
-                          style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                    ),
-                    SizedBox(
-                      width: 90,
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border(
+                          bottom: BorderSide(color: Colors.white12, width: 0.5),
+                        ),
+                      ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blueAccent, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _handleEdit(context, b.id, b),
+                          SizedBox(
+                            width: 32,
+                            child: Text(
+                              '${globalIndex + 1}',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _handleDelete(context, b, b.id),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              transferbank,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              receivebank,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              naration,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'GHS $amount',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              date != null
+                                  ? DateFormat.yMMMd().format(date)
+                                  : '',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 90,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit,
+                                    color: Colors.blueAccent,
+                                    size: 20,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () =>
+                                      _handleEdit(context, b.id, b),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () =>
+                                      _handleDelete(context, b, b.id),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
 
         const Divider(height: 1, color: Colors.white24),
@@ -259,14 +474,25 @@ class _BanktransferViewState extends State<BanktransferView> {
             children: [
               Row(
                 children: [
-                  const Text('Rows per page: ', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text(
+                    'Rows per page: ',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12,
+                    ),
+                  ),
                   DropdownButton<int>(
                     value: _rowsPerPage,
-                    dropdownColor: const Color(0xFF1B263B),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    dropdownColor: Theme.of(context).colorScheme.surface,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12,
+                    ),
                     underline: const SizedBox(),
                     items: const [5, 10, 20]
-                        .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                        .map(
+                          (v) => DropdownMenuItem(value: v, child: Text('$v')),
+                        )
                         .toList(),
                     onChanged: (v) {
                       if (v == null) return;
@@ -281,17 +507,30 @@ class _BanktransferViewState extends State<BanktransferView> {
               Row(
                 children: [
                   Text(
-                    totalRows == 0 ? '0–0 of 0' : '${start + 1}–$end of $totalRows',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    totalRows == 0
+                        ? '0–0 of 0'
+                        : '${start + 1}–$end of $totalRows',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12,
+                    ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.chevron_left, color: Colors.white70, size: 20),
+                    icon: Icon(
+                      Icons.chevron_left,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
                     onPressed: safePage > 0
                         ? () => setState(() => _currentPage = safePage - 1)
                         : null,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+                    icon: Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
                     onPressed: (safePage + 1) < totalPages
                         ? () => setState(() => _currentPage = safePage + 1)
                         : null,
@@ -311,17 +550,55 @@ class _BanktransferViewState extends State<BanktransferView> {
       builder: (context, value, child) {
         final filteredbanktransferlist = value.filterBankTransfer();
         final screenWidth = MediaQuery.of(context).size.width;
+        final filterWidth = (screenWidth - 190).clamp(120.0, 360.0);
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: const Text('Bank transfer list'),
+            title: _showSearch
+                ? SizedBox(width: filterWidth, child: _buildSearchField())
+                : _showBranchSelector
+                ? SizedBox(
+                    width: filterWidth,
+                    child: _buildBranchSelector(value),
+                  )
+                : const Text('Bank transfer list'),
             actions: [
+              IconButton(
+                tooltip: _showSearch ? 'Close search' : 'Search transfers',
+                icon: Icon(_showSearch ? Icons.close : Icons.search),
+                onPressed: () {
+                  setState(() {
+                    _showSearch = !_showSearch;
+                    if (_showSearch) _showBranchSelector = false;
+                    if (!_showSearch) {
+                      _searchController.clear();
+                      value.updateSearch('');
+                    }
+                  });
+                },
+              ),
+              IconButton(
+                tooltip: _showBranchSelector
+                    ? 'Close branch selector'
+                    : 'Select branch',
+                icon: Icon(
+                  _showBranchSelector ? Icons.close : Icons.store_outlined,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _showBranchSelector = !_showBranchSelector;
+                    if (_showBranchSelector) _showSearch = false;
+                  });
+                },
+              ),
               IconButton(
                 icon: const Icon(Icons.home, size: 25),
                 tooltip: 'Home',
                 onPressed: () {
-                  Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/home', (route) => false);
                 },
               ),
               ReusableDatePickerWidget(
@@ -329,7 +606,6 @@ class _BanktransferViewState extends State<BanktransferView> {
                 onDateSelected: (selection) {
                   setState(() {
                     selectedDate = selection;
-
                   });
                   context.read<Datafeed>().fetchBankTransfers(
                     selectedDate,
@@ -344,7 +620,9 @@ class _BanktransferViewState extends State<BanktransferView> {
             backgroundColor: const Color(0xFF415A77),
             child: const Icon(Icons.add),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const Banktransfer()),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const Banktransfer()),
               );
             },
           ),
@@ -356,254 +634,242 @@ class _BanktransferViewState extends State<BanktransferView> {
                 constraints: const BoxConstraints(maxWidth: 700),
                 child: Column(
                   children: [
-
-                    DropdownButtonFormField<String>(
-                      value: _selectedBranch,
-                      isExpanded: true,
-                      dropdownColor: const Color(0xFF22304A),
-                      style: const TextStyle(color: Colors.white),
-
-                      decoration: InputDecoration(
-                        labelText: 'Select Branch',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.blue),
-                        ),
-                        fillColor: const Color(0xFF22304A),
-                        filled: true,
-                      ),
-
-
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text("All Branches"),
-                        ),
-
-                        ...value.branches.map((branch) {
-                          return DropdownMenuItem<String>(
-                            value: branch.id,
-                            child: Text(branch.branchname),
-                          );
-                        }).toList(),
-                      ],
-
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedBranch = val;
-                        });
-
-                        value.fetchBankTransfers(
-                          selectedDate,
-                          val,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      onChanged: (val){
-                        value.updateSearch(val);
-                      },
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Search ...',
-                        hintStyle: TextStyle(color: Colors.white54),
-                        prefixIcon:
-                        Icon(Icons.search, color: Colors.white54),
-                        filled: true,
-                        fillColor: Color(0xFF22304A),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(8)),
-                          borderSide: BorderSide.none,
+                    if (selectedDate != null) ...[
+                      Text(
+                        ' List for the period of:',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (selectedDate != null)...[
-                      const Text(' List for the period of:',style: TextStyle(color: Colors.white),),
                       Text(
                         "${DateFormat.yMMMd().format(selectedDate!.start)} - ${DateFormat.yMMMd().format(selectedDate!.end)}",
-                        style: const TextStyle(fontSize: 12,color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ],
 
                     Expanded(
                       child: value.isLoadingbtranlist
                           ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            )
                           : value.bankTransferList.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Bank transfer record  found',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                          : screenWidth > 700 ?
-                      _desktopTable(filteredbanktransferlist)
-                          :
-                      ListView.separated(
-                        itemCount: filteredbanktransferlist.length,
-                        separatorBuilder: (_, _) =>
-                        const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final filterbanklist = filteredbanktransferlist[index];
-
-                          final id = filterbanklist.id;
-                          final transferaccount = filterbanklist.transferAccount ?? '';
-                          final receiveaccount  = filterbanklist.receivingAccount ?? '';
-                          final narration = filterbanklist.narration ?? '';
-                          final amount = filterbanklist.amount ?? '0';
-                          final date = filterbanklist.date;
-
-
-                          return Container(
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 8, horizontal: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1B263B),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all( color: Colors.white.withOpacity(0.05)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 6),
+                          ? Center(
+                              child: Text(
+                                'No Bank transfer record  found',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    color: Colors.white.withOpacity(0.03),
-                                    child: Row(
+                              ),
+                            )
+                          : screenWidth > 700
+                          ? _desktopTable(filteredbanktransferlist)
+                          : ListView.separated(
+                              itemCount: filteredbanktransferlist.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final filterbanklist =
+                                    filteredbanktransferlist[index];
+
+                                final id = filterbanklist.id;
+                                final transferaccount =
+                                    filterbanklist.transferAccount ?? '';
+                                final receiveaccount =
+                                    filterbanklist.receivingAccount ?? '';
+                                final narration =
+                                    filterbanklist.narration ?? '';
+                                final amount = filterbanklist.amount ?? '0';
+                                final date = filterbanklist.date;
+
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.05),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: Colors.amberAccent.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular( 8),),
-                                          child: Text(
-                                            transferaccount,
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.1,
-                                            ),
+                                          padding: const EdgeInsets.all(16),
+                                          color: Colors.white.withOpacity(0.03),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amberAccent
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  transferaccount,
+                                                  style: TextStyle(
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 1.1,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
 
+                                        Padding(
+                                          padding: const EdgeInsets.all(16),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "#: ${index + 1}",
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              SizedBox(height: 5),
+                                              Text(
+                                                "Amount: GHS $amount",
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                "Transfer account: $transferaccount",
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                "Receive account: $receiveaccount",
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              const Divider(
+                                                color: Colors.white24,
+                                              ),
 
+                                              Text(
+                                                "Narration: $narration",
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Date: ${date != null ? DateFormat.yMMMd().format(date) : ''}',
+                                                softWrap: true,
+                                                maxLines: 2,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        Container(
+                                          color: Colors.black26,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              if (value.canEdit(
+                                                AppModules.accounts,
+                                              ))
+                                                Expanded(
+                                                  child: _buildActionButton(
+                                                    Icons.edit,
+                                                    "",
+                                                    Colors.blueAccent,
+                                                    () {
+                                                      _handleEdit(
+                                                        context,
+                                                        id,
+                                                        filterbanklist,
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+
+                                              if (value.canDelete(
+                                                AppModules.accounts,
+                                              ))
+                                                Expanded(
+                                                  child: _buildActionButton(
+                                                    Icons.delete_outline,
+                                                    "",
+                                                    Colors.redAccent,
+                                                    () => _handleDelete(
+                                                      context,
+                                                      filterbanklist,
+                                                      id,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
-
-                                  Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text("#: ${index + 1}",
-                                          style: TextStyle(
-                                              color: Colors.white.withOpacity( 0.5),
-                                              fontSize: 12),
-                                        ),
-                                        SizedBox(height: 5,),
-                                        Text("Amount: GHC $amount",
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text("Transfer account: $transferaccount",
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text("Receive account: $receiveaccount",
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        const Divider(color: Colors.white24),
-
-                                        Text("Narration: $narration",
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text('Date: ${date != null ? DateFormat.yMMMd().format(date) : ''}',
-                                          softWrap: true,
-                                          maxLines: 2,
-                                        )
-
-                                      ],
-                                    ),
-                                  ),
-
-
-                                  Container(
-                                    color: Colors.black26,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                      children: [
-                                        if(value.canEdit(AppModules.accounts))
-                                          Expanded(child:    _buildActionButton(
-                                            Icons.edit, "",
-                                            Colors.blueAccent,
-                                                () {
-                                              _handleEdit( context,
-                                                id,
-                                                filterbanklist,
-                                              );
-                                            },
-                                          ),
-                                          ),
-
-                                        if(value.canDelete(AppModules.accounts))
-                                          Expanded(child:   _buildActionButton(
-                                            Icons.delete_outline, "",
-                                            Colors.redAccent, () =>
-                                              _handleDelete(context, filterbanklist, id),
-                                          ),
-                                          ),
-
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                          );
-
-                        },
-
-                      ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -612,87 +878,75 @@ class _BanktransferViewState extends State<BanktransferView> {
         );
       },
     );
-
   }
+
   Widget _buildFooterLabel(IconData icon, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: Colors.white38,
-          size: 14,
-        ),
+        Icon(icon, color: Colors.white38, size: 14),
         const SizedBox(width: 2),
         Text(
           text,
           softWrap: true,
           maxLines: 2,
           overflow: TextOverflow.visible,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 12,
           ),
         ),
       ],
     );
   }
+
   Widget _buildActionButton(
-      IconData icon,
-      String label,
-      Color color,
-      VoidCallback onTap,
-      ) {
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     if (label.isEmpty) {
       return IconButton(
         onPressed: onTap,
-        icon: Icon(
-          icon,
-          color: color,
-          size: 20,
-        ),
+        icon: Icon(icon, color: color, size: 20),
         padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(
-          minWidth: 40,
-          minHeight: 40,
-        ),
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
         tooltip: icon == Icons.edit ? 'Edit' : 'Delete',
       );
     }
 
     return TextButton.icon(
       onPressed: onTap,
-      icon: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
-      label: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 13,
-        ),
-      ),
+      icon: Icon(icon, color: color, size: 20),
+      label: Text(label, style: TextStyle(color: color, fontSize: 13)),
     );
   }
-  Future<void> _handleDelete(BuildContext context, BankTransferModel? banktransferdata, String id) async {
+
+  Future<void> _handleDelete(
+    BuildContext context,
+    BankTransferModel? banktransferdata,
+    String id,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (innerContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
-            "Delete bank transfer from ${banktransferdata?.transferAccount}?",
-            style: const TextStyle(color: Colors.white)
+          "Delete bank transfer from ${banktransferdata?.transferAccount}?",
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         content: Text(
           "This action cannot be undone. Are you sure?",
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(innerContext, false),
-            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
@@ -706,12 +960,14 @@ class _BanktransferViewState extends State<BanktransferView> {
     if (confirm == true) {
       try {
         // Accessing the provider
-        await context.read<Datafeed>().deleteBankTransfer(id,banktransferdata);
+        await context.read<Datafeed>().deleteBankTransfer(id, banktransferdata);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("${banktransferdata?.amount}'s transfer deleted successfully"),
+              content: Text(
+                "${banktransferdata?.amount}'s transfer deleted successfully",
+              ),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
             ),
@@ -730,15 +986,17 @@ class _BanktransferViewState extends State<BanktransferView> {
       }
     }
   }
-  Future<void> _handleEdit( BuildContext context, String id, BankTransferModel? banktransferdata, ) async {
-    Navigator.push( context,
+
+  Future<void> _handleEdit(
+    BuildContext context,
+    String id,
+    BankTransferModel? banktransferdata,
+  ) async {
+    Navigator.push(
+      context,
       MaterialPageRoute(
-        builder: (context) => Banktransfer(
-          docId: id,
-          data: banktransferdata,
-        ),
+        builder: (context) => Banktransfer(docId: id, data: banktransferdata),
       ),
     );
   }
-
 }

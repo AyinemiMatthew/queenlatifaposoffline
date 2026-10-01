@@ -6,11 +6,16 @@ class SalesDetailPage extends StatelessWidget {
 
   const SalesDetailPage({super.key, required this.salesview});
 
-  static const Color _backgroundColor = Color(0xFF101624);
-  static const Color _cardColor = Color(0xFF1B263B);
-  static const Color _headerColor = Color(0xFF22304A);
-  static const Color _borderColor = Colors.white12;
-  static const Color _textColor = Colors.white;
+  Color _backgroundColor(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+  Color _cardColor(BuildContext context) =>
+      Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color _headerColor(BuildContext context) =>
+      Theme.of(context).colorScheme.surface;
+  Color _borderColor(BuildContext context) =>
+      Theme.of(context).colorScheme.outline;
+  Color _textColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
 
   String capitalize(String? text) {
     if (text == null || text.isEmpty) return '';
@@ -26,14 +31,18 @@ class SalesDetailPage extends StatelessWidget {
 
     // Prefer createdAt (Timestamp); fall back to dateymd (String) if needed.
     final dateStr = salesview.createdAt != null
-        ? DateFormat('dd MMM yyyy, hh:mm a').format(salesview.createdAt!.toDate())
+        ? DateFormat(
+            'dd MMM yyyy, hh:mm a',
+          ).format(salesview.createdAt!.toDate())
         : (salesview.dateymd != null && salesview.dateymd!.isNotEmpty)
-        ? DateFormat('dd MMM yyyy, hh:mm a')
-        .format(DateTime.parse(salesview.dateymd!))
+        ? DateFormat(
+            'dd MMM yyyy, hh:mm a',
+          ).format(DateTime.parse(salesview.dateymd!))
         : '-';
 
-    final Map<String, dynamic> itemMap =
-    Map<String, dynamic>.from(salesview.items ?? {});
+    final Map<String, dynamic> itemMap = Map<String, dynamic>.from(
+      salesview.items ?? {},
+    );
     final items = itemMap.values.whereType<Map<String, dynamic>>().toList();
 
     final numberFormat = NumberFormat('#,##0.00');
@@ -47,19 +56,22 @@ class SalesDetailPage extends StatelessWidget {
     });
 
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: _backgroundColor(context),
       appBar: AppBar(
-        backgroundColor: _cardColor,
+        backgroundColor: _cardColor(context),
         elevation: 0,
-        iconTheme: const IconThemeData(color: _textColor),
+        iconTheme: IconThemeData(color: _textColor(context)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: _textColor),
+          icon: Icon(Icons.arrow_back, color: _textColor(context)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Receipt #$receipt',
-          style: const TextStyle(
-              color: _textColor, fontWeight: FontWeight.w600, fontSize: 16),
+          style: TextStyle(
+            color: _textColor(context),
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
         ),
         actions: [
           if (isReturned)
@@ -71,8 +83,10 @@ class SalesDetailPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
               ),
-              child: const Text('Returned',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 10)),
+              child: const Text(
+                'Returned',
+                style: TextStyle(color: Colors.redAccent, fontSize: 10),
+              ),
             ),
         ],
         bottom: PreferredSize(
@@ -85,24 +99,34 @@ class SalesDetailPage extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
-                      Flexible(child: _appBarInfo('Date', dateStr)),
+                      Flexible(child: _appBarInfo(context, 'Date', dateStr)),
                       const SizedBox(width: 18),
-                      Flexible(child: _appBarInfo('Staff', createdBy)),
+                      Flexible(child: _appBarInfo(context, 'Staff', createdBy)),
                       const SizedBox(width: 18),
-                      Flexible(child: _appBarInfo('Branch', branchName)),
+                      Flexible(
+                        child: _appBarInfo(context, 'Branch', branchName),
+                      ),
                     ],
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Grand total',
-                        style: TextStyle(color: _textColor, fontSize: 11)),
-                    Text('GHC ${numberFormat.format(totalAmount)}',
-                        style: const TextStyle(
-                            color: _textColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800)),
+                    Text(
+                      'Grand total',
+                      style: TextStyle(
+                        color: _textColor(context),
+                        fontSize: 11,
+                      ),
+                    ),
+                    Text(
+                      'GHS ${numberFormat.format(totalAmount)}',
+                      style: TextStyle(
+                        color: _textColor(context),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -115,7 +139,9 @@ class SalesDetailPage extends StatelessWidget {
           final isDesktop = constraints.maxWidth > 700;
           return SingleChildScrollView(
             padding: EdgeInsets.symmetric(
-                horizontal: isDesktop ? 24 : 16, vertical: 24),
+              horizontal: isDesktop ? 24 : 16,
+              vertical: 24,
+            ),
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -123,9 +149,15 @@ class SalesDetailPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _sectionLabel('ITEMS'),
+                    _sectionLabel(context, 'ITEMS'),
                     const SizedBox(height: 10),
-                    _itemsCard(items, isDesktop, numberFormat, totalAmount),
+                    _itemsCard(
+                      context,
+                      items,
+                      isDesktop,
+                      numberFormat,
+                      totalAmount,
+                    ),
                   ],
                 ),
               ),
@@ -136,49 +168,52 @@ class SalesDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _appBarInfo(String label, String value) => Row(
+  Widget _appBarInfo(BuildContext context, String label, String value) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
       Flexible(
         child: Text(
           value,
-          style: const TextStyle(
-              color: _textColor, fontSize: 12, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: _textColor(context),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
           overflow: TextOverflow.ellipsis,
         ),
       ),
     ],
   );
 
-  Widget _sectionLabel(String text) => Text(
+  Widget _sectionLabel(BuildContext context, String text) => Text(
     text,
-    style: const TextStyle(
-      color: _textColor,
+    style: TextStyle(
+      color: _textColor(context),
       fontSize: 12,
       fontWeight: FontWeight.bold,
       letterSpacing: 1.1,
     ),
   );
 
-
   Widget _itemsCard(
-      List<Map<String, dynamic>> items,
-      bool isDesktop,
-      NumberFormat nf,
-      double totalAmount,
-      ) {
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+    bool isDesktop,
+    NumberFormat nf,
+    double totalAmount,
+  ) {
     if (items.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: _cardColor,
+          color: _cardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _borderColor),
+          border: Border.all(color: _borderColor(context)),
         ),
         alignment: Alignment.center,
-        child: const Text(
+        child: Text(
           'No items on this receipt.',
-          style: TextStyle(color: _textColor, fontSize: 12),
+          style: TextStyle(color: _textColor(context), fontSize: 12),
         ),
       );
     }
@@ -194,9 +229,9 @@ class SalesDetailPage extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: _cardColor,
+        color: _cardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _borderColor),
+        border: Border.all(color: _borderColor(context)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -205,16 +240,29 @@ class SalesDetailPage extends StatelessWidget {
             columnWidths: columnWidths,
             children: [
               TableRow(
-                decoration: const BoxDecoration(color: _headerColor),
+                decoration: BoxDecoration(
+                  color: _headerColor(context),
+                  border: Border(
+                    bottom: BorderSide(color: _borderColor(context)),
+                  ),
+                ),
                 children: [
-                  _itemHeaderCell('#'),
-                  _itemHeaderCell('Description'),
-                  _itemHeaderCell('Qty', align: TextAlign.right),
+                  _itemHeaderCell(context, '#'),
+                  _itemHeaderCell(context, 'Description'),
+                  _itemHeaderCell(context, 'Qty', align: TextAlign.right),
                   if (isDesktop)
-                    _itemHeaderCell('Unit Price', align: TextAlign.right),
+                    _itemHeaderCell(
+                      context,
+                      'Unit Price',
+                      align: TextAlign.right,
+                    ),
                   if (isDesktop)
-                    _itemHeaderCell('Discount', align: TextAlign.right),
-                  _itemHeaderCell('Total', align: TextAlign.right),
+                    _itemHeaderCell(
+                      context,
+                      'Discount',
+                      align: TextAlign.right,
+                    ),
+                  _itemHeaderCell(context, 'Total', align: TextAlign.right),
                 ],
               ),
               ...items.asMap().entries.map((entry) {
@@ -226,36 +274,54 @@ class SalesDetailPage extends StatelessWidget {
                 final label = isItemReturned ? '$name  ·  Returned' : name;
                 final itemTotal =
                     double.tryParse(item['totalamount']?.toString() ?? '0') ??
-                        0;
+                    0;
 
                 return TableRow(
                   decoration: BoxDecoration(
                     color: isItemReturned
                         ? Colors.redAccent.withOpacity(0.08)
-                        : _cardColor,
-                    border: const Border(
-                      top: BorderSide(color: Colors.white10),
+                        : _cardColor(context),
+                    border: Border(
+                      top: BorderSide(color: _borderColor(context)),
                     ),
                   ),
                   children: [
-                    _itemCell('${i + 1}', color: _textColor),
-                    _itemCell(label,
-                        bold: true,
-                        color: isItemReturned ? Colors.redAccent : _textColor),
+                    _itemCell(context, '${i + 1}', color: _textColor(context)),
                     _itemCell(
+                      context,
+                      label,
+                      bold: true,
+                      color: isItemReturned
+                          ? Colors.redAccent
+                          : _textColor(context),
+                    ),
+                    _itemCell(
+                      context,
                       isDesktop
                           ? '${item['quantity'] ?? item['totalpieces'] ?? '-'} (${item['mode'] ?? '-'})'
                           : '${item['quantity'] ?? item['totalpieces'] ?? '-'}',
                       align: TextAlign.right,
                     ),
                     if (isDesktop)
-                      _itemCell('GHC ${item['price'] ?? '-'}',
-                          align: TextAlign.right, color: _textColor),
+                      _itemCell(
+                        context,
+                        'GHS ${item['price'] ?? '-'}',
+                        align: TextAlign.right,
+                        color: _textColor(context),
+                      ),
                     if (isDesktop)
-                      _itemCell(item['discount']?.toString() ?? '0',
-                          align: TextAlign.right, color: _textColor),
-                    _itemCell('GHC ${nf.format(itemTotal)}',
-                        align: TextAlign.right, bold: true),
+                      _itemCell(
+                        context,
+                        item['discount']?.toString() ?? '0',
+                        align: TextAlign.right,
+                        color: _textColor(context),
+                      ),
+                    _itemCell(
+                      context,
+                      'GHS ${nf.format(itemTotal)}',
+                      align: TextAlign.right,
+                      bold: true,
+                    ),
                   ],
                 );
               }),
@@ -266,19 +332,24 @@ class SalesDetailPage extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: _borderColor)),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: _borderColor(context))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Text('Total  ',
-                    style: TextStyle(color: _textColor, fontSize: 12)),
-                Text('GHC ${nf.format(totalAmount)}',
-                    style: const TextStyle(
-                        color: _textColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800)),
+                Text(
+                  'Total  ',
+                  style: TextStyle(color: _textColor(context), fontSize: 12),
+                ),
+                Text(
+                  'GHS ${nf.format(totalAmount)}',
+                  style: TextStyle(
+                    color: _textColor(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ],
             ),
           ),
@@ -287,14 +358,18 @@ class SalesDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _itemHeaderCell(String text, {TextAlign align = TextAlign.left}) {
+  Widget _itemHeaderCell(
+    BuildContext context,
+    String text, {
+    TextAlign align = TextAlign.left,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Text(
         text,
         textAlign: align,
-        style: const TextStyle(
-          color: _textColor,
+        style: TextStyle(
+          color: _textColor(context),
           fontSize: 12,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
@@ -303,15 +378,20 @@ class SalesDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _itemCell(String text,
-      {TextAlign align = TextAlign.left, Color? color, bool bold = false}) {
+  Widget _itemCell(
+    BuildContext context,
+    String text, {
+    TextAlign align = TextAlign.left,
+    Color? color,
+    bool bold = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Text(
         text,
         textAlign: align,
         style: TextStyle(
-          color: color ?? _textColor,
+          color: color ?? _textColor(context),
           fontSize: 13,
           fontWeight: bold ? FontWeight.w700 : FontWeight.normal,
         ),

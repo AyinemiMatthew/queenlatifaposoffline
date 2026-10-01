@@ -9,8 +9,8 @@ import '../view_communities.dart';
 
 class communityRegistration extends StatefulWidget {
   final String? docId;
-  final Map<String,dynamic>? data;
-  const communityRegistration({super.key,this.docId, this.data});
+  final Map<String, dynamic>? data;
+  const communityRegistration({super.key, this.docId, this.data});
 
   @override
   State<communityRegistration> createState() => _communityRegistrationState();
@@ -23,7 +23,7 @@ class _communityRegistrationState extends State<communityRegistration> {
   String? _selectedRegionName;
   String? _selectedDistrictName;
 
-  bool _loading=false;
+  bool _loading = false;
 
   List<Map<String, dynamic>> _regions = [];
   List<Map<String, dynamic>> _constituencies = [];
@@ -35,7 +35,6 @@ class _communityRegistrationState extends State<communityRegistration> {
   bool _loadingConstituencies = true;
 
   String? _areaName;
-
 
   @override
   void didChangeDependencies() {
@@ -64,15 +63,21 @@ class _communityRegistrationState extends State<communityRegistration> {
       if (widget.data != null) {
         final customadata = widget.data!;
 
-        final match = _regions.where((r) => r['regionname'] == customadata['region'],).toList();
-        final matchdistrict = _constituencies.where((d) => d['constname'] == customadata['district'],).toList();
-        final matchcommunity = _electoralAreas.where((c) => c['constname'] == customadata['community'],).toList();
+        final match = _regions
+            .where((r) => r['regionname'] == customadata['region'])
+            .toList();
+        final matchdistrict = _constituencies
+            .where((d) => d['constname'] == customadata['district'])
+            .toList();
+        final matchcommunity = _electoralAreas
+            .where((c) => c['constname'] == customadata['community'])
+            .toList();
 
         if (match.isNotEmpty) {
           setState(() {
             _selectedRegionCode = match.first['regioncode'];
             _selectedRegionName = match.first['regionname'];
-            _selectedDistrictName  = matchdistrict.first['constname'];
+            _selectedDistrictName = matchdistrict.first['constname'];
             _selectedConstituencyCode = matchdistrict.first['constcode'];
             _selectedDistrictName = matchcommunity.first['electoralarea'];
           });
@@ -88,31 +93,30 @@ class _communityRegistrationState extends State<communityRegistration> {
 
   List<Map<String, dynamic>> get _filteredConstituencies =>
       _selectedRegionCode == null
-          ? []
-          : _constituencies
-          .where((c) => c['regioncode'] == _selectedRegionCode)
-          .toList();
+      ? []
+      : _constituencies
+            .where((c) => c['regioncode'] == _selectedRegionCode)
+            .toList();
 
   List<Map<String, dynamic>> get _filteredElectoralAreas =>
       _selectedConstituencyCode == null
-          ? []
-          : _electoralAreas
-          .where((ea) => ea['constcode'] == _selectedConstituencyCode)
-          .toList();
+      ? []
+      : _electoralAreas
+            .where((ea) => ea['constcode'] == _selectedConstituencyCode)
+            .toList();
 
   @override
   void initState() {
     super.initState();
 
-    Future.microtask(()async{
-      final stockprovider= Provider.of<StockProvider>(context, listen: false);
+    Future.microtask(() async {
+      final stockprovider = Provider.of<StockProvider>(context, listen: false);
       await stockprovider.getdata();
       stockprovider.fetchBranches();
       stockprovider.fetchLanguages();
       stockprovider.fetchCrops();
       stockprovider.fetcheducationlevels();
       stockprovider.fetchCommunities();
-
     });
 
     if (widget.data != null) {
@@ -121,8 +125,8 @@ class _communityRegistrationState extends State<communityRegistration> {
       _selectedRegionName = customadata['regionname'];
       _communityController.text = customadata['electoralarea'];
     }
-
   }
+
   @override
   void dispose() {
     _communityController.dispose();
@@ -130,333 +134,438 @@ class _communityRegistrationState extends State<communityRegistration> {
     super.dispose();
   }
 
-
   InputDecoration _inputDecoration({
+    required bool isDark,
     required String label,
+    required Color borderColor,
+    required Color focusColor,
     IconData? prefix,
     String? hint,
     Widget? suffix,
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: borderColor),
+      floatingLabelStyle: TextStyle(color: isDark ? Colors.white : borderColor),
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white),
-      prefixIcon: prefix != null ? Icon(prefix, color: Colors.white70) : null,
+      hintStyle: TextStyle(color: borderColor),
+      prefixIcon: prefix != null ? Icon(prefix, color: borderColor) : null,
       suffixIcon: suffix,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: borderColor),
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: borderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: focusColor, width: 1.5),
       ),
-      fillColor: const Color(0xFF22304A),
+      fillColor: isDark ? const Color(0xFF22304A) : Colors.white,
       filled: true,
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Consumer<StockProvider>(
-        builder: (BuildContext context, StockProvider value, Widget? child){
-          return Scaffold(
-            backgroundColor: const Color(0xFF101A23),
-            appBar: AppBar(
-              title: Text(widget.docId != null ? "Edit Community Registration" : "Community Registration"),
-              backgroundColor: const Color(0xFF0D1A26),
-              foregroundColor: Colors.white,
-              elevation: 2,
+      builder: (BuildContext context, StockProvider value, Widget? child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final colorScheme = Theme.of(context).colorScheme;
+        final foregroundColor = colorScheme.onSurface;
+        final secondaryForegroundColor = colorScheme.onSurfaceVariant;
+        final borderColor = colorScheme.outline;
+        final focusColor = colorScheme.primary;
+        final fieldFillColor = isDark ? const Color(0xFF22304A) : Colors.white;
+
+        return Scaffold(
+          backgroundColor: isDark
+              ? const Color(0xFF101A23)
+              : Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: Text(
+              widget.docId != null
+                  ? "Edit Community Registration"
+                  : "Community Registration",
             ),
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                      maxWidth: 700
-                  ),
-                  child: Form(
-                      key: _formKey,
-                      child: ListView(
-                        children: [
-                          Card(
-                            color: const Color(0xFF182232),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 16.0, top: 20, right: 16, bottom: 20),
-                              child: Column(
-                                children: [
-
-
-                                  // REGION
-                                  _loadingRegions
-                                      ? const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 12),
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  )
-                                      : DropdownButtonFormField<String>(
-                                    value: _selectedRegionCode,
-                                    dropdownColor: const Color(0xFF22304A),
-                                    style: TextStyle(color: Colors.white70),
-                                    decoration: InputDecoration(
-                                      labelText: 'Region',
-                                      labelStyle: TextStyle(color: Colors.white70),
-                                      prefixIcon: Icon(
-                                        Icons.map,
-                                        color: Colors.white70,
+            backgroundColor: isDark
+                ? const Color(0xFF0D1A26)
+                : Theme.of(context).colorScheme.surface,
+            foregroundColor: foregroundColor,
+            elevation: 2,
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 700),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    children: [
+                      Card(
+                        color: isDark
+                            ? const Color(0xFF182232)
+                            : Theme.of(context).colorScheme.surface,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 16.0,
+                            top: 20,
+                            right: 16,
+                            bottom: 20,
+                          ),
+                          child: Column(
+                            children: [
+                              // REGION
+                              _loadingRegions
+                                  ? const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 12,
                                       ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Colors.white24,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Colors.blue,
-                                        ),
-                                      ),
-                                      fillColor: const Color(0xFF22304A),
-                                      filled: true,
-                                    ),
-                                    items: _regions
-                                        .map(
-                                          (r) => DropdownMenuItem<String>(
-                                        value: r['regioncode'],
-                                        child: Text(r['regionname']),
-                                      ),
-                                    )
-                                        .toList(),
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _selectedRegionCode = val;
-                                        _selectedConstituencyCode = null;
-                                        _selectedRegionName = _regions.firstWhere((r) => r['regioncode'] == val)['regionname'];
-
-                                      });
-                                    },
-                                    validator: (v) =>
-                                    v == null ? 'Select region' : null,
-                                  ),
-                                  const SizedBox(height: 14),
-                                  // CONSTITUENCY
-                                    _loadingConstituencies
-                                        ? const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 12),
                                       child: Center(
                                         child: CircularProgressIndicator(),
                                       ),
                                     )
-                                        :
-                                    DropdownButtonFormField<String>(
-                                      value: _selectedConstituencyCode,
-                                      style: TextStyle(color: Colors.white70),
-                                      dropdownColor: const Color(0xFF22304A),
-                                      hint: const Text(
-                                        'Select district',
-                                        style: TextStyle(color: Colors.white),
+                                  : DropdownButtonFormField<String>(
+                                      value: _selectedRegionCode,
+                                      dropdownColor: fieldFillColor,
+                                      style: TextStyle(color: foregroundColor),
+                                      decoration: InputDecoration(
+                                        labelText: 'Region',
+                                        labelStyle: TextStyle(
+                                          color: secondaryForegroundColor,
+                                        ),
+                                        floatingLabelStyle: TextStyle(
+                                          color: isDark
+                                              ? Colors.white
+                                              : secondaryForegroundColor,
+                                        ),
+                                        prefixIcon: Icon(
+                                          Icons.map,
+                                          color: secondaryForegroundColor,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: borderColor,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: borderColor,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          borderSide: const BorderSide(
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                        fillColor: fieldFillColor,
+                                        filled: true,
                                       ),
-                                      decoration: _inputDecoration(label: "District",prefix: Icons.account_balance,),
+                                      items: _regions
+                                          .map(
+                                            (r) => DropdownMenuItem<String>(
+                                              value: r['regioncode'],
+                                              child: Text(r['regionname']),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _selectedRegionCode = val;
+                                          _selectedConstituencyCode = null;
+                                          _selectedRegionName = _regions
+                                              .firstWhere(
+                                                (r) => r['regioncode'] == val,
+                                              )['regionname'];
+                                        });
+                                      },
+                                      validator: (v) =>
+                                          v == null ? 'Select region' : null,
+                                    ),
+                              const SizedBox(height: 14),
+                              // CONSTITUENCY
+                              _loadingConstituencies
+                                  ? const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    )
+                                  : DropdownButtonFormField<String>(
+                                      value: _selectedConstituencyCode,
+                                      style: TextStyle(color: foregroundColor),
+                                      dropdownColor: fieldFillColor,
+                                      hint: Text(
+                                        'Select district',
+                                        style: TextStyle(
+                                          color: foregroundColor,
+                                        ),
+                                      ),
+                                      decoration: _inputDecoration(
+                                        isDark: isDark,
+                                        label: "District",
+                                        borderColor: borderColor,
+                                        focusColor: focusColor,
+                                        prefix: Icons.account_balance,
+                                      ),
                                       items: _filteredConstituencies
                                           .map(
                                             (c) => DropdownMenuItem<String>(
-                                          value: c['constcode'],
-                                          child: Text(c['constname']),
-                                        ),
-                                      )
+                                              value: c['constcode'],
+                                              child: Text(c['constname']),
+                                            ),
+                                          )
                                           .toList(),
                                       onChanged: (val) {
                                         setState(() {
                                           _selectedConstituencyCode = val;
-                                          _selectedDistrictName = _filteredConstituencies.firstWhere((c) => c['constcode'] == val)['constname'];
-
+                                          _selectedDistrictName =
+                                              _filteredConstituencies
+                                                  .firstWhere(
+                                                    (c) =>
+                                                        c['constcode'] == val,
+                                                  )['constname'];
                                         });
                                       },
                                       validator: (v) =>
-                                      v == null ? 'Select District' : null,
+                                          v == null ? 'Select District' : null,
                                     ),
 
-                                  const SizedBox(height: 14),
-                                  TextFormField(
-                                    controller: _communityController,
-                                    style: TextStyle(color: Colors.white),
-                                    decoration: _inputDecoration(
-                                      label: 'Community Name',
-                                      prefix: Icons.person,
-                                      hint: 'Input community name',
-                                    ),
-                                    validator: (value) => value == null || value.isEmpty
-                                        ? 'Enter community name'
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: [
-                                      // Save button
-                                      SizedBox(
-                                        width: 200,
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFF415A77),
-                                            padding:
-                                            const EdgeInsets.symmetric(vertical: 14),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                          ),
-                                          onPressed: _loading
-                                              ? null
-                                              : () async {
-                                            if (!_formKey.currentState!.validate())
-                                              return;
-
-                                            setState(() => _loading = true);
-                                            String community= _communityController.text.trim();
-
-
-                                            String docid=value.normalizeAndSanitize("${value.companyid}_${community}");
-
-                                            final existingDoc = await value .db.collection('communities');
-                                            _clearTextFields(){
-                                              _communityController.clear();
-                                              _selectedRegionCode = null;
-                                              _selectedConstituencyCode = null;
-                                              _selectedDistrictName = null;
-                                              _selectedRegionName = null;
-
-                                            };
-
-
-                                            try {
-
-                                              if (widget.docId != null) {
-
-                                                final id = widget.docId!;
-                                                final communitydata={
-                                                  "regioncode":_selectedRegionCode,
-                                                  "regionname":_selectedRegionName,
-                                                  "constcode":_selectedConstituencyCode,
-                                                  "constname":_selectedDistrictName,
-                                                  "electoralarea":community,
-                                                  "staff": value.staff,
-                                                  "date": DateTime.now(),
-                                                  "companyname": value.company,
-                                                  "companyid": value.companyid,
-                                                  "id": id
-                                                };
-
-                                                 await existingDoc.doc(id).set(communitydata, SetOptions(merge: true));
-                                                _clearTextFields();
-                                                Navigator.pop(context);
-                                              }
-
-                                              else {
-
-                                                final communitydata={
-                                                  "regioncode":_selectedRegionCode,
-                                                  "regionname":_selectedRegionName,
-                                                  "constcode":_selectedConstituencyCode,
-                                                  "constname":_selectedDistrictName,
-                                                  "electoralarea":community,
-                                                  "staff": value.staff,
-                                                  "date": DateTime.now(),
-                                                  "companyname": value.company,
-                                                  "companyid": value.companyid,
-                                                  "id":docid
-                                                };
-
-
-                                                await existingDoc.doc(docid).set(communitydata);
-                                                _clearTextFields();
-                                              }
-
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                SnackBar(
-                                                  backgroundColor: Colors.green,
-                                                  content: Text(widget.docId == null
-                                                      ? "Community Registered Successfully"
-                                                      : "Community Updated Successfully"),
-                                                ),
-                                              );
-
-                                            } catch (e) {
-                                              print(e.toString());
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text(e.toString())),
-                                              );
-                                            }
-
-                                            if (!mounted) return;
-                                            setState(() { _loading = false;
-                                            });
-                                          },
-                                          child: _loading
-                                              ? const CircularProgressIndicator(
-                                              color: Colors.white)
-                                              : Text(
-                                            widget.docId == null
-                                                ? "Register"
-                                                : "Update",
-                                            style: const TextStyle(
-                                                color: Colors.white70),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 200,
-                                        child: OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            side: const BorderSide(color: Colors.white70),
-                                            padding: const EdgeInsets.symmetric(vertical: 16),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(14),
-                                            ),
-                                          ),
-                                          icon: const Icon(Icons.view_list, color: Colors.white70),
-                                          label: const Text("View", style: TextStyle(color: Colors.white70)),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                  builder: (_) => CommunityListPage()),
-                                            );
-                                          },
-                                        ),
-                                      ),
-
-
-                                    ],
-                                  ),
-                                   ],
-
-
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _communityController,
+                                style: TextStyle(color: foregroundColor),
+                                decoration: _inputDecoration(
+                                  isDark: isDark,
+                                  label: 'Community Name',
+                                  borderColor: borderColor,
+                                  focusColor: focusColor,
+                                  prefix: Icons.person,
+                                  hint: 'Input community name',
+                                ),
+                                validator: (value) =>
+                                    value == null || value.isEmpty
+                                    ? 'Enter community name'
+                                    : null,
                               ),
-                            ),
-                          ),
+                              const SizedBox(height: 14),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  // Save button
+                                  SizedBox(
+                                    width: 200,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: colorScheme.secondary,
+                                        foregroundColor: colorScheme.onPrimary,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: _loading
+                                          ? null
+                                          : () async {
+                                              if (!_formKey.currentState!
+                                                  .validate())
+                                                return;
 
-                        ],
-                      )
+                                              setState(() => _loading = true);
+                                              String community =
+                                                  _communityController.text
+                                                      .trim();
+
+                                              String
+                                              docid = value.normalizeAndSanitize(
+                                                "${value.companyid}_${community}",
+                                              );
+
+                                              final existingDoc = await value.db
+                                                  .collection('communities');
+                                              _clearTextFields() {
+                                                _communityController.clear();
+                                                _selectedRegionCode = null;
+                                                _selectedConstituencyCode =
+                                                    null;
+                                                _selectedDistrictName = null;
+                                                _selectedRegionName = null;
+                                              }
+
+                                              ;
+
+                                              try {
+                                                if (widget.docId != null) {
+                                                  final id = widget.docId!;
+                                                  final communitydata = {
+                                                    "regioncode":
+                                                        _selectedRegionCode,
+                                                    "regionname":
+                                                        _selectedRegionName,
+                                                    "constcode":
+                                                        _selectedConstituencyCode,
+                                                    "constname":
+                                                        _selectedDistrictName,
+                                                    "electoralarea": community,
+                                                    "staff": value.staff,
+                                                    "date": DateTime.now(),
+                                                    "companyname":
+                                                        value.company,
+                                                    "companyid":
+                                                        value.companyid,
+                                                    "id": id,
+                                                  };
+
+                                                  await existingDoc
+                                                      .doc(id)
+                                                      .set(
+                                                        communitydata,
+                                                        SetOptions(merge: true),
+                                                      );
+                                                  _clearTextFields();
+                                                  Navigator.pop(context);
+                                                } else {
+                                                  final communitydata = {
+                                                    "regioncode":
+                                                        _selectedRegionCode,
+                                                    "regionname":
+                                                        _selectedRegionName,
+                                                    "constcode":
+                                                        _selectedConstituencyCode,
+                                                    "constname":
+                                                        _selectedDistrictName,
+                                                    "electoralarea": community,
+                                                    "staff": value.staff,
+                                                    "date": DateTime.now(),
+                                                    "companyname":
+                                                        value.company,
+                                                    "companyid":
+                                                        value.companyid,
+                                                    "id": docid,
+                                                  };
+
+                                                  await existingDoc
+                                                      .doc(docid)
+                                                      .set(communitydata);
+                                                  _clearTextFields();
+                                                }
+
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                    content: Text(
+                                                      widget.docId == null
+                                                          ? "Community Registered Successfully"
+                                                          : "Community Updated Successfully",
+                                                    ),
+                                                  ),
+                                                );
+                                              } catch (e) {
+                                                print(e.toString());
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(e.toString()),
+                                                  ),
+                                                );
+                                              }
+
+                                              if (!mounted) return;
+                                              setState(() {
+                                                _loading = false;
+                                              });
+                                            },
+                                      child: _loading
+                                          ? CircularProgressIndicator(
+                                              color: colorScheme.onPrimary,
+                                            )
+                                          : Text(
+                                              widget.docId == null
+                                                  ? "Register"
+                                                  : "Update",
+                                              style: TextStyle(
+                                                color: colorScheme.onPrimary,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 200,
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: colorScheme.onPrimary,
+                                        side: BorderSide(
+                                          color: colorScheme.primary,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: Icon(
+                                        Icons.view_list,
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                      label: Text(
+                                        "View",
+                                        style: TextStyle(
+                                          color: colorScheme.onPrimary,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => CommunityListPage(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          );
-        }
+          ),
+        );
+      },
     );
   }
 }
-

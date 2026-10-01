@@ -14,22 +14,24 @@ class AccountTypeView extends StatefulWidget {
 }
 
 class _AccountTypeViewState extends State<AccountTypeView> {
-
-  List <AccountTypeModel> accountList=[];
+  List<AccountTypeModel> accountList = [];
 
   final FirebaseFirestore db = FirebaseFirestore.instance;
   TextEditingController searchController = TextEditingController();
   String searchText = "";
 
   Stream<List<AccountTypeModel>> getAllAccounts() {
-    final provider=Provider.of<Datafeed>(context,listen: false);
-    return db.collection('accounts').where('companyId', isEqualTo: provider.companyid).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return AccountTypeModel.fromJson(doc.data());
-      }).toList();
-    });
+    final provider = Provider.of<Datafeed>(context, listen: false);
+    return db
+        .collection('accounts')
+        .where('companyId', isEqualTo: provider.companyid)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return AccountTypeModel.fromJson(doc.data());
+          }).toList();
+        });
   }
-
 
   @override
   void initState() {
@@ -39,15 +41,27 @@ class _AccountTypeViewState extends State<AccountTypeView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final pageColor = isDark ? const Color(0xFF101624) : colorScheme.surface;
+    final appBarColor = isDark ? const Color(0xFF1B263B) : colorScheme.surface;
+    final cardColor = isDark ? const Color(0xFF182232) : colorScheme.surface;
+    final foregroundColor = isDark ? Colors.white : colorScheme.onSurface;
+    final secondaryColor = isDark
+        ? Colors.white70
+        : colorScheme.onSurfaceVariant;
+    final subtleBorderColor = isDark
+        ? Colors.white12
+        : colorScheme.outlineVariant;
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: pageColor,
       appBar: AppBar(
         title: Text("Account Types"),
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: appBarColor,
+        foregroundColor: foregroundColor,
       ),
       body: Column(
         children: [
-
           // SEARCH BAR
           Padding(
             padding: const EdgeInsets.all(12),
@@ -55,13 +69,13 @@ class _AccountTypeViewState extends State<AccountTypeView> {
               width: 700,
               child: TextField(
                 controller: searchController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: foregroundColor),
                 decoration: InputDecoration(
                   hintText: "Search account...",
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                  hintStyle: TextStyle(color: secondaryColor),
+                  prefixIcon: Icon(Icons.search, color: secondaryColor),
                   filled: true,
-                  fillColor: const Color(0xFF182232),
+                  fillColor: cardColor,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -81,9 +95,8 @@ class _AccountTypeViewState extends State<AccountTypeView> {
             child: StreamBuilder<List<AccountTypeModel>>(
               stream: getAllAccounts(),
               builder: (context, snapshot) {
-
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Center(child: CircularProgressIndicator());
                 }
 
                 if (snapshot.hasError) {
@@ -91,7 +104,7 @@ class _AccountTypeViewState extends State<AccountTypeView> {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No accounts found"));
+                  return Center(child: Text("No accounts found"));
                 }
 
                 final accountList = snapshot.data!;
@@ -111,17 +124,16 @@ class _AccountTypeViewState extends State<AccountTypeView> {
                       padding: const EdgeInsets.all(12),
                       itemCount: filteredList.length,
                       separatorBuilder: (context, index) =>
-                      const SizedBox(height: 10),
+                          SizedBox(height: 10),
                       itemBuilder: (context, index) {
-
                         final acc = filteredList[index];
 
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF182232),
+                            color: cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(color: subtleBorderColor),
                           ),
                           child: Row(
                             children: [
@@ -131,44 +143,45 @@ class _AccountTypeViewState extends State<AccountTypeView> {
                                   color: Colors.blue.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Icon(Icons.store,
-                                    color: Colors.blue),
+                                child: Icon(Icons.store, color: Colors.blue),
                               ),
 
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
 
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       acc.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: foregroundColor,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Text(
                                       "Class: ${acc.accountClass}",
-                                      style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13),
+                                      style: TextStyle(
+                                        color: secondaryColor,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                     Text(
                                       "Subclass: ${acc.subAccount}",
-                                      style: const TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 12),
+                                      style: TextStyle(
+                                        color: secondaryColor,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Text(
                                       "SubType: ${acc.accountClassType}",
-                                      style: const TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 12),
+                                      style: TextStyle(
+                                        color: secondaryColor,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -181,17 +194,18 @@ class _AccountTypeViewState extends State<AccountTypeView> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => AccountTypeReg(
-                                            account: acc,
-                                          ),
+                                          builder: (_) =>
+                                              AccountTypeReg(account: acc),
                                         ),
                                       );
                                     },
-                                    child: const Icon(Icons.edit,
-                                        color: Colors.orange),
+                                    child: Icon(
+                                      Icons.edit,
+                                      color: Colors.orange,
+                                    ),
                                   ),
 
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
 
                                   InkWell(
                                     onTap: () async {
@@ -200,12 +214,13 @@ class _AccountTypeViewState extends State<AccountTypeView> {
                                           .doc(acc.id)
                                           .delete();
                                     },
-                                    child: const Icon(
-                                        Icons.delete_forever,
-                                        color: Colors.red),
+                                    child: Icon(
+                                      Icons.delete_forever,
+                                      color: Colors.red,
+                                    ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         );

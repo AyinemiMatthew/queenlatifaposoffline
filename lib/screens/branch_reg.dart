@@ -18,8 +18,10 @@ class BranchRegistration extends StatefulWidget {
 class _BranchRegistrationState extends State<BranchRegistration> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _branchnameController = TextEditingController();
-  final TextEditingController _branchcontactController =  TextEditingController();
-  final TextEditingController _branchAddressController =  TextEditingController();
+  final TextEditingController _branchcontactController =
+      TextEditingController();
+  final TextEditingController _branchAddressController =
+      TextEditingController();
   bool _isSaving = false;
   String? _selectedBranchType;
   final List<String> _branchTypes = [
@@ -37,7 +39,7 @@ class _BranchRegistrationState extends State<BranchRegistration> {
       _branchcontactController.text = widget.branch!.branchcontact;
       _branchAddressController.text = widget.branch!.address;
       _selectedBranchType = _branchTypes.firstWhere(
-            (type) => type.toLowerCase() == widget.branch!.branchtype.toLowerCase(),
+        (type) => type.toLowerCase() == widget.branch!.branchtype.toLowerCase(),
         orElse: () => _branchTypes.first,
       );
     }
@@ -47,21 +49,35 @@ class _BranchRegistrationState extends State<BranchRegistration> {
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final foregroundColor = isDark ? Colors.white : Colors.black87;
+        final secondaryForegroundColor = isDark
+            ? Colors.white70
+            : Colors.black54;
+        final fieldFillColor = isDark ? const Color(0xFF22304A) : Colors.white;
+        final borderColor = isDark ? Colors.white24 : Colors.black26;
+
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: isDark
+              ? const Color(0xFF101A23)
+              : Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(
               widget.branch != null ? "EDIT BRANCH" : "BRANCH REGISTRATION",
             ),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
+            backgroundColor: isDark
+                ? const Color(0xFF0D1A26)
+                : Theme.of(context).colorScheme.surface,
+            foregroundColor: foregroundColor,
             elevation: 2,
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: const Color(0xFF415A77),
             child: const Icon(Icons.add),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const BranchView()),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BranchView()),
               );
             },
           ),
@@ -75,7 +91,9 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                   child: ListView(
                     children: [
                       Card(
-                        color: const Color(0xFF182232),
+                        color: isDark
+                            ? const Color(0xFF182232)
+                            : Theme.of(context).colorScheme.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -90,20 +108,18 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                             children: [
                               TextFormField(
                                 controller: _branchnameController,
-                                style: TextStyle(color: Colors.white),
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'Branch Name',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
+                                  labelStyle: TextStyle(
+                                    color: secondaryForegroundColor,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -111,7 +127,7 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                       color: Colors.blue,
                                     ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldFillColor,
                                   filled: true,
                                 ),
                                 validator: (value) =>
@@ -124,26 +140,31 @@ class _BranchRegistrationState extends State<BranchRegistration> {
 
                               DropdownButtonFormField<String>(
                                 isExpanded: true,
-                                value: _branchTypes.contains(_selectedBranchType)
+                                value:
+                                    _branchTypes.contains(_selectedBranchType)
                                     ? _selectedBranchType
                                     : null,
-                                dropdownColor: const Color(0xFF22304A),
-                                style: const TextStyle(color: Colors.white),
+                                dropdownColor: fieldFillColor,
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'Branch Type',
-                                  labelStyle: const TextStyle(color: Colors.white70),
+                                  labelStyle: TextStyle(
+                                    color: secondaryForegroundColor,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.white24),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.blue),
+                                    borderSide: const BorderSide(
+                                      color: Colors.blue,
+                                    ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldFillColor,
                                   filled: true,
                                 ),
                                 items: _branchTypes.map((type) {
@@ -157,8 +178,9 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                     _selectedBranchType = value;
                                   });
                                 },
-                                validator: (value) =>
-                                value == null ? 'Please select branch type' : null,
+                                validator: (value) => value == null
+                                    ? 'Please select branch type'
+                                    : null,
                               ),
                               const SizedBox(height: 8),
                               Align(
@@ -171,8 +193,8 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                       : _selectedBranchType == 'Warehouse'
                                       ? 'Warehouse keeps stock to be transferred or requested by branches.'
                                       : 'Select a branch type to see details.',
-                                  style: const TextStyle(
-                                    color: Colors.white60,
+                                  style: TextStyle(
+                                    color: secondaryForegroundColor,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -181,20 +203,18 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                               SizedBox(height: 14),
                               TextFormField(
                                 controller: _branchcontactController,
-                                style: TextStyle(color: Colors.white),
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'Branch Contact',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
+                                  labelStyle: TextStyle(
+                                    color: secondaryForegroundColor,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -202,31 +222,30 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                       color: Colors.blue,
                                     ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldFillColor,
                                   filled: true,
                                 ),
-                                validator: (value) => value == null || value.isEmpty
+                                validator: (value) =>
+                                    value == null || value.isEmpty
                                     ? 'Enter branch contact'
                                     : null,
                               ),
                               SizedBox(height: 14),
                               TextFormField(
                                 controller: _branchAddressController,
-                                style: TextStyle(color: Colors.white),
+                                style: TextStyle(color: foregroundColor),
                                 maxLines: 2,
                                 decoration: InputDecoration(
                                   labelText: 'Branch Address',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
+                                  labelStyle: TextStyle(
+                                    color: secondaryForegroundColor,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -234,10 +253,11 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                       color: Colors.blue,
                                     ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldFillColor,
                                   filled: true,
                                 ),
-                                validator: (value) => value == null || value.isEmpty
+                                validator: (value) =>
+                                    value == null || value.isEmpty
                                     ? 'Enter branch address'
                                     : null,
                               ),
@@ -253,94 +273,144 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue,
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                       onPressed: _isSaving
                                           ? null
                                           : () async {
-                                        if (!_formKey.currentState!.validate()) return;
+                                              if (!_formKey.currentState!
+                                                  .validate())
+                                                return;
 
-                                        setState(() {
-                                          _isSaving = true;
-                                        });
+                                              setState(() {
+                                                _isSaving = true;
+                                              });
 
-                                        try {
-                                          final branch = BranchModel(
-                                            id: widget.branch?.id ?? '',
-                                            branchname: _branchnameController.text.trim(),
-                                            branchtype: _selectedBranchType!,
-                                            address: _branchAddressController.text.trim(),
-                                            branchcontact: _branchcontactController.text.trim(),
-                                            staff: value.staff,
-                                            companyid: value.companyid,
-                                            companyemail: value.companyemail,
-                                            date: widget.branch == null ? DateTime.now() : widget.branch?.date,
-                                            updatedat: DateTime.now(),
-                                            deletedat: widget.branch?.deletedat,
-                                            updatedby: widget.branch?.updatedby ?? '',
-                                            deletedby: widget.branch?.deletedby ?? '',
-                                          );
+                                              try {
+                                                final branch = BranchModel(
+                                                  id: widget.branch?.id ?? '',
+                                                  branchname:
+                                                      _branchnameController.text
+                                                          .trim(),
+                                                  branchtype:
+                                                      _selectedBranchType!,
+                                                  address:
+                                                      _branchAddressController
+                                                          .text
+                                                          .trim(),
+                                                  branchcontact:
+                                                      _branchcontactController
+                                                          .text
+                                                          .trim(),
+                                                  staff: value.staff,
+                                                  companyid: value.companyid,
+                                                  companyemail:
+                                                      value.companyemail,
+                                                  date: widget.branch == null
+                                                      ? DateTime.now()
+                                                      : widget.branch?.date,
+                                                  updatedat: DateTime.now(),
+                                                  deletedat:
+                                                      widget.branch?.deletedat,
+                                                  updatedby:
+                                                      widget
+                                                          .branch
+                                                          ?.updatedby ??
+                                                      '',
+                                                  deletedby:
+                                                      widget
+                                                          .branch
+                                                          ?.deletedby ??
+                                                      '',
+                                                );
 
-                                          await value.addOrUpdateBranch(branch);
+                                                await value.addOrUpdateBranch(
+                                                  branch,
+                                                );
 
-                                          if (!mounted) return;
+                                                if (!mounted) return;
 
-                                          if (widget.branch != null) {
-                                            Navigator.pop(context, true);
-                                            return;
-                                          }
+                                                if (widget.branch != null) {
+                                                  Navigator.pop(context, true);
+                                                  return;
+                                                }
 
-                                          _branchnameController.clear();
-                                          _branchcontactController.clear();
-                                          _branchAddressController.clear();
-                                          setState(() => _selectedBranchType = null);
+                                                _branchnameController.clear();
+                                                _branchcontactController
+                                                    .clear();
+                                                _branchAddressController
+                                                    .clear();
+                                                setState(
+                                                  () => _selectedBranchType =
+                                                      null,
+                                                );
 
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Branch saved successfully',style: TextStyle(color: Colors.white),),
-                                              backgroundColor: Colors.green,
-                                            ),
-                                          );
-                                        } catch (e) {
-                                          if (!mounted) return;
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Operation failed: $e'),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() {
-                                              _isSaving = false;
-                                            });
-                                          }
-                                        }
-                                      },
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Branch saved successfully',
+                                                      style: TextStyle(
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                  ),
+                                                );
+                                              } catch (e) {
+                                                if (!mounted) return;
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Operation failed: $e',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              } finally {
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _isSaving = false;
+                                                  });
+                                                }
+                                              }
+                                            },
                                       child: _isSaving
                                           ? const SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
+                                              height: 22,
+                                              width: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
                                           : Text(
-                                        widget.branch != null ? "Update" : "Add",
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
+                                              widget.branch != null
+                                                  ? "Update"
+                                                  : "Add",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   SizedBox(
                                     width: 200,
                                     child: OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: Colors.white70,
+                                        side: BorderSide(
+                                          color: secondaryForegroundColor,
                                         ),
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 16,
@@ -351,13 +421,15 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                           ),
                                         ),
                                       ),
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.view_list,
-                                        color: Colors.white70,
+                                        color: secondaryForegroundColor,
                                       ),
-                                      label: const Text(
+                                      label: Text(
                                         "View",
-                                        style: TextStyle(color: Colors.white70),
+                                        style: TextStyle(
+                                          color: secondaryForegroundColor,
+                                        ),
                                       ),
                                       onPressed: () {
                                         Navigator.pushNamed(

@@ -146,7 +146,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         return Scaffold(
           appBar: AppBar(
             title: Text(widget.category ?? 'Products'),
-            backgroundColor: const Color(0xFF131921),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             actions: [
               IconButton(
                 icon: Icon(
@@ -165,7 +165,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       Container(
                         width: 280,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.grey.withOpacity(0.2),
@@ -193,7 +193,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                         Icon(
                                           Icons.search_off,
                                           size: 80,
-                                          color: Colors.grey[400],
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                         const SizedBox(height: 16),
                                         const Text(
@@ -224,7 +226,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   Widget _buildSearchAndSort(bool isDesktop, bool isTablet) {
     return Container(
       padding: EdgeInsets.all(isDesktop ? 16 : 12),
-      color: Colors.grey[100],
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Column(
         children: [
           // Search bar
@@ -232,10 +234,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
             controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Search products...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: Icon(Icons.clear),
                       onPressed: () {
                         _searchController.clear();
                         _applyFilters();
@@ -243,9 +245,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     )
                   : null,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -411,7 +413,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(8),
                       ),
-                      color: Colors.grey[100],
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                     ),
                     child: product.imageurl.isNotEmpty
                         ? ClipRRect(

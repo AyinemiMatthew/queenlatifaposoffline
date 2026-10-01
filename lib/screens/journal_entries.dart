@@ -27,13 +27,27 @@ class _JournalEntriesState extends State<JournalEntries> {
     'Debtors Journal Entry',
     'Debtors Payment Journal Entry',
     'Creditors or Credit Purchase Journal',
-    'Creditors or Credit Payment Journal'
+    'Creditors or Credit Payment Journal',
   ];
 
   List<String> _accounts = [];
   String? _selectedCreditAccount;
   String? _selectedDebitAccount;
   bool _isSaving = false;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _mutedColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _buttonForeground =>
+      _isLightTheme ? Theme.of(context).colorScheme.onPrimary : Colors.white;
+  Color get _fieldColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF22304A);
+  Color get _surfaceColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF182232);
+  Color get _borderColor =>
+      _isLightTheme ? Colors.grey.shade300 : Colors.white24;
   // bool _loadingAccounts = false;
   String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
   final now = DateTime.now();
@@ -42,7 +56,8 @@ class _JournalEntriesState extends State<JournalEntries> {
     final days = date.difference(firstDayOfYear).inDays;
     return ((days + firstDayOfYear.weekday) / 7).ceil();
   }
-  Future<void> _saveJournal()async{
+
+  Future<void> _saveJournal() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _isSaving = true;
@@ -50,20 +65,21 @@ class _JournalEntriesState extends State<JournalEntries> {
 
     try {
       final datafeed = context.read<Datafeed>();
-      final transType= _selectedTransType;
-      final creditAcc= _selectedCreditAccount;
-      final debitAcc= _selectedDebitAccount;
+      final transType = _selectedTransType;
+      final creditAcc = _selectedCreditAccount;
+      final debitAcc = _selectedDebitAccount;
       final amount = double.tryParse(_amountController.text) ?? 0.0;
       final debtDate = _dateController.text;
       final companyId = datafeed.companyid;
       final branchId = datafeed.branchid;
       final branchName = datafeed.branch;
-      
+
       // Parse the date string (YYYY-MM-DD format)
       final DateTime parsedDate = DateTime.parse(debtDate);
-      
+
       //final docId = '${companyId}_$transType'.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-      final docId = '${companyId}_${DateTime.now().millisecondsSinceEpoch}${datafeed.staffPosition}';
+      final docId =
+          '${companyId}_${DateTime.now().millisecondsSinceEpoch}${datafeed.staffPosition}';
       final journals = JournalEntryModel(
         id: widget.journal?.id ?? docId,
         journalType: "journal entry",
@@ -81,12 +97,15 @@ class _JournalEntriesState extends State<JournalEntries> {
         month: '${parsedDate.year}.${parsedDate.month}',
         week: '${parsedDate.year}.${weekNumber(parsedDate)}',
         day: DateFormat('EEEE').format(parsedDate),
-    );
+      );
 
       // Save to Firestore
       if (widget.journal == null) {
         // New expense: set doc id to companyid+expensename
-        await datafeed.db.collection('journal').doc(docId).set(journals.toMap());
+        await datafeed.db
+            .collection('journal')
+            .doc(docId)
+            .set(journals.toMap());
       } else {
         // Existing expense: update by id
         await datafeed.db
@@ -111,9 +130,8 @@ class _JournalEntriesState extends State<JournalEntries> {
         Navigator.pop(context);
 
         _amountController.clear();
-
       }
-    }catch(e){
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -166,20 +184,31 @@ class _JournalEntriesState extends State<JournalEntries> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
-        builder: (BuildContext context, Datafeed value, Widget? child){
-          return Scaffold(
-            backgroundColor: const Color(0xFF101A23),
+      builder: (BuildContext context, Datafeed value, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: Theme.of(context).inputDecorationTheme
+                .copyWith(floatingLabelStyle: TextStyle(color: _textColor)),
+          ),
+          child: Scaffold(
+            backgroundColor: _isLightTheme
+                ? Colors.white
+                : const Color(0xFF101A23),
             appBar: AppBar(
               title: Text(
                 widget.journal != null
                     ? 'EDIT JOURNAL ENTRIES'
                     : 'JOURNAL ENTRIES',
               ),
-              backgroundColor: const Color(0xFF0D1A26),
-              foregroundColor: Colors.white,
+              backgroundColor: _isLightTheme
+                  ? Colors.white
+                  : const Color(0xFF0D1A26),
+              foregroundColor: _textColor,
+              iconTheme: IconThemeData(color: _textColor),
               elevation: 2,
             ),
             body: Center(
@@ -191,10 +220,9 @@ class _JournalEntriesState extends State<JournalEntries> {
                     key: _formKey,
                     child: ListView(
                       children: [
-
                         const SizedBox(height: 8),
                         Card(
-                          color: const Color(0xFF182232),
+                          color: _surfaceColor,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -202,40 +230,44 @@ class _JournalEntriesState extends State<JournalEntries> {
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
                               children: [
-
                                 // const SizedBox(height: 14),
                                 TextFormField(
                                   controller: _amountController,
-                                  style: const TextStyle(color: Colors.white),
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  style: TextStyle(color: _textColor),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
                                   inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d*'),
+                                    ),
                                   ],
                                   decoration: InputDecoration(
                                     labelText: 'Amount',
-                                    labelStyle: const TextStyle(
-                                      color: Colors.white70,
-                                    ),
+                                    labelStyle: TextStyle(color: _mutedColor),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Colors.white24,
+                                      borderSide: BorderSide(
+                                        color: _borderColor,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Colors.blue,
+                                      borderSide: BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                     ),
-                                    fillColor: const Color(0xFF22304A),
+                                    fillColor: _fieldColor,
                                     filled: true,
                                   ),
                                   validator: (value) =>
-                                  value == null || value.isEmpty
+                                      value == null || value.isEmpty
                                       ? 'Enter amount'
                                       : null,
                                 ),
@@ -264,30 +296,33 @@ class _JournalEntriesState extends State<JournalEntries> {
                                 const SizedBox(height: 14),
                                 TextFormField(
                                   controller: _refController,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _textColor),
                                   maxLines: 3,
                                   decoration: InputDecoration(
                                     labelText: 'Narration',
-                                    labelStyle: const TextStyle(
-                                      color: Colors.white70,
+                                    labelStyle: TextStyle(color: _mutedColor),
+                                    prefixIcon: Icon(
+                                      Icons.notes,
+                                      color: _mutedColor,
                                     ),
-                                    prefixIcon: Icon(Icons.notes, color: Colors.white70),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Colors.white24,
+                                      borderSide: BorderSide(
+                                        color: _borderColor,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Colors.blue,
+                                      borderSide: BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                     ),
-                                    fillColor: const Color(0xFF22304A),
+                                    fillColor: _fieldColor,
                                     filled: true,
                                   ),
                                 ),
@@ -295,40 +330,63 @@ class _JournalEntriesState extends State<JournalEntries> {
                                 TextFormField(
                                   controller: _dateController,
                                   readOnly: true,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _textColor),
                                   decoration: InputDecoration(
                                     labelText: 'Date',
-                                    labelStyle: const TextStyle(color: Colors.white70),
+                                    labelStyle: TextStyle(color: _mutedColor),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Colors.white24),
+                                      borderSide: BorderSide(
+                                        color: _borderColor,
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(color: Colors.blue),
+                                      borderSide: BorderSide(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
                                     ),
-                                    fillColor: const Color(0xFF22304A),
+                                    fillColor: _fieldColor,
                                     filled: true,
-                                    suffixIcon: Icon(Icons.calendar_today, color: Colors.white70),
+                                    suffixIcon: Icon(
+                                      Icons.calendar_today,
+                                      color: _mutedColor,
+                                    ),
                                   ),
                                   onTap: () async {
-                                    FocusScope.of(context).requestFocus(FocusNode());
+                                    FocusScope.of(
+                                      context,
+                                    ).requestFocus(FocusNode());
                                     DateTime? pickedDate = await showDatePicker(
                                       context: context,
                                       initialDate: DateTime.now(),
                                       firstDate: DateTime(2000),
                                       lastDate: DateTime(2100),
+                                      builder: (context, child) => Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: Theme.of(context)
+                                              .colorScheme
+                                              .copyWith(
+                                                surface: _surfaceColor,
+                                                onSurface: _textColor,
+                                              ),
+                                          dialogBackgroundColor: _surfaceColor,
+                                        ),
+                                        child: child!,
+                                      ),
                                     );
                                     if (pickedDate != null) {
                                       _dateController.text =
-                                      "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+                                          "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
                                     }
                                   },
                                   validator: (value) =>
-                                  value == null || value.isEmpty
+                                      value == null || value.isEmpty
                                       ? 'Select date'
                                       : null,
                                 ),
@@ -341,29 +399,41 @@ class _JournalEntriesState extends State<JournalEntries> {
                                       width: 200,
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.blue,
+                                          backgroundColor: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          foregroundColor: _buttonForeground,
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 16,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                           ),
                                         ),
-                                        onPressed: _isSaving? null: _saveJournal,
+                                        onPressed: _isSaving
+                                            ? null
+                                            : _saveJournal,
                                         child: _isSaving
-                                            ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
+                                            ? SizedBox(
+                                                height: 20,
+                                                width: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: _buttonForeground,
+                                                    ),
+                                              )
                                             : Text(
-                                          widget.journal == null
-                                              ? 'Save'
-                                              : 'Update',
-                                          style: const TextStyle(fontSize: 16, color: Colors.white),
-                                        ),
+                                                widget.journal == null
+                                                    ? 'Save'
+                                                    : 'Update',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: _buttonForeground,
+                                                ),
+                                              ),
                                       ),
                                     ),
                                     SizedBox(
@@ -371,12 +441,21 @@ class _JournalEntriesState extends State<JournalEntries> {
                                       child: ElevatedButton(
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.transparent,
+                                          foregroundColor: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
                                           padding: const EdgeInsets.symmetric(
                                             vertical: 16,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(14),
-                                              side: BorderSide(color: Colors.white70)
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            side: BorderSide(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.outline,
+                                            ),
                                           ),
                                         ),
                                         onPressed: () {
@@ -384,12 +463,16 @@ class _JournalEntriesState extends State<JournalEntries> {
                                         },
                                         child: Text(
                                           "Back",
-                                          style: const TextStyle(color: Colors.white),
+                                          style: TextStyle(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ],
-                                )
+                                ),
                               ],
                             ),
                           ),
@@ -400,10 +483,12 @@ class _JournalEntriesState extends State<JournalEntries> {
                 ),
               ),
             ),
-          );
-        }
+          ),
+        );
+      },
     );
   }
+
   Widget _buildDropdown({
     required String label,
     required String? value,
@@ -414,29 +499,29 @@ class _JournalEntriesState extends State<JournalEntries> {
       value: value,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
+        labelStyle: TextStyle(color: _mutedColor),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
-        fillColor: const Color(0xFF22304A),
+        fillColor: _fieldColor,
         filled: true,
       ),
-      dropdownColor: const Color(0xFF182232),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: _surfaceColor,
+      style: TextStyle(color: _textColor),
       items: items.map((String item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(item),
-        );
+        return DropdownMenuItem<String>(value: item, child: Text(item));
       }).toList(),
       onChanged: onChanged,
       validator: (value) {

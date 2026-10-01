@@ -14,7 +14,6 @@ import '../providers/cashier_provider.dart';
 import '../providers/routes.dart';
 import '../widgets/momopaymentwidget.dart';
 
-
 class CashierPage extends StatefulWidget {
   const CashierPage({super.key});
 
@@ -22,16 +21,52 @@ class CashierPage extends StatefulWidget {
   State<CashierPage> createState() => _CashierPageState();
 }
 
-class _CashierPageState extends State<CashierPage> with SingleTickerProviderStateMixin {
+class _CashierPageState extends State<CashierPage>
+    with SingleTickerProviderStateMixin {
+  ColorScheme get _colors => Theme.of(context).colorScheme;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _pageBackground => _isLightTheme
+      ? Theme.of(context).scaffoldBackgroundColor
+      : const Color(0xFF0A1A2F);
+  Color get _panelSurface =>
+      _isLightTheme ? _colors.surface : const Color(0xFF0D2A3C);
+  Color get _cardSurface =>
+      _isLightTheme ? _colors.surfaceContainerHighest : const Color(0xFF102433);
+  Color get _deepSurface =>
+      _isLightTheme ? _colors.surface : const Color(0xFF0F1E2E);
+  Color get _inputSurface =>
+      _isLightTheme ? _colors.surfaceContainerHighest : const Color(0xFF1E3A5A);
+  Color get _primaryText => _isLightTheme ? _colors.onSurface : Colors.white;
+  Color get _secondaryText =>
+      _isLightTheme ? _colors.onSurfaceVariant : Colors.white70;
+  Color get _successColor => _colors.primary;
+  Color get _warningColor => _colors.tertiary;
+  Color get _subtleSurface => _isLightTheme
+      ? _colors.surfaceContainerHighest.withOpacity(0.45)
+      : Colors.white.withOpacity(0.05);
+  Color get _dividerColor =>
+      _isLightTheme ? _colors.outlineVariant : Colors.white.withOpacity(0.1);
+  ColorScheme get _datePickerColors => _colors.copyWith(
+    primary: Colors.blue,
+    onPrimary: Colors.white,
+    surface: _isLightTheme ? _colors.surface : const Color(0xFF22304A),
+    onSurface: _primaryText,
+  );
+
   String? momoType;
   String _searchQuery = '';
   String _selectedFilter = 'Pending';
-  final List<String> _filters = ['All', 'Pending', 'Paid','Credit'];
+  final List<String> _filters = ['All', 'Pending', 'Paid', 'Credit'];
   late TabController _tabController;
   bool _isMobileView = false;
   bool _showInvoiceList = true;
   final GlobalKey<FormState> _cashierFormKey = GlobalKey<FormState>();
-  final List<String> momoNetworks = ['MTN', 'Vodafone', 'AirtelTigo', 'Telecel'];
+  final List<String> momoNetworks = [
+    'MTN',
+    'Vodafone',
+    'AirtelTigo',
+    'Telecel',
+  ];
   final DateFormat _dateFormat = DateFormat('dd MMM yyyy');
   final DateFormat _timeFormat = DateFormat('hh:mm a');
   final DateFormat _dateTimeFormat = DateFormat('dd MMM yyyy, hh:mm a');
@@ -39,21 +74,26 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   DateTime? _endDate;
   bool _isDateRangeActive = false;
   List<String> _paymentMethods = [];
-  String paymentMethod='';
+  String paymentMethod = '';
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    Future.microtask(() async{
+    Future.microtask(() async {
       final provider = Provider.of<CashierProvider>(context, listen: false);
       await provider.getdata();
       provider.listenToInvoices(context);
-      _paymentMethods=provider.allowedPaymentMethods;
+      _paymentMethods = provider.allowedPaymentMethods;
     });
   }
+
   // MOMO Transaction Variables
-  List<TextEditingController> momoTransactionControllers = [TextEditingController()];
-  List<TextEditingController> momoTransactionAmountControllers = [TextEditingController()];
+  List<TextEditingController> momoTransactionControllers = [
+    TextEditingController(),
+  ];
+  List<TextEditingController> momoTransactionAmountControllers = [
+    TextEditingController(),
+  ];
   TextEditingController? _contactController = TextEditingController();
 
   List<bool> momoTransactionAmountLoaded = [false];
@@ -72,6 +112,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     _amountController.dispose();
     super.dispose();
   }
+
   void updateMomoPaidTotal() {
     final total = momoTransactionAmountControllers
         .map((controller) => double.tryParse(controller.text.trim()) ?? 0)
@@ -120,7 +161,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       if (statusValue == 'saved') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Transaction ID $transactionId has already been used'),
+            content: Text(
+              'Transaction ID $transactionId has already been used',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -138,7 +181,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       if (amount == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Unable to parse amount for transaction $transactionId'),
+            content: Text(
+              'Unable to parse amount for transaction $transactionId',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -151,7 +196,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       }
 
       setState(() {
-        momoTransactionAmountControllers[index].text = amount.toStringAsFixed(2);
+        momoTransactionAmountControllers[index].text = amount.toStringAsFixed(
+          2,
+        );
         momoTransactionAmountLoaded[index] = true;
         updateMomoPaidTotal();
       });
@@ -174,14 +221,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Color(0xFF22304A),
-              onSurface: Colors.white,
-            ),
-          ),
+          data: Theme.of(context).copyWith(colorScheme: _datePickerColors),
           child: child!,
         );
       },
@@ -195,14 +235,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         lastDate: DateTime.now(),
         builder: (context, child) {
           return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: Colors.blue,
-                onPrimary: Colors.white,
-                surface: Color(0xFF22304A),
-                onSurface: Colors.white,
-              ),
-            ),
+            data: Theme.of(context).copyWith(colorScheme: _datePickerColors),
             child: child!,
           );
         },
@@ -216,12 +249,18 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         });
         if (_startDate == null || _endDate == null) return;
         final cashDate = Provider.of<CashierProvider>(context, listen: false);
-        cashDate.listenToInvoices(context,todayOnly:false,startDate:_startDate ,endDate:_endDate);
+        cashDate.listenToInvoices(
+          context,
+          todayOnly: false,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
 
         _showDateRangeBadge();
       }
     }
   }
+
   void _clearDateRange() {
     setState(() {
       _startDate = null;
@@ -232,10 +271,12 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     cash.listenToInvoices(context);
     _showSuccessSnackBar('Date filters cleared');
   }
+
   void _showDateRangeBadge() {
     if (_startDate == null || _endDate == null) return;
 
-    final message = 'Showing: ${_dateFormat.format(_startDate!)} - ${_dateFormat.format(_endDate!)}';
+    final message =
+        'Showing: ${_dateFormat.format(_startDate!)} - ${_dateFormat.format(_endDate!)}';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -253,6 +294,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       ),
     );
   }
+
   void _selectInvoice(SalesModel invoice) {
     context.read<CashierProvider>().selectInvoice(invoice.id, invoice);
 
@@ -286,7 +328,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         final receiptNumber = invoice.receiptNumber.toString().toLowerCase();
         final customerName = _getCustomerName(invoice).toLowerCase();
         final transmode = invoice.transMode.toString().toLowerCase();
-        return receiptNumber.contains(query) || customerName.contains(query)|| transmode.contains(query);
+        return receiptNumber.contains(query) ||
+            customerName.contains(query) ||
+            transmode.contains(query);
       }
 
       return true;
@@ -330,7 +374,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   void _showFilterModal() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0D2A3C),
+      backgroundColor: _panelSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -340,10 +384,10 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Filter Invoices',
               style: TextStyle(
-                color: Colors.white,
+                color: _primaryText,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -354,13 +398,15 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
               return ListTile(
                 leading: Icon(
                   _getFilterIcon(filter),
-                  color: isSelected ? Colors.green : Colors.white70,
+                  color: isSelected ? Colors.green : _secondaryText,
                 ),
                 title: Text(
                   filter,
                   style: TextStyle(
-                    color: isSelected ? Colors.green : Colors.white70,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? Colors.green : _secondaryText,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
                 trailing: isSelected
@@ -380,17 +426,23 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
 
   IconData _getFilterIcon(String filter) {
     switch (filter) {
-      case 'All': return Icons.list;
-      case 'Pending': return Icons.pending;
-      case 'Paid': return Icons.check_circle;
-      case 'Today': return Icons.today;
-      case 'Credit': return Icons.credit_card;
-      default: return Icons.filter_list;
+      case 'All':
+        return Icons.list;
+      case 'Pending':
+        return Icons.pending;
+      case 'Paid':
+        return Icons.check_circle;
+      case 'Today':
+        return Icons.today;
+      case 'Credit':
+        return Icons.credit_card;
+      default:
+        return Icons.filter_list;
     }
   }
 
   Widget _buildDesktopLayout() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -405,7 +457,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildMobileLayout() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
     if (provider.selectedInvoice != null && !_showInvoiceList) {
       return _buildMobileInvoiceDetails();
     }
@@ -413,16 +465,14 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildInvoicePanel() {
-    final provider=Provider.of<CashierProvider>(context,listen: true);
+    final provider = Provider.of<CashierProvider>(context, listen: true);
     final filteredInvoices = _filteredInvoices;
 
     return Container(
       width: 420,
       decoration: BoxDecoration(
-        color: const Color(0xFF102433),
-        border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.1)),
-        ),
+        color: _cardSurface,
+        border: Border(right: BorderSide(color: _dividerColor)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,9 +481,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-              ),
+              border: Border(bottom: BorderSide(color: _dividerColor)),
             ),
             child: Row(
               children: [
@@ -464,27 +512,25 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-              ),
+              border: Border(bottom: BorderSide(color: _dividerColor)),
             ),
             child: Column(
               children: [
                 TextField(
                   onChanged: (value) => setState(() => _searchQuery = value),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: _primaryText),
                   decoration: InputDecoration(
                     hintText: 'Search by receipt or customer...',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                    hintStyle: TextStyle(color: _secondaryText),
+                    prefixIcon: Icon(Icons.search, color: _secondaryText),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white70),
-                      onPressed: () => setState(() => _searchQuery = ''),
-                    )
+                            icon: Icon(Icons.clear, color: _secondaryText),
+                            onPressed: () => setState(() => _searchQuery = ''),
+                          )
                         : null,
                     filled: true,
-                    fillColor: const Color(0xFF1E3A5A),
+                    fillColor: _inputSurface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -507,11 +553,15 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                           onSelected: (selected) {
                             setState(() => _selectedFilter = filter);
                           },
-                          backgroundColor: const Color(0xFF1E3A5A),
+                          backgroundColor: _inputSurface,
                           selectedColor: Colors.green.shade800,
-                          checkmarkColor: Colors.white,
+                          checkmarkColor: _isLightTheme
+                              ? _colors.onPrimary
+                              : Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white70,
+                            color: isSelected
+                                ? _colors.onPrimary
+                                : _secondaryText,
                             fontSize: 12,
                           ),
                           shape: RoundedRectangleBorder(
@@ -533,25 +583,38 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
               child: Center(
                 child: Container(
                   margin: const EdgeInsets.only(top: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.shade900.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.blue.shade700.withOpacity(0.3)),
+                    border: Border.all(
+                      color: Colors.blue.shade700.withOpacity(0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.date_range, size: 14, color: Colors.blue),
+                      const Icon(
+                        Icons.date_range,
+                        size: 14,
+                        color: Colors.blue,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: TextStyle(color: _primaryText, fontSize: 12),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: _clearDateRange,
-                        child: const Icon(Icons.close, size: 14, color: Colors.blue),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Colors.blue,
+                        ),
                       ),
                     ],
                   ),
@@ -562,57 +625,63 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           Expanded(
             child: filteredInvoices.isEmpty
                 ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      shape: BoxShape.circle,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: _subtleSurface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _searchQuery.isNotEmpty
+                                ? Icons.search_off
+                                : Icons.receipt,
+                            size: 48,
+                            color: _secondaryText,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isNotEmpty
+                              ? 'No matching invoices'
+                              : 'No invoices found for selected filter',
+                          style: TextStyle(color: _secondaryText, fontSize: 16),
+                        ),
+                        if (_searchQuery.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () => setState(() => _searchQuery = ''),
+                            child: const Text('Clear search'),
+                          ),
+                        ],
+                      ],
                     ),
-                    child: Icon(
-                      _searchQuery.isNotEmpty ? Icons.search_off : Icons.receipt,
-                      size: 48,
-                      color: Colors.white54,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _searchQuery.isNotEmpty
-                        ? 'No matching invoices'
-                        : 'No invoices found for selected filter',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 16,
-                    ),
-                  ),
-                  if (_searchQuery.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => setState(() => _searchQuery = ''),
-                      child: const Text('Clear search'),
-                    ),
-                  ],
-                ],
-              ),
-            )
+                  )
                 : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: filteredInvoices.length,
-              itemBuilder: (context, index) {
-                final invoice = filteredInvoices[index];
-                final isSelected = provider.selectedInvoiceId == invoice.id;
-                return _buildInvoiceCard(invoice, isSelected);
-              },
-            ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: filteredInvoices.length,
+                    itemBuilder: (context, index) {
+                      final invoice = filteredInvoices[index];
+                      final isSelected =
+                          provider.selectedInvoiceId == invoice.id;
+                      return _buildInvoiceCard(invoice, isSelected);
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String amount, String subtitle, Color color, IconData icon) {
+  Widget _buildStatCard(
+    String title,
+    String amount,
+    String subtitle,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -648,10 +717,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           ),
           Text(
             subtitle,
-            style: TextStyle(
-              color: color.withOpacity(0.7),
-              fontSize: 10,
-            ),
+            style: TextStyle(color: color.withOpacity(0.7), fontSize: 10),
           ),
         ],
       ),
@@ -664,10 +730,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     final totalAmount = invoice.totalamount.toDouble();
     final amountPaid = invoice.amountPaid.toDouble();
     String paymentStatus = invoice.paymentStatus;
-    if(invoice.transMode=='credit')
-      {
-        paymentStatus='credit';
-      }
+    if (invoice.transMode == 'credit') {
+      paymentStatus = 'credit';
+    }
     final createdAt = invoice.createdAt?.toDate();
 
     Color getStatusColor() {
@@ -699,20 +764,18 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.green.shade800.withOpacity(0.3),
-              Colors.green.shade900.withOpacity(0.3),
-            ],
-          )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.green.shade800.withOpacity(0.3),
+                    Colors.green.shade900.withOpacity(0.3),
+                  ],
+                )
               : null,
-          color: isSelected ? null : const Color(0xFF0D2A3C),
+          color: isSelected ? null : _panelSurface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? Colors.green.shade400
-                : Colors.white.withOpacity(0.1),
+            color: isSelected ? Colors.green.shade400 : _dividerColor,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -726,11 +789,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   color: getStatusColor().withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  getStatusIcon(),
-                  color: getStatusColor(),
-                  size: 16,
-                ),
+                child: Icon(getStatusIcon(), color: getStatusColor(), size: 16),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -740,23 +799,18 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   children: [
                     Text(
                       receiptNumber,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _primaryText,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      customerName,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                    ),
+                    Text(customerName, style: TextStyle(color: _secondaryText)),
                     if (createdAt != null) ...[
                       const SizedBox(height: 2),
                       Text(
                         _dateTimeFormat.format(createdAt),
-                        style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                        style: TextStyle(color: _secondaryText, fontSize: 12),
                       ),
                     ],
                   ],
@@ -769,8 +823,8 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   children: [
                     Text(
                       'GHS ${totalAmount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _primaryText,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -778,7 +832,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                       const SizedBox(height: 2),
                       Text(
                         'Paid: GHS ${amountPaid.toStringAsFixed(2)}',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                        style: TextStyle(color: _secondaryText, fontSize: 12),
                       ),
                     ],
                   ],
@@ -786,10 +840,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: getStatusColor().withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -811,7 +862,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildMobileInvoiceList() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
 
     final filteredInvoices = _filteredInvoices;
 
@@ -820,7 +871,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         // Stats Bar
         Container(
           padding: const EdgeInsets.all(16),
-          color: const Color(0xFF102433),
+          color: _cardSurface,
           child: Row(
             children: [
               Expanded(
@@ -850,27 +901,27 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF102433),
+            color: _cardSurface,
             border: Border(
-              top: BorderSide(color: Colors.white.withOpacity(0.1)),
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+              top: BorderSide(color: _dividerColor),
+              bottom: BorderSide(color: _dividerColor),
             ),
           ),
           child: TextField(
             onChanged: (value) => setState(() => _searchQuery = value),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: _primaryText),
             decoration: InputDecoration(
               hintText: 'Search by receipt or customer...',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-              prefixIcon: const Icon(Icons.search, color: Colors.white70),
+              hintStyle: TextStyle(color: _secondaryText),
+              prefixIcon: Icon(Icons.search, color: _secondaryText),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                icon: const Icon(Icons.clear, color: Colors.white70),
-                onPressed: () => setState(() => _searchQuery = ''),
-              )
+                      icon: Icon(Icons.clear, color: _secondaryText),
+                      onPressed: () => setState(() => _searchQuery = ''),
+                    )
                   : null,
               filled: true,
-              fillColor: const Color(0xFF1E3A5A),
+              fillColor: _inputSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -883,7 +934,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         // Filter Chips
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: const Color(0xFF0D2A3C),
+          color: _panelSurface,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -897,11 +948,11 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                     onSelected: (selected) {
                       setState(() => _selectedFilter = filter);
                     },
-                    backgroundColor: const Color(0xFF1E3A5A),
+                    backgroundColor: _inputSurface,
                     selectedColor: Colors.green.shade800,
                     checkmarkColor: Colors.white,
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.white70,
+                      color: isSelected ? Colors.white : _secondaryText,
                       fontSize: 12,
                     ),
                     shape: RoundedRectangleBorder(
@@ -918,16 +969,13 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         // Results Count
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: const Color(0xFF0D2A3C),
+          color: _panelSurface,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '${filteredInvoices.length} invoices',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _secondaryText, fontSize: 13),
               ),
               Text(
                 _selectedFilter,
@@ -957,7 +1005,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 const SizedBox(width: 6),
                 Text(
                   '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: TextStyle(color: _primaryText, fontSize: 12),
                 ),
                 const SizedBox(width: 6),
                 GestureDetector(
@@ -971,53 +1019,52 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         Expanded(
           child: filteredInvoices.isEmpty
               ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    shape: BoxShape.circle,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: _subtleSurface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _searchQuery.isNotEmpty
+                              ? Icons.search_off
+                              : Icons.receipt,
+                          size: 48,
+                          color: _secondaryText,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _searchQuery.isNotEmpty
+                            ? 'No matching invoices'
+                            : 'No invoices found',
+                        style: TextStyle(color: _secondaryText, fontSize: 16),
+                      ),
+                      if (_searchQuery.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => setState(() => _searchQuery = ''),
+                          child: const Text('Clear search'),
+                        ),
+                      ],
+                    ],
                   ),
-                  child: Icon(
-                    _searchQuery.isNotEmpty ? Icons.search_off : Icons.receipt,
-                    size: 48,
-                    color: Colors.white54,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _searchQuery.isNotEmpty
-                      ? 'No matching invoices'
-                      : 'No invoices found',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 16,
-                  ),
-                ),
-                if (_searchQuery.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => setState(() => _searchQuery = ''),
-                    child: const Text('Clear search'),
-                  ),
-                ],
-              ],
-            ),
-          )
+                )
               : ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: filteredInvoices.length,
-            itemBuilder: (context, index) {
-              final invoice = filteredInvoices[index];
-              final isSelected = provider.selectedInvoiceId == invoice.id;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _buildMobileInvoiceCard(invoice, isSelected),
-              );
-            },
-          ),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filteredInvoices.length,
+                  itemBuilder: (context, index) {
+                    final invoice = filteredInvoices[index];
+                    final isSelected = provider.selectedInvoiceId == invoice.id;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _buildMobileInvoiceCard(invoice, isSelected),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -1029,10 +1076,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
     String paymentStatus = invoice.paymentStatus;
-    if(invoice.transMode=='credit')
-      {
-        paymentStatus='credit';
-      }
+    if (invoice.transMode == 'credit') {
+      paymentStatus = 'credit';
+    }
     final createdAt = (invoice.createdAt as Timestamp?)?.toDate();
 
     Color getStatusColor() {
@@ -1052,20 +1098,18 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.green.shade800.withOpacity(0.3),
-              Colors.green.shade900.withOpacity(0.3),
-            ],
-          )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.green.shade800.withOpacity(0.3),
+                    Colors.green.shade900.withOpacity(0.3),
+                  ],
+                )
               : null,
-          color: isSelected ? null : const Color(0xFF0D2A3C),
+          color: isSelected ? null : _panelSurface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected
-                ? Colors.green.shade400
-                : Colors.white.withOpacity(0.1),
+            color: isSelected ? Colors.green.shade400 : _dividerColor,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1083,9 +1127,11 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      paymentStatus == 'paid' ? Icons.check_circle :
-                      paymentStatus == 'partial' ? Icons.pending :
-                      Icons.receipt,
+                      paymentStatus == 'paid'
+                          ? Icons.check_circle
+                          : paymentStatus == 'partial'
+                          ? Icons.pending
+                          : Icons.receipt,
                       color: getStatusColor(),
                       size: 20,
                     ),
@@ -1097,15 +1143,15 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                       children: [
                         Text(
                           receiptNumber,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryText,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           customerName,
-                          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                          style: TextStyle(color: _secondaryText),
                         ),
                       ],
                     ),
@@ -1142,16 +1188,13 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                     children: [
                       Text(
                         'Total Amount',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _secondaryText, fontSize: 12),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'GHS ${totalAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: _primaryText,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1208,18 +1251,11 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(
-                      Icons.access_time,
-                      size: 14,
-                      color: Colors.white.withOpacity(0.4),
-                    ),
+                    Icon(Icons.access_time, size: 14, color: _secondaryText),
                     const SizedBox(width: 4),
                     Text(
                       _dateTimeFormat.format(createdAt),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
-                        fontSize: 11,
-                      ),
+                      style: TextStyle(color: _secondaryText, fontSize: 11),
                     ),
                   ],
                 ),
@@ -1232,14 +1268,14 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildInvoiceDetailsPanel() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
     String paymentStatus = provider.selectedInvoice!.paymentStatus;
-    if (provider.selectedInvoice!.transMode=='credit'){
-      paymentStatus='credit';
+    if (provider.selectedInvoice!.transMode == 'credit') {
+      paymentStatus = 'credit';
     }
     return Expanded(
       child: Container(
-        color: const Color(0xFF0F1E2E),
+        color: _deepSurface,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1247,9 +1283,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-                ),
+                border: Border(bottom: BorderSide(color: _dividerColor)),
               ),
               child: Row(
                 children: [
@@ -1259,11 +1293,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                       color: Colors.green.shade800.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(
-                      Icons.receipt,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                    child: Icon(Icons.receipt, color: _primaryText, size: 24),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1272,16 +1302,18 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                       children: [
                         Text(
                           'Receipt #${provider.selectedInvoice?.receiptNumber ?? ''}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryText,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          provider.selectedInvoice != null ? _getCustomerName(provider.selectedInvoice!) : '',
-                          style: TextStyle(color: Colors.white.withOpacity(0.8)),
+                          provider.selectedInvoice != null
+                              ? _getCustomerName(provider.selectedInvoice!)
+                              : '',
+                          style: TextStyle(color: _secondaryText),
                         ),
                       ],
                     ),
@@ -1298,7 +1330,6 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     _buildPaymentSection(),
                     const SizedBox(height: 24),
 
@@ -1318,15 +1349,15 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildMobileInvoiceDetails() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
 
     final invoice = provider.selectedInvoice!;
     final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
-    final amountPaid = (invoice.amountPaid  as num?)?.toDouble() ?? 0;
+    final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
     final balance = totalAmount - amountPaid;
     String paymentStatus = invoice.paymentStatus;
-    if (invoice.transMode=='credit'){
-      paymentStatus='credit';
+    if (invoice.transMode == 'credit') {
+      paymentStatus = 'credit';
     }
 
     return Column(
@@ -1335,10 +1366,8 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF102433),
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-            ),
+            color: _cardSurface,
+            border: Border(bottom: BorderSide(color: _dividerColor)),
           ),
           child: Row(
             children: [
@@ -1348,8 +1377,8 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   children: [
                     Text(
                       'Receipt #${invoice.receiptNumber}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _primaryText,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1357,10 +1386,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                     const SizedBox(height: 4),
                     Text(
                       _getCustomerName(invoice),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: _secondaryText, fontSize: 14),
                     ),
                   ],
                 ),
@@ -1373,7 +1399,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         // Amount Summary
         Container(
           padding: const EdgeInsets.all(16),
-          color: const Color(0xFF0D2A3C),
+          color: _panelSurface,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1382,12 +1408,16 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 children: [
                   Text(
                     'Total Amount',
-                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                    style: TextStyle(color: _secondaryText, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'GHS ${totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: _primaryText,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -1397,12 +1427,19 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   children: [
                     Text(
                       'Paid',
-                      style: TextStyle(color: Colors.green.withOpacity(0.6), fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.green.withOpacity(0.6),
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'GHS ${amountPaid.toStringAsFixed(2)}',
-                      style: TextStyle(color: Colors.green.shade300, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.green.shade300,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -1412,12 +1449,19 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   children: [
                     Text(
                       'Balance',
-                      style: TextStyle(color: Colors.orange.withOpacity(0.6), fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.orange.withOpacity(0.6),
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'GHS ${balance.toStringAsFixed(2)}',
-                      style: TextStyle(color: Colors.orange.shade300, fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.orange.shade300,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -1429,16 +1473,10 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-
-              _buildMobileDetailsTab(),
-
-              _buildMobilePaymentTab(),
-
-            ],
+            children: [_buildMobileDetailsTab(), _buildMobilePaymentTab()],
           ),
         ),
-        _buildActionButtons()
+        _buildActionButtons(),
       ],
     );
   }
@@ -1454,26 +1492,28 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0.0;
     final change = (invoice.change as num?)?.toDouble() ?? 0.0;
     final balance = totalAmount - amountPaid;
-      paymentMethod = provider.selectedPaymentMethods[invoiceId] ?? 'cash';
+    paymentMethod = provider.selectedPaymentMethods[invoiceId] ?? 'cash';
     String? selectedNetwork = provider.selectedNetworks[invoiceId];
 
-    double currentChange=0.00;
+    double currentChange = 0.00;
     if (paymentStatus == 'paid') {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.green.withAlpha((0.1 * 255).round()),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.green.withAlpha((0.3 * 255).round())),
+          border: Border.all(
+            color: Colors.green.withAlpha((0.3 * 255).round()),
+          ),
         ),
         child: Column(
           children: [
             const Icon(Icons.check_circle, color: Colors.green, size: 48),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Payment Successful',
               style: TextStyle(
-                color: Colors.white,
+                color: _primaryText,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -1481,67 +1521,89 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
             const SizedBox(height: 8),
             // Text(
             //   'Amount Paid: GHS ${amountPaid.toStringAsFixed(2)}',
-            //   style: const TextStyle(color: Colors.white70, fontSize: 14),
+            //   style: const TextStyle(color: _secondaryText, fontSize: 14),
             // ),
             if (change > 0)
               Text(
                 'Change: GHS ${change.toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.green, fontSize: 14, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
           ],
         ),
       );
     }
     if (transmode == 'credit') {
-  return  Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D2A3C),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: balance > 0 ? Colors.orange : Colors.green, width: 1),
-      ),
-      child:const Text("Credit customer",style: TextStyle(
-        color: Colors.white,
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-      ),)
-  );
-}
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _panelSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: balance > 0 ? _warningColor : _successColor,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          "Credit customer",
+          style: TextStyle(
+            color: _primaryText,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D2A3C),
+        color: _panelSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: balance > 0 ? Colors.orange : Colors.green, width: 1),
+        border: Border.all(
+          color: balance > 0 ? _warningColor : _successColor,
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(balance > 0 ? Icons.payment : Icons.check_circle, color: balance > 0 ? Colors.orange : Colors.green),
+              Icon(
+                balance > 0 ? Icons.payment : Icons.check_circle,
+                color: balance > 0 ? _warningColor : _successColor,
+              ),
               const SizedBox(width: 8),
               Text(
                 balance > 0 ? 'Process Payment' : 'Payment Successful',
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: _primaryText,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 20),
 
           DropdownButtonFormField<String>(
-            value: _paymentMethods.map((e) => e.toLowerCase())
-           .contains(paymentMethod)
-            ? paymentMethod
-            : null,
-            dropdownColor: const Color(0xFF1E3A5A),
-            style: const TextStyle(color: Colors.white),
+            value:
+                _paymentMethods
+                    .map((e) => e.toLowerCase())
+                    .contains(paymentMethod)
+                ? paymentMethod
+                : null,
+            dropdownColor: _inputSurface,
+            style: TextStyle(color: _primaryText),
             decoration: InputDecoration(
               labelText: 'Payment Method',
-              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-              prefixIcon: const Icon(Icons.payment, color: Colors.white70),
+              labelStyle: TextStyle(color: _secondaryText),
+              prefixIcon: Icon(Icons.payment, color: _secondaryText),
               filled: true,
-              fillColor: const Color(0xFF1E3A5A),
+              fillColor: _inputSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -1558,71 +1620,71 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    Text(method, style: const TextStyle(color: Colors.white)),
+                    Text(method, style: TextStyle(color: _primaryText)),
                   ],
                 ),
               );
             }).toList(),
-              onChanged: (value) {
-                if (value != null && value.isNotEmpty) {
-                  final methodKey = value.toLowerCase();
+            onChanged: (value) {
+              if (value != null && value.isNotEmpty) {
+                final methodKey = value.toLowerCase();
 
-                  setState(() {
-                    paymentMethod = methodKey;
-                    provider.selectedPaymentMethods[invoiceId] = methodKey;
-                    if (value.toLowerCase() == 'momo') {
-                      provider.selectedNetworks[invoiceId] = 'mtn';
-                    } else {
-                      provider.selectedNetworks[invoiceId] = null;
-                    }
-                    if (methodKey != 'momo') {
-                      provider.selectedNetworks[invoiceId] = null;
-                    }
-
-                    if (methodKey != 'card') {
-                      provider.selectedCardTypes[invoiceId] = null;
-                    }
-                  });
-                }
-              }
-              ),
-
-          const SizedBox(height: 16),
-          if (paymentMethod.toLowerCase() == 'momo')
-          MomoPaymentFields(
-            selectedNetwork: selectedNetwork,
-            momoType: momoType,
-            networks: momoNetworks,
-
-            onNetworkChanged: (value) {
-              if (value != null) {
                 setState(() {
-                  provider.selectedNetworks[invoiceId] = value;
+                  paymentMethod = methodKey;
+                  provider.selectedPaymentMethods[invoiceId] = methodKey;
+                  if (value.toLowerCase() == 'momo') {
+                    provider.selectedNetworks[invoiceId] = 'mtn';
+                  } else {
+                    provider.selectedNetworks[invoiceId] = null;
+                  }
+                  if (methodKey != 'momo') {
+                    provider.selectedNetworks[invoiceId] = null;
+                  }
+
+                  if (methodKey != 'card') {
+                    provider.selectedCardTypes[invoiceId] = null;
+                  }
                 });
               }
             },
-
-            onMomoTypeChanged: (value) {
-              setState(() {
-                momoType = value;
-              });
-            },
-
-            merchantFields: _buildMomoTransactionFields(),
-
-            phoneController: _contactController,
           ),
+
+          const SizedBox(height: 16),
+          if (paymentMethod.toLowerCase() == 'momo')
+            MomoPaymentFields(
+              selectedNetwork: selectedNetwork,
+              momoType: momoType,
+              networks: momoNetworks,
+
+              onNetworkChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    provider.selectedNetworks[invoiceId] = value;
+                  });
+                }
+              },
+
+              onMomoTypeChanged: (value) {
+                setState(() {
+                  momoType = value;
+                });
+              },
+
+              merchantFields: _buildMomoTransactionFields(),
+
+              phoneController: _contactController,
+            ),
           // if (paymentMethod.toLowerCase() == 'momo') ...[
           //   DropdownButtonFormField<String>(
           //     value: selectedNetwork,
-          //     dropdownColor: const Color(0xFF1E3A5A),
+          //     dropdownColor: _inputSurface,
           //     style: const TextStyle(color: Colors.white),
           //     decoration: InputDecoration(
           //       labelText: 'Select Network',
-          //       labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-          //       prefixIcon: const Icon(Icons.sim_card, color: Colors.white70),
+          //       labelStyle: TextStyle(color: _secondaryText),
+          //       prefixIcon: const Icon(Icons.sim_card, color: _secondaryText),
           //       filled: true,
-          //       fillColor: const Color(0xFF1E3A5A),
+          //       fillColor: _inputSurface,
           //       border: OutlineInputBorder(
           //         borderRadius: BorderRadius.circular(12),
           //         borderSide: BorderSide.none,
@@ -1668,12 +1730,12 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           //     ],
           //     decoration: InputDecoration(
           //       labelText: 'Mobile Money Number',
-          //       labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+          //       labelStyle: TextStyle(color: _secondaryText),
           //       hintText: 'e.g. 055XXXXXXX',
-          //       hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-          //       prefixIcon: const Icon(Icons.phone_android, color: Colors.white70),
+          //       hintStyle: TextStyle(color: _secondaryText),
+          //       prefixIcon: const Icon(Icons.phone_android, color: _secondaryText),
           //       filled: true,
-          //       fillColor: const Color(0xFF1E3A5A),
+          //       fillColor: _inputSurface,
           //       border: OutlineInputBorder(
           //         borderRadius: BorderRadius.circular(12),
           //         borderSide: BorderSide.none,
@@ -1691,32 +1753,33 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           //   ),
           // ],
 
-          if (paymentMethod.toLowerCase() == 'bank_transfer' || paymentMethod.toLowerCase() == 'cheque') ...[
-              TextFormField(
-                controller: referenceController,
-                style: const TextStyle(color: Colors.white),
-                keyboardType: TextInputType.text,
-                decoration: InputDecoration(
-                  labelText: 'Reference Number',
-                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                  hintText: 'Enter Reference Number',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                  prefixIcon: const Icon(Icons.receipt, color: Colors.white70),
-                  filled: true,
-                  fillColor: const Color(0xFF1E3A5A),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
+          if (paymentMethod.toLowerCase() == 'bank_transfer' ||
+              paymentMethod.toLowerCase() == 'cheque') ...[
+            TextFormField(
+              controller: referenceController,
+              style: TextStyle(color: _primaryText),
+              keyboardType: TextInputType.text,
+              decoration: InputDecoration(
+                labelText: 'Reference Number',
+                labelStyle: TextStyle(color: _secondaryText),
+                hintText: 'Enter Reference Number',
+                hintStyle: TextStyle(color: _secondaryText),
+                prefixIcon: Icon(Icons.receipt, color: _secondaryText),
+                filled: true,
+                fillColor: _inputSurface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-                validator: (value) {
-                  if (paymentMethod.toLowerCase() == 'cheque' && (value == null || value.isEmpty)) {
-                    return 'Please enter reference number';
-                  }
-                  return null;
-                },
               ),
-
+              validator: (value) {
+                if (paymentMethod.toLowerCase() == 'cheque' &&
+                    (value == null || value.isEmpty)) {
+                  return 'Please enter reference number';
+                }
+                return null;
+              },
+            ),
           ],
 
           const SizedBox(height: 16),
@@ -1726,9 +1789,19 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Amount', style: TextStyle(color: Colors.white.withAlpha((0.6 * 255).round()), fontSize: 12)),
+                    Text(
+                      'Total Amount',
+                      style: TextStyle(color: _secondaryText, fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
-                    Text('GHS ${totalAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      'GHS ${totalAmount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: _primaryText,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1737,9 +1810,22 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Already Paid', style: TextStyle(color: Colors.green.withAlpha((0.6 * 255).round()), fontSize: 12)),
+                      Text(
+                        'Already Paid',
+                        style: TextStyle(
+                          color: Colors.green.withAlpha((0.6 * 255).round()),
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('GHS ${amountPaid.toStringAsFixed(2)}', style: TextStyle(color: Colors.green.shade300, fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text(
+                        'GHS ${amountPaid.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: Colors.green.shade300,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1752,15 +1838,30 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withAlpha((0.1 * 255).round()),
+                color: _warningColor.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withAlpha((0.3 * 255).round())),
+                border: Border.all(
+                  color: _warningColor.withAlpha((0.3 * 255).round()),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Balance Due:', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                  Text('GHS ${balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.orange, fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Balance Due:',
+                    style: TextStyle(
+                      color: _warningColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'GHS ${balance.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: _warningColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1771,8 +1872,10 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
             TextFormField(
               enabled: transmode != 'credit',
               controller: amountPaidController,
-              style: const TextStyle(color: Colors.white),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: _primaryText),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
               ],
@@ -1798,7 +1901,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   return 'Value must be greater than or equal to 0.5';
                 }
 
-                if (number < totalAmount && paymentMethod=='cash') {
+                if (number < totalAmount && paymentMethod == 'cash') {
                   return 'Amount paid cannot be less than $totalAmount';
                 }
 
@@ -1806,12 +1909,10 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
               },
               decoration: InputDecoration(
                 labelText: 'Amount Paid',
-                labelStyle: TextStyle(
-                  color: Colors.white.withAlpha((0.7 * 255).round()),
-                ),
-                prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
+                labelStyle: TextStyle(color: _secondaryText),
+                prefixIcon: Icon(Icons.attach_money, color: _secondaryText),
                 filled: true,
-                fillColor: const Color(0xFF1E3A5A),
+                fillColor: _inputSurface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -1824,22 +1925,38 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withAlpha((0.1 * 255).round()),
+                color: _warningColor.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withAlpha((0.3 * 255).round())),
+                border: Border.all(
+                  color: _warningColor.withAlpha((0.3 * 255).round()),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Balance Due:', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                  Text('GHS ${currentChange.toStringAsFixed(2)}', style: const TextStyle(color: Colors.orange, fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Balance Due:',
+                    style: TextStyle(
+                      color: _warningColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'GHS ${currentChange.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: _warningColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
 
           const SizedBox(height: 12),
 
-          if (paymentMethod == 'cash' && (provider.changeAmounts[invoiceId] ?? 0) > 0)
+          if (paymentMethod == 'cash' &&
+              (provider.changeAmounts[invoiceId] ?? 0) > 0)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Container(
@@ -1847,13 +1964,28 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 decoration: BoxDecoration(
                   color: Colors.green.withAlpha((0.1 * 255).round()),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withAlpha((0.3 * 255).round())),
+                  border: Border.all(
+                    color: Colors.green.withAlpha((0.3 * 255).round()),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Change:', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                    Text('GHS ${(provider.changeAmounts[invoiceId] ?? 0).toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Change:',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'GHS ${(provider.changeAmounts[invoiceId] ?? 0).toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1869,106 +2001,99 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                   onPressed: provider.isLoadingpayment
                       ? null
                       : () async {
-                    if (_cashierFormKey.currentState!.validate()) {
-                      if (paymentMethod.toLowerCase() == 'momo' &&
-                          selectedNetwork == null) {
-                        _showErrorSnackBar(
-                          'Please select a mobile money network',
-                        );
-                        return;
-                      }
+                          if (_cashierFormKey.currentState!.validate()) {
+                            if (paymentMethod.toLowerCase() == 'momo' &&
+                                selectedNetwork == null) {
+                              _showErrorSnackBar(
+                                'Please select a mobile money network',
+                              );
+                              return;
+                            }
 
-                      final newamountPaid =
-                          double.tryParse(amountPaidController!.text) ??
-                              totalAmount;
+                            final newamountPaid =
+                                double.tryParse(amountPaidController!.text) ??
+                                totalAmount;
 
-                      final totalamountPaid =
-                          newamountPaid + amountPaid;
+                            final totalamountPaid = newamountPaid + amountPaid;
 
-                      final balance =
-                          totalAmount - totalamountPaid;
+                            final balance = totalAmount - totalamountPaid;
 
-                      final change =
-                          totalamountPaid - totalAmount;
+                            final change = totalamountPaid - totalAmount;
 
-                      final accountNumber =
-                      accountNumberController?.text.trim();
+                            final accountNumber = accountNumberController?.text
+                                .trim();
 
-                      final reference =
-                      referenceController.text.trim();
+                            final reference = referenceController.text.trim();
 
-                      final Map<String, Map<String, dynamic>>
-                      paymentMethodConfig = {
-                        'cash': {
-                          'accountNumber': 'cash',
-                          'amountPaid': totalAmount,
+                            final Map<String, Map<String, dynamic>>
+                            paymentMethodConfig = {
+                              'cash': {
+                                'accountNumber': 'cash',
+                                'amountPaid': totalAmount,
+                              },
+                              'momo': {
+                                'accountName': selectedNetwork,
+                                'status': false,
+                              },
+                              'bank_transfer': {'accountNumber': reference},
+                              'cheque': {'accountNumber': reference},
+                              'card': {'accountNumber': paymentMethod},
+                            };
+
+                            final config =
+                                paymentMethodConfig[paymentMethod] ?? {};
+
+                            final paymentData = PaymentMethodModel(
+                              id: invoiceId,
+                              amount: config['amountPaid'] ?? newamountPaid,
+                              totalamount: totalAmount,
+                              paymentmethod: paymentMethod,
+                              accountName:
+                                  config['accountName'] ?? paymentMethod,
+                              accountNumber:
+                                  config['accountNumber'] ?? accountNumber,
+                              status: config['status'] ?? true,
+                              change: change,
+                              balance: balance,
+                              reference: reference,
+                            );
+
+                            try {
+                              LoadingDialog.show(
+                                context,
+                                message: 'please wait...',
+                              );
+
+                              final res = await provider.processPayment(
+                                paymentData,
+                              );
+
+                              final paymentChange =
+                                  res['change'] as double? ?? 0.0;
+
+                              if (paymentChange > 0) {
+                                _showSuccessSnackBar(
+                                  'Payment processed successfully. '
+                                  'Change: GHS ${paymentChange.toStringAsFixed(2)}',
+                                );
+                              } else {
+                                _showSuccessSnackBar(
+                                  'Payment processed successfully',
+                                );
+                              }
+
+                              referenceController.clear();
+                              amountPaidController!.clear();
+                              accountNumberController?.clear();
+                            } catch (e) {
+                              _showErrorSnackBar(
+                                'Failed to process payment: $e',
+                              );
+                            } finally {
+                              LoadingDialog.hide();
+                            }
+                          }
                         },
-                        'momo': {
-                          'accountName': selectedNetwork,
-                          'status': false,
-                        },
-                        'bank_transfer': {
-                          'accountNumber': reference,
-                        },
-                        'cheque': {
-                          'accountNumber': reference,
-                        },
-                        'card': {
-                          'accountNumber': paymentMethod,
-                        },
-                      };
-
-                      final config =
-                          paymentMethodConfig[paymentMethod] ?? {};
-
-                      final paymentData = PaymentMethodModel(
-                        id: invoiceId,
-                        amount: config['amountPaid'] ?? newamountPaid,
-                        totalamount: totalAmount,
-                        paymentmethod: paymentMethod,
-                        accountName:
-                        config['accountName'] ?? paymentMethod,
-                        accountNumber:
-                        config['accountNumber'] ?? accountNumber,
-                        status: config['status'] ?? true,
-                        change: change,
-                        balance: balance,
-                        reference: reference,
-                      );
-
-                      try {
-                        LoadingDialog.show(
-                          context,
-                          message: 'please wait...',
-                        );
-
-                        final res =await provider.processPayment(paymentData);
-
-                         final paymentChange = res['change'] as double? ?? 0.0;
-
-                        if (paymentChange > 0) {
-                          _showSuccessSnackBar(
-                            'Payment processed successfully. '
-                                'Change: GHS ${paymentChange.toStringAsFixed(2)}',
-                          );
-                        } else {
-                          _showSuccessSnackBar(
-                            'Payment processed successfully',
-                          );
-                        }
-
-                        referenceController.clear();
-                        amountPaidController!.clear();
-                        accountNumberController?.clear();
-                      } catch (e) {
-                        _showErrorSnackBar(
-                          'Failed to process payment: $e',
-                        );
-                      } finally {
-                        LoadingDialog.hide();
-                      }
-                    }
-                  },
                   icon: const Icon(Icons.payment),
                   label: Text(
                     provider.isLoadingpayment
@@ -1976,10 +2101,10 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                         : 'Process Payment',
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade700,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.green.shade700,
-                    disabledForegroundColor: Colors.white,
+                    backgroundColor: _successColor,
+                    foregroundColor: _colors.onPrimary,
+                    disabledBackgroundColor: _successColor,
+                    disabledForegroundColor: _colors.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -2030,35 +2155,30 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     }
   }
 
-  IconData _getNetworkIcon(String network) {
-    switch (network.toLowerCase()) {
-      case 'mtn':
-        return Icons.network_cell;
-      case 'vodafone':
-        return Icons.signal_cellular_alt;
-      case 'airteltigo':
-        return Icons.wifi;
-      case 'telecel':
-        return Icons.phone_android;
-      default:
-        return Icons.sim_card;
+  bool _isDuplicateMomoTransactionId(int currentIndex) {
+    final currentId = momoTransactionControllers[currentIndex].text
+        .trim()
+        .toLowerCase();
+
+    if (currentId.isEmpty) {
+      return false;
     }
+
+    for (int i = 0; i < momoTransactionControllers.length; i++) {
+      if (i == currentIndex) {
+        continue;
+      }
+
+      final otherId = momoTransactionControllers[i].text.trim().toLowerCase();
+
+      if (otherId.isNotEmpty && otherId == currentId) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
-  Color _getNetworkColor(String network) {
-    switch (network.toLowerCase()) {
-      case 'mtn':
-        return const Color(0xFFFFCC00); // MTN Yellow
-      case 'vodafone':
-        return const Color(0xFFE60000); // Vodafone Red
-      case 'airteltigo':
-        return const Color(0xFFED1C24); // AirtelTigo Red
-      case 'telecel':
-        return const Color(0xFF662D91); // Telecel Purple
-      default:
-        return Colors.grey;
-    }
-  }
   Widget _buildMomoTransactionFields() {
     if (paymentMethod.toLowerCase() != 'momo') {
       return const SizedBox();
@@ -2068,17 +2188,24 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
-        const Text('MOMO Transactions', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+        Text(
+          'MOMO Transactions',
+          style: TextStyle(color: _secondaryText, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 12),
         Column(
           children: [
-            for (int index = 0; index < momoTransactionControllers.length; index++)
+            for (
+              int index = 0;
+              index < momoTransactionControllers.length;
+              index++
+            )
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F),
+                    color: _inputSurface,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: momoTransactionAmountLoaded[index]
@@ -2091,8 +2218,8 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                     children: [
                       Text(
                         'Transaction ${index + 1}',
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: _secondaryText,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -2103,16 +2230,22 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                           Expanded(
                             child: TextFormField(
                               controller: momoTransactionControllers[index],
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: _primaryText),
                               keyboardType: TextInputType.text,
+                              onChanged: (value) {
+                                setState(() {});
+                              },
                               decoration: InputDecoration(
                                 labelText: 'Transaction ID',
-                                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                labelStyle: TextStyle(color: _secondaryText),
                                 hintText: 'e.g., MTN12345678',
-                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                                prefixIcon: const Icon(Icons.receipt_long, color: Colors.white70),
+                                hintStyle: TextStyle(color: _secondaryText),
+                                prefixIcon: Icon(
+                                  Icons.receipt_long,
+                                  color: _secondaryText,
+                                ),
                                 filled: true,
-                                fillColor: const Color(0xFF0D1B2A),
+                                fillColor: _inputSurface,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide.none,
@@ -2120,36 +2253,93 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                               ),
                             ),
                           ),
+
                           const SizedBox(width: 8),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade700,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            onPressed: momoTransactionControllers[index].text.isEmpty
+                            onPressed:
+                                momoTransactionControllers[index].text
+                                    .trim()
+                                    .isEmpty
                                 ? null
-                                : () => fetchMomoAmountForTransaction(index),
-                            child: const Text('Submit', style: TextStyle(color: Colors.white, fontSize: 12)),
+                                : () {
+                                    if (_isDuplicateMomoTransactionId(index)) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'This transaction ID has already been entered.',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    fetchMomoAmountForTransaction(index);
+                                  },
+                            child: const Text(
+                              'Submit',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
+                          // ElevatedButton(
+                          //   style: ElevatedButton.styleFrom(
+                          //     backgroundColor: Colors.blue.shade700,
+                          //     padding: const EdgeInsets.symmetric(
+                          //       horizontal: 12,
+                          //       vertical: 10,
+                          //     ),
+                          //     shape: RoundedRectangleBorder(
+                          //       borderRadius: BorderRadius.circular(8),
+                          //     ),
+                          //   ),
+                          //   onPressed: momoTransactionControllers[index]
+                          //       .text
+                          //       .trim()
+                          //       .isEmpty
+                          //       ? null
+                          //       : () => fetchMomoAmountForTransaction(index),
+                          //   child: const Text(
+                          //     'Submit',
+                          //     style: TextStyle(
+                          //       color: Colors.white,
+                          //       fontSize: 12,
+                          //     ),
+                          //   ),
+                          // ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: momoTransactionAmountControllers[index],
                         readOnly: true,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: _primaryText),
                         decoration: InputDecoration(
                           labelText: 'Amount',
-                          labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                          labelStyle: TextStyle(color: _secondaryText),
                           prefixText: 'GHS ',
                           prefixStyle: const TextStyle(color: Colors.green),
                           filled: true,
-                          fillColor: const Color(0xFF0D1B2A),
+                          fillColor: _inputSurface,
                           suffixIcon: momoTransactionAmountLoaded[index]
-                              ? const Icon(Icons.check_circle, color: Colors.green)
+                              ? const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                )
                               : null,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -2174,7 +2364,9 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
                 onPressed: () {
                   setState(() {
                     momoTransactionControllers.add(TextEditingController());
-                    momoTransactionAmountControllers.add(TextEditingController());
+                    momoTransactionAmountControllers.add(
+                      TextEditingController(),
+                    );
                     momoTransactionAmountLoaded.add(false);
                     momoTransactionTimers.add(null);
                   });
@@ -2193,7 +2385,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildSummarySection() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
 
     final invoice = provider.selectedInvoice!;
     final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
@@ -2206,19 +2398,17 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D2A3C),
+        color: _panelSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-        ),
+        border: Border.all(color: _dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Summary',
             style: TextStyle(
-              color: Colors.white,
+              color: _primaryText,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -2226,56 +2416,67 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           const SizedBox(height: 16),
 
           _buildSummaryRow('Items', itemCount.toString()),
-          _buildSummaryRow('Total Amount', 'GHS ${totalAmount.toStringAsFixed(2)}'),
+          _buildSummaryRow(
+            'Total Amount',
+            'GHS ${totalAmount.toStringAsFixed(2)}',
+          ),
           if (amountPaid > 0)
-            _buildSummaryRow('Amount Paid', 'GHS ${amountPaid.toStringAsFixed(2)}', color: Colors.green),
+            _buildSummaryRow(
+              'Amount Paid',
+              'GHS ${amountPaid.toStringAsFixed(2)}',
+              color: Colors.green,
+            ),
           if (balance > 0)
-            _buildSummaryRow('Balance', 'GHS ${balance.toStringAsFixed(2)}', color: Colors.orange),
+            _buildSummaryRow(
+              'Balance',
+              'GHS ${balance.toStringAsFixed(2)}',
+              color: Colors.orange,
+            ),
 
-          const Divider(color: Colors.white24, height: 24),
+          Divider(color: _dividerColor, height: 24),
         ],
       ),
     );
   }
 
   Widget _buildActionButtons() {
-    final provider=Provider.of<CashierProvider>(context,listen: true);
+    final provider = Provider.of<CashierProvider>(context, listen: true);
 
     final invoiceId = provider.selectedInvoiceId;
     final paymentStatus = provider.selectedInvoice!.paymentStatus;
     bool printed = provider.selectedInvoice!.printed;
     final transmode = provider.selectedInvoice!.transMode;
 
-
-    if (paymentStatus != 'pending' || transmode=='credit') {
+    if (paymentStatus != 'pending' || transmode == 'credit') {
       return SizedBox(
-
         width: 150,
         child: OutlinedButton(
           onPressed: provider.isLoadingpayment
               ? null
               : () async {
-            try {
-              if (printed) {
-                _showErrorSnackBar('Invoice printed already');
-                return;
-              }
+                  try {
+                    if (printed) {
+                      _showErrorSnackBar('Invoice printed already');
+                      return;
+                    }
 
-              await provider.printReceipt(
-                  invoiceId!, provider.selectedInvoice!);
+                    await provider.printReceipt(
+                      invoiceId!,
+                      provider.selectedInvoice!,
+                    );
 
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => PrintPreviewWidget(
-                    invoiceData: provider.selectedInvoice!,
-                    showPrintButton: true,
-                  ),
-                ),
-              );
-            } catch (e) {
-              _showErrorSnackBar('Error generating PDF: $e');
-            }
-          },
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => PrintPreviewWidget(
+                          invoiceData: provider.selectedInvoice!,
+                          showPrintButton: true,
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    _showErrorSnackBar('Error generating PDF: $e');
+                  }
+                },
 
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Colors.lightBlue),
@@ -2288,21 +2489,21 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
 
           child: provider.isLoadingpayment
               ? const SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.lightBlue,
-            ),
-          )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.lightBlue,
+                  ),
+                )
               : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.print),
-              SizedBox(width: 8),
-              Text('PRINT'),
-            ],
-          ),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.print),
+                    SizedBox(width: 8),
+                    Text('PRINT'),
+                  ],
+                ),
         ),
       );
     }
@@ -2311,7 +2512,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   }
 
   Widget _buildMobileDetailsTab() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
     final invoice = provider.selectedInvoice!;
     final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
@@ -2326,18 +2527,25 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: _panelSurface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
+              border: Border.all(color: _dividerColor),
             ),
             child: Column(
               children: [
-                _buildDetailRow('Receipt Number', invoice.receiptNumber ?? 'N/A'),
+                _buildDetailRow(
+                  'Receipt Number',
+                  invoice.receiptNumber ?? 'N/A',
+                ),
                 _buildDetailRow('Customer', _getCustomerName(invoice)),
-                _buildDetailRow('Date', createdAt != null ? _dateFormat.format(createdAt) : 'N/A'),
-                _buildDetailRow('Time', createdAt != null ? _timeFormat.format(createdAt) : 'N/A'),
+                _buildDetailRow(
+                  'Date',
+                  createdAt != null ? _dateFormat.format(createdAt) : 'N/A',
+                ),
+                _buildDetailRow(
+                  'Time',
+                  createdAt != null ? _timeFormat.format(createdAt) : 'N/A',
+                ),
                 _buildDetailRow('Payment Mode', invoice.transMode),
                 _buildDetailRow('Cashier', invoice.createdBy!),
                 if (printedAt != null)
@@ -2351,22 +2559,28 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: _panelSurface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
+              border: Border.all(color: _dividerColor),
             ),
             child: Column(
               children: [
                 _buildAmountRow('Total Amount', totalAmount),
                 if (amountPaid > 0)
-                  _buildAmountRow('Amount Paid', amountPaid, color: Colors.green),
+                  _buildAmountRow(
+                    'Amount Paid',
+                    amountPaid,
+                    color: Colors.green,
+                  ),
                 if (balance > 0)
                   _buildAmountRow('Balance', balance, color: Colors.orange),
                 if (amountPaid > 0) ...[
-                  const Divider(color: Colors.white24, height: 24),
-                  _buildAmountRow('Items', invoice.itemCount as double, isNumber: true),
+                  Divider(color: _dividerColor, height: 24),
+                  _buildAmountRow(
+                    'Items',
+                    invoice.itemCount as double,
+                    isNumber: true,
+                  ),
                 ],
               ],
             ),
@@ -2389,17 +2603,11 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
-              fontSize: 13,
-            ),
-          ),
+          Text(label, style: TextStyle(color: _secondaryText, fontSize: 13)),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: _primaryText,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -2409,23 +2617,24 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildAmountRow(String label, double amount, {Color? color, bool isNumber = false}) {
+  Widget _buildAmountRow(
+    String label,
+    double amount, {
+    Color? color,
+    bool isNumber = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Text(label, style: TextStyle(color: _secondaryText, fontSize: 14)),
           Text(
-            label,
+            isNumber
+                ? amount.toStringAsFixed(0)
+                : 'GHS ${amount.toStringAsFixed(2)}',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 14,
-            ),
-          ),
-          Text(
-            isNumber ? amount.toStringAsFixed(0) : 'GHS ${amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: color ?? Colors.white,
+              color: color ?? _primaryText,
               fontSize: 14,
               fontWeight: color != null ? FontWeight.bold : FontWeight.normal,
             ),
@@ -2441,17 +2650,11 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 13,
-            ),
-          ),
+          Text(label, style: TextStyle(color: _secondaryText, fontSize: 13)),
           Text(
             value,
             style: TextStyle(
-              color: color ?? Colors.white,
+              color: color ?? _primaryText,
               fontSize: 13,
               fontWeight: color != null ? FontWeight.bold : FontWeight.normal,
             ),
@@ -2498,7 +2701,11 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
           const SizedBox(width: 6),
           Text(
             text,
-            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -2508,7 +2715,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   Widget _buildEmptyState() {
     return Expanded(
       child: Container(
-        color: const Color(0xFF0F1E2E),
+        color: _deepSurface,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -2516,20 +2723,20 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
               Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: _subtleSurface,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.receipt_outlined,
                   size: 64,
-                  color: Colors.white24,
+                  color: _secondaryText,
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'No Invoice Selected',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _primaryText,
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2537,10 +2744,7 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
               const SizedBox(height: 8),
               Text(
                 'Select an invoice from the list to process payment',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: _secondaryText, fontSize: 14),
               ),
             ],
           ),
@@ -2561,199 +2765,220 @@ class _CashierPageState extends State<CashierPage> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     _isMobileView = screenWidth < 900;
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1A2F),
+      backgroundColor: _pageBackground,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF0D2A3C),
+        backgroundColor: _panelSurface,
         title: _isMobileView
-            ? const Text(
-          'Cashier',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        )
+            ? Text(
+                'Cashier',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _primaryText,
+                ),
+              )
             : Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.shade800.withAlpha((0.3 * 255).round()),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.point_of_sale, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 12),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Cashier',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade800.withAlpha(
+                        (0.3 * 255).round(),
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.point_of_sale,
+                      color: _primaryText,
+                      size: 24,
+                    ),
                   ),
-                ),
-                Text(
-                  'Process payments and print receipts',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
-                ),
-              ],
-            ),
-          ],
-        ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cashier',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryText,
+                        ),
+                      ),
+                      Text(
+                        'Process payments and print receipts',
+                        style: TextStyle(fontSize: 12, color: _secondaryText),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
         actions: _buildAppBarActions(),
-        bottom: _isMobileView && provider.selectedInvoice != null && !_showInvoiceList
+        bottom:
+            _isMobileView &&
+                provider.selectedInvoice != null &&
+                !_showInvoiceList
             ? TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.green,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'Details'),
-            Tab(text: 'Payment'),
-
-          ],
-        )
+                controller: _tabController,
+                indicatorColor: Colors.green,
+                labelColor: _primaryText,
+                unselectedLabelColor: _secondaryText,
+                tabs: const [
+                  Tab(text: 'Details'),
+                  Tab(text: 'Payment'),
+                ],
+              )
             : null,
       ),
-      body:Form(
+      body: Form(
         key: _cashierFormKey,
         child: _isMobileView ? _buildMobileLayout() : _buildDesktopLayout(),
-      )
-
+      ),
     );
   }
 
   List<Widget> _buildAppBarActions() {
-    final provider=Provider.of<CashierProvider>(context,listen: false);
+    final provider = Provider.of<CashierProvider>(context, listen: false);
     final actions = <Widget>[];
 
     if (provider.selectedInvoice != null && _isMobileView) {
-      actions.add(IconButton(
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha((0.1 * 255).round()),
-            borderRadius: BorderRadius.circular(8),
+      actions.add(
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _colors.surfaceContainerHighest.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.arrow_back, color: _secondaryText),
           ),
-          child: const Icon(Icons.arrow_back, color: Colors.white70),
+          onPressed: _resetSelection,
+          tooltip: 'Back to invoices',
         ),
-        onPressed: _resetSelection,
-        tooltip: 'Back to invoices',
-      ));
+      );
     }
-    if(provider.accesslevel!='cashier')
-    actions.add( IconButton(
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: _isDateRangeActive
-              ? Colors.blue.shade800.withOpacity(0.3)
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          Icons.calendar_month,
-          color: _isDateRangeActive ? Colors.blue.shade300 : Colors.white70,
-        ),
-      ),
-      onPressed: _showDateRangePicker,
-      tooltip: 'Filter by date range',
-    ),);
-    if (provider.selectedInvoice != null && !_isMobileView) {
-      actions.add(IconButton(
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withAlpha((0.1 * 255).round()),
-            borderRadius: BorderRadius.circular(8),
+    if (provider.accesslevel != 'cashier')
+      actions.add(
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isDateRangeActive
+                  ? Colors.blue.shade800.withOpacity(0.3)
+                  : _dividerColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.calendar_month,
+              color: _isDateRangeActive ? Colors.blue.shade300 : _secondaryText,
+            ),
           ),
-          child: const Icon(Icons.close, color: Colors.white70),
+          onPressed: _showDateRangePicker,
+          tooltip: 'Filter by date range',
         ),
-        onPressed: _resetSelection,
-        tooltip: 'Close',
-      ));
+      );
+    if (provider.selectedInvoice != null && !_isMobileView) {
+      actions.add(
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _colors.surfaceContainerHighest.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.close, color: _secondaryText),
+          ),
+          onPressed: _resetSelection,
+          tooltip: 'Close',
+        ),
+      );
     }
 
     if (_isMobileView && _showInvoiceList) {
-      actions.add(IconButton(
+      actions.add(
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _colors.surfaceContainerHighest.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.filter_list, color: _secondaryText),
+          ),
+          onPressed: _showFilterModal,
+          tooltip: 'Filter',
+        ),
+      );
+    }
+
+    actions.add(
+      IconButton(
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha((0.1 * 255).round()),
+            color: _colors.surfaceContainerHighest.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.filter_list, color: Colors.white70),
+          child: Icon(Icons.refresh, color: _secondaryText),
         ),
-        onPressed: _showFilterModal,
-        tooltip: 'Filter',
-      ));
-    }
-
-    actions.add(IconButton(
-      icon: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.white.withAlpha((0.1 * 255).round()),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.refresh, color: Colors.white70),
+        onPressed: () => Provider.of<CashierProvider>(
+          context,
+          listen: false,
+        ).listenToInvoices(context),
+        tooltip: 'Refresh',
       ),
-      onPressed: () => Provider.of<CashierProvider>(context, listen: false).listenToInvoices(context),
-      tooltip: 'Refresh',
-    ));
+    );
 
     actions.add(const SizedBox(width: 8));
-actions.add(PopupMenuButton<String>(
-  onSelected: (selectedValue) {
-    if (selectedValue == 'logout') {
-      LogoutDialog.show(context, );
-    } else if (selectedValue == 'password') {
-      ChangePasswordDialog.changePassword(context,);
-    } else if (selectedValue == 'profile') {
-      Navigator.pushNamed(context, Routes.staffprofile);
-    }
-  },
-  itemBuilder: (BuildContext context) => [
-    PopupMenuItem<String>(
-      value: 'profile',
-      child: Row(
-        children: [
-          Icon(Icons.person_outline, size: 20, color: Colors.green),
-          SizedBox(width: 12),
-          Text('My Profile'),
+    actions.add(
+      PopupMenuButton<String>(
+        onSelected: (selectedValue) {
+          if (selectedValue == 'logout') {
+            LogoutDialog.show(context);
+          } else if (selectedValue == 'password') {
+            ChangePasswordDialog.changePassword(context);
+          } else if (selectedValue == 'profile') {
+            Navigator.pushNamed(context, Routes.staffprofile);
+          }
+        },
+        itemBuilder: (BuildContext context) => [
+          PopupMenuItem<String>(
+            value: 'profile',
+            child: Row(
+              children: [
+                Icon(Icons.person_outline, size: 20, color: Colors.green),
+                SizedBox(width: 12),
+                Text('My Profile'),
+              ],
+            ),
+          ),
+          PopupMenuItem<String>(
+            value: 'password',
+            child: Row(
+              children: [
+                Icon(Icons.lock_outline, size: 20, color: Colors.blue),
+                SizedBox(width: 12),
+                Text('Change Password'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'logout',
+            child: Row(
+              children: const [
+                Icon(Icons.logout, size: 20, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Logout'),
+              ],
+            ),
+          ),
         ],
       ),
-    ),
-    PopupMenuItem<String>(
-      value: 'password',
-      child: Row(
-        children: [
-          Icon(Icons.lock_outline, size: 20, color: Colors.blue),
-          SizedBox(width: 12),
-          Text('Change Password'),
-        ],
-      ),
-    ),
-    PopupMenuItem(
-      value: 'logout',
-      child: Row(
-        children: const [
-          Icon(Icons.logout, size: 20, color: Colors.red),
-          SizedBox(width: 8),
-          Text('Logout'),
-        ],
-      ),
-    ),
-  ],
-));
+    );
     return actions;
   }
 }
-

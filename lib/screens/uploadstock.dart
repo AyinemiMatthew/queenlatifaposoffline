@@ -55,8 +55,6 @@ class _StockUploadPageState extends State<StockUploadPage> {
   /// Number of groups validated concurrently.
   static const int _validationConcurrency = 20;
 
-
-
   static const Map<String, String> _paymentMethodAliases = {
     'banktransfer': 'bank_transfer',
     'bank transfer': 'bank_transfer',
@@ -124,26 +122,36 @@ class _StockUploadPageState extends State<StockUploadPage> {
 
         final response = await http.get(uri);
 
-        if (response.statusCode < 200 ||
-            response.statusCode >= 300) {
+        if (response.statusCode < 200 || response.statusCode >= 300) {
           throw 'API returned HTTP ${response.statusCode}.';
         }
 
         final decoded = jsonDecode(response.body);
 
-        final rawRows = decoded is List ? decoded : decoded is Map ? (decoded['data'] ?? decoded['rows'] ?? decoded['stock'] ?? const []) : const [];
+        final rawRows = decoded is List
+            ? decoded
+            : decoded is Map
+            ? (decoded['data'] ??
+                  decoded['rows'] ??
+                  decoded['stock'] ??
+                  const [])
+            : const [];
 
         if (rawRows is! List || rawRows.isEmpty) {
           break;
         }
 
-        final rows = rawRows.whereType<Map>().map((row) => Map<String, dynamic>.from(row),).
-        where((row) => (row['id']?.toString().trim() ?? '').isNotEmpty,).toList(growable: false);
+        final rows = rawRows
+            .whereType<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .where((row) => (row['id']?.toString().trim() ?? '').isNotEmpty)
+            .toList(growable: false);
 
-        final pageKey = rows.isEmpty ? '' : '${rows.first['id']}:${rows.last['id']}:${rows.length}';
+        final pageKey = rows.isEmpty
+            ? ''
+            : '${rows.first['id']}:${rows.last['id']}:${rows.length}';
 
-        if (pageKey.isNotEmpty &&
-            !fetchedPageKeys.add(pageKey)) {
+        if (pageKey.isNotEmpty && !fetchedPageKeys.add(pageKey)) {
           break;
         }
 
@@ -154,25 +162,17 @@ class _StockUploadPageState extends State<StockUploadPage> {
 
           setState(() {
             groups = pageGroups;
-            groupStatus = List.filled(
-              pageGroups.length,
-              'pending',
-            );
+            groupStatus = List.filled(pageGroups.length, 'pending');
           });
 
           await upload();
 
-          for (var index = 0;
-          index < pageGroups.length;
-          index++) {
+          for (var index = 0; index < pageGroups.length; index++) {
             if (groupStatus[index] == 'success') {
               savedIds.addAll(
-                pageGroups[index]
-                    .rows
+                pageGroups[index].rows
                     .map((row) => row.get('id'))
-                    .where(
-                      (id) => id.isNotEmpty,
-                ),
+                    .where((id) => id.isNotEmpty),
               );
             }
           }
@@ -195,16 +195,13 @@ class _StockUploadPageState extends State<StockUploadPage> {
       // ACKNOWLEDGE ONLY SUCCESSFULLY SAVED RECORDS
 
       if (savedIds.isNotEmpty) {
-        await _acknowledgeApiStockIds(
-          savedIds
-        );
+        await _acknowledgeApiStockIds(savedIds);
       }
 
       if (mounted) {
         setState(() {
           totalRows = offset;
-          fileInfo =
-          'Saved ${savedIds.length} stock rows successfully.';
+          fileInfo = 'Saved ${savedIds.length} stock rows successfully.';
         });
       }
 
@@ -219,10 +216,7 @@ class _StockUploadPageState extends State<StockUploadPage> {
         });
       }
 
-      _snack(
-        'Stock API sync failed: $error',
-        Colors.red,
-      );
+      _snack('Stock API sync failed: $error', Colors.red);
     } finally {
       if (mounted) {
         setState(() {
@@ -248,39 +242,55 @@ class _StockUploadPageState extends State<StockUploadPage> {
 
       final transMode = (row['transmode'] ?? '').trim().toLowerCase();
 
-      row['transmode'] = switch (transMode) {'credit' || 'credit purchase' => 'credit','cash' || 'cash purchase' => 'cash',_ => 'opening balance',};
+      row['transmode'] = switch (transMode) {
+        'credit' || 'credit purchase' => 'credit',
+        'cash' || 'cash purchase' => 'cash',
+        _ => 'opening balance',
+      };
 
       final branchid = (row['branchname'] ?? '').trim().toLowerCase();
 
-      row['branchId'] =(branchid.trim());
-      row['price'] =(row['price'] ?? '').trim().isEmpty ? row['cost_price'] ?? '': row['price'] ?? '';
-      row['cp'] =(row['cp'] ?? '').trim().isEmpty? row['cost_price'] ?? '': row['cp'] ?? '';
-      row['producttype'] =(row['producttype'] ?? '').trim().isEmpty ? row['product_type'] ?? '' : row['producttype'] ?? '';
-      row['pcategory'] =(row['pcategory'] ?? '').trim().isEmpty ? row['product_category'] ?? '' : row['pcategory'] ?? '';
-      row['invoiceno'] =(row['invoiceno'] ?? '').trim().isEmpty? row['tid'] ?? '': row['invoiceno'] ?? '';
+      row['branchId'] = (branchid.trim());
+      row['price'] = (row['price'] ?? '').trim().isEmpty
+          ? row['cost_price'] ?? ''
+          : row['price'] ?? '';
+      row['cp'] = (row['cp'] ?? '').trim().isEmpty
+          ? row['cost_price'] ?? ''
+          : row['cp'] ?? '';
+      row['producttype'] = (row['producttype'] ?? '').trim().isEmpty
+          ? row['product_type'] ?? ''
+          : row['producttype'] ?? '';
+      row['pcategory'] = (row['pcategory'] ?? '').trim().isEmpty
+          ? row['product_category'] ?? ''
+          : row['pcategory'] ?? '';
+      row['invoiceno'] = (row['invoiceno'] ?? '').trim().isEmpty
+          ? row['tid'] ?? ''
+          : row['invoiceno'] ?? '';
       final sourceId = (row['id'] ?? '').trim();
 
       if (sourceId.isEmpty) {
         continue;
       }
       //group by tid if available, otherwise by sourceId
-      final tid =(row['tid'] ?? '').trim();
-      final groupKey =tid.isNotEmpty  ? tid : sourceId;
+      final tid = (row['tid'] ?? '').trim();
+      final groupKey = tid.isNotEmpty ? tid : sourceId;
 
-      grouped.putIfAbsent(groupKey, () => <_RawSaleRow>[],).add(_RawSaleRow(row),);
+      grouped
+          .putIfAbsent(groupKey, () => <_RawSaleRow>[])
+          .add(_RawSaleRow(row));
     }
 
-    return grouped.entries.map((entry) => _SaleGroup(entry.key,entry.value,),).toList(growable: false);
+    return grouped.entries
+        .map((entry) => _SaleGroup(entry.key, entry.value))
+        .toList(growable: false);
   }
 
-//acknowledge the stock ids that were successfully saved to the API
+  //acknowledge the stock ids that were successfully saved to the API
   Future<void> _acknowledgeApiStockIds(List<String> ids) async {
     try {
       final recordIds = ids.where((id) => id.trim().isNotEmpty).toList();
       if (recordIds.isEmpty) return;
-      final payload = {
-        'ids': recordIds,
-      };
+      final payload = {'ids': recordIds};
 
       final response = await http.post(
         Uri.parse(_stockCallbackApiUrl),
@@ -291,64 +301,56 @@ class _StockUploadPageState extends State<StockUploadPage> {
         body: jsonEncode(payload),
       );
 
-      debugPrint(
-        'CALLBACK STATUS: ${response.statusCode}',
-      );
+      debugPrint('CALLBACK STATUS: ${response.statusCode}');
 
-      debugPrint(
-        'CALLBACK BODY: ${response.body}',
-      );
+      debugPrint('CALLBACK BODY: ${response.body}');
 
-      if (response.statusCode < 200 ||
-          response.statusCode >= 300) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         throw 'API acknowledgment returned HTTP '
             '${response.statusCode}.';
       }
     } catch (e, stackTrace) {
-      debugPrint(
-        'CALLBACK ERROR: $e',
-      );
+      debugPrint('CALLBACK ERROR: $e');
 
-      debugPrint(
-        stackTrace.toString(),
-      );
+      debugPrint(stackTrace.toString());
 
       rethrow;
     }
   }
 
-  String _safeBranchName( String branchName, [String fallback = '',]) {
+  String _safeBranchName(String branchName, [String fallback = '']) {
     final value = (branchName.trim().isNotEmpty ? branchName : fallback).trim();
     return value.isEmpty ? 'default' : value;
   }
 
-  String _branchItemKey(String companyId,String itemName,String branchName, [String fallbackBranchName = '',]) {
-    final normalizedItem =sanitize(itemName);
-    final normalizedBranch =sanitize(_safeBranchName(branchName,fallbackBranchName,),);
-    return '${sanitize(companyId)}_''${normalizedItem}_''$normalizedBranch';
+  String _branchItemKey(
+    String companyId,
+    String itemName,
+    String branchName, [
+    String fallbackBranchName = '',
+  ]) {
+    final normalizedItem = sanitize(itemName);
+    final normalizedBranch = sanitize(
+      _safeBranchName(branchName, fallbackBranchName),
+    );
+    return '${sanitize(companyId)}_'
+        '${normalizedItem}_'
+        '$normalizedBranch';
   }
 
-  void _snack(
-      String msg,
-      Color color,
-      ) {
+  void _snack(String msg, Color color) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: color,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
   // ---------------------------------------------------------------------
   // DATE
   // ---------------------------------------------------------------------
 
-  Map<String, String> _dateParts(
-      String dateymd,
-      ) {
+  Map<String, String> _dateParts(String dateymd) {
     DateTime dt;
 
     try {
@@ -361,7 +363,11 @@ class _StockUploadPageState extends State<StockUploadPage> {
           throw 'bad date';
         }
 
-        dt = DateTime(int.parse(parts[2]),int.parse(parts[1]),int.parse(parts[0]),);
+        dt = DateTime(
+          int.parse(parts[2]),
+          int.parse(parts[1]),
+          int.parse(parts[0]),
+        );
       } else {
         dt = DateTime.parse(dateymd);
       }
@@ -369,16 +375,17 @@ class _StockUploadPageState extends State<StockUploadPage> {
       dt = DateTime.now();
     }
 
-    final day =DateFormat('EEEE').format(dt);
+    final day = DateFormat('EEEE').format(dt);
 
-    final year =dt.year.toString();
+    final year = dt.year.toString();
 
-    final month ='${dt.year}.${dt.month}';
+    final month = '${dt.year}.${dt.month}';
 
-    final weekNumber =((dt.difference( DateTime(dt.year,1,1,),).inDays) /7).floor() +1;
+    final weekNumber =
+        ((dt.difference(DateTime(dt.year, 1, 1)).inDays) / 7).floor() + 1;
 
-    final week ='${dt.year}.$weekNumber';
-    final ymd =DateFormat('yyyy-MM-dd').format(dt);
+    final week = '${dt.year}.$weekNumber';
+    final ymd = DateFormat('yyyy-MM-dd').format(dt);
     return {
       'dateymd': ymd,
       'day': day,
@@ -388,34 +395,29 @@ class _StockUploadPageState extends State<StockUploadPage> {
     };
   }
 
-
   String sanitize(String input) {
     return input
         .trim()
         .toLowerCase()
-        .replaceAll(
-      RegExp(r'\s+'),
-      '',
-    )
-        .replaceAll(
-      RegExp(r'[^a-z0-9_]'),
-      '',
-    );
+        .replaceAll(RegExp(r'\s+'), '')
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '');
   }
 
   // ---------------------------------------------------------------------
   // BRANCH
   // ---------------------------------------------------------------------
 
-  dynamic _resolveBranch(Datafeed datafeed,String branchIdRaw,String defaultBranchId,) {
+  dynamic _resolveBranch(
+    Datafeed datafeed,
+    String branchIdRaw,
+    String defaultBranchId,
+  ) {
     return datafeed.branches.firstWhere(
-          (b) => b.id == branchIdRaw,
-      orElse: () =>
-          datafeed.branches.firstWhere(
-                (b) => b.id == defaultBranchId,
-            orElse: () => throw
-            'Branch "$branchIdRaw" not found',
-          ),
+      (b) => b.id == branchIdRaw,
+      orElse: () => datafeed.branches.firstWhere(
+        (b) => b.id == defaultBranchId,
+        orElse: () => throw 'Branch "$branchIdRaw" not found',
+      ),
     );
   }
 
@@ -428,38 +430,32 @@ class _StockUploadPageState extends State<StockUploadPage> {
     required String companyId,
     required String defaultBranchId,
   }) async {
-    final errors =
-    <int, String>{};
+    final errors = <int, String>{};
 
     var nextIndex = 0;
 
     Future<void> worker() async {
       while (true) {
-        final int g =
-        nextIndex++;
+        final int g = nextIndex++;
 
         if (g >= groups.length) {
           return;
         }
 
-        final error =
-        await _validateSingleGroup(
+        final error = await _validateSingleGroup(
           groupIndex: g,
           datafeed: datafeed,
           companyId: companyId,
           defaultBranchId: defaultBranchId,
         );
 
-        if (error != null &&
-            error.isNotEmpty) {
+        if (error != null && error.isNotEmpty) {
           errors[g] = error;
         }
       }
     }
 
-    final workerCount =
-    groups.length <
-        _validationConcurrency
+    final workerCount = groups.length < _validationConcurrency
         ? groups.length
         : _validationConcurrency;
 
@@ -467,12 +463,7 @@ class _StockUploadPageState extends State<StockUploadPage> {
       return errors;
     }
 
-    await Future.wait(
-      List.generate(
-        workerCount,
-            (_) => worker(),
-      ),
-    );
+    await Future.wait(List.generate(workerCount, (_) => worker()));
 
     return errors;
   }
@@ -483,18 +474,20 @@ class _StockUploadPageState extends State<StockUploadPage> {
     required String companyId,
     required String defaultBranchId,
   }) async {
-    final group =groups[groupIndex];
+    final group = groups[groupIndex];
 
-    final first =group.first;
+    final first = group.first;
 
-    final rowErrors =
-    <String>[];
+    final rowErrors = <String>[];
 
     // ---------------------------------------------------------------
     // TRANSACTION MODE
     // ---------------------------------------------------------------
 
-    final transModes = group.rows.map((r) => r.get('transmode','cash',).toLowerCase().trim(),).where((v) => v.isNotEmpty,).toSet();
+    final transModes = group.rows
+        .map((r) => r.get('transmode', 'cash').toLowerCase().trim())
+        .where((v) => v.isNotEmpty)
+        .toSet();
 
     if (transModes.length > 1) {
       return 'Receipt "${group.receipt}" '
@@ -502,20 +495,11 @@ class _StockUploadPageState extends State<StockUploadPage> {
           '${transModes.join(', ')}';
     }
 
-    final transMode =transModes.isEmpty? 'cash': transModes.first;
+    final transMode = transModes.isEmpty ? 'cash' : transModes.first;
 
+    const allowedModes = {'cash', 'credit', 'opening balance'};
 
-
-
-    const allowedModes = {
-      'cash',
-      'credit',
-      'opening balance',
-    };
-
-    if (!allowedModes.contains(
-      transMode,
-    )) {
+    if (!allowedModes.contains(transMode)) {
       return 'Receipt "${group.receipt}": '
           'invalid transMode "$transMode". '
           'Allowed values are cash, credit or opening balance.';
@@ -525,17 +509,17 @@ class _StockUploadPageState extends State<StockUploadPage> {
     // BRANCH
     // ---------------------------------------------------------------
 
-
-
     final branchIdRaw = first.get('branchname', '');
     String resolvedBranchId;
     String resolvedBranchLabel;
 
     try {
-      final branch =_resolveBranch(datafeed,branchIdRaw,defaultBranchId,);
-      resolvedBranchId =branch.id.isNotEmpty? branch.id: defaultBranchId;
-      resolvedBranchLabel =branch.branchname.isNotEmpty? branch.branchname: resolvedBranchId;
-     } catch (e) {
+      final branch = _resolveBranch(datafeed, branchIdRaw, defaultBranchId);
+      resolvedBranchId = branch.id.isNotEmpty ? branch.id : defaultBranchId;
+      resolvedBranchLabel = branch.branchname.isNotEmpty
+          ? branch.branchname
+          : resolvedBranchId;
+    } catch (e) {
       return e.toString();
     }
 
@@ -543,37 +527,28 @@ class _StockUploadPageState extends State<StockUploadPage> {
     // AGGREGATE
     // ---------------------------------------------------------------
 
-    final Map<
-        String,
-        Map<String, dynamic>> aggregatedIncoming =
-    {};
+    final Map<String, Map<String, dynamic>> aggregatedIncoming = {};
 
-    for (int i = 0;
-    i < group.rows.length;
-    i++) {
-      final row =
-      group.rows[i];
+    for (int i = 0; i < group.rows.length; i++) {
+      final row = group.rows[i];
 
-      final itemName =row.get('item').trim();
-      final barcode =row.get('barcode').trim();
-      final quantity =double.tryParse(row.get('quantity','0',),) ??0;
-      final pieces =double.tryParse(row.get('pieces','0', ),) ??0;
-      final priceText =row.get('price').trim();
-      final cpText =row.get('cost_price',row.get('cp', '',), ).trim();
+      final itemName = row.get('item').trim();
+      final barcode = row.get('barcode').trim();
+      final quantity = double.tryParse(row.get('quantity', '0')) ?? 0;
+      final pieces = double.tryParse(row.get('pieces', '0')) ?? 0;
+      final priceText = row.get('price').trim();
+      final cpText = row.get('cost_price', row.get('cp', '')).trim();
 
-      if (itemName.isEmpty &&  barcode.isEmpty)
-          {
-        rowErrors.add(
-          'Row ${i + 1}: needs an item name or a barcode',
-        );
+      if (itemName.isEmpty && barcode.isEmpty) {
+        rowErrors.add('Row ${i + 1}: needs an item name or a barcode');
         continue;
       }
 
       if (quantity <= 0) {
         rowErrors.add(
           'Row ${i + 1} '
-              '("${itemName.isEmpty ? barcode : itemName}"): '
-              'invalid quantity',
+          '("${itemName.isEmpty ? barcode : itemName}"): '
+          'invalid quantity',
         );
         continue;
       }
@@ -581,52 +556,38 @@ class _StockUploadPageState extends State<StockUploadPage> {
       if (pieces <= 0) {
         rowErrors.add(
           'Row ${i + 1} '
-              '("${itemName.isEmpty ? barcode : itemName}"): '
-              'invalid pieces',
+          '("${itemName.isEmpty ? barcode : itemName}"): '
+          'invalid pieces',
         );
         continue;
       }
 
-      if (priceText.isNotEmpty &&
-          double.tryParse(
-            priceText,
-          ) ==
-              null) {
+      if (priceText.isNotEmpty && double.tryParse(priceText) == null) {
         rowErrors.add(
           'Row ${i + 1} '
-              '("${itemName.isEmpty ? barcode : itemName}"): '
-              'price is not a valid number',
+          '("${itemName.isEmpty ? barcode : itemName}"): '
+          'price is not a valid number',
         );
         continue;
       }
 
-      if (cpText.isNotEmpty &&
-          double.tryParse(
-            cpText,
-          ) ==
-              null) {
+      if (cpText.isNotEmpty && double.tryParse(cpText) == null) {
         rowErrors.add(
           'Row ${i + 1} '
-              '("${itemName.isEmpty ? barcode : itemName}"): '
-              'cost_price is not a valid number',
+          '("${itemName.isEmpty ? barcode : itemName}"): '
+          'cost_price is not a valid number',
         );
         continue;
       }
 
-      final branchNameFromRow =
-      row.get(
-        'branchname',
-        resolvedBranchLabel,
-      );
+      final branchNameFromRow = row.get('branchname', resolvedBranchLabel);
 
-      final resolvedBranchName =
-      _safeBranchName(
+      final resolvedBranchName = _safeBranchName(
         branchNameFromRow,
         resolvedBranchId,
       );
 
-      final aggregateKey =
-      _branchItemKey(
+      final aggregateKey = _branchItemKey(
         companyId,
         itemName,
         resolvedBranchName,
@@ -637,13 +598,10 @@ class _StockUploadPageState extends State<StockUploadPage> {
           '${sanitize(companyId)}_'
           '${sanitize(itemName)}';
 
-      final existing =
-      aggregatedIncoming[
-      aggregateKey];
+      final existing = aggregatedIncoming[aggregateKey];
 
       if (existing == null) {
-        aggregatedIncoming[
-        aggregateKey] = {
+        aggregatedIncoming[aggregateKey] = {
           'itemid': itemid,
           'item': itemName,
           'barcode': barcode,
@@ -654,54 +612,29 @@ class _StockUploadPageState extends State<StockUploadPage> {
           'rows': [i + 1],
           'price': priceText,
           'cost_price': cpText,
-          'mode': row.get(
-            'mode',
-            'Single',
-          ),
-          'pricemode': row.get(
-            'pricemode',
-            'retail',
-          ),
+          'mode': row.get('mode', 'Single'),
+          'pricemode': row.get('pricemode', 'retail'),
         };
       } else {
-        existing['quantity'] =
-            (existing['quantity'] ?? 0) +
-                quantity;
+        existing['quantity'] = (existing['quantity'] ?? 0) + quantity;
 
-        existing['pieces'] =
-            (existing['pieces'] ?? 0) +
-                pieces;
+        existing['pieces'] = (existing['pieces'] ?? 0) + pieces;
 
-        (existing['rows']
-        as List)
-            .add(i + 1);
+        (existing['rows'] as List).add(i + 1);
 
-        if ((existing['barcode'] ??
-            '')
-            .toString()
-            .isEmpty &&
+        if ((existing['barcode'] ?? '').toString().isEmpty &&
             barcode.isNotEmpty) {
-          existing['barcode'] =
-              barcode;
+          existing['barcode'] = barcode;
         }
 
-        if ((existing['price'] ??
-            '')
-            .toString()
-            .isEmpty &&
+        if ((existing['price'] ?? '').toString().isEmpty &&
             priceText.isNotEmpty) {
-          existing['price'] =
-              priceText;
+          existing['price'] = priceText;
         }
 
-        if ((existing[
-        'cost_price'] ??
-            '')
-            .toString()
-            .isEmpty &&
+        if ((existing['cost_price'] ?? '').toString().isEmpty &&
             cpText.isNotEmpty) {
-          existing[
-          'cost_price'] = cpText;
+          existing['cost_price'] = cpText;
         }
       }
     }
@@ -714,64 +647,42 @@ class _StockUploadPageState extends State<StockUploadPage> {
     // FINAL AGGREGATED VALIDATION
     // ---------------------------------------------------------------
 
-    for (final incoming
-    in aggregatedIncoming.values) {
-      final itemName =
-      (incoming['item'] ??
-          '')
-          .toString()
-          .trim();
+    for (final incoming in aggregatedIncoming.values) {
+      final itemName = (incoming['item'] ?? '').toString().trim();
 
-      final totalQuantity =
-      (incoming['quantity'] ??
-          0)
-          .toDouble();
+      final totalQuantity = (incoming['quantity'] ?? 0).toDouble();
 
-      final totalPieces =
-      (incoming['pieces'] ??
-          0)
-          .toDouble();
+      final totalPieces = (incoming['pieces'] ?? 0).toDouble();
 
-      final costPriceText =
-      (incoming[
-      'cost_price'] ??
-          '')
-          .toString()
-          .trim();
+      final costPriceText = (incoming['cost_price'] ?? '').toString().trim();
 
-      final rows =
-      (incoming['rows']
-      as List)
-          .join(', ');
+      final rows = (incoming['rows'] as List).join(', ');
 
       if (totalQuantity <= 0) {
         rowErrors.add(
           'Item "$itemName": '
-              'aggregated quantity is invalid '
-              '($totalQuantity).',
+          'aggregated quantity is invalid '
+          '($totalQuantity).',
         );
       }
 
       if (totalPieces <= 0) {
         rowErrors.add(
           'Item "$itemName": '
-              'aggregated pieces are invalid '
-              '($totalPieces).',
+          'aggregated pieces are invalid '
+          '($totalPieces).',
         );
       }
 
       if (costPriceText.isEmpty) {
         rowErrors.add(
           'Rows $rows ("$itemName"): '
-              'cost_price is required for upload.',
+          'cost_price is required for upload.',
         );
-      } else if (double.tryParse(
-        costPriceText,
-      ) ==
-          null) {
+      } else if (double.tryParse(costPriceText) == null) {
         rowErrors.add(
           'Rows $rows ("$itemName"): '
-              'cost_price is not a valid number.',
+          'cost_price is not a valid number.',
         );
       }
     }
@@ -785,10 +696,7 @@ class _StockUploadPageState extends State<StockUploadPage> {
 
   Future<void> upload() async {
     if (groups.isEmpty) {
-      _snack(
-        'No transactions to upload',
-        Colors.orange,
-      );
+      _snack('No transactions to upload', Colors.orange);
       return;
     }
 
@@ -803,21 +711,14 @@ class _StockUploadPageState extends State<StockUploadPage> {
     final staffEmail = datafeed.staffemail;
 
     if (companyId.isEmpty) {
-      _snack(
-        'No company context found. Please log in again.',
-        Colors.red,
-      );
+      _snack('No company context found. Please log in again.', Colors.red);
       return;
     }
 
-    final defaultBranchId =
-        selectedBranchId ?? datafeed.branchid;
+    final defaultBranchId = selectedBranchId ?? datafeed.branchid;
 
     if (defaultBranchId.trim().isEmpty) {
-      _snack(
-        'No branch context found.',
-        Colors.red,
-      );
+      _snack('No branch context found.', Colors.red);
       return;
     }
 
@@ -829,63 +730,43 @@ class _StockUploadPageState extends State<StockUploadPage> {
         currentBatchIndex = 0;
         totalBatches = 1;
 
-        groupStatus = List.filled(
-          groups.length,
-          'pending',
-          growable: true,
-        );
+        groupStatus = List.filled(groups.length, 'pending', growable: true);
       });
     }
 
     try {
-
       final payloadGroups = groups.map((group) {
         return {
           'receipt': group.receipt,
           'rows': group.rows.map((row) {
-        return {
-        'item': row.get('item'),
-        'barcode': row.get('barcode'),
-        'pieces': row.get('pieces', '0'),
-        'quantity': row.get('quantity', '0'),
-        'cost_price': row.get('cost_price',row.get('cp', '0'),),
-        'cp': row.get('cp', '0'),
-        'branchname': row.get('branchname',datafeed.branch, ),
-        'mode': row.get('mode', 'Single'),
-        'modeqty': row.get('modeqty', '1'),
-        'boxpiece': row.get('boxpiece',row.get('modeqty', '1'),),
-        'product_category':
-        row.get('product_category', ''),
-        'producttype':
-        row.get('producttype', 'product'),
-        'itemDiscount':
-        row.get('itemDiscount', '0'),
-        'vat':
-        row.get('vat', '0'),
-        'transmode':
-        row.get(
-        'transmode',
-        'opening balance',
-        ),
-        'date': row.get('date'),
-        'invoice': row.get('invoice'),
-        'invoiceno': row.get('invoiceno'),
-        'waybill': row.get('waybill'),
-        'id': row.get('id'),
-        'tid': row.get('tid'),
-        'tname': row.get(
-        'tname',
-        companyName,
-        ),
-        'staff': row.get(
-        'staff',
-        staffName,
-        ),
-        };
-        }).toList(),
+            return {
+              'item': row.get('item'),
+              'barcode': row.get('barcode'),
+              'pieces': row.get('pieces', '0'),
+              'quantity': row.get('quantity', '0'),
+              'cost_price': row.get('cost_price', row.get('cp', '0')),
+              'cp': row.get('cp', '0'),
+              'branchname': row.get('branchname', datafeed.branch),
+              'mode': row.get('mode', 'Single'),
+              'modeqty': row.get('modeqty', '1'),
+              'boxpiece': row.get('boxpiece', row.get('modeqty', '1')),
+              'product_category': row.get('product_category', ''),
+              'producttype': row.get('producttype', 'product'),
+              'itemDiscount': row.get('itemDiscount', '0'),
+              'vat': row.get('vat', '0'),
+              'transmode': row.get('transmode', 'opening balance'),
+              'date': row.get('date'),
+              'invoice': row.get('invoice'),
+              'invoiceno': row.get('invoiceno'),
+              'waybill': row.get('waybill'),
+              'id': row.get('id'),
+              'tid': row.get('tid'),
+              'tname': row.get('tname', companyName),
+              'staff': row.get('staff', staffName),
+            };
+          }).toList(),
         };
       }).toList();
-
 
       final callable = FirebaseFunctions.instance.httpsCallable('uploadStock');
       final result = await callable.call({
@@ -894,24 +775,19 @@ class _StockUploadPageState extends State<StockUploadPage> {
         'staffPosition': staffPosition,
         'staffName': staffName,
         'staffEmail': staffEmail,
-        'defaultBranchId':
-        defaultBranchId,
-        'defaultBranchName':
-        datafeed.branch,
-        'defaultBranchType':
-        datafeed.branchtype.isNotEmpty
+        'defaultBranchId': defaultBranchId,
+        'defaultBranchName': datafeed.branch,
+        'defaultBranchType': datafeed.branchtype.isNotEmpty
             ? datafeed.branchtype
             : 'Warehouse',
 
-        'groups':
-        payloadGroups,
+        'groups': payloadGroups,
 
-        'concurrency':
-        _uploadConcurrency,
+        'concurrency': _uploadConcurrency,
       });
       print("result:$result");
-      final data = Map<String, dynamic>.from(result.data as Map,);
-      final results =List<dynamic>.from(data['results'] ?? [],);
+      final data = Map<String, dynamic>.from(result.data as Map);
+      final results = List<dynamic>.from(data['results'] ?? []);
 
       /**
        * ============================================================
@@ -920,25 +796,18 @@ class _StockUploadPageState extends State<StockUploadPage> {
        */
 
       for (final rawResult in results) {
-        final item =
-        Map<String, dynamic>.from(
-          rawResult as Map,
-        );
+        final item = Map<String, dynamic>.from(rawResult as Map);
 
-        final index =
-        item['groupIndex'];
+        final index = item['groupIndex'];
 
-        if (index is! int ||
-            index < 0 ||
-            index >= groups.length) {
+        if (index is! int || index < 0 || index >= groups.length) {
           continue;
         }
 
         if (item['success'] == true) {
           groupStatus[index] = 'success';
         } else {
-          groupStatus[index] =
-          'error: ${item['error'] ?? 'Upload failed'}';
+          groupStatus[index] = 'error: ${item['error'] ?? 'Upload failed'}';
         }
       }
 
@@ -949,11 +818,9 @@ class _StockUploadPageState extends State<StockUploadPage> {
           currentIndex = groups.length;
         });
       }
-      final successful =
-      (data['successful'] ?? 0) as int;
+      final successful = (data['successful'] ?? 0) as int;
 
-      final failed =
-      (data['failed'] ?? 0) as int;
+      final failed = (data['failed'] ?? 0) as int;
 
       if (mounted) {
         setState(() {
@@ -969,10 +836,7 @@ class _StockUploadPageState extends State<StockUploadPage> {
           Colors.green,
         );
       } else {
-        _snack(
-          '$successful uploaded, $failed failed.',
-          Colors.orange,
-        );
+        _snack('$successful uploaded, $failed failed.', Colors.orange);
 
         _showErrorsDialog();
       }
@@ -983,25 +847,17 @@ class _StockUploadPageState extends State<StockUploadPage> {
           validating = false;
         });
       }
-    print(e);
+      print(e);
       debugPrint(
         'uploadStock Cloud Function error: '
-            '${e.code} - ${e.message}',
+        '${e.code} - ${e.message}',
       );
 
-      _snack(
-        e.message ??
-            'Stock upload failed.',
-        Colors.red,
-      );
+      _snack(e.message ?? 'Stock upload failed.', Colors.red);
     } catch (e, stackTrace) {
-      debugPrint(
-        'uploadStock error: $e',
-      );
+      debugPrint('uploadStock error: $e');
 
-      debugPrint(
-        stackTrace.toString(),
-      );
+      debugPrint(stackTrace.toString());
 
       if (mounted) {
         setState(() {
@@ -1010,13 +866,9 @@ class _StockUploadPageState extends State<StockUploadPage> {
         });
       }
 
-      _snack(
-        'Stock upload failed: $e',
-        Colors.red,
-      );
+      _snack('Stock upload failed: $e', Colors.red);
     }
   }
-
 
   // Future upload() async {
   //   if (groups.isEmpty) {
@@ -1751,61 +1603,39 @@ class _StockUploadPageState extends State<StockUploadPage> {
   //   }
   // }
 
-
-  String _normalizeInvoiceDate(
-      String rawDate,
-      ) {
-    final value =
-    rawDate.trim();
+  String _normalizeInvoiceDate(String rawDate) {
+    final value = rawDate.trim();
 
     if (value.isEmpty) {
-      return DateFormat(
-        'yyyy-MM-dd',
-      ).format(
-        DateTime.now(),
-      );
+      return DateFormat('yyyy-MM-dd').format(DateTime.now());
     }
 
     try {
       if (value.contains('/')) {
-        final parts =
-        value.split('/');
+        final parts = value.split('/');
 
         if (parts.length == 3) {
-          final dt =
-          DateTime(
+          final dt = DateTime(
             int.parse(parts[2]),
             int.parse(parts[1]),
             int.parse(parts[0]),
           );
 
-          return DateFormat(
-            'yyyy-MM-dd',
-          ).format(dt);
+          return DateFormat('yyyy-MM-dd').format(dt);
         }
       }
 
-      final dt =
-      DateTime.parse(value);
+      final dt = DateTime.parse(value);
 
-      return DateFormat(
-        'yyyy-MM-dd',
-      ).format(dt);
+      return DateFormat('yyyy-MM-dd').format(dt);
     } catch (_) {
       // Preserve the previous fallback behavior of using the first
       // ten characters where possible.
       if (value.length >= 10) {
-        return value.substring(
-          0,
-          10,
-        );
+        return value.substring(0, 10);
       }
 
-      return DateFormat(
-        'yyyy-MM-dd',
-      ).format(
-        DateTime.now(),
-      );
+      return DateFormat('yyyy-MM-dd').format(DateTime.now());
     }
   }
 
@@ -1813,52 +1643,27 @@ class _StockUploadPageState extends State<StockUploadPage> {
   // STATUS
   // ---------------------------------------------------------------------
 
-  int get successCount =>
-      groupStatus.where(
-            (s) => s == 'success',
-      ).length;
+  int get successCount => groupStatus.where((s) => s == 'success').length;
 
-  int get errorCount =>
-      groupStatus.where(
-            (s) => s.startsWith(
-          'error',
-        ),
-      ).length;
+  int get errorCount => groupStatus.where((s) => s.startsWith('error')).length;
 
-  int get pendingCount =>
-      groupStatus.where(
-            (s) => s == 'pending',
-      ).length;
+  int get pendingCount => groupStatus.where((s) => s == 'pending').length;
 
   double get progress =>
-      groups.isEmpty
-          ? 0
-          : (currentIndex /
-          groups.length)
-          .clamp(
-        0.0,
-        1.0,
-      );
+      groups.isEmpty ? 0 : (currentIndex / groups.length).clamp(0.0, 1.0);
 
   // ---------------------------------------------------------------------
   // ERROR DIALOG
   // ---------------------------------------------------------------------
 
   void _showErrorsDialog() {
-    final errors =
-    <String>[];
+    final errors = <String>[];
 
-    for (int i = 0;
-    i < groupStatus.length;
-    i++) {
-      if (groupStatus[i]
-          .startsWith('error')) {
+    for (int i = 0; i < groupStatus.length; i++) {
+      if (groupStatus[i].startsWith('error')) {
         errors.add(
           'Receipt "${groups[i].receipt}": '
-              '${groupStatus[i].replaceFirst(
-            'error: ',
-            '',
-          )}',
+          '${groupStatus[i].replaceFirst('error: ', '')}',
         );
       }
     }
@@ -1866,43 +1671,24 @@ class _StockUploadPageState extends State<StockUploadPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor:
-        const Color(0xFF182232),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
           'Upload Errors (${errors.length})',
-          style: const TextStyle(
-            color: Colors.white,
-          ),
+          style: const TextStyle(color: Colors.white),
         ),
         content: SizedBox(
           width: 520,
-          child:
-          SingleChildScrollView(
+          child: SingleChildScrollView(
             child: Text(
-              errors.isEmpty
-                  ? 'No errors.'
-                  : errors.join(
-                '\n\n',
-              ),
-              style:
-              const TextStyle(
-                color:
-                Colors.white70,
-                fontSize: 12,
-              ),
+              errors.isEmpty ? 'No errors.' : errors.join('\n\n'),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.pop(
-                  context,
-                ),
-            child:
-            const Text(
-              'Close',
-            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -1930,64 +1716,36 @@ class _StockUploadPageState extends State<StockUploadPage> {
   void _showApiInfo() {
     showDialog(
       context: context,
-      builder: (_) =>
-          AlertDialog(
-            backgroundColor:
-            const Color(0xFF182232),
-            shape:
-            RoundedRectangleBorder(
-              borderRadius:
-              BorderRadius.circular(
-                12,
+      builder: (_) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'API Stock Sync',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Stock rows are loaded from the API in pages of 1,000 and processed through the stock transaction workflow. Items, supplier balances, and stock_transactions are updated using the existing logic.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
-            ),
-            title: const Text(
-              'API Stock Sync',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight:
-                FontWeight.bold,
-              ),
-            ),
-            content:
-            const SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
-                mainAxisSize:
-                MainAxisSize.min,
-                children: [
-                  Text(
-                    'Stock rows are loaded from the API in pages of 1,000 and processed through the stock transaction workflow. Items, supplier balances, and stock_transactions are updated using the existing logic.',
-                    style: TextStyle(
-                      color:
-                      Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                  SizedBox(
-                    height: 12,
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () =>
-                    Navigator.pop(
-                      context,
-                    ),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(
-                    color:
-                    Colors.lightBlue,
-                  ),
-                ),
-              ),
+              SizedBox(height: 12),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Close',
+              style: TextStyle(color: Colors.lightBlue),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1996,124 +1754,66 @@ class _StockUploadPageState extends State<StockUploadPage> {
   // ---------------------------------------------------------------------
 
   @override
-  Widget build(
-      BuildContext context,
-      ) {
-    final isMobile =
-        MediaQuery.of(context)
-            .size
-            .width <
-            768;
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
-    final datafeed =
-    context.watch<Datafeed>();
+    final datafeed = context.watch<Datafeed>();
 
     return Scaffold(
-      backgroundColor:
-      const Color(0xFF101624),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor:
-        const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: const Text(
           'Bulk Stock Upload',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight:
-            FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         elevation: 0,
         actions: [
           if (!loading)
             Padding(
-              padding:
-              const EdgeInsets.only(
-                right: 16,
-              ),
-              child:
-              IconButton(
-                icon:
-                const Icon(
-                  Icons
-                      .help_outline,
-                  color:
-                  Colors.lightBlue,
-                ),
-                onPressed:
-                _showApiInfo,
-                tooltip:
-                'API sync information',
+              padding: const EdgeInsets.only(right: 16),
+              child: IconButton(
+                icon: const Icon(Icons.help_outline, color: Colors.lightBlue),
+                onPressed: _showApiInfo,
+                tooltip: 'API sync information',
               ),
             ),
         ],
       ),
-      body:
-      SingleChildScrollView(
+      body: SingleChildScrollView(
         child: Padding(
-          padding:
-          EdgeInsets.symmetric(
-            horizontal:
-            isMobile
-                ? 16
-                : 24,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 24,
             vertical: 20,
           ),
           child: Center(
-            child:
-            ConstrainedBox(
-              constraints:
-              const BoxConstraints(
-                maxWidth: 1200,
-              ),
-              child:
-              Column(
-                crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // _buildBranchSelector(
                   //   datafeed,
                   // ),
-                  const SizedBox(
-                    height: 24,
-                  ),
+                  const SizedBox(height: 24),
                   _buildApiSection(),
-                  const SizedBox(
-                    height: 24,
-                  ),
+                  const SizedBox(height: 24),
                   if (groups.isEmpty)
                     Padding(
-                      padding:
-                      const EdgeInsets
-                          .only(
-                        top: 24,
-                      ),
-                      child:
-                      Center(
-                        child:
-                        Column(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Center(
+                        child: Column(
                           children: [
                             const Icon(
-                              Icons
-                                  .receipt_long_outlined,
+                              Icons.receipt_long_outlined,
                               size: 64,
-                              color: Colors
-                                  .white24,
+                              color: Colors.white24,
                             ),
-                            const SizedBox(
-                              height: 16,
-                            ),
+                            const SizedBox(height: 16),
                             Text(
                               'Load stock data from the API to begin',
-                              style: Theme.of(
-                                context,
-                              )
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                color: Colors
-                                    .white54,
-                              ),
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(color: Colors.white54),
                             ),
                           ],
                         ),
@@ -2121,26 +1821,14 @@ class _StockUploadPageState extends State<StockUploadPage> {
                     )
                   else ...[
                     _buildApiInfoCard(),
-                    const SizedBox(
-                      height: 24,
-                    ),
+                    const SizedBox(height: 24),
                     _buildStatusSummary(),
-                    const SizedBox(
-                      height: 24,
-                    ),
+                    const SizedBox(height: 24),
                     _buildProgressSection(),
-                    const SizedBox(
-                      height: 24,
-                    ),
-                    _buildGroupsTable(
-                      isMobile,
-                    ),
-                    const SizedBox(
-                      height: 24,
-                    ),
-                    _buildActionButtons(
-                      isMobile,
-                    ),
+                    const SizedBox(height: 24),
+                    _buildGroupsTable(isMobile),
+                    const SizedBox(height: 24),
+                    _buildActionButtons(isMobile),
                   ],
                 ],
               ),
@@ -2322,139 +2010,67 @@ class _StockUploadPageState extends State<StockUploadPage> {
 
   Widget _buildApiSection() {
     return Container(
-      decoration:
-      BoxDecoration(
-        color:
-        const Color(0xFF22304A),
-        borderRadius:
-        BorderRadius.circular(
-          12,
-        ),
-        border: Border.all(
-          color: Colors.white12,
-        ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
       ),
-      padding:
-      const EdgeInsets.all(
-        20,
-      ),
-      child:
-      Column(
-        crossAxisAlignment:
-        CrossAxisAlignment
-            .start,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(
-                Icons
-                    .cloud_download_outlined,
-                color: apiLoading
-                    ? Colors.orange
-                    : Colors.lightBlue,
+                Icons.cloud_download_outlined,
+                color: apiLoading ? Colors.orange : Colors.lightBlue,
                 size: 24,
               ),
-              const SizedBox(
-                width: 12,
-              ),
+              const SizedBox(width: 12),
               Expanded(
-                child:
-                Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'API Stock Sync',
-                      style: Theme.of(
-                        context,
-                      )
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(
-                        color:
-                        Colors.white,
-                        fontWeight:
-                        FontWeight
-                            .w600,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(
-                      height: 4,
-                    ),
+                    const SizedBox(height: 4),
                     const Text(
                       'Load stock records and save them as stock transactions.',
-                      style:
-                      TextStyle(
-                        color:
-                        Colors.white54,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(
-            height: 16,
-          ),
+          const SizedBox(height: 16),
           SizedBox(
-            width:
-            double.infinity,
+            width: double.infinity,
             height: 48,
-            child:
-            OutlinedButton.icon(
-              style:
-              OutlinedButton
-                  .styleFrom(
-                foregroundColor:
-                Colors
-                    .tealAccent,
-                side:
-                const BorderSide(
-                  color:
-                  Colors
-                      .tealAccent,
-                ),
-                shape:
-                RoundedRectangleBorder(
-                  borderRadius:
-                  BorderRadius
-                      .circular(
-                    8,
-                  ),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.tealAccent,
+                side: const BorderSide(color: Colors.tealAccent),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed:
-              loading ||
-                  apiLoading
-                  ? null
-                  : _syncStockFromApi,
+              onPressed: loading || apiLoading ? null : _syncStockFromApi,
               icon: apiLoading
                   ? const SizedBox(
-                width: 18,
-                height: 18,
-                child:
-                CircularProgressIndicator(
-                  strokeWidth:
-                  2,
-                ),
-              )
-                  : const Icon(
-                Icons
-                    .cloud_download_outlined,
-              ),
-              label:
-              const Text(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_download_outlined),
+              label: const Text(
                 'Load Stock From API',
-                style:
-                TextStyle(
-                  fontSize: 16,
-                  fontWeight:
-                  FontWeight
-                      .w600,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -2469,67 +2085,32 @@ class _StockUploadPageState extends State<StockUploadPage> {
 
   Widget _buildApiInfoCard() {
     return Container(
-      decoration:
-      BoxDecoration(
-        color:
-        const Color(0xFF1B263B),
-        borderRadius:
-        BorderRadius.circular(
-          8,
-        ),
-        border: Border.all(
-          color: Colors.teal
-              .withOpacity(
-            0.3,
-          ),
-        ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.teal.withOpacity(0.3)),
       ),
-      padding:
-      const EdgeInsets.all(
-        16,
-      ),
-      child:
-      Row(
+      padding: const EdgeInsets.all(16),
+      child: Row(
         children: [
-          const Icon(
-            Icons.info_outline,
-            color:
-            Colors.teal,
-            size: 20,
-          ),
-          const SizedBox(
-            width: 12,
-          ),
+          const Icon(Icons.info_outline, color: Colors.teal, size: 20),
+          const SizedBox(width: 12),
           Expanded(
-            child:
-            Column(
-              crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'API Sync Details',
-                  style:
-                  TextStyle(
-                    color:
-                    Colors.white70,
-                    fontWeight:
-                    FontWeight
-                        .w600,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(
-                  height: 4,
-                ),
+                const SizedBox(height: 4),
                 Text(
                   fileInfo,
-                  style:
-                  const TextStyle(
-                    color:
-                    Colors.white54,
-                    fontSize: 13,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 13),
                 ),
               ],
             ),
@@ -2549,34 +2130,21 @@ class _StockUploadPageState extends State<StockUploadPage> {
         _buildStatusCard(
           'Success',
           successCount,
-          Colors.green
-              .withOpacity(
-            0.2,
-          ),
+          Colors.green.withOpacity(0.2),
           Colors.green,
         ),
-        const SizedBox(
-          width: 12,
-        ),
+        const SizedBox(width: 12),
         _buildStatusCard(
           'Errors',
           errorCount,
-          Colors.red
-              .withOpacity(
-            0.2,
-          ),
+          Colors.red.withOpacity(0.2),
           Colors.red,
         ),
-        const SizedBox(
-          width: 12,
-        ),
+        const SizedBox(width: 12),
         _buildStatusCard(
           'Pending',
           pendingCount,
-          Colors.orange
-              .withOpacity(
-            0.2,
-          ),
+          Colors.orange.withOpacity(0.2),
           Colors.orange,
         ),
       ],
@@ -2584,64 +2152,33 @@ class _StockUploadPageState extends State<StockUploadPage> {
   }
 
   Widget _buildStatusCard(
-      String label,
-      int count,
-      Color bgColor,
-      Color accentColor,
-      ) {
+    String label,
+    int count,
+    Color bgColor,
+    Color accentColor,
+  ) {
     return Expanded(
-      child:
-      Container(
-        decoration:
-        BoxDecoration(
-          color:
-          bgColor,
-          borderRadius:
-          BorderRadius.circular(
-            8,
-          ),
-          border:
-          Border.all(
-            color:
-            accentColor
-                .withOpacity(
-              0.5,
-            ),
-          ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: accentColor.withOpacity(0.5)),
         ),
-        padding:
-        const EdgeInsets
-            .symmetric(
-          vertical: 12,
-          horizontal: 16,
-        ),
-        child:
-        Column(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        child: Column(
           children: [
             Text(
               count.toString(),
-              style:
-              TextStyle(
-                color:
-                accentColor,
-                fontSize:
-                24,
-                fontWeight:
-                FontWeight
-                    .bold,
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(
-              height: 4,
-            ),
+            const SizedBox(height: 4),
             Text(
               label,
-              style:
-              const TextStyle(
-                color:
-                Colors.white70,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
         ),
@@ -2654,124 +2191,68 @@ class _StockUploadPageState extends State<StockUploadPage> {
   // ---------------------------------------------------------------------
 
   Widget _buildProgressSection() {
-    final label =
-    validating
-        ? 'Validating items & stock…'
+    final label = validating
+        ? 'Validating items & stock-'
         : 'Batch $currentBatchIndex of '
-        '$totalBatches • '
-        '${currentIndex}/${groups.length} processed';
+              '$totalBatches - '
+              '${currentIndex}/${groups.length} processed';
 
     return Column(
-      crossAxisAlignment:
-      CrossAxisAlignment
-          .start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment:
-          MainAxisAlignment
-              .spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              validating
-                  ? 'Validating'
-                  : 'Upload Progress',
-              style:
-              const TextStyle(
-                color:
-                Colors.white70,
-                fontWeight:
-                FontWeight
-                    .w600,
+              validating ? 'Validating' : 'Upload Progress',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
               ),
             ),
             if (!validating)
               Container(
-                padding:
-                const EdgeInsets
-                    .symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 4,
                 ),
-                decoration:
-                BoxDecoration(
-                  color: Colors
-                      .lightBlue
-                      .withOpacity(
-                    0.2,
-                  ),
-                  borderRadius:
-                  BorderRadius
-                      .circular(
-                    4,
-                  ),
+                decoration: BoxDecoration(
+                  color: Colors.lightBlue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                child:
-                Text(
+                child: Text(
                   '${(progress * 100).toStringAsFixed(0)}%',
-                  style:
-                  const TextStyle(
-                    color:
-                    Colors.lightBlue,
-                    fontWeight:
-                    FontWeight
-                        .w600,
+                  style: const TextStyle(
+                    color: Colors.lightBlue,
+                    fontWeight: FontWeight.w600,
                     fontSize: 12,
                   ),
                 ),
               ),
           ],
         ),
-        const SizedBox(
-          height: 12,
-        ),
+        const SizedBox(height: 12),
         ClipRRect(
-          borderRadius:
-          BorderRadius.circular(
-            8,
-          ),
-          child:
-          validating
+          borderRadius: BorderRadius.circular(8),
+          child: validating
               ? const LinearProgressIndicator(
-            minHeight: 8,
-            backgroundColor:
-            Colors
-                .white12,
-            valueColor:
-            AlwaysStoppedAnimation<
-                Color>(
-              Colors.orange,
-            ),
-          )
+                  minHeight: 8,
+                  backgroundColor: Colors.white12,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                )
               : LinearProgressIndicator(
-            value:
-            progress,
-            minHeight: 8,
-            backgroundColor:
-            Colors
-                .white12,
-            valueColor:
-            AlwaysStoppedAnimation<
-                Color>(
-              progress ==
-                  1.0
-                  ? Colors
-                  .green
-                  : Colors
-                  .lightBlue,
-            ),
-          ),
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor: Colors.white12,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    progress == 1.0 ? Colors.green : Colors.lightBlue,
+                  ),
+                ),
         ),
-        const SizedBox(
-          height: 8,
-        ),
+        const SizedBox(height: 8),
         Text(
           label,
-          style:
-          const TextStyle(
-            color:
-            Colors.white54,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
         ),
       ],
     );
@@ -2781,241 +2262,127 @@ class _StockUploadPageState extends State<StockUploadPage> {
   // GROUP TABLE
   // ---------------------------------------------------------------------
 
-  Widget _buildGroupsTable(
-      bool isMobile,
-      ) {
+  Widget _buildGroupsTable(bool isMobile) {
     return Container(
-      decoration:
-      BoxDecoration(
-        color:
-        const Color(0xFF1B263B),
-        borderRadius:
-        BorderRadius.circular(
-          8,
-        ),
-        border: Border.all(
-          color: Colors.white12,
-        ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
       ),
-      child:
-      ClipRRect(
-        borderRadius:
-        BorderRadius.circular(
-          8,
-        ),
-        child:
-        SingleChildScrollView(
-          scrollDirection:
-          Axis.horizontal,
-          child:
-          ConstrainedBox(
-            constraints:
-            BoxConstraints(
-              minWidth:
-              MediaQuery.of(
-                context,
-              ).size.width -
-                  32,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: MediaQuery.of(context).size.width - 32,
             ),
-            child:
-            DataTable(
-              headingRowColor:
-              WidgetStateColor
-                  .resolveWith(
-                    (_) =>
-                const Color(
-                  0xFF22304A,
-                ),
+            child: DataTable(
+              headingRowColor: WidgetStateColor.resolveWith(
+                (_) => const Color(0xFF22304A),
               ),
-              headingTextStyle:
-              const TextStyle(
-                color:
-                Colors.white70,
-                fontWeight:
-                FontWeight
-                    .w600,
+              headingTextStyle: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
                 fontSize: 12,
               ),
-              columns:
-              const [
-                DataColumn(
-                  label:
-                  Text('Ref'),
-                ),
-                DataColumn(
-                  label:
-                  Text('Mode'),
-                ),
-                DataColumn(
-                  label:
-                  Text('Items'),
-                ),
-                DataColumn(
-                  label:
-                  Text('Supplier'),
-                ),
-                DataColumn(
-                  label:
-                  Text('Status'),
-                ),
+              columns: const [
+                DataColumn(label: Text('Ref')),
+                DataColumn(label: Text('Mode')),
+                DataColumn(label: Text('Items')),
+                DataColumn(label: Text('Supplier')),
+                DataColumn(label: Text('Status')),
               ],
-              rows:
-              List.generate(
-                groups.length,
-                    (i) {
-                  final group =
-                  groups[i];
+              rows: List.generate(groups.length, (i) {
+                final group = groups[i];
 
-                  final status =
-                  groupStatus[i];
+                final status = groupStatus[i];
 
-                  final isError =
-                  status
-                      .startsWith(
-                    'error',
-                  );
+                final isError = status.startsWith('error');
 
-                  final isSuccess =
-                      status ==
-                          'success';
+                final isSuccess = status == 'success';
 
-                  return DataRow(
-                    color:
-                    WidgetStateColor
-                        .resolveWith(
-                          (_) =>
-                      isError
-                          ? Colors
-                          .red
-                          .withOpacity(
-                        0.12,
-                      )
-                          : isSuccess
-                          ? Colors
-                          .green
-                          .withOpacity(
-                        0.06,
-                      )
-                          : Colors
-                          .white
-                          .withOpacity(
-                        0.02,
+                return DataRow(
+                  color: WidgetStateColor.resolveWith(
+                    (_) => isError
+                        ? Colors.red.withOpacity(0.12)
+                        : isSuccess
+                        ? Colors.green.withOpacity(0.06)
+                        : Colors.white.withOpacity(0.02),
+                  ),
+                  cells: [
+                    DataCell(
+                      Text(
+                        group.receipt,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                    cells: [
-                      DataCell(
-                        Text(
-                          group
-                              .receipt,
-                          style:
-                          const TextStyle(
-                            color:
-                            Colors.white70,
-                            fontSize:
-                            12,
-                          ),
+                    DataCell(
+                      Text(
+                        group.first.get('transmode', 'cash'),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
                         ),
                       ),
-                      DataCell(
-                        Text(
-                          group
-                              .first
-                              .get(
-                            'transmode',
-                            'cash',
-                          ),
-                          style:
-                          const TextStyle(
-                            color:
-                            Colors.white54,
-                            fontSize:
-                            12,
-                          ),
+                    ),
+                    DataCell(
+                      Text(
+                        '${group.rows.length}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
                         ),
                       ),
-                      DataCell(
-                        Text(
-                          '${group.rows.length}',
-                          style:
-                          const TextStyle(
-                            color:
-                            Colors.white54,
-                            fontSize:
-                            12,
-                          ),
+                    ),
+                    DataCell(
+                      Text(
+                        group.first.get('tname', '-'),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
                         ),
                       ),
-                      DataCell(
-                        Text(
-                          group
-                              .first
-                              .get(
-                            'tname',
-                            '-',
-                          ),
-                          style:
-                          const TextStyle(
-                            color:
-                            Colors.white54,
-                            fontSize:
-                            12,
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Tooltip(
-                          message:
-                          status,
-                          child:
-                          isSuccess
-                              ? const Icon(
-                            Icons
-                                .check_circle,
-                            color:
-                            Colors.green,
-                            size:
-                            16,
-                          )
-                              : isError
-                              ? const Icon(
-                            Icons
-                                .error,
-                            color:
-                            Colors.red,
-                            size:
-                            16,
-                          )
-                              : status ==
-                              'processing'
-                              ? const SizedBox(
-                            width:
-                            16,
-                            height:
-                            16,
-                            child:
-                            CircularProgressIndicator(
-                              strokeWidth:
-                              2,
-                              valueColor:
-                              AlwaysStoppedAnimation<Color>(
-                                Colors.lightBlue,
+                    ),
+                    DataCell(
+                      Tooltip(
+                        message: status,
+                        child: isSuccess
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 16,
+                              )
+                            : isError
+                            ? const Icon(
+                                Icons.error,
+                                color: Colors.red,
+                                size: 16,
+                              )
+                            : status == 'processing'
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.lightBlue,
+                                  ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.schedule,
+                                color: Colors.orange,
+                                size: 16,
                               ),
-                            ),
-                          )
-                              : const Icon(
-                            Icons
-                                .schedule,
-                            color:
-                            Colors.orange,
-                            size:
-                            16,
-                          ),
-                        ),
                       ),
-                    ],
-                  );
-                },
-              ),
+                    ),
+                  ],
+                );
+              }),
             ),
           ),
         ),
@@ -3027,33 +2394,19 @@ class _StockUploadPageState extends State<StockUploadPage> {
   // ACTION BUTTONS
   // ---------------------------------------------------------------------
 
-  Widget _buildActionButtons(
-      bool isMobile,
-      ) {
+  Widget _buildActionButtons(bool isMobile) {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
-      alignment:
-      WrapAlignment.end,
+      alignment: WrapAlignment.end,
       children: [
-        if (groups.isNotEmpty &&
-            !loading)
+        if (groups.isNotEmpty && !loading)
           ElevatedButton.icon(
-            style:
-            ElevatedButton
-                .styleFrom(
-              backgroundColor:
-              Colors.grey
-                  .shade700,
-              foregroundColor:
-              Colors.white,
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius
-                    .circular(
-                  8,
-                ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
               elevation: 0,
             ),
@@ -3061,112 +2414,55 @@ class _StockUploadPageState extends State<StockUploadPage> {
               setState(() {
                 groups.clear();
                 groupStatus.clear();
-                fileInfo =
-                'Ready to load stock data from API.';
+                fileInfo = 'Ready to load stock data from API.';
               });
             },
-            icon:
-            const Icon(
-              Icons.clear,
-            ),
-            label:
-            const Text(
-              'Clear',
-            ),
+            icon: const Icon(Icons.clear),
+            label: const Text('Clear'),
           ),
         if (errorCount > 0)
           ElevatedButton.icon(
-            style:
-            ElevatedButton
-                .styleFrom(
-              backgroundColor:
-              Colors.red
-                  .shade700,
-              foregroundColor:
-              Colors.white,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
             ),
-            onPressed:
-            _showErrorsDialog,
-            icon:
-            const Icon(
-              Icons.error_outline,
-            ),
-            label: Text(
-              'View Errors ($errorCount)',
-            ),
+            onPressed: _showErrorsDialog,
+            icon: const Icon(Icons.error_outline),
+            label: Text('View Errors ($errorCount)'),
           ),
         SizedBox(
-          width: isMobile
-              ? double.infinity
-              : null,
-          child:
-          ElevatedButton
-              .icon(
-            style:
-            ElevatedButton
-                .styleFrom(
-              backgroundColor:
-              loading
-                  ? Colors.grey
-                  : Colors.lightBlue,
-              foregroundColor:
-              Colors.white,
-              shape:
-              RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius
-                    .circular(
-                  8,
-                ),
+          width: isMobile ? double.infinity : null,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: loading ? Colors.grey : Colors.lightBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
               elevation: 0,
-              padding:
-              EdgeInsets.symmetric(
-                horizontal:
-                isMobile
-                    ? 16
-                    : 24,
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 24,
                 vertical: 12,
               ),
             ),
-            onPressed:
-            (loading ||
-                groups.isEmpty)
-                ? null
-                : upload,
+            onPressed: (loading || groups.isEmpty) ? null : upload,
             icon: loading
                 ? const SizedBox(
-              width: 18,
-              height: 18,
-              child:
-              CircularProgressIndicator(
-                strokeWidth:
-                2,
-                valueColor:
-                AlwaysStoppedAnimation<
-                    Color>(
-                  Colors.white,
-                ),
-              ),
-            )
-                : const Icon(
-              Icons
-                  .cloud_upload,
-            ),
-            label:
-            Text(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.cloud_upload),
+            label: Text(
               validating
                   ? 'Validating...'
                   : loading
                   ? 'Uploading...'
                   : 'Start Upload',
-              style:
-              const TextStyle(
-                fontSize: 14,
-                fontWeight:
-                FontWeight
-                    .w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ),

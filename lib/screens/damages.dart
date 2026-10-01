@@ -7,6 +7,7 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
+import '../models/ReasonsModel.dart';
 import '../models/damageitem.dart';
 import '../models/itemmodel.dart';
 import '../providers/SalesProvider.dart';
@@ -22,6 +23,20 @@ class Damages extends StatefulWidget {
 }
 
 class _DamagesState extends State<Damages> {
+  bool _isSalesPointType(String? type) =>
+      (type ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
+      'salespoint';
+
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _dividerColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : Colors.white24;
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();
   final TextEditingController _itemController = TextEditingController();
@@ -53,7 +68,6 @@ class _DamagesState extends State<Damages> {
   Map<String, dynamic>? branchbalance;
   String? _selecteddamagereason;
 
-
   @override
   void initState() {
     super.initState();
@@ -81,7 +95,9 @@ class _DamagesState extends State<Damages> {
 
       var indexkeys = itemMap.keys.toList()..sort();
 
-      _damageItems = indexkeys.map((key) => Map<String, dynamic>.from(itemMap[key])).toList();
+      _damageItems = indexkeys
+          .map((key) => Map<String, dynamic>.from(itemMap[key]))
+          .toList();
       _syncTotals();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -90,8 +106,7 @@ class _DamagesState extends State<Damages> {
     } else {
       _damageItems = [];
       grandtotal = '0.0';
-     }
-
+    }
   }
 
   @override
@@ -108,6 +123,7 @@ class _DamagesState extends State<Damages> {
     _cppriceController.dispose();
     super.dispose();
   }
+
   void _syncTotals() {
     double total = 0;
 
@@ -124,6 +140,7 @@ class _DamagesState extends State<Damages> {
       _totalAmountController.text = grandtotal;
     });
   }
+
   Future<void> _scanBarcode() async {
     try {
       final result = await Navigator.push(
@@ -162,9 +179,13 @@ class _DamagesState extends State<Damages> {
       final qty = double.tryParse(_quantityController.text) ?? 0;
       final cp = double.tryParse(_cppriceController.text) ?? 0;
       if (_selectedCartonLeft <= 0) {
-
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No stock available for this item",style: TextStyle(color: Theme.of(context).colorScheme.surface),)),
+          SnackBar(
+            content: Text(
+              "No stock available for this item",
+              style: TextStyle(color: Theme.of(context).colorScheme.surface),
+            ),
+          ),
         );
         return;
       }
@@ -190,11 +211,9 @@ class _DamagesState extends State<Damages> {
       }
       String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-
       final mode = _getSelectedMode();
 
-      final modeQty =
-          double.tryParse(mode?.qty ?? '1') ?? 1;
+      final modeQty = double.tryParse(mode?.qty ?? '1') ?? 1;
 
       final totalPieces = qty * modeQty;
       final itemGrandTotal = cp * totalPieces;
@@ -211,7 +230,7 @@ class _DamagesState extends State<Damages> {
         'itemid': _selectedItem?.id ?? '',
         'barcode': _barcodeController.text,
         'cp': _cppriceController.text,
-        'reason': _selecteddamagereason??'',
+        'reason': _selecteddamagereason ?? '',
         'branchid': _branchid,
         'branchname': _branchname,
         'modeqty': mode?.qty ?? '1',
@@ -226,23 +245,37 @@ class _DamagesState extends State<Damages> {
         'week': week,
         'month': month,
         'year': year,
-        'boxpiece':_itemModes
-            ?.firstWhere(
-              (m) => m.name.toLowerCase() == 'carton',
-          orElse: () => Mode(id: '', name: '', qty: '1', cp: '', rp: '', wp: '', sp: ''),
-        )
-            .qty ?? '1',
+        'boxpiece':
+            _itemModes
+                ?.firstWhere(
+                  (m) => m.name.toLowerCase() == 'carton',
+                  orElse: () => Mode(
+                    id: '',
+                    name: '',
+                    qty: '1',
+                    cp: '',
+                    rp: '',
+                    wp: '',
+                    sp: '',
+                  ),
+                )
+                .qty ??
+            '1',
 
         'modes': _itemModes != null
-            ? { for (final m in _itemModes!) m.name: {
-          'id':   m.id,
-          'name': m.name,
-          'qty':  m.qty,
-          'cp':   m.cp,
-          'rp':   m.rp,
-          'wp':   m.wp,
-          'sp':   m.sp,
-        }}  : <String, dynamic>{},
+            ? {
+                for (final m in _itemModes!)
+                  m.name: {
+                    'id': m.id,
+                    'name': m.name,
+                    'qty': m.qty,
+                    'cp': m.cp,
+                    'rp': m.rp,
+                    'wp': m.wp,
+                    'sp': m.sp,
+                  },
+              }
+            : <String, dynamic>{},
       };
 
       setState(() {
@@ -258,7 +291,10 @@ class _DamagesState extends State<Damages> {
       _resetForm();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Item added to damages preview',style: TextStyle(color: Colors.white),),
+          content: Text(
+            'Item added to damages preview',
+            style: TextStyle(color: Colors.white),
+          ),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),
@@ -271,9 +307,8 @@ class _DamagesState extends State<Damages> {
 
     return _itemModes!.firstWhere(
       (m) => m.name.toLowerCase() == _selectedDamageMode!.toLowerCase(),
-      orElse: () => Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''
-
-      )
+      orElse: () =>
+          Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''),
     );
   }
 
@@ -312,7 +347,6 @@ class _DamagesState extends State<Damages> {
     setState(() {
       _selectedItem = null;
 
-
       _selectedDamageMode = null;
 
       _itemModes = null;
@@ -328,6 +362,7 @@ class _DamagesState extends State<Damages> {
     });
     _syncTotals();
   }
+
   void _recalculateGrandTotal() {
     double total = 0;
     for (final item in _damageItems) {
@@ -354,7 +389,7 @@ class _DamagesState extends State<Damages> {
 
     if (itemId.isNotEmpty) {
       final foundItem = datafeed.items.firstWhere(
-            (i) => i.id == itemId,
+        (i) => i.id == itemId,
         orElse: () => ItemModel.fromMap({'id': itemId}),
       );
       _selectItem(foundItem, datafeed);
@@ -370,7 +405,6 @@ class _DamagesState extends State<Damages> {
       _cppriceController.text = item['cp']?.toString() ?? '';
       _selecteddamagereason = item['reason']?.toString();
       _showSuggestions = false;
-
 
       double total = 0;
       for (final d in _damageItems) {
@@ -400,13 +434,13 @@ class _DamagesState extends State<Damages> {
     final mode = item.modes;
 
     final cartonMode = mode?.firstWhere(
-          (m) => m.name.toLowerCase() == 'carton',
+      (m) => m.name.toLowerCase() == 'carton',
       orElse: () =>
           Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''),
     );
 
     final singleMode = mode?.firstWhere(
-          (m) => m.name.toLowerCase() == 'single',
+      (m) => m.name.toLowerCase() == 'single',
       orElse: () =>
           Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''),
     );
@@ -419,26 +453,25 @@ class _DamagesState extends State<Damages> {
 
     List<Mode>? effectivePricing;
 
-    if (item.branchprices != null &&
-        item.branchprices!.containsKey(branchId)) {
+    if (item.branchprices != null && item.branchprices!.containsKey(branchId)) {
       final rawPricing = item.branchprices![branchId]['pricing'];
 
       if (rawPricing is List) {
         effectivePricing = (rawPricing)
             .map((e) {
-          final map = Map<String, dynamic>.from(e as Map);
-          final id = map['id']?.toString() ?? '';
-          return Mode.fromMap(id, map);
-        })
+              final map = Map<String, dynamic>.from(e as Map);
+              final id = map['id']?.toString() ?? '';
+              return Mode.fromMap(id, map);
+            })
             .cast<Mode>()
             .toList();
       } else if (rawPricing is Map) {
         effectivePricing = rawPricing.entries
             .map((entry) {
-          final id = entry.key.toString();
-          final map = Map<String, dynamic>.from(entry.value as Map);
-          return Mode.fromMap(id, map);
-        })
+              final id = entry.key.toString();
+              final map = Map<String, dynamic>.from(entry.value as Map);
+              return Mode.fromMap(id, map);
+            })
             .cast<Mode>()
             .toList();
       } else {
@@ -480,12 +513,121 @@ class _DamagesState extends State<Damages> {
     });
   }
 
+  Future<void> _addDamageReason(Datafeed datafeed) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var isSaving = false;
+    String? errorMessage;
+
+    try {
+      final reasonName = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Add Damage Reason'),
+            content: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Reason',
+                  errorText: errorMessage,
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a reason'
+                    : null,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+
+                        final name = controller.text.trim();
+                        ReasonsModel? existingReason;
+                        for (final reason in datafeed.returnitemreasons) {
+                          if (reason.name.toLowerCase() == name.toLowerCase()) {
+                            existingReason = reason;
+                            break;
+                          }
+                        }
+                        if (existingReason != null) {
+                          Navigator.of(dialogContext).pop(existingReason.name);
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isSaving = true;
+                          errorMessage = null;
+                        });
+
+                        try {
+                          final id = datafeed.normalizeAndSanitize(
+                            '${datafeed.companyid}$name',
+                          );
+                          final reason = ReasonsModel(
+                            name: name,
+                            staff: datafeed.staff,
+                            id: id,
+                            date: DateTime.now(),
+                            companyid: datafeed.companyid,
+                            company: datafeed.company,
+                          );
+
+                          await datafeed.db
+                              .collection('return_reasons')
+                              .doc(id)
+                              .set(reason.toMap());
+                          datafeed.returnitemreasons.add(reason);
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop(name);
+                          }
+                        } catch (error) {
+                          setDialogState(() {
+                            isSaving = false;
+                            errorMessage = 'Could not save reason: $error';
+                          });
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Add'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (reasonName != null && mounted) {
+        setState(() => _selecteddamagereason = reasonName);
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
 
   Future<void> _saveSale() async {
     if (_damageItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No items to save', style: TextStyle(color: Theme.of(context).colorScheme.surface)),
+          content: Text(
+            'No items to save',
+            style: TextStyle(color: Theme.of(context).colorScheme.surface),
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -504,7 +646,6 @@ class _DamagesState extends State<Damages> {
       final companyId = datafeed.companyid;
       final staffPosition = datafeed.staffPosition;
 
-
       final bool isEditing = widget.damageitem != null;
 
       final String docId;
@@ -518,9 +659,10 @@ class _DamagesState extends State<Damages> {
         docId = '${_branchid}_${staffPosition}_$timestamp'
             .toLowerCase()
             .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-        trnx = '${staffPosition}_$timestamp'
-            .toLowerCase()
-            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+        trnx = '${staffPosition}_$timestamp'.toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9_]'),
+          '',
+        );
       }
 
       final Map<String, dynamic> itemsMap = {};
@@ -553,7 +695,6 @@ class _DamagesState extends State<Damages> {
           .doc(docId)
           .set(damageitem.tomap(), SetOptions(merge: true));
 
-
       await datafeed.fetchdamages();
 
       if (!mounted) return;
@@ -561,7 +702,9 @@ class _DamagesState extends State<Damages> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isEditing ? 'Damage record updated successfully' : 'Damages recorded successfully',
+            isEditing
+                ? 'Damage record updated successfully'
+                : 'Damages recorded successfully',
             style: TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.green,
@@ -576,14 +719,17 @@ class _DamagesState extends State<Damages> {
         grandtotal = '0.00';
       });
 
-     if (isEditing && mounted) {
+      if (isEditing && mounted) {
         Navigator.pop(context);
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error saving damages: $e', style: TextStyle(color: Theme.of(context).colorScheme.surface)),
+          content: Text(
+            'Error saving damages: $e',
+            style: TextStyle(color: Theme.of(context).colorScheme.surface),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -592,6 +738,7 @@ class _DamagesState extends State<Damages> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
@@ -599,9 +746,9 @@ class _DamagesState extends State<Damages> {
         final accesslevel = value.accesslevel;
         final isSuperAdmin = accesslevel.toLowerCase().trim() == 'super admin';
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
+            backgroundColor: Theme.of(context).colorScheme.primary,
             tooltip: 'View Damages',
             child: const Icon(Icons.list),
             onPressed: () {
@@ -612,16 +759,14 @@ class _DamagesState extends State<Damages> {
             },
           ),
           appBar: AppBar(
-            title: Text( "Damages",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
+            title: const Text("Damages"),
             centerTitle: true,
-            backgroundColor: const Color(0xFF1B263B),
+            backgroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.surface
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            foregroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.onSurface
+                : Colors.white,
           ),
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -652,7 +797,7 @@ class _DamagesState extends State<Damages> {
                               SizedBox(
                                 width: itemWidth,
                                 child: Container(
-                                  color: Color(0xFF182232),
+                                  color: Theme.of(context).colorScheme.surface,
                                   //height: 600,
                                   child: Padding(
                                     padding: const EdgeInsets.all(16.0),
@@ -660,15 +805,15 @@ class _DamagesState extends State<Damages> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
+                                        Text(
                                           "Damages Entries",
                                           style: TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.white,
+                                            color: _textColor,
                                           ),
                                         ),
-                                        const Divider(color: Colors.white24),
+                                        Divider(color: _dividerColor),
                                         SizedBox(height: 15),
                                         Form(
                                           key: _formKey,
@@ -678,29 +823,45 @@ class _DamagesState extends State<Damages> {
                                                 TextFormField(
                                                   controller: _dateController,
                                                   readOnly: true,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
+                                                  style: TextStyle(
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.onSurface,
                                                   ),
                                                   decoration: _inputDecoration(
                                                     label: 'Date',
-                                                    prefix: Icons.calendar_today,
+                                                    prefix:
+                                                        Icons.calendar_today,
                                                     hint: 'yyyy-mm-dd',
                                                   ),
                                                   onTap: () async {
                                                     final picked = await showDatePicker(
                                                       context: context,
-                                                      initialDate: _selectedDate ?? DateTime.now(),
+                                                      initialDate:
+                                                          _selectedDate ??
+                                                          DateTime.now(),
                                                       firstDate: DateTime(2020),
                                                       lastDate: DateTime.now(),
                                                       builder: (context, child) {
                                                         return Theme(
                                                           data: Theme.of(context).copyWith(
-                                                            colorScheme: const ColorScheme.dark(
-                                                              primary: Colors.blue,
-                                                              onPrimary: Colors.white,
-                                                              surface: Color(0xFF22304A),
-                                                              onSurface: Colors.white,
-                                                            ),
+                                                            colorScheme:
+                                                                Theme.of(
+                                                                  context,
+                                                                ).colorScheme.copyWith(
+                                                                  primary:
+                                                                      Colors
+                                                                          .blue,
+                                                                  onPrimary:
+                                                                      Colors
+                                                                          .white,
+                                                                  surface: Color(
+                                                                    0xFF22304A,
+                                                                  ),
+                                                                  onSurface:
+                                                                      Colors
+                                                                          .white,
+                                                                ),
                                                           ),
                                                           child: child!,
                                                         );
@@ -708,66 +869,111 @@ class _DamagesState extends State<Damages> {
                                                     );
 
                                                     if (picked != null) {
-                                                      context.read<SalesProvider>().setSaleDate(picked);
+                                                      context
+                                                          .read<SalesProvider>()
+                                                          .setSaleDate(picked);
 
                                                       setState(() {
                                                         _selectedDate = picked;
                                                         _dateController.text =
-                                                        '${picked.year}-'
+                                                            '${picked.year}-'
                                                             '${picked.month.toString().padLeft(2, '0')}-'
                                                             '${picked.day.toString().padLeft(2, '0')}';
                                                       });
                                                     }
                                                   },
-
-
                                                 ),
                                               ],
                                               SizedBox(height: 10),
                                               DropdownButtonFormField<String>(
                                                 isExpanded: true,
-                                                value: value.branches.any((b) => b.id == value.branchid)
+                                                value:
+                                                    value.branches.any(
+                                                      (b) =>
+                                                          b.id ==
+                                                              value.branchid &&
+                                                          !_isSalesPointType(
+                                                            b.branchtype,
+                                                          ),
+                                                    )
                                                     ? value.branchid
                                                     : null,
-                                                dropdownColor: const Color(0xFF22304A,),
-                                                style: const TextStyle(color: Colors.white, ),
+                                                dropdownColor: Theme.of(
+                                                  context,
+                                                ).colorScheme.surface,
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                ),
                                                 decoration: InputDecoration(
                                                   labelText: 'Branch',
-                                                  labelStyle: const TextStyle(
-                                                    color: Colors.white70,
+                                                  labelStyle: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                                   ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
-                                                    BorderRadius.circular(
-                                                      12,
-                                                    ),
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
                                                   ),
                                                   enabledBorder:
-                                                  OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular( 12, ),
-                                                    borderSide:  const BorderSide(
-                                                      color: Colors.white24,
-                                                    ),
-                                                  ),
+                                                      OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.outline,
+                                                        ),
+                                                      ),
                                                   focusedBorder:
-                                                  OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(12, ),
-                                                    borderSide:  const BorderSide(
-                                                      color:  Colors.blue,
-                                                    ),
-                                                  ),
-                                                  fillColor: const Color(0xFF22304A, ),
+                                                      OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ),
+                                                      ),
+                                                  fillColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
                                                   filled: true,
                                                 ),
-                                                items: value.branches.map((branch) {
-                                                  return DropdownMenuItem<String>(
-                                                    value: branch.id,
-                                                    child: Text(
-                                                      branch.branchname,
-                                                      style: const TextStyle(color: Colors.white),
-                                                    ),
-                                                  );
-                                                }).toList(),
+                                                items: value.branches
+                                                    .where(
+                                                      (branch) =>
+                                                          !_isSalesPointType(
+                                                            branch.branchtype,
+                                                          ),
+                                                    )
+                                                    .map((branch) {
+                                                      return DropdownMenuItem<
+                                                        String
+                                                      >(
+                                                        value: branch.id,
+                                                        child: Text(
+                                                          branch.branchname,
+                                                          style: TextStyle(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .onSurface,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    })
+                                                    .toList(),
 
                                                 onChanged: (val) {
                                                   if (val != null) {
@@ -775,24 +981,35 @@ class _DamagesState extends State<Damages> {
 
                                                     setState(() {
                                                       _branchid = val;
-                                                      _branchname = value.branches
-                                                          .firstWhere((b) => b.id == val)
+                                                      _branchname = value
+                                                          .branches
+                                                          .firstWhere(
+                                                            (b) =>
+                                                                b.id == val &&
+                                                                !_isSalesPointType(
+                                                                  b.branchtype,
+                                                                ),
+                                                          )
                                                           .branchname;
                                                     });
 
                                                     if (_selectedItem != null) {
-                                                      _selectItem(_selectedItem, value);
+                                                      _selectItem(
+                                                        _selectedItem,
+                                                        value,
+                                                      );
                                                     }
 
-
-                                                    _formKey.currentState?.validate();
+                                                    _formKey.currentState
+                                                        ?.validate();
                                                   }
                                                 },
 
-                                                validator: (val) =>
-                                                val == null ? 'Please select Branch' : null,
+                                                validator: (val) => val == null
+                                                    ? 'Please select Branch'
+                                                    : null,
                                               ),
-                                              SizedBox(height: 10,),
+                                              SizedBox(height: 10),
                                               Row(
                                                 children: [
                                                   Expanded(
@@ -800,48 +1017,54 @@ class _DamagesState extends State<Damages> {
                                                       controller:
                                                           _barcodeController,
                                                       style: TextStyle(
-                                                        color: Colors.white,
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onSurface,
                                                       ),
                                                       decoration: InputDecoration(
                                                         labelText: 'Barcode',
-                                                        labelStyle:
-                                                            const TextStyle(
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
+                                                        labelStyle: TextStyle(
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurfaceVariant,
+                                                        ),
                                                         border: OutlineInputBorder(
                                                           borderRadius:
                                                               BorderRadius.circular(
                                                                 12,
                                                               ),
                                                         ),
-                                                        enabledBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .white24,
-                                                                  ),
-                                                            ),
-                                                        focusedBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .blue,
-                                                                  ),
-                                                            ),
-                                                        fillColor: const Color(
-                                                          0xFF22304A,
+                                                        enabledBorder: OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .outline,
+                                                          ),
                                                         ),
+                                                        focusedBorder: OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          ),
+                                                        ),
+                                                        fillColor: Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest,
                                                         filled: true,
                                                       ),
                                                       validator: (value) =>
@@ -855,21 +1078,24 @@ class _DamagesState extends State<Damages> {
                                                   Container(
                                                     height: 56,
                                                     decoration: BoxDecoration(
-                                                      color: const Color(
-                                                        0xFF22304A,
-                                                      ),
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .surfaceContainerHighest,
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             12,
                                                           ),
                                                       border: Border.all(
-                                                        color: Colors.white24,
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.outline,
                                                       ),
                                                     ),
                                                     child: IconButton(
-                                                      icon: const Icon(
+                                                      icon: Icon(
                                                         Icons.qr_code_scanner,
-                                                        color: Colors.white70,
+                                                        color:
+                                                            _secondaryTextColor,
                                                       ),
                                                       onPressed: _scanBarcode,
                                                       tooltip:
@@ -878,20 +1104,39 @@ class _DamagesState extends State<Damages> {
                                                   ),
                                                 ],
                                               ),
-                                              if (_showSuggestions &&  _editingIndex == null)
-                                                value.loading ? const Center(
-                                                 child: CircularProgressIndicator(
-                                                        color: Colors.blue,
-                                                        strokeWidth: 2,
-                                                         ),
+                                              if (_showSuggestions &&
+                                                  _editingIndex == null)
+                                                value.loading
+                                                    ? Center(
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary,
+                                                              strokeWidth: 2,
+                                                            ),
                                                       )
                                                     : (() {
-                                                     final query =_searchQuery.toLowerCase();
+                                                        final query =
+                                                            _searchQuery
+                                                                .toLowerCase();
 
-                                                    final filteredItems = query.isEmpty ? value.items
-                                                            : value.items.where((item,) {
-                                                                    final name = (item.name).toLowerCase();
-                                                                    final barcode = (item.barcode).toLowerCase();
+                                                        final filteredItems =
+                                                            query.isEmpty
+                                                            ? value.items
+                                                            : value.items
+                                                                  .where((
+                                                                    item,
+                                                                  ) {
+                                                                    final name =
+                                                                        (item.name)
+                                                                            .toLowerCase();
+                                                                    final barcode =
+                                                                        (item.barcode)
+                                                                            .toLowerCase();
                                                                     final company =
                                                                         (item.company)
                                                                             .toLowerCase();
@@ -926,23 +1171,33 @@ class _DamagesState extends State<Damages> {
                                                                 top: 4,
                                                               ),
                                                           decoration: BoxDecoration(
-                                                            color: const Color(
-                                                              0xFF22304A,
-                                                            ),
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .surface,
                                                             borderRadius:
                                                                 BorderRadius.circular(
                                                                   8,
                                                                 ),
                                                             border: Border.all(
-                                                              color: Colors.blue
-                                                                  .withOpacity(
-                                                                    0.3,
-                                                                  ),
+                                                              color: Theme.of(context)
+                                                                  .colorScheme
+                                                                  .outlineVariant,
                                                             ),
-                                                            boxShadow: const [
+                                                            boxShadow: [
                                                               BoxShadow(
-                                                                color: Colors
-                                                                    .black26,
+                                                                color:
+                                                                    Theme.of(
+                                                                          context,
+                                                                        )
+                                                                        .colorScheme
+                                                                        .shadow
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.12,
+                                                                        ),
                                                                 blurRadius: 8,
                                                                 offset: Offset(
                                                                   0,
@@ -961,15 +1216,34 @@ class _DamagesState extends State<Damages> {
                                                                 filteredItems
                                                                     .length,
                                                             itemBuilder: (context, index) {
-                                                              final item = filteredItems[index];
-                                                              final branchId = _branchid;
-                                                              final branchbalance =item.branchbalance?[branchId] as Map<String, dynamic>? ?? {};
+                                                              final item =
+                                                                  filteredItems[index];
+                                                              final branchId =
+                                                                  _branchid;
+                                                              final branchbalance =
+                                                                  item.branchbalance?[branchId]
+                                                                      as Map<
+                                                                        String,
+                                                                        dynamic
+                                                                      >? ??
+                                                                  {};
 
-                                                              final double   netPieces = (branchbalance['netpieces'] as num?) ?.toDouble() ??   0.0;
+                                                              final double
+                                                              netPieces =
+                                                                  (branchbalance['netpieces']
+                                                                          as num?)
+                                                                      ?.toDouble() ??
+                                                                  0.0;
 
-                                                              final mode =   item.modes;
+                                                              final mode =
+                                                                  item.modes;
 
-                                                              final cartonMode = mode?.firstWhere((m) => m.name.toLowerCase() == 'carton',
+                                                              final cartonMode =
+                                                                  mode?.firstWhere(
+                                                                    (m) =>
+                                                                        m.name
+                                                                            .toLowerCase() ==
+                                                                        'carton',
                                                                     orElse: () => Mode(
                                                                       id: '',
                                                                       name: '',
@@ -981,7 +1255,12 @@ class _DamagesState extends State<Damages> {
                                                                     ),
                                                                   );
 
-                                                              final singleMode = mode?.firstWhere((m) => m.name.toLowerCase() =='single',
+                                                              final singleMode =
+                                                                  mode?.firstWhere(
+                                                                    (m) =>
+                                                                        m.name
+                                                                            .toLowerCase() ==
+                                                                        'single',
                                                                     orElse: () => Mode(
                                                                       id: '',
                                                                       name: '',
@@ -993,25 +1272,39 @@ class _DamagesState extends State<Damages> {
                                                                     ),
                                                                   );
 
-                                                              final boxQty =  double.tryParse( cartonMode ?.qty ?? singleMode ?.qty ?? '1',);
+                                                              final boxQty =
+                                                                  double.tryParse(
+                                                                    cartonMode
+                                                                            ?.qty ??
+                                                                        singleMode
+                                                                            ?.qty ??
+                                                                        '1',
+                                                                  );
 
-                                                              final double  cartonsLeft =  boxQty! > 0  ? (netPieces /  boxQty) : 0.0;
+                                                              final double
+                                                              cartonsLeft =
+                                                                  boxQty! > 0
+                                                                  ? (netPieces /
+                                                                        boxQty)
+                                                                  : 0.0;
 
                                                               return ListTile(
                                                                 dense: true,
-                                                                leading: const Icon(
+                                                                leading: Icon(
                                                                   Icons
                                                                       .inventory_2,
-                                                                  color: Colors
-                                                                      .blue,
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.primary,
                                                                   size: 20,
                                                                 ),
                                                                 title: Text(
                                                                   item?.name ??
                                                                       '',
-                                                                  style: const TextStyle(
-                                                                    color: Colors
-                                                                        .white,
+                                                                  style: TextStyle(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.onSurface,
                                                                     fontSize:
                                                                         14,
                                                                     fontWeight:
@@ -1021,18 +1314,20 @@ class _DamagesState extends State<Damages> {
                                                                 ),
                                                                 subtitle: Text(
                                                                   'Barcode: ${item.barcode} | Retail Price: GHS ${item.cp} | Boxes Balance: ${cartonsLeft.toStringAsFixed(2)} | Pieces: ${netPieces.toStringAsFixed(0)}',
-                                                                  style: const TextStyle(
-                                                                    color: Colors
-                                                                        .white70,
+                                                                  style: TextStyle(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.onSurfaceVariant,
                                                                     fontSize:
                                                                         11,
                                                                   ),
                                                                 ),
-                                                                trailing: const Icon(
+                                                                trailing: Icon(
                                                                   Icons
                                                                       .arrow_forward_ios,
-                                                                  color: Colors
-                                                                      .white54,
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.onSurfaceVariant,
                                                                   size: 14,
                                                                 ),
                                                                 onTap: () {
@@ -1047,17 +1342,20 @@ class _DamagesState extends State<Damages> {
                                                         );
                                                       })(),
 
-
                                               SizedBox(height: 10),
                                               TextFormField(
                                                 controller: _itemController,
                                                 style: TextStyle(
-                                                  color: Colors.white,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                 ),
                                                 decoration: InputDecoration(
                                                   labelText: 'Item',
-                                                  labelStyle: const TextStyle(
-                                                    color: Colors.white70,
+                                                  labelStyle: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                                   ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
@@ -1071,11 +1369,11 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color: Colors
-                                                                  .white24,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.outline,
+                                                        ),
                                                       ),
                                                   focusedBorder:
                                                       OutlineInputBorder(
@@ -1083,15 +1381,15 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color:
-                                                                  Colors.blue,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ),
                                                       ),
-                                                  fillColor: const Color(
-                                                    0xFF22304A,
-                                                  ),
+                                                  fillColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
                                                   filled: true,
                                                 ),
                                                 validator: (value) =>
@@ -1103,16 +1401,20 @@ class _DamagesState extends State<Damages> {
                                               SizedBox(height: 10),
                                               DropdownButtonFormField<String>(
                                                 value: _selectedDamageMode,
-                                                dropdownColor: const Color(
-                                                  0xFF22304A,
-                                                ),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
+                                                dropdownColor: Theme.of(
+                                                  context,
+                                                ).colorScheme.surface,
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                 ),
                                                 decoration: InputDecoration(
                                                   labelText: 'Sales Mode',
-                                                  labelStyle: const TextStyle(
-                                                    color: Colors.white70,
+                                                  labelStyle: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                                   ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
@@ -1126,11 +1428,11 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color: Colors
-                                                                  .white24,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.outline,
+                                                        ),
                                                       ),
                                                   focusedBorder:
                                                       OutlineInputBorder(
@@ -1138,20 +1440,23 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color:
-                                                                  Colors.blue,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ),
                                                       ),
-                                                  fillColor: const Color(
-                                                    0xFF22304A,
-                                                  ),
+                                                  fillColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
                                                   filled: true,
                                                 ),
-                                                items: _damageMode.isEmpty  ? null
+                                                items: _damageMode.isEmpty
+                                                    ? null
                                                     : _damageMode.map((type) {
-                                                        return DropdownMenuItem<String>(
+                                                        return DropdownMenuItem<
+                                                          String
+                                                        >(
                                                           value: type,
                                                           child: Text(type),
                                                         );
@@ -1162,9 +1467,11 @@ class _DamagesState extends State<Damages> {
                                                   });
 
                                                   _updateTotals();
-                                                  _formKey.currentState?.validate();
+                                                  _formKey.currentState
+                                                      ?.validate();
                                                 },
-                                                validator: (value) => value == null
+                                                validator: (value) =>
+                                                    value == null
                                                     ? 'Please select sales mode'
                                                     : null,
                                               ),
@@ -1172,12 +1479,16 @@ class _DamagesState extends State<Damages> {
                                               TextFormField(
                                                 controller: _cppriceController,
                                                 style: TextStyle(
-                                                  color: Colors.white,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
                                                 ),
                                                 decoration: InputDecoration(
                                                   labelText: 'Cost price',
-                                                  labelStyle: const TextStyle(
-                                                    color: Colors.white70,
+                                                  labelStyle: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                                   ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
@@ -1191,31 +1502,38 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color: Colors
-                                                                  .white24,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.outline,
+                                                        ),
                                                       ),
                                                   focusedBorder:
                                                       OutlineInputBorder(
                                                         borderRadius:
-                                                            BorderRadius.circular(         12,
+                                                            BorderRadius.circular(
+                                                              12,
                                                             ),
-                                                        borderSide:  const BorderSide(
-                                                              color: Colors.blue,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ),
                                                       ),
-                                                  fillColor: const Color(
-                                                    0xFF22304A,
-                                                  ),
+                                                  fillColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
                                                   filled: true,
                                                 ),
                                                 inputFormatters: [
                                                   FilteringTextInputFormatter.allow(
-                                                    _selectedDamageMode?.toLowerCase() == 'single'
+                                                    _selectedDamageMode
+                                                                ?.toLowerCase() ==
+                                                            'single'
                                                         ? RegExp(r'^\d*$')
-                                                        : RegExp(r'^\d*\.?\d*$'),
+                                                        : RegExp(
+                                                            r'^\d*\.?\d*$',
+                                                          ),
                                                   ),
                                                 ],
                                                 validator: (value) {
@@ -1237,94 +1555,31 @@ class _DamagesState extends State<Damages> {
                                               SizedBox(height: 10),
                                               TextFormField(
                                                 controller: _quantityController,
-                                               style: const TextStyle( color: Colors.white,),
-                                                keyboardType: const TextInputType.numberWithOptions(decimal: true, ),
-                                                inputFormatters: [
-                                                    FilteringTextInputFormatter.allow(
-                                                      _selectedDamageMode =='Single' ? RegExp(r'^\d*$')
-                                                          : RegExp(r'^\d*\.?\d*$',),
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                ),
+                                                keyboardType:
+                                                    const TextInputType.numberWithOptions(
+                                                      decimal: true,
                                                     ),
-                                                  ],
+                                                inputFormatters: [
+                                                  FilteringTextInputFormatter.allow(
+                                                    _selectedDamageMode ==
+                                                            'Single'
+                                                        ? RegExp(r'^\d*$')
+                                                        : RegExp(
+                                                            r'^\d*\.?\d*$',
+                                                          ),
+                                                  ),
+                                                ],
                                                 decoration: InputDecoration(
                                                   labelText: 'Quantity',
-                                                  labelStyle: const TextStyle(
-                                                    color: Colors.white70,
-                                                  ),
-                                                  border: OutlineInputBorder(
-                                                    borderRadius:
-                                                    BorderRadius.circular(
-                                                      12,
-                                                    ),
-                                                  ),
-                                                  enabledBorder: OutlineInputBorder(
-                                                    borderRadius:
-                                                    BorderRadius.circular(
-                                                      12,
-                                                    ),
-                                                    borderSide:
-                                                    const BorderSide(
-                                                      color: Colors
-                                                          .white24,
-                                                    ),
-                                                  ),
-                                                  focusedBorder:  OutlineInputBorder(
-                                                    borderRadius:
-                                                    BorderRadius.circular(
-                                                      12,
-                                                    ),
-                                                    borderSide:
-                                                    const BorderSide(
-                                                      color:
-                                                      Colors.blue,
-                                                    ),
-                                                  ),
-                                                  fillColor: const Color(
-                                                    0xFF22304A,
-                                                  ),
-                                                  filled: true,
-                                                ),
-                                                onChanged: (value) {
-                                                  // validate instantly when user types
-                                                  _formKey.currentState?.validate();
-                                                },
-                                                validator: (value) {
-                                                  if (value == null || value.isEmpty) {
-                                                    return "Enter quantity";
-                                                  }
-
-                                                  final qty = double.tryParse(value) ?? 0;
-
-                                                  if (_selectedCartonLeft <= 0) {
-                                                    return "Item not available in $_branchname branch";
-                                                  }
-
-                                                  if (_selectedDamageMode?.toLowerCase() == 'single' &&
-                                                      qty > _singleLeft) {
-                                                    return "Only ${_singleLeft.toStringAsFixed(0)} available in $_branchname branch";
-                                                  }
-
-                                                  if (_selectedDamageMode?.toLowerCase() == 'carton' &&
-                                                      qty > _selectedCartonLeft) {
-                                                    return "Only ${_selectedCartonLeft.toStringAsFixed(2)} available in $_branchname branch";
-                                                  }
-
-                                                  return null;
-                                                },
-                                              ),
-                                              SizedBox(height: 10),
-                                              DropdownButtonFormField<String>(
-                                                value:
-                                                    value.selectedSupplier?.id,
-                                                dropdownColor: const Color(
-                                                  0xFF22304A,
-                                                ),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                ),
-                                                decoration: InputDecoration(
-                                                  labelText: 'Supplier',
-                                                  labelStyle: const TextStyle(
-                                                    color: Colors.white70,
+                                                  labelStyle: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                                   ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
@@ -1338,11 +1593,11 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color: Colors
-                                                                  .white24,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.outline,
+                                                        ),
                                                       ),
                                                   focusedBorder:
                                                       OutlineInputBorder(
@@ -1350,15 +1605,107 @@ class _DamagesState extends State<Damages> {
                                                             BorderRadius.circular(
                                                               12,
                                                             ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color:
-                                                                  Colors.blue,
-                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ),
                                                       ),
-                                                  fillColor: const Color(
-                                                    0xFF22304A,
+                                                  fillColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
+                                                  filled: true,
+                                                ),
+                                                onChanged: (value) {
+                                                  // validate instantly when user types
+                                                  _formKey.currentState
+                                                      ?.validate();
+                                                },
+                                                validator: (value) {
+                                                  if (value == null ||
+                                                      value.isEmpty) {
+                                                    return "Enter quantity";
+                                                  }
+
+                                                  final qty =
+                                                      double.tryParse(value) ??
+                                                      0;
+
+                                                  if (_selectedCartonLeft <=
+                                                      0) {
+                                                    return "Item not available in $_branchname branch";
+                                                  }
+
+                                                  if (_selectedDamageMode
+                                                              ?.toLowerCase() ==
+                                                          'single' &&
+                                                      qty > _singleLeft) {
+                                                    return "Only ${_singleLeft.toStringAsFixed(0)} available in $_branchname branch";
+                                                  }
+
+                                                  if (_selectedDamageMode
+                                                              ?.toLowerCase() ==
+                                                          'carton' &&
+                                                      qty >
+                                                          _selectedCartonLeft) {
+                                                    return "Only ${_selectedCartonLeft.toStringAsFixed(2)} available in $_branchname branch";
+                                                  }
+
+                                                  return null;
+                                                },
+                                              ),
+                                              SizedBox(height: 10),
+                                              DropdownButtonFormField<String>(
+                                                value:
+                                                    value.selectedSupplier?.id,
+                                                dropdownColor: Theme.of(
+                                                  context,
+                                                ).colorScheme.surface,
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                ),
+                                                decoration: InputDecoration(
+                                                  labelText: 'Supplier',
+                                                  labelStyle: TextStyle(
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
                                                   ),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                  ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.outline,
+                                                        ),
+                                                      ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color: Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ),
+                                                      ),
+                                                  fillColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
                                                   filled: true,
                                                 ),
                                                 items: value.suppliers.map((
@@ -1382,53 +1729,128 @@ class _DamagesState extends State<Damages> {
                                                     : null,
                                               ),
                                               SizedBox(height: 10),
-                                              DropdownButtonFormField<String>(
-                                                value: value.returnitemreasons.any(
-                                                      (r) => r.name == _selecteddamagereason,
-                                                )
-                                                    ? _selecteddamagereason
-                                                    : null,
-                                                dropdownColor: const Color(0xFF22304A),
-                                                style: const TextStyle(color: Colors.white),
-                                                iconEnabledColor: Colors.white70,
-                                                decoration: InputDecoration(
-                                                  labelText: 'Damage Reason',
-                                                  labelStyle: const TextStyle(color: Colors.white70),
-                                                  border: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  enabledBorder: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    borderSide: const BorderSide(color: Colors.white24),
-                                                  ),
-                                                  focusedBorder: OutlineInputBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                    borderSide: const BorderSide(color: Colors.blue),
-                                                  ),
-                                                  fillColor: const Color(0xFF22304A),
-                                                  filled: true,
-                                                ),
-                                                items: value.returnitemreasons.map((reason) {
-                                                  return DropdownMenuItem<String>(
-                                                    value: reason.name,
-                                                    child: Text(
-                                                      reason.name,
-                                                      style: const TextStyle(color: Colors.white),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: DropdownButtonFormField<String>(
+                                                      value:
+                                                          value
+                                                              .returnitemreasons
+                                                              .any(
+                                                                (r) =>
+                                                                    r.name ==
+                                                                    _selecteddamagereason,
+                                                              )
+                                                          ? _selecteddamagereason
+                                                          : null,
+                                                      dropdownColor:
+                                                          Theme.of(context)
+                                                              .colorScheme
+                                                              .surfaceContainerHighest,
+                                                      style: TextStyle(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onSurface,
+                                                      ),
+                                                      iconEnabledColor:
+                                                          _secondaryTextColor,
+                                                      decoration: InputDecoration(
+                                                        labelText:
+                                                            'Damage Reason',
+                                                        labelStyle: TextStyle(
+                                                          color: Theme.of(context)
+                                                              .colorScheme
+                                                              .onSurfaceVariant,
+                                                        ),
+                                                        border: OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                        ),
+                                                        enabledBorder: OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .outline,
+                                                          ),
+                                                        ),
+                                                        focusedBorder: OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          ),
+                                                        ),
+                                                        fillColor: Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest,
+                                                        filled: true,
+                                                      ),
+                                                      items: value.returnitemreasons.map((
+                                                        reason,
+                                                      ) {
+                                                        return DropdownMenuItem<
+                                                          String
+                                                        >(
+                                                          value: reason.name,
+                                                          child: Text(
+                                                            reason.name,
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .onSurface,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }).toList(),
+                                                      onChanged: (val) {
+                                                        setState(() {
+                                                          _selecteddamagereason =
+                                                              val;
+                                                        });
+                                                      },
+                                                      validator: (val) =>
+                                                          val == null ||
+                                                              val.isEmpty
+                                                          ? 'Please select damage reason'
+                                                          : null,
                                                     ),
-                                                  );
-                                                }).toList(),
-                                                onChanged: (val) {
-                                                  setState(() {
-                                                    _selecteddamagereason = val;
-                                                  });
-                                                },
-                                                validator: (val) =>
-                                                val == null || val.isEmpty ? 'Please select damage reason' : null,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  IconButton(
+                                                    tooltip:
+                                                        'Add damage reason',
+                                                    onPressed: () =>
+                                                        _addDamageReason(value),
+                                                    icon: const Icon(
+                                                      Icons.add_circle_outline,
+                                                    ),
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  ),
+                                                ],
                                               ),
                                               SizedBox(height: 10),
-                                              const Divider(
-                                                color: Colors.white24,
-                                              ),
+                                              Divider(color: _dividerColor),
                                               Wrap(
                                                 spacing: 10,
                                                 runSpacing: 10,
@@ -1437,17 +1859,35 @@ class _DamagesState extends State<Damages> {
                                                     width: 150,
                                                     child: ElevatedButton(
                                                       style: ElevatedButton.styleFrom(
-                                                        backgroundColor: Colors.lightBlue,
-                                                        padding:  const EdgeInsets.symmetric( vertical: 16, ),
+                                                        backgroundColor:
+                                                            _isLightTheme
+                                                            ? Theme.of(context)
+                                                                  .colorScheme
+                                                                  .primary
+                                                            : const Color(
+                                                                0xFF405A78,
+                                                              ),
+                                                        foregroundColor:
+                                                            _isLightTheme
+                                                            ? Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onPrimary
+                                                            : Colors.white,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 16,
+                                                            ),
                                                         shape: RoundedRectangleBorder(
-                                                          borderRadius: BorderRadius.circular(8,),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
                                                         ),
                                                       ),
-                                                      onPressed: _addToSalesPreview,
-                                                      child: Text( "Save Record",
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                        ),
+                                                      onPressed:
+                                                          _addToSalesPreview,
+                                                      child: Text(
+                                                        "Save Record",
                                                       ),
                                                     ),
                                                   ),
@@ -1457,6 +1897,12 @@ class _DamagesState extends State<Damages> {
                                                       style: ElevatedButton.styleFrom(
                                                         backgroundColor:
                                                             Colors.orangeAccent,
+                                                        foregroundColor:
+                                                            _isLightTheme
+                                                            ? Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface
+                                                            : Colors.white,
                                                         padding:
                                                             const EdgeInsets.symmetric(
                                                               vertical: 16,
@@ -1469,12 +1915,7 @@ class _DamagesState extends State<Damages> {
                                                         ),
                                                       ),
                                                       onPressed: _resetForm,
-                                                      child: Text(
-                                                        "Reset",
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
+                                                      child: Text("Reset"),
                                                     ),
                                                   ),
                                                 ],
@@ -1492,7 +1933,9 @@ class _DamagesState extends State<Damages> {
                                 child: SizedBox(
                                   width: itemWidth,
                                   child: Container(
-                                    color: Color(0xFF182232),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surface,
                                     //height: 300,
                                     child: Padding(
                                       padding: const EdgeInsets.all(16.0),
@@ -1504,17 +1947,17 @@ class _DamagesState extends State<Damages> {
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
                                             children: [
-                                              const Text(
+                                              Text(
                                                 "Damages Preview",
                                                 style: TextStyle(
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
+                                                  color: _textColor,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          const Divider(color: Colors.white24),
+                                          Divider(color: _dividerColor),
                                           SizedBox(height: 15),
 
                                           Table(
@@ -1546,11 +1989,30 @@ class _DamagesState extends State<Damages> {
                                               ) {
                                                 final index = entry.key;
                                                 final item = entry.value;
-                                                final modeqty = double.tryParse(item['modeqty']?.toString() ?? '1', ) ?? 1;
-                                                final quantity =  double.tryParse(item['quantity'] ?.toString() ?? '0', ) ??  0;
-                                                final totalpieces =  modeqty * quantity;
-                                                final itemCost = double.tryParse( item['cp']?.toString() ?? '0',) ?? 0;
-                                                final costprice =  itemCost * totalpieces;
+                                                final modeqty =
+                                                    double.tryParse(
+                                                      item['modeqty']
+                                                              ?.toString() ??
+                                                          '1',
+                                                    ) ??
+                                                    1;
+                                                final quantity =
+                                                    double.tryParse(
+                                                      item['quantity']
+                                                              ?.toString() ??
+                                                          '0',
+                                                    ) ??
+                                                    0;
+                                                final totalpieces =
+                                                    modeqty * quantity;
+                                                final itemCost =
+                                                    double.tryParse(
+                                                      item['cp']?.toString() ??
+                                                          '0',
+                                                    ) ??
+                                                    0;
+                                                final costprice =
+                                                    itemCost * totalpieces;
 
                                                 return _tableRowWithAction(
                                                   (index + 1).toString(),
@@ -1559,8 +2021,11 @@ class _DamagesState extends State<Damages> {
                                                   item['quantity'] ?? '0',
                                                   item['cp'] ?? '0',
                                                   costprice.toStringAsFixed(2),
-                                                  () => _removeFromSalesPreview(index,),
-                                                  onEdit: () => _editCartItem(index),
+                                                  () => _removeFromSalesPreview(
+                                                    index,
+                                                  ),
+                                                  onEdit: () =>
+                                                      _editCartItem(index),
                                                 );
                                               }),
 
@@ -1690,21 +2155,27 @@ class _DamagesState extends State<Damages> {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white54),
-      prefixIcon: prefix != null ? Icon(prefix, color: Colors.white70) : null,
+      hintStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      prefixIcon: prefix != null
+          ? Icon(prefix, color: Theme.of(context).colorScheme.onSurfaceVariant)
+          : null,
       suffixIcon: suffix,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
       ),
-      fillColor: const Color(0xFF22304A),
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       filled: true,
     );
   }
@@ -1720,7 +2191,7 @@ class _DamagesState extends State<Damages> {
                 textAlign: isHeader ? TextAlign.center : TextAlign.left,
                 style: TextStyle(
                   fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-                  color: Colors.white,
+                  color: _textColor,
                 ),
               ),
             ),
@@ -1740,7 +2211,7 @@ class _DamagesState extends State<Damages> {
     bool isInsufficient = false,
     VoidCallback? onEdit,
   }) {
-    final textColor = isInsufficient ? Colors.redAccent : Colors.white;
+    final textColor = isInsufficient ? Colors.redAccent : _textColor;
     return TableRow(
       decoration: isInsufficient
           ? BoxDecoration(color: Colors.red.withOpacity(0.12))
@@ -1919,7 +2390,8 @@ class MobileSalesPreview extends StatelessWidget {
     for (var item in cartItems) {
       final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
       final modeqty = double.tryParse(item['modeqty']?.toString() ?? '1') ?? 1;
-      final quantity = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+      final quantity =
+          double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
 
       final totalpieces = modeqty * quantity;
 
@@ -1931,20 +2403,24 @@ class MobileSalesPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textColor = theme.colorScheme.onSurface;
+    final secondaryTextColor = theme.colorScheme.onSurfaceVariant;
+    final dividerColor = theme.colorScheme.outlineVariant;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(color: Color(0xFF182232)),
+      decoration: BoxDecoration(color: theme.colorScheme.surface),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            children: const [
+            children: [
               SizedBox(width: 8),
               Text(
                 "Damages Preview",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: textColor,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1952,7 +2428,7 @@ class MobileSalesPreview extends StatelessWidget {
             ],
           ),
 
-          const Divider(color: Colors.white24, height: 20),
+          Divider(color: dividerColor, height: 20),
 
           const SizedBox(height: 12),
 
@@ -1962,30 +2438,24 @@ class MobileSalesPreview extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             itemCount: cartItems.length,
             separatorBuilder: (_, __) =>
-                const Divider(color: Colors.white10, thickness: 1, height: 16),
+                Divider(color: dividerColor, thickness: 1, height: 16),
             itemBuilder: (context, index) {
               final item = cartItems[index];
-              return _cartItem(item, index);
+              return _cartItem(item, index, context: context);
             },
           ),
 
           const SizedBox(height: 20),
-          const Divider(color: Colors.white24),
+          Divider(color: dividerColor),
 
           /// TOTAL
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Total Amount",
-                style: TextStyle(color: Colors.white70),
-              ),
+              Text("Total Amount", style: TextStyle(color: secondaryTextColor)),
               Text(
-                "GHC ${_calculateTotal().toStringAsFixed(2)}",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                "GHS ${_calculateTotal().toStringAsFixed(2)}",
+                style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -2001,28 +2471,26 @@ class MobileSalesPreview extends StatelessWidget {
                 width: 150,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   onPressed: isLoading ? null : saveSale,
-                  child: isLoading   ?
-                  const SizedBox(
-                   height: 20,
-                   width: 20,
-                   child: CircularProgressIndicator(
-                   strokeWidth: 2,
-                   color: Colors.white,
-                      ),
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text(
-                            "Save",
-                            style: TextStyle(color: Colors.white, fontSize: 12),
-                          ),
+                          child: Text("Save"),
                         ),
                 ),
               ),
@@ -2037,6 +2505,7 @@ class MobileSalesPreview extends StatelessWidget {
   Widget _cartItem(
     Map<String, dynamic> item,
     int index, {
+    required BuildContext context,
     bool isInsufficient = false,
   }) {
     final name = (item['item'] ?? '').toString();
@@ -2049,8 +2518,13 @@ class MobileSalesPreview extends StatelessWidget {
 
     final total = price * totalpieces;
     final total1 = price * (qty * _parseDouble(modeqty));
-    final primaryColor = isInsufficient ? Colors.redAccent : Colors.white;
-    final secondaryColor = isInsufficient ? Colors.redAccent : Colors.white60;
+    final theme = Theme.of(context);
+    final primaryColor = isInsufficient
+        ? Colors.redAccent
+        : theme.colorScheme.onSurface;
+    final secondaryColor = isInsufficient
+        ? Colors.redAccent
+        : theme.colorScheme.onSurfaceVariant;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2066,8 +2540,12 @@ class MobileSalesPreview extends StatelessWidget {
             radius: 18,
             backgroundColor: isInsufficient
                 ? Colors.red.withOpacity(0.25)
-                : Colors.white24,
-            child: const Icon(Icons.inventory_2, size: 18, color: Colors.white),
+                : theme.colorScheme.surfaceContainerHighest,
+            child: Icon(
+              Icons.inventory_2,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
 
           const SizedBox(width: 10),
@@ -2086,7 +2564,7 @@ class MobileSalesPreview extends StatelessWidget {
                       style: TextStyle(color: primaryColor, fontSize: 14),
                     ),
                     Text(
-                      "GHC ${price.toStringAsFixed(2)}",
+                      "GHS ${price.toStringAsFixed(2)}",
                       style: TextStyle(color: primaryColor),
                     ),
                   ],
@@ -2130,7 +2608,7 @@ class MobileSalesPreview extends StatelessWidget {
                       style: TextStyle(color: secondaryColor, fontSize: 12),
                     ),
                     Text(
-                      "GHC ${total1.toStringAsFixed(2)}",
+                      "GHS ${total1.toStringAsFixed(2)}",
                       style: TextStyle(color: primaryColor),
                     ),
                   ],

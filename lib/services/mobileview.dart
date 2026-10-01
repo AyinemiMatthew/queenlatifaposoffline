@@ -68,12 +68,12 @@
 //           const Divider(color: Colors.white24, height: 30),
 //
 //
-//           _row("Taxable Amount", "GHC 17.66"),
+//           _row("Taxable Amount", "GHS 17.66"),
 //
 //
 //           const SizedBox(height: 6),
 //
-//           _rowBold("Payable Amount", "GHC 18.36"),
+//           _rowBold("Payable Amount", "GHS 18.36"),
 //
 //           const SizedBox(height: 18),
 //           Wrap(
@@ -200,7 +200,7 @@
 //           //     ),
 //           //     onPressed: () {},
 //           //     child: const Text(
-//           //       "Charge GHC 18.36",
+//           //       "Charge GHS 18.36",
 //           //       style: TextStyle(fontSize: 18),
 //           //     ),
 //           //   ),
@@ -229,7 +229,7 @@
 //                 children: [
 //                   Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
 //                   Text(
-//                     "GHC ${price.toStringAsFixed(2)}",
+//                     "GHS ${price.toStringAsFixed(2)}",
 //                     style: const TextStyle(color: Colors.white),
 //                   ),
 //                 ],

@@ -24,15 +24,16 @@ class NewStock extends StatefulWidget {
 
 class _NewStockState extends State<NewStock> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _invoicenumberController =TextEditingController();
+  final TextEditingController _invoicenumberController =
+      TextEditingController();
   final TextEditingController _waybillController = TextEditingController();
   final TextEditingController _contactController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
 
   String? _selectedPurchaseType;
   String? _selectedpaymentaccount;
-  String method="";
-  Map<String,List<String>> linkedAccounts={};
+  String method = "";
+  Map<String, List<String>> linkedAccounts = {};
   List<String> _linkedAccounts = [];
   String? _selectedAccount;
 
@@ -45,8 +46,9 @@ class _NewStockState extends State<NewStock> {
   String _selectedPaymentMethod = '';
   bool get isCashPurchase => _selectedPurchaseType == 'Cash';
   bool get isCreditOrOpeningStock =>
-      _selectedPurchaseType == 'Credit' || _selectedPurchaseType == 'Opening Stock';
-  String paymentMethod='';
+      _selectedPurchaseType == 'Credit' ||
+      _selectedPurchaseType == 'Opening Stock';
+  String paymentMethod = '';
 
   @override
   void initState() {
@@ -55,7 +57,7 @@ class _NewStockState extends State<NewStock> {
       final provider = Provider.of<Datafeed>(context, listen: false);
       provider.fetchBranches();
       provider.fetchSuppliers();
-      paymentaccount=provider.allowedPaymentMethods;
+      paymentaccount = provider.allowedPaymentMethods;
 
       if (widget.data != null) {
         final customadata = widget.data!;
@@ -64,7 +66,6 @@ class _NewStockState extends State<NewStock> {
           provider.selectBranch(branchId);
         }
       }
-
     });
 
     if (widget.data != null) {
@@ -85,15 +86,15 @@ class _NewStockState extends State<NewStock> {
       _pendingHeader = widget.data;
     }
     _fetchPaymentMethods();
-
-
   }
 
   void _fetchPaymentMethods() async {
     try {
       final datafeed = context.read<Datafeed>();
-      final snapshot = await datafeed.db.collection('paymentaccounts').where('companyId',isEqualTo: datafeed.companyid).get();
-
+      final snapshot = await datafeed.db
+          .collection('paymentaccounts')
+          .where('companyId', isEqualTo: datafeed.companyid)
+          .get();
 
       for (var doc in snapshot.docs) {
         final map = doc.data();
@@ -105,20 +106,15 @@ class _NewStockState extends State<NewStock> {
           linkedAccounts[method] = accounts;
         }
       }
-
     } catch (e) {
       print("error:$e");
-
     } finally {
       print("error:loading payment accounts");
-
     }
   }
 
-
   void _resetToNewStock() {
     setState(() {
-
       _showStockItems = false;
       _pendingHeader = {};
       widget.docId == null;
@@ -141,6 +137,30 @@ class _NewStockState extends State<NewStock> {
     super.dispose();
   }
 
+  ColorScheme get _colorScheme => Theme.of(context).colorScheme;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _pageBackground =>
+      _isLightTheme ? const Color(0xFFF5F6F8) : const Color(0xFF101A23);
+  Color get _appBarBackground =>
+      _isLightTheme ? _colorScheme.surface : const Color(0xFF0D1A26);
+  Color get _cardBackground =>
+      _isLightTheme ? _colorScheme.surface : const Color(0xFF182232);
+  Color get _inputBackground => _isLightTheme
+      ? _colorScheme.surfaceContainerHighest
+      : const Color(0xFF22304A);
+  Color get _textColor => _isLightTheme ? _colorScheme.onSurface : Colors.white;
+  Color get _mutedTextColor =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white70;
+  Color get _hintTextColor =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white54;
+  Color get _borderColor =>
+      _isLightTheme ? _colorScheme.outlineVariant : Colors.white24;
+  Color get _accentColor => _isLightTheme ? _colorScheme.primary : Colors.blue;
+  Color get _proceedColor =>
+      _isLightTheme ? _colorScheme.primary : const Color(0xFF415A77);
+  Color get _proceedForeground =>
+      _isLightTheme ? _colorScheme.onPrimary : Colors.white;
+
   InputDecoration _inputDecoration({
     required String label,
     IconData? prefix,
@@ -149,56 +169,46 @@ class _NewStockState extends State<NewStock> {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: _textColor),
+      floatingLabelStyle: TextStyle(color: _textColor),
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white54),
-      prefixIcon: prefix != null ? Icon(prefix, color: Colors.white70) : null,
+      hintStyle: TextStyle(color: _hintTextColor),
+      prefixIcon: prefix != null ? Icon(prefix, color: _mutedTextColor) : null,
       suffixIcon: suffix,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: _borderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: _accentColor),
       ),
-      fillColor: const Color(0xFF22304A),
+      fillColor: _inputBackground,
       filled: true,
     );
   }
 
   Widget _twoCol(BuildContext context, Widget a, Widget b) {
-    final width = MediaQuery.of(context).size.width;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 600) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [a, const SizedBox(height: 12), b],
+          );
+        }
 
-    if (width < 600) {
-      return Column(
-        children: [
-          SizedBox(width: double.infinity, child: a),
-          const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: b),
-        ],
-      );
-    } else if (width < 1024) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Expanded(child: a),
-          const SizedBox(width: 12),
-          Expanded(child: b),
-        ],
-      );
-    } else {
-      return Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        alignment: WrapAlignment.start,
-        children: [
-          SizedBox(width: 320, child: a),
-          SizedBox(width: 320, child: b),
-        ],
-      );
-    }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: a),
+            const SizedBox(width: 12),
+            Expanded(child: b),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildLinkedAccountDropdown({required bool enabled}) {
@@ -209,43 +219,41 @@ class _NewStockState extends State<NewStock> {
     final String hintMessage = !enabled
         ? 'Disabled'
         : !hasMethod
-            ? 'Select payment method first'
-            : !hasAccounts
-                ? 'No accounts available'
-                : 'Select payment account';
+        ? 'Select payment method first'
+        : !hasAccounts
+        ? 'No accounts available'
+        : 'Select payment account';
 
     return DropdownButtonFormField<String>(
       value: _selectedAccount,
-      hint: Text(
-        hintMessage,
-        style: const TextStyle(color: Colors.white),
-      ),
+      hint: Text(hintMessage, style: TextStyle(color: _textColor)),
       decoration: InputDecoration(
         labelText: 'Payment Account',
-        prefixIcon: const Icon(
+        prefixIcon: Icon(
           Icons.account_balance_outlined,
-          color: Colors.white70,
+          color: _mutedTextColor,
         ),
-        labelStyle: const TextStyle(color: Colors.white70),
+        labelStyle: TextStyle(color: _textColor),
+        floatingLabelStyle: TextStyle(color: _textColor),
         hintText: hintMessage,
-        hintStyle: const TextStyle(color: Colors.white38),
+        hintStyle: TextStyle(color: _hintTextColor),
         filled: true,
-        fillColor: const Color(0xFF182232),
+        fillColor: _cardBackground,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(color: _accentColor, width: 2),
         ),
       ),
-      dropdownColor: const Color(0xFF182232),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: _cardBackground,
+      style: TextStyle(color: _textColor),
 
       onChanged: canChange
           ? (value) {
@@ -261,10 +269,8 @@ class _NewStockState extends State<NewStock> {
           child: Text(accountName),
         );
       }).toList(),
-
     );
   }
-
 
   Widget _buildDropdown({
     required String label,
@@ -278,33 +284,30 @@ class _NewStockState extends State<NewStock> {
       value: value,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.white70),
-        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(icon, color: _mutedTextColor),
+        labelStyle: TextStyle(color: _textColor),
+        floatingLabelStyle: TextStyle(color: _textColor),
         filled: true,
-        fillColor: const Color(0xFF182232),
+        fillColor: _cardBackground,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(color: _accentColor, width: 2),
         ),
       ),
-      dropdownColor: const Color(0xFF182232),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: _cardBackground,
+      style: TextStyle(color: _textColor),
       items: items.map((String item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(item),
-        );
+        return DropdownMenuItem<String>(value: item, child: Text(item));
       }).toList(),
       onChanged: onChanged,
-
     );
   }
 
@@ -332,7 +335,8 @@ class _NewStockState extends State<NewStock> {
 
         final selectedSupplierId = value.selectedSupplier?.id;
         final selectedBranchId = value.selectedBranch?.id;
-        final supplierValue =selectedSupplierId != null &&
+        final supplierValue =
+            selectedSupplierId != null &&
                 supplierIds.contains(selectedSupplierId)
             ? selectedSupplierId
             : null;
@@ -342,13 +346,13 @@ class _NewStockState extends State<NewStock> {
             : null;
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: _pageBackground,
           appBar: AppBar(
             title: Text(
               widget.docId != null ? "EDIT STOCK ENTRY" : "NEW STOCK ENTRY",
             ),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
+            backgroundColor: _appBarBackground,
+            foregroundColor: _textColor,
             elevation: 2,
           ),
           body: Padding(
@@ -388,7 +392,7 @@ class _NewStockState extends State<NewStock> {
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 700),
                               child: Card(
-                                color: const Color(0xFF182232),
+                                color: _cardBackground,
                                 elevation: 6,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -406,7 +410,7 @@ class _NewStockState extends State<NewStock> {
                                       Text(
                                         "Header Details",
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: _textColor,
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                           letterSpacing: 0.3,
@@ -416,7 +420,7 @@ class _NewStockState extends State<NewStock> {
                                       Text(
                                         "Provide the invoice, supplier and branch information for this stock entry.",
                                         style: TextStyle(
-                                          color: Colors.white70,
+                                          color: _mutedTextColor,
                                           fontSize: 12,
                                         ),
                                       ),
@@ -426,9 +430,7 @@ class _NewStockState extends State<NewStock> {
                                         context,
                                         TextFormField(
                                           controller: _invoicenumberController,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
+                                          style: TextStyle(color: _textColor),
                                           decoration: _inputDecoration(
                                             label: 'Invoice Number',
                                             prefix: Icons.receipt,
@@ -436,9 +438,7 @@ class _NewStockState extends State<NewStock> {
                                         ),
                                         TextFormField(
                                           controller: _waybillController,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
+                                          style: TextStyle(color: _textColor),
                                           decoration: _inputDecoration(
                                             label: 'Waybill Number',
                                             prefix: Icons.local_shipping,
@@ -450,9 +450,13 @@ class _NewStockState extends State<NewStock> {
                                       DropdownSearch<String>(
                                         selectedItem: supplierValue,
 
-                                        items: (filter, infiniteScrollProps) => uniqueSuppliers
-                                            .map<String>((supplier) => supplier.id.toString())
-                                            .toList(),
+                                        items: (filter, infiniteScrollProps) =>
+                                            uniqueSuppliers
+                                                .map<String>(
+                                                  (supplier) =>
+                                                      supplier.id.toString(),
+                                                )
+                                                .toList(),
 
                                         decoratorProps: DropDownDecoratorProps(
                                           decoration: _inputDecoration(
@@ -464,49 +468,74 @@ class _NewStockState extends State<NewStock> {
                                         popupProps: PopupProps.menu(
                                           showSearchBox: true,
 
-                                          searchFieldProps: const TextFieldProps(
-                                            style: TextStyle(color: Colors.black),
+                                          searchFieldProps: TextFieldProps(
+                                            style: TextStyle(color: _textColor),
                                             decoration: InputDecoration(
                                               hintText: 'Search supplier...',
-                                              hintStyle: TextStyle(color: Colors.black),
+                                              hintStyle: TextStyle(
+                                                color: _hintTextColor,
+                                              ),
+                                              filled: true,
+                                              fillColor: _inputBackground,
                                             ),
                                           ),
 
-                                          menuProps: const MenuProps(
-                                            backgroundColor: Color(0xFF22304A),
+                                          menuProps: MenuProps(
+                                            backgroundColor: _inputBackground,
                                           ),
 
-                                          itemBuilder: (context, item, isDisabled, isSelected) {
-                                            final supplierData = uniqueSuppliers.firstWhere(
-                                                  (e) => e.id.toString() == item,
-                                            );
+                                          itemBuilder:
+                                              (
+                                                context,
+                                                item,
+                                                isDisabled,
+                                                isSelected,
+                                              ) {
+                                                final supplierData =
+                                                    uniqueSuppliers.firstWhere(
+                                                      (e) =>
+                                                          e.id.toString() ==
+                                                          item,
+                                                    );
 
-                                            return ListTile(
-                                              title: Text(
-                                                supplierData.supplier.toString(),
-                                                style: const TextStyle(color: Colors.white),
-                                              ),
-                                            );
-                                          },
+                                                return ListTile(
+                                                  title: Text(
+                                                    supplierData.supplier
+                                                        .toString(),
+                                                    style: TextStyle(
+                                                      color: _textColor,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                         ),
 
-                                        dropdownBuilder: (context, selectedItem) {
-                                          if (selectedItem == null) {
-                                            return const Text(
-                                              'Select Supplier',
-                                              style: TextStyle(color: Colors.white70),
-                                            );
-                                          }
+                                        dropdownBuilder:
+                                            (context, selectedItem) {
+                                              if (selectedItem == null) {
+                                                return Text(
+                                                  'Select Supplier',
+                                                  style: TextStyle(
+                                                    color: _mutedTextColor,
+                                                  ),
+                                                );
+                                              }
 
-                                          final supplierData = uniqueSuppliers.firstWhere(
-                                                (e) => e.id.toString() == selectedItem,
-                                          );
+                                              final supplierData =
+                                                  uniqueSuppliers.firstWhere(
+                                                    (e) =>
+                                                        e.id.toString() ==
+                                                        selectedItem,
+                                                  );
 
-                                          return Text(
-                                            supplierData.supplier.toString(),
-                                            style: const TextStyle(color: Colors.white),
-                                          );
-                                        },
+                                              return Text(
+                                                supplierData.supplier
+                                                    .toString(),
+                                                style: TextStyle(
+                                                  color: _textColor,
+                                                ),
+                                              );
+                                            },
 
                                         onSelected: (val) {
                                           if (val != null) {
@@ -514,16 +543,17 @@ class _NewStockState extends State<NewStock> {
                                           }
                                         },
 
-                                        validator: (val) =>
-                                        val == null ? 'Please select Supplier' : null,
+                                        validator: (val) => val == null
+                                            ? 'Please select Supplier'
+                                            : null,
                                       ),
                                       const SizedBox(height: 14),
                                       _twoCol(
                                         context,
                                         DropdownButtonFormField<String>(
                                           value: _selectedPurchaseType,
-                                          dropdownColor: const Color(0xFF22304A),
-                                          style: const TextStyle(color: Colors.white),
+                                          dropdownColor: _inputBackground,
+                                          style: TextStyle(color: _textColor),
                                           decoration: _inputDecoration(
                                             label: 'Purchase Mode',
                                             prefix: Icons.payment,
@@ -546,7 +576,8 @@ class _NewStockState extends State<NewStock> {
                                             });
                                           },
                                           validator: (value) {
-                                            if (value == null || value.isEmpty) {
+                                            if (value == null ||
+                                                value.isEmpty) {
                                               return 'Please select purchase mode';
                                             }
                                             return null;
@@ -565,18 +596,21 @@ class _NewStockState extends State<NewStock> {
                                               ? null
                                               : (value) {
                                                   setState(() {
-                                                    _selectedPaymentMethod = value ?? '';
+                                                    _selectedPaymentMethod =
+                                                        value ?? '';
                                                     _selectedAccount = null;
 
-                                                    if (value != null && value.isNotEmpty) {
-                                                      _linkedAccounts = linkedAccounts[value]!.toList();
+                                                    if (value != null &&
+                                                        value.isNotEmpty) {
+                                                      _linkedAccounts =
+                                                          linkedAccounts[value]!
+                                                              .toList();
                                                     } else {
                                                       _linkedAccounts = [];
                                                     }
                                                   });
                                                 },
                                         ),
-
                                       ),
                                       const SizedBox(height: 14),
                                       _buildLinkedAccountDropdown(
@@ -589,26 +623,33 @@ class _NewStockState extends State<NewStock> {
                                         context,
                                         DropdownButtonFormField<String>(
                                           value: branchValue,
-                                          dropdownColor: const Color(
-                                            0xFF22304A,
-                                          ),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
+                                          dropdownColor: _inputBackground,
+                                          style: TextStyle(color: _textColor),
                                           decoration: _inputDecoration(
                                             label: 'Branch',
                                             prefix: Icons.location_city,
                                           ),
-                                          items: (
-                                              value.accesslevel == 'super admin'
-                                                  ? uniqueBranches // show all branches
-                                                  : uniqueBranches.where((branch) => branch.id == value.branchid) // only user branch
-                                          ).map((branch){
-                                            return DropdownMenuItem<String>(
-                                              value: branch.id,
-                                              child: Text(branch.branchname),
-                                            );
-                                          }).toList(),
+                                          items:
+                                              (value.accesslevel ==
+                                                          'super admin'
+                                                      ? uniqueBranches // show all branches
+                                                      : uniqueBranches.where(
+                                                          (branch) =>
+                                                              branch.id ==
+                                                              value.branchid,
+                                                        ) // only user branch
+                                                        )
+                                                  .map((branch) {
+                                                    return DropdownMenuItem<
+                                                      String
+                                                    >(
+                                                      value: branch.id,
+                                                      child: Text(
+                                                        branch.branchname,
+                                                      ),
+                                                    );
+                                                  })
+                                                  .toList(),
                                           onChanged: (val) {
                                             if (val != null)
                                               value.selectBranch(val);
@@ -620,9 +661,7 @@ class _NewStockState extends State<NewStock> {
                                         TextFormField(
                                           controller: _dateController,
                                           readOnly: true,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                          ),
+                                          style: TextStyle(color: _textColor),
                                           decoration: _inputDecoration(
                                             label: 'Date',
                                             prefix: Icons.calendar_today,
@@ -639,19 +678,14 @@ class _NewStockState extends State<NewStock> {
                                               lastDate: DateTime(2100),
                                               builder: (context, child) {
                                                 return Theme(
-                                                  data: Theme.of(context).copyWith(
-                                                    colorScheme:
-                                                        const ColorScheme.dark(
-                                                          primary: Colors.blue,
-                                                          onPrimary:
-                                                              Colors.white,
-                                                          surface: Color(
-                                                            0xFF22304A,
-                                                          ),
-                                                          onSurface:
-                                                              Colors.white,
-                                                        ),
-                                                  ),
+                                                  data: Theme.of(context)
+                                                      .copyWith(
+                                                        colorScheme: _colorScheme
+                                                            .copyWith(
+                                                              primary:
+                                                                  _accentColor,
+                                                            ),
+                                                      ),
                                                   child: child!,
                                                 );
                                               },
@@ -682,9 +716,10 @@ class _NewStockState extends State<NewStock> {
                                               height: 48,
                                               child: ElevatedButton.icon(
                                                 style: ElevatedButton.styleFrom(
-                                                  backgroundColor: const Color(
-                                                    0xFF415A77,
-                                                  ),
+                                                  backgroundColor:
+                                                      _proceedColor,
+                                                  foregroundColor:
+                                                      _proceedForeground,
                                                   shape: RoundedRectangleBorder(
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -709,44 +744,83 @@ class _NewStockState extends State<NewStock> {
                                                                 .text
                                                                 .trim();
 
-                                                        String waybillnumber = _waybillController.text.trim().isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : _waybillController.text.trim();                                                        String purchasetype =
+                                                        String waybillnumber =
+                                                            _waybillController
+                                                                .text
+                                                                .trim()
+                                                                .isEmpty
+                                                            ? DateTime.now()
+                                                                  .millisecondsSinceEpoch
+                                                                  .toString()
+                                                            : _waybillController
+                                                                  .text
+                                                                  .trim();
+                                                        String purchasetype =
                                                             _selectedPurchaseType!;
                                                         DateTime? invoicedate =
                                                             _selectedDate;
-                                                        final branchId = value.selectedBranch
+                                                        final branchId =
+                                                            value
+                                                                .selectedBranch
                                                                 ?.id ??
                                                             '';
-                                                        final branchName = value.selectedBranch
+                                                        final branchName =
+                                                            value
+                                                                .selectedBranch
                                                                 ?.branchname ??
                                                             '';
-                                                        final docid = value.normalizeAndSanitize(
+                                                        final docid = value
+                                                            .normalizeAndSanitize(
                                                               "${value.companyid}${DateTime.now().millisecondsSinceEpoch}${value.staffPosition}",
                                                             );
 
                                                         final headerData = {
-                                                          'paymentaccount':_selectedAccount,
-                                                          'invoice': invoicenumber,
-                                                          'invoicedate': invoicedate,
-                                                          'waybill': waybillnumber,
-                                                          'supplierid': value.selectedSupplier ?.id ?? '',
-                                                          'suppliername': value.selectedSupplier ?.supplier ?? '',
+                                                          'paymentaccount':
+                                                              _selectedAccount,
+                                                          'invoice':
+                                                              invoicenumber,
+                                                          'invoicedate':
+                                                              invoicedate,
+                                                          'waybill':
+                                                              waybillnumber,
+                                                          'supplierid':
+                                                              value
+                                                                  .selectedSupplier
+                                                                  ?.id ??
+                                                              '',
+                                                          'suppliername':
+                                                              value
+                                                                  .selectedSupplier
+                                                                  ?.supplier ??
+                                                              '',
                                                           'branchid': branchId,
-                                                          'branchname': branchName,
-                                                          'purchasetype': purchasetype,
+                                                          'branchname':
+                                                              branchName,
+                                                          'purchasetype':
+                                                              purchasetype,
                                                           'docid': docid,
-                                                          'createdat': DateTime.now(),
-                                                          'createdby': value.staff,
-                                                          'companyid': value.companyid,
-                                                          'company': value.company,
-                                                          'staffbranchid': value.branchid,
-                                                          'staffbranch': value.branch,
+                                                          'createdat':
+                                                              DateTime.now(),
+                                                          'createdby':
+                                                              value.staff,
+                                                          'companyid':
+                                                              value.companyid,
+                                                          'company':
+                                                              value.company,
+                                                          'staffbranchid':
+                                                              value.branchid,
+                                                          'staffbranch':
+                                                              value.branch,
                                                         };
 
                                                         try {
-                                                          if (widget.docId == null) {
+                                                          if (widget.docId ==
+                                                              null) {
                                                             setState(() {
-                                                              _pendingHeader = headerData;
-                                                              _showStockItems = true;
+                                                              _pendingHeader =
+                                                                  headerData;
+                                                              _showStockItems =
+                                                                  true;
                                                             });
                                                             FocusScope.of(
                                                               context,
@@ -777,19 +851,19 @@ class _NewStockState extends State<NewStock> {
                                                         Icons.arrow_forward,
                                                       ),
                                                 label: _loading
-                                                    ? const SizedBox(
+                                                    ? SizedBox(
                                                         width: 20,
                                                         height: 20,
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
+                                                        child: CircularProgressIndicator(
+                                                          color:
+                                                              _proceedForeground,
+                                                        ),
                                                       )
                                                     : Text(
                                                         "Proceed",
-                                                        style: const TextStyle(
-                                                          color: Colors.white70,
+                                                        style: TextStyle(
+                                                          color:
+                                                              _proceedForeground,
                                                           fontWeight:
                                                               FontWeight.w600,
                                                         ),
@@ -802,8 +876,8 @@ class _NewStockState extends State<NewStock> {
                                             height: 48,
                                             child: OutlinedButton(
                                               style: OutlinedButton.styleFrom(
-                                                side: const BorderSide(
-                                                  color: Colors.white24,
+                                                side: BorderSide(
+                                                  color: _borderColor,
                                                 ),
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius:
@@ -813,10 +887,10 @@ class _NewStockState extends State<NewStock> {
                                               onPressed: () => Navigator.of(
                                                 context,
                                               ).maybePop(),
-                                              child: const Text(
+                                              child: Text(
                                                 "Cancel",
                                                 style: TextStyle(
-                                                  color: Colors.white70,
+                                                  color: _mutedTextColor,
                                                 ),
                                               ),
                                             ),
@@ -857,6 +931,35 @@ class StockItemsForm extends StatefulWidget {
 }
 
 class _StockItemsFormState extends State<StockItemsForm> {
+  ColorScheme get _colorScheme => Theme.of(context).colorScheme;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _surfaceColor =>
+      _isLightTheme ? _colorScheme.surface : const Color(0xFF182232);
+  Color get _fieldColor => _isLightTheme
+      ? _colorScheme.surfaceContainerHighest
+      : const Color(0xFF22304A);
+  Color get _primaryText =>
+      _isLightTheme ? _colorScheme.onSurface : Colors.white;
+  Color get _secondaryText =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white70;
+  Color get _hintText =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white54;
+  Color get _outlineColor =>
+      _isLightTheme ? _colorScheme.outlineVariant : Colors.white24;
+  Color get _focusColor => _isLightTheme ? _colorScheme.primary : Colors.blue;
+  Color get _actionColor =>
+      _isLightTheme ? _colorScheme.primary : Colors.lightBlue;
+  Color get _actionForeground =>
+      _isLightTheme ? _colorScheme.onPrimary : Colors.white;
+  Color get _addButtonColor =>
+      _isLightTheme ? _colorScheme.primary : Colors.orangeAccent;
+  Color get _resetButtonColor =>
+      _isLightTheme ? _colorScheme.secondary : Colors.lightBlue;
+  Color get _newTransactionButtonColor =>
+      _isLightTheme ? _colorScheme.tertiary : Colors.teal;
+  Color get _tableBorderColor =>
+      _isLightTheme ? _colorScheme.outlineVariant : Colors.grey;
+
   final _formkey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();
   final TextEditingController _itemController = TextEditingController();
@@ -880,10 +983,10 @@ class _StockItemsFormState extends State<StockItemsForm> {
   Map<String, dynamic> currentBranchPrice = {};
   Map<String, dynamic> branchBalance = {};
   final List<Map<String, dynamic>> _items = [];
-  double oldPieces=0;
-  double boxPieces=0;
-  double total=0;
-  bool _loadingBalance=false;
+  double oldPieces = 0;
+  double boxPieces = 0;
+  double total = 0;
+  bool _loadingBalance = false;
   @override
   void initState() {
     super.initState();
@@ -920,42 +1023,32 @@ class _StockItemsFormState extends State<StockItemsForm> {
 
   Future<void> _selectItem(Map<String, dynamic> item) async {
     try {
-      final provider = Provider.of<Datafeed>(
-        context,
-        listen: false,
-      );
+      final provider = Provider.of<Datafeed>(context, listen: false);
 
-      final Map<String, dynamic>? modes =
-      item['modes'] is Map
+      final Map<String, dynamic>? modes = item['modes'] is Map
           ? Map<String, dynamic>.from(item['modes'])
           : null;
 
       final double newBoxPieces =
-          double.tryParse(
-            modes?['carton']?['qty']?.toString() ?? '1',
-          ) ??
-              1;
+          double.tryParse(modes?['carton']?['qty']?.toString() ?? '1') ?? 1;
 
       final stockModes = provider.normalizeModes(modes);
 
-      final String? selectedStockMode =
-      stockModes.isNotEmpty
+      final String? selectedStockMode = stockModes.isNotEmpty
           ? stockModes.first
           : null;
 
       final dynamic rawBranchBalance =
-      (item['branchbalance'] as Map?)?[
-      widget.headerData['branchid']
-      ];
+          (item['branchbalance'] as Map?)?[widget.headerData['branchid']];
       setState(() {
         _loadingBalance = true;
       });
 
-      final double newOldPieces =(await  provider.fetchItemCurrentBalance(itemId: item['id'])??.0).toDouble();
+      final double newOldPieces =
+          (await provider.fetchItemCurrentBalance(itemId: item['id']) ?? .0)
+              .toDouble();
 
-      debugPrint(
-        'Old pieces for ${item['name']}: $newOldPieces',
-      );
+      debugPrint('Old pieces for ${item['name']}: $newOldPieces');
 
       if (!mounted) return;
 
@@ -963,11 +1056,11 @@ class _StockItemsFormState extends State<StockItemsForm> {
         _loadingBalance = false;
         _selectedItem = item;
 
-        _barcodeController.text =item['barcode']?.toString() ?? '';
+        _barcodeController.text = item['barcode']?.toString() ?? '';
 
-        _itemController.text =item['name']?.toString() ?? '';
+        _itemController.text = item['name']?.toString() ?? '';
 
-        _priceController.text =item['cp']?.toString() ?? '0';
+        _priceController.text = item['cp']?.toString() ?? '0';
 
         _itemModes = modes;
 
@@ -986,23 +1079,18 @@ class _StockItemsFormState extends State<StockItemsForm> {
         _suggestions = [];
       });
     } catch (e, stack) {
-      debugPrint(
-        '_selectItem error: $e',
-      );
+      debugPrint('_selectItem error: $e');
 
-      debugPrintStack(
-        stackTrace: stack,
-      );
+      debugPrintStack(stackTrace: stack);
     }
   }
 
   void _addItem() {
     if (_formkey.currentState!.validate()) {
-
       final String itemId = _selectedItem?['id'] ?? '';
 
       final bool exists = _items.any(
-            (item) => item['itemid'].toString() == itemId,
+        (item) => item['itemid'].toString() == itemId,
       );
 
       if (exists) {
@@ -1012,18 +1100,17 @@ class _StockItemsFormState extends State<StockItemsForm> {
             title: const Text("Item Already Added"),
             content: const Text(
               "This item already exists in the list.\n\n"
-                  "Please delete the existing item before adding it again.",
+              "Please delete the existing item before adding it again.",
             ),
             actions: [
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white54),
+                  foregroundColor: _primaryText,
+                  side: BorderSide(color: _outlineColor),
                 ),
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text("OK"),
               ),
-
             ],
           ),
         );
@@ -1094,7 +1181,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
           'pieces': pieces,
           'barcode': _barcodeController.text.trim(),
           'itemid': _selectedItem != null ? _selectedItem!['id'] ?? '' : '',
-          'boxpieces':boxPieces,
+          'boxpieces': boxPieces,
           'originalcp': _selectedItem?['cp'],
           'oldPieces': oldPieces,
         });
@@ -1138,15 +1225,17 @@ class _StockItemsFormState extends State<StockItemsForm> {
   bool _saved = false;
   Future<void> _saveRecords() async {
     if (_items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No items to save')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No items to save')));
       return;
     }
     setState(() => _loading = true);
     final stockProvider = context.read<StockProvider>();
 
-    String today = stockProvider.formatInvoiceDate(widget.headerData['invoicedate']);
+    String today = stockProvider.formatInvoiceDate(
+      widget.headerData['invoicedate'],
+    );
     final totals = _calculateTotals();
     //String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final now = DateTime.now();
@@ -1155,6 +1244,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
       final days = date.difference(firstDayOfYear).inDays;
       return ((days + firstDayOfYear.weekday) / 7).ceil();
     }
+
     final Map<String, dynamic> docData = {
       ...widget.headerData,
       'transactionid': widget.transactionId,
@@ -1186,7 +1276,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
 
         // Find the edited item. If it doesn't exist, it means it was deleted.
         final newItem = _items.firstWhere(
-              (e) => e['itemid'] == itemId,
+          (e) => e['itemid'] == itemId,
           orElse: () => <String, dynamic>{
             'itemid': itemId,
             'item': oldItem['item'],
@@ -1196,16 +1286,15 @@ class _StockItemsFormState extends State<StockItemsForm> {
         );
 
         final oldPieces =
-        (oldItem['stockin_pieces'] ?? oldItem['pieces'] ?? 0) as num;
+            (oldItem['stockin_pieces'] ?? oldItem['pieces'] ?? 0) as num;
 
         final newPieces =
-        (newItem['stockin_pieces'] ?? newItem['pieces'] ?? 0) as num;
+            (newItem['stockin_pieces'] ?? newItem['pieces'] ?? 0) as num;
 
         final piecesToRemove = oldPieces.toDouble() - newPieces.toDouble();
 
         if (piecesToRemove > 0) {
-          final availableBalance =
-          await stockProvider.fetchItemCurrentBalance(
+          final availableBalance = await stockProvider.fetchItemCurrentBalance(
             itemId: itemId,
             selectedBranch: widget.headerData['branchid'],
           );
@@ -1213,8 +1302,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
           if (availableBalance < piecesToRemove) {
             insufficientItems.add(
               '${newItem['item']}\n'
-                  'Available: ${availableBalance.toInt()} pcs\n'
-                  'Trying to remove: ${piecesToRemove.toInt()} pcs',
+              'Available: ${availableBalance.toInt()} pcs\n'
+              'Trying to remove: ${piecesToRemove.toInt()} pcs',
             );
           }
         }
@@ -1229,14 +1318,14 @@ class _StockItemsFormState extends State<StockItemsForm> {
             content: SingleChildScrollView(
               child: Text(
                 'The following items no longer have enough stock to apply this edit:\n\n'
-                    '${insufficientItems.join('\n\n')}',
+                '${insufficientItems.join('\n\n')}',
               ),
             ),
             actions: [
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white54),
+                  foregroundColor: _primaryText,
+                  side: BorderSide(color: _outlineColor),
                 ),
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text("Ok"),
@@ -1254,17 +1343,19 @@ class _StockItemsFormState extends State<StockItemsForm> {
       final batch = FirebaseFirestore.instance.batch();
 
       for (final item in _items) {
-        final oldCp = double.tryParse(item['originalcp'].toString())?? 0;
-        final oldPieces=double.tryParse(item['oldPieces'].toString())?? 0;
+        final oldCp = double.tryParse(item['originalcp'].toString()) ?? 0;
+        final oldPieces = double.tryParse(item['oldPieces'].toString()) ?? 0;
         final oldValue = oldPieces * oldCp;
 
         final newCp = double.tryParse(item['price'].toString()) ?? 0;
         final newPieces = double.tryParse(item['pieces'].toString()) ?? 0;
-        final newval=double.tryParse(item['total'].toString())?? 0;
+        final newval = double.tryParse(item['total'].toString()) ?? 0;
 
-        final totalpieces=oldPieces+newPieces;
-        final totalValue=oldValue+newval;
-        final calculatedCp = totalpieces == 0 ? 0.0 : double.parse((totalValue / totalpieces).toStringAsFixed(2));
+        final totalpieces = oldPieces + newPieces;
+        final totalValue = oldValue + newval;
+        final calculatedCp = totalpieces == 0
+            ? 0.0
+            : double.parse((totalValue / totalpieces).toStringAsFixed(2));
         print(
           "${item['itemid']} -> old cp: $oldCp -> old pcs: $oldPieces -> oldValue:$oldValue ->new cp: $newCp -> newval: $newval ->calc cp:$calculatedCp ->totalval:$totalValue",
         );
@@ -1322,7 +1413,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
     final pdf = pw.Document();
     final totals = _calculateTotals();
     final currencyFormat = NumberFormat.currency(
-      symbol: 'GHC ',
+      symbol: 'GHS ',
       decimalDigits: 2,
     );
 
@@ -1490,16 +1581,23 @@ class _StockItemsFormState extends State<StockItemsForm> {
                               ),
                               pw.SizedBox(height: 6),
 
-          _infoRowRight(
-          'Date:',
-          widget.headerData['invoicedate'] is Timestamp
-          ? dateFormat.format(
-          (widget.headerData['invoicedate'] as Timestamp).toDate(),
-          )
-              : widget.headerData['invoicedate'] is DateTime
-          ? dateFormat.format(widget.headerData['invoicedate'])
-              : widget.headerData['invoicedate']?.toString() ?? 'N/A',
-          ),
+                              _infoRowRight(
+                                'Date:',
+                                widget.headerData['invoicedate'] is Timestamp
+                                    ? dateFormat.format(
+                                        (widget.headerData['invoicedate']
+                                                as Timestamp)
+                                            .toDate(),
+                                      )
+                                    : widget.headerData['invoicedate']
+                                          is DateTime
+                                    ? dateFormat.format(
+                                        widget.headerData['invoicedate'],
+                                      )
+                                    : widget.headerData['invoicedate']
+                                              ?.toString() ??
+                                          'N/A',
+                              ),
                             ],
                           ),
                         ),
@@ -1899,21 +1997,21 @@ class _StockItemsFormState extends State<StockItemsForm> {
                           SizedBox(
                             width: itemWidth,
                             child: Container(
-                              color: const Color(0xFF182232),
+                              color: _surfaceColor,
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       "STOCK ENTRIES",
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                        color: _primaryText,
                                       ),
                                     ),
-                                    const Divider(color: Colors.white24),
+                                    Divider(color: _outlineColor),
                                     const SizedBox(height: 15),
                                     Form(
                                       key: _formkey,
@@ -1926,12 +2024,12 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                   controller:
                                                       _barcodeController,
                                                   style: TextStyle(
-                                                    color: Colors.white,
+                                                    color: _primaryText,
                                                   ),
                                                   decoration: InputDecoration(
                                                     labelText: 'Barcode',
-                                                    labelStyle: const TextStyle(
-                                                      color: Colors.white70,
+                                                    labelStyle: TextStyle(
+                                                      color: _secondaryText,
                                                     ),
                                                     border: OutlineInputBorder(
                                                       borderRadius:
@@ -1945,11 +2043,10 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                               BorderRadius.circular(
                                                                 12,
                                                               ),
-                                                          borderSide:
-                                                              const BorderSide(
-                                                                color: Colors
-                                                                    .white24,
-                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                _outlineColor,
+                                                          ),
                                                         ),
                                                     focusedBorder:
                                                         OutlineInputBorder(
@@ -1958,14 +2055,12 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                                 12,
                                                               ),
                                                           borderSide:
-                                                              const BorderSide(
+                                                              BorderSide(
                                                                 color:
-                                                                    Colors.blue,
+                                                                    _focusColor,
                                                               ),
                                                         ),
-                                                    fillColor: const Color(
-                                                      0xFF22304A,
-                                                    ),
+                                                    fillColor: _fieldColor,
                                                     filled: true,
                                                   ),
                                                   validator: (value) =>
@@ -1979,19 +2074,17 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                               Container(
                                                 height: 56,
                                                 decoration: BoxDecoration(
-                                                  color: const Color(
-                                                    0xFF22304A,
-                                                  ),
+                                                  color: _fieldColor,
                                                   borderRadius:
                                                       BorderRadius.circular(12),
                                                   border: Border.all(
-                                                    color: Colors.white24,
+                                                    color: _outlineColor,
                                                   ),
                                                 ),
                                                 child: IconButton(
-                                                  icon: const Icon(
+                                                  icon: Icon(
                                                     Icons.qr_code_scanner,
-                                                    color: Colors.white70,
+                                                    color: _secondaryText,
                                                   ),
                                                   onPressed: _scanBarcode,
                                                   tooltip:
@@ -2023,10 +2116,10 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                         const EdgeInsets.all(
                                                           16,
                                                         ),
-                                                    child: const Center(
+                                                    child: Center(
                                                       child:
                                                           CircularProgressIndicator(
-                                                            color: Colors.blue,
+                                                            color: _focusColor,
                                                             strokeWidth: 2,
                                                           ),
                                                     ),
@@ -2036,12 +2129,32 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                 final allDocs = snapshot.data!;
                                                 final filteredDocs = allDocs
                                                     .where((doc) {
-
-                                                  final data =   doc as Map<String,dynamic>;
-                                                      final name =(data['name'] ?? '').toString().toLowerCase();
-                                                      final barcode = (data['barcode'] ?? '').toString().toLowerCase();
-                                                      final query = _searchQuery.toLowerCase();
-                                                      return name.contains(query,) ||barcode.contains(query,); }).take(10).toList();
+                                                      final data =
+                                                          doc
+                                                              as Map<
+                                                                String,
+                                                                dynamic
+                                                              >;
+                                                      final name =
+                                                          (data['name'] ?? '')
+                                                              .toString()
+                                                              .toLowerCase();
+                                                      final barcode =
+                                                          (data['barcode'] ??
+                                                                  '')
+                                                              .toString()
+                                                              .toLowerCase();
+                                                      final query = _searchQuery
+                                                          .toLowerCase();
+                                                      return name.contains(
+                                                            query,
+                                                          ) ||
+                                                          barcode.contains(
+                                                            query,
+                                                          );
+                                                    })
+                                                    .take(10)
+                                                    .toList();
 
                                                 if (filteredDocs.isEmpty)
                                                   return const SizedBox.shrink();
@@ -2051,15 +2164,13 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                     top: 4,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFF22304A,
-                                                    ),
+                                                    color: _fieldColor,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           8,
                                                         ),
                                                     border: Border.all(
-                                                      color: Colors.blue
+                                                      color: _focusColor
                                                           .withOpacity(0.3),
                                                     ),
                                                     boxShadow: const [
@@ -2091,36 +2202,32 @@ class _StockItemsFormState extends State<StockItemsForm> {
 
                                                       return ListTile(
                                                         dense: true,
-                                                        leading: const Icon(
+                                                        leading: Icon(
                                                           Icons.inventory_2,
-                                                          color: Colors.blue,
+                                                          color: _focusColor,
                                                           size: 20,
                                                         ),
                                                         title: Text(
                                                           item['name'] ?? '',
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
+                                                          style: TextStyle(
+                                                            color: _primaryText,
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
                                                         ),
                                                         subtitle: Text(
                                                           'Barcode: ${item['barcode']}',
-                                                          style:
-                                                              const TextStyle(
-                                                                color: Colors
-                                                                    .white70,
-                                                                fontSize: 11,
-                                                              ),
+                                                          style: TextStyle(
+                                                            color:
+                                                                _secondaryText,
+                                                            fontSize: 11,
+                                                          ),
                                                         ),
-                                                        trailing: const Icon(
+                                                        trailing: Icon(
                                                           Icons
                                                               .arrow_forward_ios,
-                                                          color: Colors.white54,
+                                                          color: _hintText,
                                                           size: 14,
                                                         ),
                                                         onTap: () =>
@@ -2133,60 +2240,78 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                             ),
                                           const SizedBox(height: 10),
                                           _loadingBalance
-                                              ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.white,
-                                            ),
-                                          ): TextFormField(
-                                            controller: _itemController,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                            ),
-                                            decoration: InputDecoration(
-                                              labelText: 'Item',
-                                              labelStyle: const TextStyle(
-                                                color: Colors.white70,
-                                              ),
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.white24,
+                                              ? SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: _focusColor,
+                                                      ),
+                                                )
+                                              : TextFormField(
+                                                  controller: _itemController,
+                                                  style: TextStyle(
+                                                    color: _primaryText,
+                                                  ),
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Item',
+                                                    labelStyle: TextStyle(
+                                                      color: _secondaryText,
+                                                    ),
+                                                    border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                    ),
+                                                    enabledBorder:
+                                                        OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                _outlineColor,
+                                                          ),
+                                                        ),
+                                                    focusedBorder:
+                                                        OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide:
+                                                              BorderSide(
+                                                                color:
+                                                                    _focusColor,
+                                                              ),
+                                                        ),
+                                                    fillColor: _fieldColor,
+                                                    filled: true,
+                                                  ),
+                                                  validator: (value) =>
+                                                      value == null ||
+                                                          value.isEmpty
+                                                      ? 'Item required'
+                                                      : null,
                                                 ),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.blue,
-                                                ),
-                                              ),
-                                              fillColor: const Color(
-                                                0xFF22304A,
-                                              ),
-                                              filled: true,
-                                            ),
-                                            validator: (value) =>
-                                                value == null || value.isEmpty
-                                                ? 'Item required'
-                                                : null,
-                                          ),
                                           const SizedBox(height: 10),
                                           LayoutBuilder(
                                             builder: (context, constraints) {
                                               const spacing = 10.0;
                                               const minFieldWidth = 200.0;
 
-                                              final width = constraints.maxWidth;
+                                              final width =
+                                                  constraints.maxWidth;
 
-                                              final columns = width >= (minFieldWidth * 2 + spacing) ? 2 : 1;
+                                              final columns =
+                                                  width >=
+                                                      (minFieldWidth * 2 +
+                                                          spacing)
+                                                  ? 2
+                                                  : 1;
 
                                               final fieldWidth = columns == 2
                                                   ? (width - spacing) / 2
@@ -2200,51 +2325,76 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                     width: fieldWidth,
                                                     child: DropdownButtonFormField<String>(
                                                       value: _selectedStockMode,
-                                                      dropdownColor: const Color(0xFF22304A),
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
+                                                      dropdownColor:
+                                                          _fieldColor,
+                                                      style: TextStyle(
+                                                        color: _primaryText,
                                                       ),
                                                       decoration: InputDecoration(
-                                                        labelText: 'Stocking Mode',
-                                                        labelStyle: const TextStyle(
-                                                          color: Colors.white70,
+                                                        labelText:
+                                                            'Stocking Mode',
+                                                        labelStyle: TextStyle(
+                                                          color: _secondaryText,
                                                         ),
                                                         border: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
                                                         ),
-                                                        enabledBorder: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
-                                                          borderSide: const BorderSide(
-                                                            color: Colors.white24,
-                                                          ),
-                                                        ),
-                                                        focusedBorder: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
-                                                          borderSide: const BorderSide(
-                                                            color: Colors.blue,
-                                                          ),
-                                                        ),
-                                                        fillColor: const Color(0xFF22304A),
+                                                        enabledBorder:
+                                                            OutlineInputBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                    color:
+                                                                        _outlineColor,
+                                                                  ),
+                                                            ),
+                                                        focusedBorder:
+                                                            OutlineInputBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                    color:
+                                                                        _focusColor,
+                                                                  ),
+                                                            ),
+                                                        fillColor: _fieldColor,
                                                         filled: true,
                                                       ),
                                                       items: _stockMode.isEmpty
                                                           ? null
-                                                          : _stockMode.map((type) {
-                                                        return DropdownMenuItem<String>(
-                                                          value: type,
-                                                          child: Text(
-                                                            type,
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        );
-                                                      }).toList(),
+                                                          : _stockMode.map((
+                                                              type,
+                                                            ) {
+                                                              return DropdownMenuItem<
+                                                                String
+                                                              >(
+                                                                value: type,
+                                                                child: Text(
+                                                                  type,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                              );
+                                                            }).toList(),
                                                       onChanged: (value) {
                                                         setState(() {
-                                                          _selectedStockMode = value;
+                                                          _selectedStockMode =
+                                                              value;
                                                         });
                                                       },
-                                                      validator: (value) => value == null
+                                                      validator: (value) =>
+                                                          value == null
                                                           ? 'Please select stocking mode'
                                                           : null,
                                                     ),
@@ -2253,43 +2403,63 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                   SizedBox(
                                                     width: fieldWidth,
                                                     child: TextFormField(
-                                                      controller: _priceController,
-                                                      keyboardType: const TextInputType.numberWithOptions(
-                                                        decimal: true,
-                                                      ),
+                                                      controller:
+                                                          _priceController,
+                                                      keyboardType:
+                                                          const TextInputType.numberWithOptions(
+                                                            decimal: true,
+                                                          ),
                                                       inputFormatters: [
                                                         FilteringTextInputFormatter.allow(
-                                                          RegExp(r'^\d*\.?\d*$'),
+                                                          RegExp(
+                                                            r'^\d*\.?\d*$',
+                                                          ),
                                                         ),
                                                       ],
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
+                                                      style: TextStyle(
+                                                        color: _primaryText,
                                                       ),
                                                       decoration: InputDecoration(
                                                         labelText: 'Price',
-                                                        labelStyle: const TextStyle(
-                                                          color: Colors.white70,
+                                                        labelStyle: TextStyle(
+                                                          color: _secondaryText,
                                                         ),
                                                         border: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
                                                         ),
-                                                        enabledBorder: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
-                                                          borderSide: const BorderSide(
-                                                            color: Colors.white24,
-                                                          ),
-                                                        ),
-                                                        focusedBorder: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12),
-                                                          borderSide: const BorderSide(
-                                                            color: Colors.blue,
-                                                          ),
-                                                        ),
-                                                        fillColor: const Color(0xFF22304A),
+                                                        enabledBorder:
+                                                            OutlineInputBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                    color:
+                                                                        _outlineColor,
+                                                                  ),
+                                                            ),
+                                                        focusedBorder:
+                                                            OutlineInputBorder(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                    color:
+                                                                        _focusColor,
+                                                                  ),
+                                                            ),
+                                                        fillColor: _fieldColor,
                                                         filled: true,
                                                       ),
                                                       validator: (value) =>
-                                                      value == null || value.isEmpty
+                                                          value == null ||
+                                                              value.isEmpty
                                                           ? 'Enter amount'
                                                           : null,
                                                     ),
@@ -2301,8 +2471,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                           const SizedBox(height: 10),
                                           TextFormField(
                                             controller: _quantityController,
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: _primaryText,
                                             ),
                                             keyboardType:
                                                 const TextInputType.numberWithOptions(
@@ -2315,8 +2485,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                             ],
                                             decoration: InputDecoration(
                                               labelText: 'Quantity',
-                                              labelStyle: const TextStyle(
-                                                color: Colors.white70,
+                                              labelStyle: TextStyle(
+                                                color: _secondaryText,
                                               ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
@@ -2325,20 +2495,18 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                               enabledBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.white24,
+                                                borderSide: BorderSide(
+                                                  color: _outlineColor,
                                                 ),
                                               ),
                                               focusedBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.blue,
+                                                borderSide: BorderSide(
+                                                  color: _focusColor,
                                                 ),
                                               ),
-                                              fillColor: const Color(
-                                                0xFF22304A,
-                                              ),
+                                              fillColor: _fieldColor,
                                               filled: true,
                                             ),
                                             validator: (value) {
@@ -2361,16 +2529,14 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                           const SizedBox(height: 10),
                                           DropdownButtonFormField<String>(
                                             value: _selectedTaxType,
-                                            dropdownColor: const Color(
-                                              0xFF22304A,
-                                            ),
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            dropdownColor: _fieldColor,
+                                            style: TextStyle(
+                                              color: _primaryText,
                                             ),
                                             decoration: InputDecoration(
                                               labelText: 'Tax Type',
-                                              labelStyle: const TextStyle(
-                                                color: Colors.white70,
+                                              labelStyle: TextStyle(
+                                                color: _secondaryText,
                                               ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
@@ -2379,20 +2545,18 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                               enabledBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.white24,
+                                                borderSide: BorderSide(
+                                                  color: _outlineColor,
                                                 ),
                                               ),
                                               focusedBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.blue,
+                                                borderSide: BorderSide(
+                                                  color: _focusColor,
                                                 ),
                                               ),
-                                              fillColor: const Color(
-                                                0xFF22304A,
-                                              ),
+                                              fillColor: _fieldColor,
                                               filled: true,
                                             ),
                                             items: _taxType
@@ -2410,8 +2574,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                           const SizedBox(height: 10),
                                           TextFormField(
                                             controller: _discountController,
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: _primaryText,
                                             ),
                                             keyboardType:
                                                 const TextInputType.numberWithOptions(
@@ -2424,8 +2588,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                             ],
                                             decoration: InputDecoration(
                                               labelText: 'Purchase Discount',
-                                              labelStyle: const TextStyle(
-                                                color: Colors.white70,
+                                              labelStyle: TextStyle(
+                                                color: _secondaryText,
                                               ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
@@ -2434,25 +2598,23 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                               enabledBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.white24,
+                                                borderSide: BorderSide(
+                                                  color: _outlineColor,
                                                 ),
                                               ),
                                               focusedBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(12),
-                                                borderSide: const BorderSide(
-                                                  color: Colors.blue,
+                                                borderSide: BorderSide(
+                                                  color: _focusColor,
                                                 ),
                                               ),
-                                              fillColor: const Color(
-                                                0xFF22304A,
-                                              ),
+                                              fillColor: _fieldColor,
                                               filled: true,
                                             ),
                                           ),
                                           const SizedBox(height: 10),
-                                          const Divider(color: Colors.white24),
+                                          Divider(color: _outlineColor),
                                           Wrap(
                                             spacing: 10,
                                             runSpacing: 10,
@@ -2463,7 +2625,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                   child: ElevatedButton(
                                                     style: ElevatedButton.styleFrom(
                                                       backgroundColor:
-                                                          Colors.orangeAccent,
+                                                          _addButtonColor,
                                                       padding:
                                                           const EdgeInsets.symmetric(
                                                             vertical: 16,
@@ -2478,10 +2640,11 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                     onPressed: _loading
                                                         ? null
                                                         : _addItem,
-                                                    child: const Text(
+                                                    child: Text(
                                                       "Add Record",
                                                       style: TextStyle(
-                                                        color: Colors.white,
+                                                        color:
+                                                            _actionForeground,
                                                       ),
                                                     ),
                                                   ),
@@ -2491,7 +2654,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                 child: ElevatedButton(
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor:
-                                                        Colors.lightBlue,
+                                                        _resetButtonColor,
                                                     padding:
                                                         const EdgeInsets.symmetric(
                                                           vertical: 16,
@@ -2515,14 +2678,14 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                           '0';
                                                       _barcodeController
                                                           .clear();
-                                                      _loadingBalance=false;
+                                                      _loadingBalance = false;
                                                     });
                                                   },
 
-                                                  child: const Text(
+                                                  child: Text(
                                                     "Reset",
                                                     style: TextStyle(
-                                                      color: Colors.white,
+                                                      color: _actionForeground,
                                                     ),
                                                   ),
                                                 ),
@@ -2532,7 +2695,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                 child: ElevatedButton(
                                                   style: ElevatedButton.styleFrom(
                                                     backgroundColor:
-                                                        Colors.teal,
+                                                        _newTransactionButtonColor,
                                                     padding:
                                                         const EdgeInsets.symmetric(
                                                           vertical: 16,
@@ -2547,10 +2710,10 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                   onPressed: () {
                                                     widget.onNewTransaction();
                                                   },
-                                                  child: const Text(
+                                                  child: Text(
                                                     "New Transaction",
                                                     style: TextStyle(
-                                                      color: Colors.white,
+                                                      color: _actionForeground,
                                                     ),
                                                   ),
                                                 ),
@@ -2576,7 +2739,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                       _items.removeAt(index);
                                     });
                                   },
-                                  loading: _loading, saved: false,
+                                  loading: _loading,
+                                  saved: false,
                                 )
                               : _buildStockTable(itemWidth),
                         ],
@@ -2596,24 +2760,24 @@ class _StockItemsFormState extends State<StockItemsForm> {
     return SizedBox(
       width: itemWidth,
       child: Container(
-        color: const Color(0xFF182232),
+        color: _surfaceColor,
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 "STOCK PREVIEW",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: _primaryText,
                 ),
               ),
-              const Divider(color: Colors.white24),
+              Divider(color: _outlineColor),
               const SizedBox(height: 15),
               Table(
-                border: TableBorder.all(color: Colors.grey),
+                border: TableBorder.all(color: _tableBorderColor),
                 columnWidths: const {
                   0: FixedColumnWidth(40),
                   1: FlexColumnWidth(2),
@@ -2696,10 +2860,13 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                         actions: [
                                           OutlinedButton(
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: Colors.white,
-                                              side: const BorderSide(color: Colors.white54),
+                                              foregroundColor: _primaryText,
+                                              side: BorderSide(
+                                                color: _outlineColor,
+                                              ),
                                             ),
-                                            onPressed: () => Navigator.pop(context, false),
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
                                             child: const Text("Cancel"),
                                           ),
                                           ElevatedButton(
@@ -2707,7 +2874,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                               backgroundColor: Colors.red,
                                               foregroundColor: Colors.white,
                                             ),
-                                            onPressed: () => Navigator.pop(context, true),
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
                                             child: const Text("Delete"),
                                           ),
                                         ],
@@ -2755,7 +2923,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                         width: 150,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.lightBlue,
+                            backgroundColor: _actionColor,
+                            foregroundColor: _actionForeground,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -2769,11 +2938,11 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                   if (mounted) setState(() => _loading = false);
                                 },
                           child: _loading
-                              ? const SizedBox(
+                              ? SizedBox(
                                   height: 20,
                                   width: 20,
                                   child: CircularProgressIndicator(
-                                    color: Colors.white,
+                                    color: _actionForeground,
                                     strokeWidth: 2,
                                   ),
                                 )
@@ -2781,7 +2950,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                   widget.headerData.containsKey('items')
                                       ? "UPDATE RECORDS"
                                       : "SAVE RECORDS",
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _actionForeground),
                                 ),
                         ),
                       ),
@@ -2796,8 +2965,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
                           icon: const Icon(Icons.print),
                           label: const Text('PRINT'),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.lightBlue),
-                            foregroundColor: Colors.lightBlue,
+                            side: BorderSide(color: _focusColor),
+                            foregroundColor: _focusColor,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -2835,7 +3004,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
           child: Text(
             text,
             textAlign: align,
-            style: const TextStyle(color: Colors.white).copyWith(
+            style: TextStyle(color: _primaryText).copyWith(
               fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -2850,7 +3019,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
       child: Text(
         text,
         textAlign: alignRight ? TextAlign.right : TextAlign.left,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: _primaryText),
       ),
     );
   }
@@ -2883,32 +3052,49 @@ class MobileSalesPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isLightTheme = Theme.of(context).brightness == Brightness.light;
+    final surfaceColor = isLightTheme
+        ? colorScheme.surface
+        : const Color(0xFF182232);
+    final primaryText = isLightTheme ? colorScheme.onSurface : Colors.white;
+    final secondaryText = isLightTheme
+        ? colorScheme.onSurfaceVariant
+        : Colors.white70;
+    final outlineColor = isLightTheme
+        ? colorScheme.outlineVariant
+        : Colors.white24;
+    final actionColor = isLightTheme ? colorScheme.primary : Colors.teal;
+    final actionForeground = isLightTheme
+        ? colorScheme.onPrimary
+        : Colors.white;
+
     Map<String, dynamic> datas;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      color: const Color(0xFF182232),
+      color: surfaceColor,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               "Stock Preview",
               style: TextStyle(
-                color: Colors.white,
+                color: primaryText,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const Divider(color: Colors.white24, height: 20),
+          Divider(color: outlineColor, height: 20),
 
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(color: Colors.white10),
+            separatorBuilder: (_, __) => Divider(color: outlineColor),
             itemBuilder: (context, index) {
               final item = items[index];
               return _cartItem(
@@ -2917,6 +3103,8 @@ class MobileSalesPreview extends StatelessWidget {
                 qty: double.tryParse(item['quantity'].toString()) ?? 0,
                 mode: item['stockingmode'] ?? "",
                 total: (item['total'] ?? 0.0).toDouble(),
+                primaryText: primaryText,
+                secondaryText: secondaryText,
                 onDelete: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -2928,8 +3116,8 @@ class MobileSalesPreview extends StatelessWidget {
                       actions: [
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white54),
+                            foregroundColor: primaryText,
+                            side: BorderSide(color: outlineColor),
                           ),
                           onPressed: () => Navigator.pop(ctx, false),
                           child: const Text("Cancel"),
@@ -2954,10 +3142,11 @@ class MobileSalesPreview extends StatelessWidget {
             },
           ),
 
-          const Divider(color: Colors.white24),
+          Divider(color: outlineColor),
           _row(
             "Grand Total",
-            "GHC ${totalAmount.toStringAsFixed(2)}",
+            "GHS ${totalAmount.toStringAsFixed(2)}",
+            textColor: primaryText,
             bold: true,
           ),
           const SizedBox(height: 18),
@@ -2971,14 +3160,18 @@ class MobileSalesPreview extends StatelessWidget {
                   headerdata.containsKey('items')
                       ? "UPDATE RECORDS"
                       : "SAVE RECORDS",
-                  Colors.teal,
+                  actionColor,
+                  actionForeground,
                   onPrint,
                 ),
 
               if (saved)
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: isLightTheme
+                        ? colorScheme.primary
+                        : Colors.blue,
+                    foregroundColor: actionForeground,
                     padding: const EdgeInsets.symmetric(
                       vertical: 14,
                       horizontal: 12,
@@ -2988,13 +3181,14 @@ class MobileSalesPreview extends StatelessWidget {
                     ),
                   ),
                   onPressed: onNewTransaction,
-                  child: const Text(
+                  child: Text(
                     "PRINT",
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: actionForeground),
                   ),
                 ),
             ],
-          )        ],
+          ),
+        ],
       ),
     );
   }
@@ -3005,16 +3199,15 @@ class MobileSalesPreview extends StatelessWidget {
     required double qty,
     required String mode,
     required double total,
+    required Color primaryText,
+    required Color secondaryText,
     required VoidCallback onDelete,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         IconButton(
-          icon: const Icon(
-            Icons.delete,
-            color: Colors.redAccent,
-          ),
+          icon: const Icon(Icons.delete, color: Colors.redAccent),
           onPressed: onDelete,
         ),
 
@@ -3032,7 +3225,7 @@ class MobileSalesPreview extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                ),
+                ).copyWith(color: primaryText),
               ),
 
               const SizedBox(height: 4),
@@ -3044,19 +3237,17 @@ class MobileSalesPreview extends StatelessWidget {
                 children: [
                   _responsiveDetail(
                     "Price",
-                    "GHC ${price.toStringAsFixed(2)}",
+                    "GHS ${price.toStringAsFixed(2)}",
+                    primaryText,
+                    secondaryText,
                   ),
-                  _responsiveDetail(
-                    "Mode",
-                    mode,
-                  ),
-                  _responsiveDetail(
-                    "Qty",
-                    "$qty",
-                  ),
+                  _responsiveDetail("Mode", mode, primaryText, secondaryText),
+                  _responsiveDetail("Qty", "$qty", primaryText, secondaryText),
                   _responsiveDetail(
                     "Total",
-                    "GHC ${total.toStringAsFixed(2)}",
+                    "GHS ${total.toStringAsFixed(2)}",
+                    primaryText,
+                    secondaryText,
                   ),
                 ],
               ),
@@ -3067,12 +3258,14 @@ class MobileSalesPreview extends StatelessWidget {
     );
   }
 
-  Widget _responsiveDetail(String label, String value) {
+  Widget _responsiveDetail(
+    String label,
+    String value,
+    Color primaryText,
+    Color secondaryText,
+  ) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(
-        minWidth: 80,
-        maxWidth: 220,
-      ),
+      constraints: const BoxConstraints(minWidth: 80, maxWidth: 220),
       child: RichText(
         softWrap: true,
         overflow: TextOverflow.ellipsis,
@@ -3081,17 +3274,11 @@ class MobileSalesPreview extends StatelessWidget {
           children: [
             TextSpan(
               text: "$label: ",
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: secondaryText, fontSize: 12),
             ),
             TextSpan(
               text: value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: primaryText, fontSize: 13),
             ),
           ],
         ),
@@ -3109,21 +3296,26 @@ class MobileSalesPreview extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, String value, {bool bold = false}) {
+  Widget _row(
+    String label,
+    String value, {
+    required Color textColor,
+    bool bold = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            color: Colors.white,
+            color: textColor,
             fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            color: Colors.white,
+            color: textColor,
             fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -3131,27 +3323,30 @@ class MobileSalesPreview extends StatelessWidget {
     );
   }
 
-  Widget _actionBtn(String text, Color color, VoidCallback? onTap) {
+  Widget _actionBtn(
+    String text,
+    Color color,
+    Color foreground,
+    VoidCallback? onTap,
+  ) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
+        foregroundColor: foreground,
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
       onPressed: loading ? null : onTap,
       child: loading
-          ? const SizedBox(
+          ? SizedBox(
               height: 16,
               width: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white,
+                color: foreground,
               ),
             )
-          : Text(
-              text,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-            ),
+          : Text(text, style: TextStyle(fontSize: 12, color: foreground)),
     );
   }
 }

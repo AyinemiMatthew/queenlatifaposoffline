@@ -18,14 +18,18 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
   final FirebaseFirestore db = FirebaseFirestore.instance;
   TextEditingController searchController = TextEditingController();
   String searchText = "";
-  late final stockprovider= Provider.of<Datafeed>(context, listen: false);
+  late final stockprovider = Provider.of<Datafeed>(context, listen: false);
 
   Stream<List<DebtorsBalModel>> getAllDebtors() {
-    return db.collection('debtorsbalance').where('companyId',isEqualTo: stockprovider.companyid).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return DebtorsBalModel.fromJson(doc.data());
-      }).toList();
-    });
+    return db
+        .collection('debtorsbalance')
+        .where('companyId', isEqualTo: stockprovider.companyid)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return DebtorsBalModel.fromJson(doc.data());
+          }).toList();
+        });
   }
 
   @override
@@ -37,10 +41,10 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Debtors Balance View"),
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       ),
       body: Column(
         children: [
@@ -50,13 +54,17 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
               width: 700,
               child: TextField(
                 controller: searchController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 decoration: InputDecoration(
                   hintText: "Search debtor...",
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   filled: true,
-                  fillColor: const Color(0xFF182232),
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -93,13 +101,14 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                     child: ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: filteredList.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 10),
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final d = filteredList[index];
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF182232),
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.white12),
                           ),
@@ -111,7 +120,10 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                                   color: Colors.green.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Icon(Icons.account_balance_wallet, color: Colors.green),
+                                child: const Icon(
+                                  Icons.account_balance_wallet,
+                                  color: Colors.green,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -127,8 +139,20 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text("Amount: GHC ${d.amount}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                    Text("Date: ${d.date != null ? DateFormat.yMMMd().format(d.date!) : ''}", style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                                    Text(
+                                      "Amount: GHS ${d.amount}",
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      "Date: ${d.date != null ? DateFormat.yMMMd().format(d.date!) : ''}",
+                                      style: const TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -140,14 +164,15 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => DebtorsBalance(
-                                            debtors: d,
-                                          ),
+                                          builder: (_) =>
+                                              DebtorsBalance(debtors: d),
                                         ),
                                       );
                                     },
-                                    child: const Icon(Icons.edit,
-                                        color: Colors.orange),
+                                    child: const Icon(
+                                      Icons.edit,
+                                      color: Colors.orange,
+                                    ),
                                   ),
 
                                   const SizedBox(width: 8),
@@ -155,16 +180,27 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                                   InkWell(
                                     onTap: () async {
                                       print(d.id);
-                                      await db.collection('debtorsbalance').doc(d.id).delete();
-                                      await db.collection('customers').doc(d.id.toLowerCase()).update({ 'creditBalance': FieldValue.increment(-double.parse(d.amount)),
-                                      });
+                                      await db
+                                          .collection('debtorsbalance')
+                                          .doc(d.id)
+                                          .delete();
+                                      await db
+                                          .collection('customers')
+                                          .doc(d.id.toLowerCase())
+                                          .update({
+                                            'creditBalance':
+                                                FieldValue.increment(
+                                                  -double.parse(d.amount),
+                                                ),
+                                          });
                                     },
                                     child: const Icon(
-                                        Icons.delete_forever,
-                                        color: Colors.red),
+                                      Icons.delete_forever,
+                                      color: Colors.red,
+                                    ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         );

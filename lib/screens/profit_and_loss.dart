@@ -17,6 +17,29 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
   String? selectedBranch;
   String searchQuery = '';
 
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _mutedTextColor => Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _backgroundColor =>
+      _isLightTheme ? Colors.white : Theme.of(context).scaffoldBackgroundColor;
+  Color get _panelColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF1E293B);
+  Color get _cardColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF172133);
+  Color get _tableHeaderColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF1B263B);
+  Color get _tableRowColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF111E2F);
+  Color get _fieldColor => _isLightTheme
+      ? Colors.white
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _borderColor => _isLightTheme
+      ? Colors.grey.shade300
+      : Colors.white.withValues(alpha: 0.08);
+  Color get _tableDividerColor => _isLightTheme
+      ? Colors.grey.shade300
+      : Colors.white.withValues(alpha: 0.06);
+
   @override
   void initState() {
     super.initState();
@@ -30,7 +53,7 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
   }
 
   String _formatCurrency(double value) =>
-      NumberFormat.currency(symbol: 'GHC ', decimalDigits: 2).format(value);
+      NumberFormat.currency(symbol: 'GHS ', decimalDigits: 2).format(value);
 
   @override
   Widget build(BuildContext context) {
@@ -54,9 +77,10 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
         }).toList();
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: _backgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0F172A),
+            backgroundColor: _backgroundColor,
+            foregroundColor: _textColor,
             title: const Text('Profit and Loss'),
             centerTitle: true,
             actions: [
@@ -86,11 +110,9 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: _panelColor,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.08),
-                        ),
+                        border: Border.all(color: _borderColor),
                       ),
                       padding: const EdgeInsets.all(14),
                       child: Column(
@@ -100,8 +122,8 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                             selectedDate == null && selectedBranch == null
                                 ? 'Overall P&L view (all branches, all dates)'
                                 : 'Filtered P&L view',
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: _mutedTextColor,
                               fontSize: 12,
                             ),
                           ),
@@ -110,9 +132,9 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: Text(
-                                'Period: ${DateFormat.yMMMd().format(selectedDate!.start)} — ${DateFormat.yMMMd().format(selectedDate!.end)}',
-                                style: const TextStyle(
-                                  color: Colors.white70,
+                                'Period: ${DateFormat.yMMMd().format(selectedDate!.start)} - ${DateFormat.yMMMd().format(selectedDate!.end)}',
+                                style: TextStyle(
+                                  color: _mutedTextColor,
                                   fontSize: 12,
                                 ),
                               ),
@@ -124,15 +146,15 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                               final branchField =
                                   DropdownButtonFormField<String?>(
                                     value: selectedBranch,
-                                    dropdownColor: const Color(0xFF22304A),
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    dropdownColor: _fieldColor,
+                                    style: TextStyle(
+                                      color: _textColor,
                                       fontSize: 13,
                                     ),
                                     decoration: InputDecoration(
                                       labelText: 'Branch',
-                                      labelStyle: const TextStyle(
-                                        color: Colors.white70,
+                                      labelStyle: TextStyle(
+                                        color: _mutedTextColor,
                                         fontSize: 12,
                                       ),
                                       contentPadding:
@@ -141,13 +163,22 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                                             vertical: 10,
                                           ),
                                       border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: _borderColor,
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: _borderColor,
+                                        ),
                                       ),
                                       filled: true,
-                                      fillColor: const Color(0xFF22304A),
+                                      fillColor: _fieldColor,
                                     ),
                                     items: [
-                                      const DropdownMenuItem<String?>(
+                                      DropdownMenuItem<String?>(
                                         value: null,
                                         child: Text('All Branches'),
                                       ),
@@ -171,20 +202,20 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                                 initialValue: searchQuery,
                                 onChanged: (val) =>
                                     setState(() => searchQuery = val),
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: _textColor,
                                   fontSize: 13,
                                 ),
                                 decoration: InputDecoration(
                                   hintText:
                                       'Search account, type, branch or note',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.white38,
+                                  hintStyle: TextStyle(
+                                    color: _mutedTextColor,
                                     fontSize: 12,
                                   ),
-                                  prefixIcon: const Icon(
+                                  prefixIcon: Icon(
                                     Icons.search_rounded,
-                                    color: Colors.white38,
+                                    color: _mutedTextColor,
                                     size: 18,
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(
@@ -192,10 +223,15 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                                     vertical: 10,
                                   ),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: _borderColor),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: _borderColor),
                                   ),
                                   filled: true,
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: _fieldColor,
                                 ),
                               );
 
@@ -222,14 +258,14 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                                                 selectedBranch: null,
                                               );
                                             },
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.refresh_rounded,
-                                              color: Colors.white70,
+                                              color: _mutedTextColor,
                                             ),
-                                            label: const Text(
+                                            label: Text(
                                               'Reset filters',
                                               style: TextStyle(
-                                                color: Colors.white70,
+                                                color: _mutedTextColor,
                                               ),
                                             ),
                                           ),
@@ -254,14 +290,14 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                                               selectedBranch: null,
                                             );
                                           },
-                                          icon: const Icon(
+                                          icon: Icon(
                                             Icons.refresh_rounded,
-                                            color: Colors.white70,
+                                            color: _mutedTextColor,
                                           ),
-                                          label: const Text(
+                                          label: Text(
                                             'Reset',
                                             style: TextStyle(
-                                              color: Colors.white70,
+                                              color: _mutedTextColor,
                                             ),
                                           ),
                                         ),
@@ -275,16 +311,16 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                     const SizedBox(height: 14),
                     Expanded(
                       child: value.isLoadingProfitAndLoss
-                          ? const Center(
+                          ? Center(
                               child: CircularProgressIndicator(
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                             )
                           : rows.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Text(
                                 'No P&L data found for the selected period.',
-                                style: TextStyle(color: Colors.white70),
+                                style: TextStyle(color: _mutedTextColor),
                               ),
                             )
                           : SingleChildScrollView(
@@ -327,8 +363,8 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                                     filteredRows.isEmpty
                                         ? 'No entries match your current search.'
                                         : 'Showing ${filteredRows.length} of ${rows.length} entries',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
+                                    style: TextStyle(
+                                      color: _mutedTextColor,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -361,9 +397,9 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF172133),
+                  color: _cardColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  border: Border.all(color: _borderColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,16 +409,16 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                         Expanded(
                           child: Text(
                             row['account']?.toString() ?? 'Unknown account',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: _textColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                         Text(
                           _formatCurrency(amount),
-                          style: const TextStyle(
-                            color: Colors.tealAccent,
+                          style: TextStyle(
+                            color: _readableAccent(Colors.tealAccent),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -390,30 +426,21 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '${row['accountType'] ?? 'Other'} • ${row['type']?.toString().toUpperCase() ?? 'N/A'}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
+                      '${row['accountType'] ?? 'Other'} - ${row['type']?.toString().toUpperCase() ?? 'N/A'}',
+                      style: TextStyle(color: _mutedTextColor, fontSize: 12),
                     ),
                     if ((row['branchName'] ?? '').toString().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Branch: ${row['branchName']}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _mutedTextColor, fontSize: 12),
                       ),
                     ],
                     if ((row['description'] ?? '').toString().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Note: ${row['description']}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _mutedTextColor, fontSize: 12),
                       ),
                     ],
                   ],
@@ -426,22 +453,20 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Theme(
-            data: Theme.of(
-              context,
-            ).copyWith(dividerColor: Colors.white.withOpacity(0.06)),
+            data: Theme.of(context).copyWith(dividerColor: _tableDividerColor),
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(const Color(0xFF1B263B)),
+              headingRowColor: WidgetStateProperty.all(_tableHeaderColor),
               dataRowColor: WidgetStateProperty.resolveWith(
-                (_) => const Color(0xFF111E2F),
+                (_) => _tableRowColor,
               ),
               columnSpacing: 18,
               horizontalMargin: 8,
-              headingTextStyle: const TextStyle(
-                color: Colors.white,
+              headingTextStyle: TextStyle(
+                color: _textColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
-              dataTextStyle: const TextStyle(color: Colors.white, fontSize: 12),
+              dataTextStyle: TextStyle(color: _textColor, fontSize: 12),
               columns: const [
                 DataColumn(label: Text('Account')),
                 DataColumn(label: Text('Type')),
@@ -471,8 +496,8 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
                     DataCell(
                       Text(
                         _formatCurrency(amount),
-                        style: const TextStyle(
-                          color: Colors.tealAccent,
+                        style: TextStyle(
+                          color: _readableAccent(Colors.tealAccent),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -504,22 +529,19 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF172133),
+          color: _cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accent.withOpacity(0.25)),
+          border: Border.all(color: _borderColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
+            Text(title, style: TextStyle(color: _mutedTextColor, fontSize: 12)),
             const SizedBox(height: 6),
             Text(
               _formatCurrency(value),
               style: TextStyle(
-                color: accent,
+                color: _readableAccent(accent),
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -529,4 +551,7 @@ class _ProfitAndLossPageState extends State<ProfitAndLossPage> {
       ),
     );
   }
+
+  Color _readableAccent(Color accent) =>
+      _isLightTheme ? Color.lerp(accent, Colors.black, 0.45)! : accent;
 }

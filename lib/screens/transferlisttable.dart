@@ -31,6 +31,23 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
   final ScrollController verticalController = ScrollController();
   final ScrollController horizontalController = ScrollController();
 
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _secondaryTextColor => _textColor.withOpacity(0.7);
+  Color get _mutedTextColor => _textColor.withOpacity(0.54);
+  Color get _subtleTextColor => _textColor.withOpacity(0.3);
+  Color get _dividerColor => _textColor.withOpacity(0.24);
+  Color get _borderColor => _textColor.withOpacity(0.1);
+  Color get _surfaceColor => _isDarkMode
+      ? const Color(0xFF22304A)
+      : Theme.of(context).colorScheme.surface;
+  Color get _cardColor => _isDarkMode
+      ? const Color(0xFF1B263B)
+      : Theme.of(context).colorScheme.surface;
+  Color get _alternateCardColor => _isDarkMode
+      ? const Color(0xFF0D1B2A)
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+
   @override
   void initState() {
     super.initState();
@@ -54,13 +71,15 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       builder: (context, child) {
+        final theme = Theme.of(context);
+        if (theme.brightness != Brightness.dark) return child!;
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
               primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Color(0xFF22304A),
-              onSurface: Colors.white,
+              onPrimary: _textColor,
+              surface: const Color(0xFF22304A),
+              onSurface: _textColor,
             ),
           ),
           child: child!,
@@ -75,13 +94,15 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
         firstDate: start,
         lastDate: DateTime.now(),
         builder: (context, child) {
+          final theme = Theme.of(context);
+          if (theme.brightness != Brightness.dark) return child!;
           return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
+            data: theme.copyWith(
+              colorScheme: theme.colorScheme.copyWith(
                 primary: Colors.blue,
-                onPrimary: Colors.white,
-                surface: Color(0xFF22304A),
-                onSurface: Colors.white,
+                onPrimary: _textColor,
+                surface: const Color(0xFF22304A),
+                onSurface: _textColor,
               ),
             ),
             child: child!,
@@ -122,12 +143,14 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
           decoration: BoxDecoration(
             color: _isDateRangeActive
                 ? Colors.blue.shade800.withOpacity(0.3)
-                : Colors.white.withOpacity(0.1),
+                : _textColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             Icons.calendar_month,
-            color: _isDateRangeActive ? Colors.blue.shade300 : Colors.white70,
+            color: _isDateRangeActive
+                ? (_isDarkMode ? Colors.blue.shade300 : Colors.blue.shade700)
+                : _secondaryTextColor,
           ),
         ),
         onPressed: _showDateRangePicker,
@@ -137,10 +160,10 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: _textColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.refresh, color: Colors.white70),
+          child: Icon(Icons.refresh, color: _secondaryTextColor),
         ),
         onPressed: stock.subscribePendingRequests,
         tooltip: 'Refresh',
@@ -154,14 +177,16 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: _isDarkMode
+          ? const Color(0xFF101624)
+          : Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("Stock Transfer"),
+        title: Text("Stock Transfer"),
         actions: _buildAppBarActions(),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF415A77),
-        child: const Icon(Icons.add),
+        child: Icon(Icons.add),
         onPressed: () {
           Navigator.push(
             context,
@@ -184,15 +209,15 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                         searchQuery = value.toLowerCase();
                       });
                     },
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: _textColor),
                     decoration: InputDecoration(
-                      fillColor: const Color(0xFF22304A),
+                      fillColor: _surfaceColor,
                       hintText: 'Search transfers...',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                      hintStyle: TextStyle(color: _mutedTextColor),
+                      prefixIcon: Icon(Icons.search, color: _mutedTextColor),
                       suffixIcon: searchQuery.isNotEmpty
                           ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.white54),
+                        icon: Icon(Icons.clear, color: _mutedTextColor),
                         onPressed: () {
                           setState(() {
                             searchQuery = "";
@@ -202,15 +227,15 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                           : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.white10),
+                        borderSide: BorderSide(color: _borderColor),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.white24),
+                        borderSide: BorderSide(color: _dividerColor),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.blue),
+                        borderSide: BorderSide(color: Colors.blue),
                       ),
                     ),
                   ),
@@ -223,23 +248,32 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                   margin: const EdgeInsets.only(top: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade900.withOpacity(0.3),
+                    color: _isDarkMode
+                        ? Colors.blue.shade900.withOpacity(0.3)
+                        : Colors.blue.shade50,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.blue.shade700.withOpacity(0.3)),
+                    border: Border.all(
+                      color: _isDarkMode
+                          ? Colors.blue.shade700.withOpacity(0.3)
+                          : Colors.blue.shade200,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.date_range, size: 14, color: Colors.blue),
+                      Icon(Icons.date_range, size: 14, color: Colors.blue),
                       const SizedBox(width: 6),
                       Text(
                         '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: TextStyle(
+                          color: _isDarkMode ? _textColor : Colors.blue.shade900,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: _clearDateRange,
-                        child: const Icon(Icons.close, size: 14, color: Colors.blue),
+                        child: Icon(Icons.close, size: 14, color: Colors.blue),
                       ),
                     ],
                   ),
@@ -256,10 +290,10 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                   ),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
                           "No transfers yet",
-                          style: TextStyle(color: Colors.white70),
+                          style: TextStyle(color: _secondaryTextColor),
                         ),
                       );
                     }
@@ -279,7 +313,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                           searchQuery.isEmpty
                               ? "No transfers available"
                               : "No transfers found matching '$searchQuery'",
-                          style: const TextStyle(color: Colors.white70),
+                          style: TextStyle(color: _secondaryTextColor),
                         ),
                       );
                     }
@@ -329,8 +363,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
 
                             return Card(
                               color: index.isEven
-                                  ? const Color(0xFF0D1B2A)
-                                  : const Color(0xFF1B263B),
+                                  ? _alternateCardColor
+                                  : _cardColor,
                               margin: const EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 6,
@@ -348,8 +382,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                           backgroundColor: Colors.blueGrey,
                                           child: Text(
                                             '${index + 1}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: _textColor,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -357,8 +391,10 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                         const SizedBox(width: 8),
                                         Text(
                                           transferId,
-                                          style: const TextStyle(
-                                            color: Colors.blueAccent,
+                                          style: TextStyle(
+                                            color: _isDarkMode
+                                                ? Colors.blueAccent
+                                                : Colors.blue.shade800,
                                             fontWeight: FontWeight.bold,
                                             fontSize: 12,
                                           ),
@@ -378,7 +414,13 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                           child: Text(
                                             status.toUpperCase(),
                                             style: TextStyle(
-                                              color: status == 'pending' ? Colors.orange : Colors.green,
+                                              color: status == 'pending'
+                                                  ? (_isDarkMode
+                                                      ? Colors.orange
+                                                      : Colors.orange.shade800)
+                                                  : (_isDarkMode
+                                                      ? Colors.green
+                                                      : Colors.green.shade700),
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -393,16 +435,16 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                     ListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text(
+                                      title: Text(
                                         "Transfer Branch",
                                         style: TextStyle(
-                                          color: Colors.white54,
+                                          color: _mutedTextColor,
                                         ),
                                       ),
                                       subtitle: Text(
                                         fromBranch,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: _textColor,
                                         ),
                                       ),
                                     ),
@@ -410,16 +452,16 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                     ListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text(
+                                      title: Text(
                                         "Receiving Branch",
                                         style: TextStyle(
-                                          color: Colors.white54,
+                                          color: _mutedTextColor,
                                         ),
                                       ),
                                       subtitle: Text(
                                         toBranch,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: _textColor,
                                         ),
                                       ),
                                     ),
@@ -427,14 +469,14 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                     // Date and Staff
                                     Text(
                                       "Entry Date: ${data['createdat']?.toDate().toString().substring(0, 10) ?? 'N/A'}",
-                                      style: const TextStyle(
-                                        color: Colors.white70,
+                                      style: TextStyle(
+                                        color: _secondaryTextColor,
                                       ),
                                     ),
                                     Text(
                                       "Date: ${data['transferdate']?.toDate().toString().substring(0, 10) ?? 'N/A'}",
-                                      style: const TextStyle(
-                                        color: Colors.white70,
+                                      style: TextStyle(
+                                        color: _secondaryTextColor,
                                       ),
                                     ),
 
@@ -442,8 +484,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
 
                                     Text(
                                       "Staff: ${data['createdby']?.toString() ?? 'N/A'}",
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: _textColor,
                                       ),
                                     ),
 
@@ -451,15 +493,17 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
 
                                     // Stock Value
                                     Text(
-                                      "Stock Value: GHC ${stockValue.toStringAsFixed(2)}",
-                                      style: const TextStyle(
-                                        color: Colors.greenAccent,
+                                      "Stock Value: GHS ${stockValue.toStringAsFixed(2)}",
+                                      style: TextStyle(
+                                        color: _isDarkMode
+                                            ? Colors.greenAccent
+                                            : Colors.green.shade700,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
 
-                                    const Divider(
-                                      color: Colors.white24,
+                                    Divider(
+                                      color: _dividerColor,
                                     ),
 
                                     // Action Buttons
@@ -467,16 +511,18 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                                       children: [
                                         IconButton(
-                                          icon: const Icon(
+                                          icon: Icon(
                                             Icons.visibility,
-                                            color: Colors.tealAccent,
+                                            color: _isDarkMode
+                                                ? Colors.tealAccent
+                                                : Colors.teal.shade700,
                                           ),
                                           onPressed: () {
                                             _showTransferDetails(context, data, items, transferId);
                                           },
                                         ),
                                         IconButton(
-                                          icon: const Icon(
+                                          icon: Icon(
                                             Icons.print,
                                             color: Colors.blueGrey,
                                           ),
@@ -496,7 +542,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                         if (status == 'pending') ...[
                                           if(value.canEdit(AppModules.stock))
                                           IconButton(
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.edit,
                                               color: Colors.amber,
                                             ),
@@ -514,7 +560,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                           ),
                                           if(value.canDelete(AppModules.stock))
                                           IconButton(
-                                            icon: const Icon(
+                                            icon: Icon(
                                               Icons.delete,
                                               color: Colors.redAccent,
                                             ),
@@ -522,21 +568,21 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                               final confirm = await showDialog<bool>(
                                                 context: context,
                                                 builder: (_) => AlertDialog(
-                                                  backgroundColor: const Color(0xFF1B263B),
-                                                  title: const Text(
+                                                  backgroundColor: _cardColor,
+                                                  title: Text(
                                                     "Delete Transfer Invoice",
-                                                    style: TextStyle(color: Colors.white),
+                                                    style: TextStyle(color: _textColor),
                                                   ),
-                                                  content: const Text(
+                                                  content: Text(
                                                     "Are you sure you want to delete this transfer invoice?",
-                                                    style: TextStyle(color: Colors.white70),
+                                                    style: TextStyle(color: _secondaryTextColor),
                                                   ),
                                                   actions: [
                                                     TextButton(
                                                       onPressed: () => Navigator.pop(context, false),
-                                                      child: const Text(
+                                                      child: Text(
                                                         "Cancel",
-                                                        style: TextStyle(color: Colors.white54),
+                                                        style: TextStyle(color: _mutedTextColor),
                                                       ),
                                                     ),
                                                     ElevatedButton(
@@ -544,7 +590,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                       style: ElevatedButton.styleFrom(
                                                         backgroundColor: Colors.redAccent,
                                                       ),
-                                                      child: const Text("Delete"),
+                                                      child: Text("Delete"),
                                                     ),
                                                   ],
                                                 ),
@@ -588,7 +634,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                     await showDialog(
                                                       context: context,
                                                       builder: (_) => AlertDialog(
-                                                        title: const Text("Cannot Delete Transfer"),
+                                                        title: Text("Cannot Delete Transfer"),
                                                         content: SingleChildScrollView(
                                                           child: Text(
                                                             "The following items no longer have enough stock in "
@@ -599,10 +645,10 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                         actions: [
                                                           TextButton(
                                                             onPressed: () => Navigator.pop(context),
-                                                            child: const Text(
+                                                            child: Text(
                                                               "OK",
                                                               style: TextStyle(
-                                                                color: Colors.white,
+                                                                color: _textColor,
                                                               ),
                                                             ),
                                                           ),                                                        ],
@@ -699,16 +745,16 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                   ),
                                   child: DataTable(
                                     headingRowColor: WidgetStateProperty.all(
-                                      const Color(0xFF1B263B),
+                                      _cardColor,
                                     ),
                                     columnSpacing: 10,
-                                    headingTextStyle: const TextStyle(
-                                      color: Colors.white,
+                                    headingTextStyle: TextStyle(
+                                      color: _textColor,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15,
                                     ),
-                                    dataTextStyle: const TextStyle(
-                                      color: Colors.white,
+                                    dataTextStyle: TextStyle(
+                                      color: _textColor,
                                     ),
                                     columns: const [
                                       DataColumn(label: Text('#')),
@@ -762,8 +808,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                         color: WidgetStateProperty.resolveWith<Color?>(
                                               (Set<WidgetState> states) {
                                             return index.isEven
-                                                ? const Color(0xFF0D1B2A)
-                                                : const Color(0xFF1B263B);
+                                                ? _alternateCardColor
+                                                : _cardColor;
                                           },
                                         ),
                                         cells: [
@@ -771,8 +817,10 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                           DataCell(
                                             Text(
                                               transferId,
-                                              style: const TextStyle(
-                                                color: Colors.blueAccent,
+                                              style: TextStyle(
+                                                color: _isDarkMode
+                                                    ? Colors.blueAccent
+                                                    : Colors.blue.shade800,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -816,9 +864,11 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                           // ),
                                           DataCell(
                                             Text(
-                                              "GHC ${stockValue.toStringAsFixed(2)}",
-                                              style: const TextStyle(
-                                                color: Colors.greenAccent,
+                                              "GHS ${stockValue.toStringAsFixed(2)}",
+                                              style: TextStyle(
+                                                color: _isDarkMode
+                                                    ? Colors.greenAccent
+                                                    : Colors.green.shade700,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -827,9 +877,11 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                             Row(
                                               children: [
                                                 IconButton(
-                                                  icon: const Icon(
+                                                  icon: Icon(
                                                     Icons.visibility,
-                                                    color: Colors.tealAccent,
+                                                    color: _isDarkMode
+                                                        ? Colors.tealAccent
+                                                        : Colors.teal.shade700,
                                                     size: 20,
                                                   ),
                                                   onPressed: () {
@@ -838,7 +890,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                   tooltip: 'View',
                                                 ),
                                                 IconButton(
-                                                  icon: const Icon(
+                                                  icon: Icon(
                                                     Icons.print,
                                                     color: Colors.blueGrey,
                                                     size: 20,
@@ -861,7 +913,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                   if(value.canEdit(AppModules.stock))
 
                                                     IconButton(
-                                                    icon: const Icon(
+                                                    icon: Icon(
                                                       Icons.edit,
                                                       color: Colors.amber,
                                                       size: 20,
@@ -882,7 +934,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                   if(value.canDelete(AppModules.stock))
 
                                                     IconButton(
-                                                    icon: const Icon(
+                                                    icon: Icon(
                                                       Icons.delete,
                                                       color: Colors.redAccent,
                                                       size: 20,
@@ -891,21 +943,21 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                       final confirm = await showDialog<bool>(
                                                         context: context,
                                                         builder: (_) => AlertDialog(
-                                                          backgroundColor: const Color(0xFF1B263B),
-                                                          title: const Text(
+                                                          backgroundColor: _cardColor,
+                                                          title: Text(
                                                             "Delete Transfer Invoice",
-                                                            style: TextStyle(color: Colors.white),
+                                                            style: TextStyle(color: _textColor),
                                                           ),
-                                                          content: const Text(
+                                                          content: Text(
                                                             "Are you sure you want to delete this transfer invoice?",
-                                                            style: TextStyle(color: Colors.white70),
+                                                            style: TextStyle(color: _secondaryTextColor),
                                                           ),
                                                           actions: [
                                                             TextButton(
                                                               onPressed: () => Navigator.pop(context, false),
-                                                              child: const Text(
+                                                              child: Text(
                                                                 "Cancel",
-                                                                style: TextStyle(color: Colors.white54),
+                                                                style: TextStyle(color: _mutedTextColor),
                                                               ),
                                                             ),
                                                             ElevatedButton(
@@ -913,7 +965,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                               style: ElevatedButton.styleFrom(
                                                                 backgroundColor: Colors.redAccent,
                                                               ),
-                                                              child: const Text("Delete"),
+                                                              child: Text("Delete"),
                                                             ),
                                                           ],
                                                         ),
@@ -956,7 +1008,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                             await showDialog(
                                                               context: context,
                                                               builder: (_) => AlertDialog(
-                                                                title: const Text("Cannot Delete Transfer"),
+                                                                title: Text("Cannot Delete Transfer"),
                                                                 content: SingleChildScrollView(
                                                                   child: Text(
                                                                     "The following items no longer have enough stock in "
@@ -967,11 +1019,11 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                                 actions: [
                                                                   OutlinedButton(
                                                                     style: OutlinedButton.styleFrom(
-                                                                      foregroundColor: Colors.white,
-                                                                      side: const BorderSide(color: Colors.white54),
+                                                                      foregroundColor: _textColor,
+                                                                      side: BorderSide(color: _mutedTextColor),
                                                                     ),
                                                                     onPressed: () => Navigator.pop(context),
-                                                                    child: const Text("Ok"),
+                                                                    child: Text("Ok"),
                                                                   ),
                                                                 ],
                                                               ),
@@ -1040,7 +1092,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                                                   ),
                                                   if(data['syncstatus']!= true)
                                                   IconButton(
-                                                    icon: const Icon(
+                                                    icon: Icon(
                                                       Icons.sync,
                                                       color: Colors.blue,
                                                       size: 20,
@@ -1099,7 +1151,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
       ) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1B263B),
+      backgroundColor: _cardColor,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1119,7 +1171,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white30,
+                    color: _subtleTextColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1127,8 +1179,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
               const SizedBox(height: 16),
               Text(
                 'Transfer Details',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: _textColor,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1145,10 +1197,12 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                     _buildDetailRow('Staff', data['createdby']?.toString() ?? 'N/A'),
                     _buildDetailRow('Status', data['status']?.toUpperCase() ?? 'COMPLETED'),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'Items',
                       style: TextStyle(
-                        color: Colors.amberAccent,
+                        color: _isDarkMode
+                            ? Colors.amberAccent
+                            : Colors.amber.shade800,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1158,7 +1212,7 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22304A),
+                        color: _surfaceColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
@@ -1166,15 +1220,15 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                         children: [
                           Text(
                             item['item'] ?? 'Unknown',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: _textColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text('Qty: ${item['quantity']}', style: const TextStyle(color: Colors.white70)),
-                          Text('Price: GHC ${item['price']}', style: const TextStyle(color: Colors.white70)),
-                          Text('Total: GHC ${item['total']}', style: const TextStyle(color: Colors.white70)),
+                          Text('Qty: ${item['quantity']}', style: TextStyle(color: _secondaryTextColor)),
+                          Text('Price: GHS ${item['price']}', style: TextStyle(color: _secondaryTextColor)),
+                          Text('Total: GHS ${item['total']}', style: TextStyle(color: _secondaryTextColor)),
                         ],
                       ),
                     )),
@@ -1188,17 +1242,19 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Total Stock Value',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: _textColor,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
-                            'GHC ${items.fold(0.0, (sum, item) => sum + (item['total'] ?? 0)).toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
+                            'GHS ${items.fold(0.0, (sum, item) => sum + (item['total'] ?? 0)).toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: _isDarkMode
+                                  ? Colors.greenAccent
+                                  : Colors.green.shade700,
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                             ),
@@ -1227,8 +1283,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white54,
+              style: TextStyle(
+                color: _mutedTextColor,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1236,8 +1292,8 @@ class _StockTransferDetailsState extends State<StockTransferDetails> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _textColor,
                 fontWeight: FontWeight.w500,
               ),
             ),

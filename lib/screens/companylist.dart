@@ -10,10 +10,8 @@ class CompanyListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
-      appBar: AppBar(
-        title: const Text("Registered Companies"),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text("Registered Companies")),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF415A77),
         child: const Icon(Icons.add),
@@ -33,10 +31,12 @@ class CompanyListPage extends StatelessWidget {
 
           final docs = snapshot.data!.docs;
           if (docs.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
                 "No companies registered yet",
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             );
           }
@@ -54,7 +54,7 @@ class CompanyListPage extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1B263B),
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -69,13 +69,14 @@ class CompanyListPage extends StatelessWidget {
                     /// LOGO PREVIEW
                     CircleAvatar(
                       radius: 28,
-                      backgroundColor: const Color(0xFF22304A),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       backgroundImage: (logoUrl != null && logoUrl.isNotEmpty)
                           ? NetworkImage(logoUrl)
                           : null,
                       child: (logoUrl == null || logoUrl.isEmpty)
-                          ? const Icon(Icons.business,
-                          color: Colors.white70)
+                          ? const Icon(Icons.business, color: Colors.white70)
                           : null,
                     ),
 
@@ -88,8 +89,8 @@ class CompanyListPage extends StatelessWidget {
                         children: [
                           Text(
                             data['company'] ?? "",
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -97,11 +98,13 @@ class CompanyListPage extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             "Branch type: ${data['branch']}\n"
-                                "Type: ${data['type']}\n"
-                                "Contact: ${data['name']}\n"
-                                "Phone: ${data['phone']}",
-                            style: const TextStyle(
-                                color: Colors.white70, height: 1.4),
+                            "Type: ${data['type']}\n"
+                            "Contact: ${data['name']}\n"
+                            "Phone: ${data['phone']}",
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              height: 1.4,
+                            ),
                           ),
                         ],
                       ),
@@ -114,10 +117,8 @@ class CompanyListPage extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => CompanyRegPage(
-                              docId: doc.id,
-                              data: data,
-                            ),
+                            builder: (_) =>
+                                CompanyRegPage(docId: doc.id, data: data),
                           ),
                         );
                       },
@@ -125,24 +126,22 @@ class CompanyListPage extends StatelessWidget {
 
                     /// DELETE
                     IconButton(
-                      icon: const Icon(Icons.delete,
-                          color: Colors.redAccent),
+                      icon: const Icon(Icons.delete, color: Colors.redAccent),
                       onPressed: () async {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (_) => AlertDialog(
                             title: const Text("Delete Company"),
                             content: const Text(
-                                "Are you sure you want to delete this company?"),
+                              "Are you sure you want to delete this company?",
+                            ),
                             actions: [
                               TextButton(
-                                onPressed: () =>
-                                    Navigator.pop(context, false),
+                                onPressed: () => Navigator.pop(context, false),
                                 child: const Text("Cancel"),
                               ),
                               ElevatedButton(
-                                onPressed: () =>
-                                    Navigator.pop(context, true),
+                                onPressed: () => Navigator.pop(context, true),
                                 child: const Text("Delete"),
                               ),
                             ],
@@ -150,14 +149,10 @@ class CompanyListPage extends StatelessWidget {
                         );
 
                         if (confirm == true) {
-                          await db
-                              .collection('companies')
-                              .doc(doc.id)
-                              .delete();
+                          await db.collection('companies').doc(doc.id).delete();
 
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Company deleted")),
+                            const SnackBar(content: Text("Company deleted")),
                           );
                         }
                       },

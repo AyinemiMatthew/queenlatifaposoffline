@@ -67,7 +67,7 @@ class _StaffState extends State<Staff> {
     final hasId = branches.any((b) => b.id == current);
     if (hasId) return current;
     final match = branches.firstWhere(
-          (b) => b.branchname == current,
+      (b) => b.branchname == current,
       orElse: () => BranchModel(),
     );
     return match.id.isNotEmpty ? match.id : null;
@@ -78,10 +78,9 @@ class _StaffState extends State<Staff> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if(!mounted)return;
+      if (!mounted) return;
       context.read<Datafeed>().fetchBranches();
     });
-
 
     if (widget.data != null) {
       final d = widget.data!;
@@ -97,14 +96,14 @@ class _StaffState extends State<Staff> {
       _phoneController.text = d['phone'] ?? '';
       _accesslevel = d['accesslevel'] ?? d['accessLevel'];
 
-      _selectedBranch =  d['branchId'] ?? d['branch'] ?? d['branche'] ?? d['branchname'];
+      _selectedBranch =
+          d['branchId'] ?? d['branch'] ?? d['branche'] ?? d['branchname'];
       // initialize pricing mode if provided (supports String or List)
       final pricingRaw = d['pricingMode'] ?? d['pricing'];
       List<String> pricingList = [];
       if (pricingRaw is List) {
         pricingList = pricingRaw.map((e) => e.toString()).toList();
-      }
-      else if (pricingRaw is String) {
+      } else if (pricingRaw is String) {
         pricingList = pricingRaw
             .split(',')
             .map((e) => e.trim())
@@ -115,12 +114,11 @@ class _StaffState extends State<Staff> {
       _pricingWholesale = pricingList.contains('wholesale');
       _pricingNone = pricingList.contains('none');
 
-
       final allowedRaw =
           d['allowedPaymentMethods'] ??
-              d['allowed_payment_methods'] ??
-              d['paymentMethods'] ??
-              d['payment_methods'];
+          d['allowed_payment_methods'] ??
+          d['paymentMethods'] ??
+          d['payment_methods'];
       List<String> allowed = [];
       if (allowedRaw is List) {
         allowed = allowedRaw.map((e) => e.toString()).toList();
@@ -178,7 +176,7 @@ class _StaffState extends State<Staff> {
       final endRaw = d['enddate'];
       if (endRaw is Timestamp) {
         _selectedEndDate = endRaw.toDate();
-      } else if (endRaw is DateTime){
+      } else if (endRaw is DateTime) {
         _selectedEndDate = endRaw;
       }
 
@@ -243,6 +241,7 @@ class _StaffState extends State<Staff> {
 
     setState(() {});
   }
+
   Future<void> _loadExistingStaff(String id) async {
     final doc = await _db.collection('staff').doc(id).get();
     if (!mounted || !doc.exists) return;
@@ -254,7 +253,8 @@ class _StaffState extends State<Staff> {
       _emailController.text = d['email'] ?? '';
       _phoneController.text = d['phone'] ?? '';
       _accesslevel = d['accesslevel'] ?? d['accessLevel'];
-      _selectedBranch = d['branchId'] ?? d['branch'] ?? d['branche'] ?? d['branchname'];
+      _selectedBranch =
+          d['branchId'] ?? d['branch'] ?? d['branche'] ?? d['branchname'];
 
       _canPrint = d['canPrint'] ?? true;
       _canEditPrice = d['canEditPrice'] ?? false;
@@ -268,26 +268,39 @@ class _StaffState extends State<Staff> {
       if (pricingRaw is List) {
         pricingList = pricingRaw.map((e) => e.toString()).toList();
       } else if (pricingRaw is String) {
-        pricingList = pricingRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        pricingList = pricingRaw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       }
       _pricingRetail = pricingList.contains('retail');
       _pricingWholesale = pricingList.contains('wholesale');
       _pricingNone = pricingList.contains('none');
 
-      final allowedRaw = d['allowedPaymentMethods'] ?? d['allowed_payment_methods'] ??
-          d['paymentMethods'] ?? d['payment_methods'];
+      final allowedRaw =
+          d['allowedPaymentMethods'] ??
+          d['allowed_payment_methods'] ??
+          d['paymentMethods'] ??
+          d['payment_methods'];
       List<String> allowed = [];
       if (allowedRaw is List) {
         allowed = allowedRaw.map((e) => e.toString()).toList();
       } else if (allowedRaw is String) {
-        allowed = allowedRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        allowed = allowedRaw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       }
       String norm(String v) {
         final m = v.trim().toLowerCase();
-        if (m == 'bank' || m == 'bank transfer' || m == 'banktransfer') return 'bank_transfer';
+        if (m == 'bank' || m == 'bank transfer' || m == 'banktransfer')
+          return 'bank_transfer';
         if (m == 'mobilemoney' || m == 'mobile money') return 'momo';
         return m.replaceAll(' ', '_');
       }
+
       final allowedSet = allowed.map(norm).toSet();
       _payCash = allowedSet.contains('cash');
       _payCredit = allowedSet.contains('credit');
@@ -296,11 +309,16 @@ class _StaffState extends State<Staff> {
       _payCheque = allowedSet.contains('cheque');
       _payCard = allowedSet.contains('card');
 
-      final warehousesRaw = d['warehouseIds'] ?? d['warehouseids'] ?? d['warehouses'];
+      final warehousesRaw =
+          d['warehouseIds'] ?? d['warehouseids'] ?? d['warehouses'];
       if (warehousesRaw is List) {
         _assignedWarehouseIds = warehousesRaw.map((e) => e.toString()).toList();
       } else if (warehousesRaw is String && warehousesRaw.isNotEmpty) {
-        _assignedWarehouseIds = warehousesRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        _assignedWarehouseIds = warehousesRaw
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       }
 
       final startRaw = d['startdate'];
@@ -309,6 +327,7 @@ class _StaffState extends State<Staff> {
       if (endRaw is Timestamp) _selectedEndDate = endRaw.toDate();
     });
   }
+
   Future<String?> uploadLogo(String itemId) async {
     if (_logoFile == null && _logoBytes == null) {
       return _existingLogoUrl; // unchanged
@@ -339,10 +358,11 @@ class _StaffState extends State<Staff> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Consumer<Datafeed>(
       builder: (context, datafeed, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(widget.docId == null ? 'Register Staff' : 'Edit Staff'),
           ),
@@ -391,7 +411,9 @@ class _StaffState extends State<Staff> {
                           if (v == null || v.isEmpty) {
                             return 'Please enter a phone number';
                           }
-                          final phoneRegex = RegExp(r'^(0[0-9]{9}|\+233[0-9]{9})$');
+                          final phoneRegex = RegExp(
+                            r'^(0[0-9]{9}|\+233[0-9]{9})$',
+                          );
                           if (!phoneRegex.hasMatch(v)) {
                             return 'Enter a valid phone number (e.g. 0241234567 or +233241234567)';
                           }
@@ -401,8 +423,8 @@ class _StaffState extends State<Staff> {
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
                         initialValue: _accesslevel,
-                        dropdownColor: const Color(0xFF22304A),
-                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: colorScheme.surface,
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: _buildDropdownDecoration('Access Level'),
                         items: const [
                           DropdownMenuItem(
@@ -448,15 +470,17 @@ class _StaffState extends State<Staff> {
                         ],
                         onChanged: (v) => setState(() => _accesslevel = v),
                         validator: (v) =>
-                        v == null ? 'Select product type' : null,
+                            v == null ? 'Select product type' : null,
                       ),
                       const SizedBox(height: 10),
                       Consumer<Datafeed>(
                         builder: (context, datafeed, _) {
                           if (datafeed.branches.isEmpty) {
-                            return const Text(
+                            return Text(
                               "No branches found",
-                              style: TextStyle(color: Colors.white54),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             );
                           }
 
@@ -469,7 +493,7 @@ class _StaffState extends State<Staff> {
                           BranchModel? selectedBranch;
                           if (branchValue != null) {
                             selectedBranch = datafeed.branches.firstWhere(
-                                  (b) => b.id == branchValue,
+                              (b) => b.id == branchValue,
                               orElse: () => BranchModel(),
                             );
                           }
@@ -479,24 +503,24 @@ class _StaffState extends State<Staff> {
                           final branchType = branchTypeRaw.toLowerCase().trim();
                           final isSalesPoint =
                               branchType == 'sales point' ||
-                                  branchType == 'salespoint';
+                              branchType == 'salespoint';
                           final warehouseBranches = datafeed.branches
                               .where(
                                 (b) =>
-                            b.branchtype.toLowerCase().trim() ==
-                                'warehouse',
-                          )
+                                    b.branchtype.toLowerCase().trim() ==
+                                    'warehouse',
+                              )
                               .toList();
                           String hintText = 'Select a branch to see its type.';
                           if (isSalesPoint) {
                             hintText =
-                            'Sales Point: sells from warehouses with stock balance.';
+                                'Sales Point: sells from warehouses with stock balance.';
                           } else if (branchType == 'sales branch' ||
                               branchType == 'salesbranch') {
                             hintText = 'Sales Branch: holds its own stock.';
                           } else if (branchType == 'warehouse') {
                             hintText =
-                            'Warehouse: keeps stock to transfer or fulfill branch requests.';
+                                'Warehouse: keeps stock to transfer or fulfill branch requests.';
                           } else if (branchTypeRaw.isNotEmpty) {
                             hintText = 'Branch Type: $branchTypeRaw';
                           }
@@ -506,23 +530,23 @@ class _StaffState extends State<Staff> {
                             children: [
                               DropdownButtonFormField<String>(
                                 value: branchValue,
-                                dropdownColor: const Color(0xFF22304A),
-                                style: const TextStyle(color: Colors.white),
+                                dropdownColor: colorScheme.surface,
+                                style: TextStyle(color: colorScheme.onSurface),
                                 decoration: _buildDropdownDecoration(
                                   'Select Branch',
                                 ),
                                 items: datafeed.branches
                                     .map(
                                       (w) => DropdownMenuItem<String>(
-                                    value: w.id,
-                                    child: Text(w.branchname),
-                                  ),
-                                )
+                                        value: w.id,
+                                        child: Text(w.branchname),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: (v) => setState(() {
                                   _selectedBranch = v;
                                   final selected = datafeed.branches.firstWhere(
-                                        (b) => b.id == v,
+                                    (b) => b.id == v,
                                     orElse: () => BranchModel(),
                                   );
                                   final selectedType = selected.branchtype
@@ -530,141 +554,186 @@ class _StaffState extends State<Staff> {
                                       .trim();
                                   final isSelectedSalesPoint =
                                       selectedType == 'sales point' ||
-                                          selectedType == 'salespoint';
+                                      selectedType == 'salespoint';
                                   if (!isSelectedSalesPoint) {
                                     _assignedWarehouseIds.clear();
                                   }
                                 }),
                                 validator: (v) =>
-                                v == null ? 'Select Staff Branch' : null,
+                                    v == null ? 'Select Staff Branch' : null,
                               ),
                               const SizedBox(height: 6),
 
                               // Payment methods checkboxes
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Allowed Payment Methods',
-                                    style: TextStyle(color: Colors.white70),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colorScheme.outline,
                                   ),
-                                  const SizedBox(height: 6),
-                                  CheckboxListTile(
-                                    value: _payCash,
-                                    onChanged: (v) =>
-                                        setState(() => _payCash = v ?? false),
-                                    title: const Text(
-                                      'Cash',
-                                      style: TextStyle(color: Colors.white70),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Allowed Payment Methods',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurface,
+                                          ),
                                     ),
-                                    controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                    activeColor: Colors.blue,
-                                    tileColor: const Color(0xFF22304A),
-                                    contentPadding: EdgeInsets.zero,
-                                    side: BorderSide(color: Colors.white70),
-                                  ),
-                                  CheckboxListTile(
-                                    value: _payCredit,
-                                    onChanged: (v) =>
-                                        setState(() => _payCredit = v ?? false),
-                                    title: const Text(
-                                      'Credit',
-                                      style: TextStyle(color: Colors.white70),
+                                    const SizedBox(height: 6),
+                                    CheckboxListTile(
+                                      value: _payCash,
+                                      onChanged: (v) =>
+                                          setState(() => _payCash = v ?? false),
+                                      title: Text(
+                                        'Cash',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
+                                      contentPadding: EdgeInsets.zero,
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                    activeColor: Colors.blue,
-                                    tileColor: const Color(0xFF22304A),
-                                    contentPadding: EdgeInsets.zero,
-                                    side: BorderSide(color: Colors.white70),
-                                  ),
-                                  CheckboxListTile(
-                                    value: _payMomo,
-                                    onChanged: (v) =>
-                                        setState(() => _payMomo = v ?? false),
-                                    title: const Text(
-                                      'MOMO',
-                                      style: TextStyle(color: Colors.white70),
+                                    CheckboxListTile(
+                                      value: _payCredit,
+                                      onChanged: (v) => setState(
+                                        () => _payCredit = v ?? false,
+                                      ),
+                                      title: Text(
+                                        'Credit',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
+                                      contentPadding: EdgeInsets.zero,
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                    activeColor: Colors.blue,
-                                    tileColor: const Color(0xFF22304A),
-                                    contentPadding: EdgeInsets.zero,
-                                    side: BorderSide(color: Colors.white70),
-                                  ),
-                                  CheckboxListTile(
-                                    value: _payBankTransfer,
-                                    onChanged: (v) => setState(
-                                          () => _payBankTransfer = v ?? false,
+                                    CheckboxListTile(
+                                      value: _payMomo,
+                                      onChanged: (v) =>
+                                          setState(() => _payMomo = v ?? false),
+                                      title: Text(
+                                        'MOMO',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
+                                      contentPadding: EdgeInsets.zero,
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    title: const Text(
-                                      'Bank Transfer',
-                                      style: TextStyle(color: Colors.white70),
+                                    CheckboxListTile(
+                                      value: _payBankTransfer,
+                                      onChanged: (v) => setState(
+                                        () => _payBankTransfer = v ?? false,
+                                      ),
+                                      title: Text(
+                                        'Bank Transfer',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
+                                      contentPadding: EdgeInsets.zero,
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                    activeColor: Colors.blue,
-                                    tileColor: const Color(0xFF22304A),
-                                    contentPadding: EdgeInsets.zero,
-                                    side: BorderSide(color: Colors.white70),
-                                  ),
-                                  CheckboxListTile(
-                                    value: _payCard,
-                                    onChanged: (v) =>
-                                        setState(() => _payCard = v ?? false),
-                                    title: const Text(
-                                      'Card',
-                                      style: TextStyle(color: Colors.white70),
+                                    CheckboxListTile(
+                                      value: _payCard,
+                                      onChanged: (v) =>
+                                          setState(() => _payCard = v ?? false),
+                                      title: Text(
+                                        'Card',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
+                                      contentPadding: EdgeInsets.zero,
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                    activeColor: Colors.blue,
-                                    tileColor: const Color(0xFF22304A),
-                                    contentPadding: EdgeInsets.zero,
-                                    side: BorderSide(color: Colors.white70),
-                                  ),
-                                  CheckboxListTile(
-                                    value: _payCheque,
-                                    onChanged: (v) =>
-                                        setState(() => _payCheque = v ?? false),
-                                    title: const Text(
-                                      'Cheque',
-                                      style: TextStyle(color: Colors.white70),
+                                    CheckboxListTile(
+                                      value: _payCheque,
+                                      onChanged: (v) => setState(
+                                        () => _payCheque = v ?? false,
+                                      ),
+                                      title: Text(
+                                        'Cheque',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
+                                      contentPadding: EdgeInsets.zero,
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                    activeColor: Colors.blue,
-                                    tileColor: const Color(0xFF22304A),
-                                    contentPadding: EdgeInsets.zero,
-                                    side: BorderSide(color: Colors.white70),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
 
                               Text(
                                 hintText,
                                 style: TextStyle(
-                                  color: Colors.white60,
+                                  color: colorScheme.onSurfaceVariant,
                                   fontSize: 12,
                                 ),
                               ),
                               if (isSalesPoint) ...[
                                 const SizedBox(height: 12),
-                                const Text(
+                                Text(
                                   'Assign Warehouses',
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 if (warehouseBranches.isEmpty)
-                                  const Text(
+                                  Text(
                                     'No warehouse branches found.',
-                                    style: TextStyle(color: Colors.white54),
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                   )
                                 else
                                   ...warehouseBranches.map(
-                                        (w) => CheckboxListTile(
+                                    (w) => CheckboxListTile(
                                       value: _assignedWarehouseIds.contains(
                                         w.id,
                                       ),
@@ -677,16 +746,18 @@ class _StaffState extends State<Staff> {
                                       }),
                                       title: Text(
                                         w.branchname,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurfaceVariant,
                                         ),
                                       ),
                                       controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                      activeColor: Colors.blue,
-                                      tileColor: const Color(0xFF22304A),
+                                          ListTileControlAffinity.leading,
+                                      activeColor: colorScheme.primary,
+                                      tileColor: colorScheme.surface,
                                       contentPadding: EdgeInsets.zero,
-                                      side: BorderSide(color: Colors.white70),
+                                      side: BorderSide(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -696,408 +767,533 @@ class _StaffState extends State<Staff> {
                       ),
                       const SizedBox(height: 10),
                       // Pricing mode checkboxes (mutually exclusive)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Pricing Mode',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
-                          CheckboxListTile(
-                            value: _pricingRetail,
-                            onChanged: (v) => setState(() {
-                              _pricingRetail = v ?? false;
-                              // selecting retail should clear 'none' if set
-                              if (_pricingRetail) _pricingNone = false;
-                            }),
-                            title: const Text(
-                              'Retail',
-                              style: TextStyle(color: Colors.white70),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pricing Mode',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                            side: BorderSide(color: Colors.white70),
-                          ),
-                          CheckboxListTile(
-                            value: _pricingWholesale,
-                            onChanged: (v) => setState(() {
-                              _pricingWholesale = v ?? false;
-                              // selecting wholesale should clear 'none' if set
-                              if (_pricingWholesale) _pricingNone = false;
-                            }),
-                            title: const Text(
-                              'Wholesale',
-                              style: TextStyle(color: Colors.white70),
+                            const SizedBox(height: 6),
+                            CheckboxListTile(
+                              value: _pricingRetail,
+                              onChanged: (v) => setState(() {
+                                _pricingRetail = v ?? false;
+                                // selecting retail should clear 'none' if set
+                                if (_pricingRetail) _pricingNone = false;
+                              }),
+                              title: Text(
+                                'Retail',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                              side: BorderSide(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                            side: BorderSide(color: Colors.white70),
-                          ),
-                          CheckboxListTile(
-                            value: _pricingNone,
-                            onChanged: (v) => setState(() {
-                              _pricingNone = v ?? false;
-                              if (_pricingNone) {
-                                _pricingRetail = false;
-                                _pricingWholesale = false;
-                              }
-                            }),
-                            title: const Text(
-                              'None',
-                              style: TextStyle(color: Colors.white70),
+                            CheckboxListTile(
+                              value: _pricingWholesale,
+                              onChanged: (v) => setState(() {
+                                _pricingWholesale = v ?? false;
+                                // selecting wholesale should clear 'none' if set
+                                if (_pricingWholesale) _pricingNone = false;
+                              }),
+                              title: Text(
+                                'Wholesale',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                              side: BorderSide(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                            side: BorderSide(color: Colors.white70),
-                          ),
-                        ],
+                            CheckboxListTile(
+                              value: _pricingNone,
+                              onChanged: (v) => setState(() {
+                                _pricingNone = v ?? false;
+                                if (_pricingNone) {
+                                  _pricingRetail = false;
+                                  _pricingWholesale = false;
+                                }
+                              }),
+                              title: Text(
+                                'None',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                              side: BorderSide(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Auto Print Receipt',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Auto Print Receipt',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
 
-                          RadioListTile<bool>(
-                            value: true,
-                            groupValue: _canPrint,
-                            onChanged: (v) => setState(() => _canPrint = v),
-                            title: const Text(
-                              'Yes',
-                              style: TextStyle(color: Colors.white70),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _canPrint,
+                              onChanged: (v) => setState(() => _canPrint = v),
+                              title: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
 
-                          RadioListTile<bool>(
-                            value: false,
-                            groupValue: _canPrint,
-                            onChanged: (v) => setState(() => _canPrint = v),
-                            title: const Text(
-                              'No',
-                              style: TextStyle(color: Colors.white70),
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _canPrint,
+                              onChanged: (v) => setState(() => _canPrint = v),
+                              title: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Allow Price Editing',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
-                          RadioListTile<bool>(
-                            value: true,
-                            groupValue: _canEditPrice,
-                            onChanged: (v) => setState(() => _canEditPrice = v),
-                            title: const Text(
-                              'Yes',
-                              style: TextStyle(color: Colors.white70),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Allow Price Editing',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          RadioListTile<bool>(
-                            value: false,
-                            groupValue: _canEditPrice,
-                            onChanged: (v) => setState(() => _canEditPrice = v),
-                            title: const Text(
-                              'No',
-                              style: TextStyle(color: Colors.white70),
+                            const SizedBox(height: 6),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _canEditPrice,
+                              onChanged: (v) =>
+                                  setState(() => _canEditPrice = v),
+                              title: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _canEditPrice,
+                              onChanged: (v) =>
+                                  setState(() => _canEditPrice = v),
+                              title: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Allow Past Sale Dates',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
-                          RadioListTile<bool>(
-                            value: true,
-                            groupValue: _canSelectDate,
-                            onChanged: (v) => setState(() => _canSelectDate = v),
-                            title: const Text(
-                              'Yes',
-                              style: TextStyle(color: Colors.white70),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Allow Past Sale Dates',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          RadioListTile<bool>(
-                            value: false,
-                            groupValue: _canSelectDate,
-                            onChanged: (v) => setState(() => _canSelectDate = v),
-                            title: const Text(
-                              'No',
-                              style: TextStyle(color: Colors.white70),
+                            const SizedBox(height: 6),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _canSelectDate,
+                              onChanged: (v) =>
+                                  setState(() => _canSelectDate = v),
+                              title: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _canSelectDate,
+                              onChanged: (v) =>
+                                  setState(() => _canSelectDate = v),
+                              title: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Allow Sales From Any Branch',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
-                          RadioListTile<bool>(
-                            value: true,
-                            groupValue: _canSellAnyBranch,
-                            onChanged: (v) => setState(() => _canSellAnyBranch = v),
-                            title: const Text(
-                              'Yes',
-                              style: TextStyle(color: Colors.white70),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Allow Sales From Any Branch',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          RadioListTile<bool>(
-                            value: false,
-                            groupValue: _canSellAnyBranch,
-                            onChanged: (v) => setState(() => _canSellAnyBranch = v),
-                            title: const Text(
-                              'No',
-                              style: TextStyle(color: Colors.white70),
+                            const SizedBox(height: 6),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _canSellAnyBranch,
+                              onChanged: (v) =>
+                                  setState(() => _canSellAnyBranch = v),
+                              title: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _canSellAnyBranch,
+                              onChanged: (v) =>
+                                  setState(() => _canSellAnyBranch = v),
+                              title: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Allow Discounts',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
-                          RadioListTile<bool>(
-                            value: true,
-                            groupValue: _allowDiscount,
-                            onChanged: (v) => setState(() => _allowDiscount = v),
-                            title: const Text(
-                              'Yes',
-                              style: TextStyle(color: Colors.white70),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Allow Discounts',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          RadioListTile<bool>(
-                            value: false,
-                            groupValue: _allowDiscount,
-                            onChanged: (v) => setState(() => _allowDiscount = v),
-                            title: const Text(
-                              'No',
-                              style: TextStyle(color: Colors.white70),
+                            const SizedBox(height: 6),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _allowDiscount,
+                              onChanged: (v) =>
+                                  setState(() => _allowDiscount = v),
+                              title: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _allowDiscount,
+                              onChanged: (v) =>
+                                  setState(() => _allowDiscount = v),
+                              title: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Allow Discount Codes',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          const SizedBox(height: 6),
-                          RadioListTile<bool>(
-                            value: true,
-                            groupValue: _allowDiscountCode,
-                            onChanged: (v) => setState(() => _allowDiscountCode = v),
-                            title: const Text(
-                              'Yes',
-                              style: TextStyle(color: Colors.white70),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Allow Discount Codes',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          RadioListTile<bool>(
-                            value: false,
-                            groupValue: _allowDiscountCode,
-                            onChanged: (v) => setState(() => _allowDiscountCode = v),
-                            title: const Text(
-                              'No',
-                              style: TextStyle(color: Colors.white70),
+                            const SizedBox(height: 6),
+                            RadioListTile<bool>(
+                              value: true,
+                              groupValue: _allowDiscountCode,
+                              onChanged: (v) =>
+                                  setState(() => _allowDiscountCode = v),
+                              title: Text(
+                                'Yes',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
                             ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: Colors.blue,
-                            tileColor: const Color(0xFF22304A),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
+                            RadioListTile<bool>(
+                              value: false,
+                              groupValue: _allowDiscountCode,
+                              onChanged: (v) =>
+                                  setState(() => _allowDiscountCode = v),
+                              title: Text(
+                                'No',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              tileColor: colorScheme.surface,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _selectedStartDate ?? DateTime.now(),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                      builder: (context, child) {
-                                        return Theme(
-                                          data: Theme.of(context).copyWith(
-                                            textButtonTheme: TextButtonThemeData(
-                                              style: ButtonStyle(
-                                                foregroundColor: WidgetStatePropertyAll(Colors.white),
-                                              ),
+                      _buildOptionPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate:
+                                            _selectedStartDate ??
+                                            DateTime.now(),
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                        builder: (context, child) {
+                                          return Theme(
+                                            data: Theme.of(context).copyWith(
+                                              textButtonTheme:
+                                                  TextButtonThemeData(
+                                                    style: ButtonStyle(
+                                                      foregroundColor:
+                                                          WidgetStatePropertyAll(
+                                                            colorScheme.primary,
+                                                          ),
+                                                    ),
+                                                  ),
+                                            ),
+                                            child: child!,
+                                          );
+                                        },
+                                      );
+                                      if (picked != null)
+                                        setState(
+                                          () => _selectedStartDate = picked,
+                                        );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 14,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: colorScheme.outline,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_today,
+                                            color: colorScheme.onSurfaceVariant,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _selectedStartDate != null
+                                                ? "${_selectedStartDate!.day}/${_selectedStartDate!.month}/${_selectedStartDate!.year}"
+                                                : 'Start Date',
+                                            style: TextStyle(
+                                              color: _selectedStartDate != null
+                                                  ? colorScheme.onSurface
+                                                  : colorScheme
+                                                        .onSurfaceVariant,
                                             ),
                                           ),
-                                          child: child!,
-                                        );
-                                      },
-                                    );
-                                    if (picked != null) setState(() => _selectedStartDate = picked);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF22304A),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.white24),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.calendar_today, color: Colors.white54, size: 16),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _selectedStartDate != null
-                                              ? "${_selectedStartDate!.day}/${_selectedStartDate!.month}/${_selectedStartDate!.year}"
-                                              : 'Start Date',
-                                          style: TextStyle(
-                                            color: _selectedStartDate != null ? Colors.white : Colors.white54,
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () async {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _selectedEndDate ?? _selectedStartDate ?? DateTime.now(),
-                                      firstDate: _selectedStartDate ?? DateTime(2000),
-                                      lastDate: DateTime(2100),
-                                      builder: (context, child) {
-                                        return Theme(
-                                          data: Theme.of(context).copyWith(
-                                            textButtonTheme: TextButtonThemeData(
-                                              style: ButtonStyle(
-                                                foregroundColor: WidgetStatePropertyAll(Colors.white),
-                                              ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate:
+                                            _selectedEndDate ??
+                                            _selectedStartDate ??
+                                            DateTime.now(),
+                                        firstDate:
+                                            _selectedStartDate ??
+                                            DateTime(2000),
+                                        lastDate: DateTime(2100),
+                                        builder: (context, child) {
+                                          return Theme(
+                                            data: Theme.of(context).copyWith(
+                                              textButtonTheme:
+                                                  TextButtonThemeData(
+                                                    style: ButtonStyle(
+                                                      foregroundColor:
+                                                          WidgetStatePropertyAll(
+                                                            colorScheme.primary,
+                                                          ),
+                                                    ),
+                                                  ),
+                                            ),
+                                            child: child!,
+                                          );
+                                        },
+                                      );
+                                      if (picked != null)
+                                        setState(
+                                          () => _selectedEndDate = picked,
+                                        );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 14,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: colorScheme.outline,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.calendar_today,
+                                            color: colorScheme.onSurfaceVariant,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _selectedEndDate != null
+                                                ? "${_selectedEndDate!.day}/${_selectedEndDate!.month}/${_selectedEndDate!.year}"
+                                                : 'End Date',
+                                            style: TextStyle(
+                                              color: _selectedEndDate != null
+                                                  ? colorScheme.onSurface
+                                                  : colorScheme
+                                                        .onSurfaceVariant,
                                             ),
                                           ),
-                                          child: child!,
-                                        );
-                                      },
-                                    );
-                                    if (picked != null) setState(() => _selectedEndDate = picked);
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF22304A),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.white24),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.calendar_today, color: Colors.white54, size: 16),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _selectedEndDate != null
-                                              ? "${_selectedEndDate!.day}/${_selectedEndDate!.month}/${_selectedEndDate!.year}"
-                                              : 'End Date',
-                                          style: TextStyle(
-                                            color: _selectedEndDate != null ? Colors.white : Colors.white54,
-                                          ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      SizedBox(height: 10,),
+                      SizedBox(height: 10),
 
                       SizedBox(
                         width: double.infinity,
                         height: 52,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF415A77),
-                            foregroundColor: Colors.white,
+                            backgroundColor: colorScheme.secondary,
+                            foregroundColor: colorScheme.onSecondary,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1107,149 +1303,183 @@ class _StaffState extends State<Staff> {
                           onPressed: _loading
                               ? null
                               : () async {
-                            if (!_formKey.currentState!.validate()) {
-                              return;
-                            }
-                            setState(() => _loading = true);
-                            final bool canPrint = _canPrint ?? false;
-                            final bool canEditPrice = _canEditPrice ?? false;
-                            final bool canSelectDate = _canSelectDate ?? false;
-                            final bool canSellAnyBranch = _canSellAnyBranch ?? false;
-                            final bool allowDiscount = _allowDiscount ?? false;
-                            final bool allowDiscountCode = _allowDiscountCode ?? false;
-                            final name = _nameController.text.trim();
-                            final email = _emailController.text.trim();
-                            final phone = _phoneController.text.trim();
-                            final access = _accesslevel ?? '';
-                            final branchId = _resolveBranchId(datafeed.branches,_selectedBranch,) ??'';
+                                  if (!_formKey.currentState!.validate()) {
+                                    return;
+                                  }
+                                  setState(() => _loading = true);
+                                  final bool canPrint = _canPrint ?? false;
+                                  final bool canEditPrice =
+                                      _canEditPrice ?? false;
+                                  final bool canSelectDate =
+                                      _canSelectDate ?? false;
+                                  final bool canSellAnyBranch =
+                                      _canSellAnyBranch ?? false;
+                                  final bool allowDiscount =
+                                      _allowDiscount ?? false;
+                                  final bool allowDiscountCode =
+                                      _allowDiscountCode ?? false;
+                                  final name = _nameController.text.trim();
+                                  final email = _emailController.text.trim();
+                                  final phone = _phoneController.text.trim();
+                                  final access = _accesslevel ?? '';
+                                  final branchId =
+                                      _resolveBranchId(
+                                        datafeed.branches,
+                                        _selectedBranch,
+                                      ) ??
+                                      '';
 
-                            // find branch name from provider's list
-                            String branchName = '';
-                            String branchType = '';
-                            for (var b in datafeed.branches) {
-                              if (b.id == branchId) {
-                                branchName = b.branchname;
-                                branchType = b.branchtype;
-                                break;
-                              }
-                            }
+                                  // find branch name from provider's list
+                                  String branchName = '';
+                                  String branchType = '';
+                                  for (var b in datafeed.branches) {
+                                    if (b.id == branchId) {
+                                      branchName = b.branchname;
+                                      branchType = b.branchtype;
+                                      break;
+                                    }
+                                  }
 
-                            final normalizedBranchType = branchType.toLowerCase().trim();
-                            final isSalesPoint = normalizedBranchType == 'sales point' ||
-                                    normalizedBranchType == 'salespoint';
-                            final assignedWarehouseIds = isSalesPoint ? _assignedWarehouseIds
-                                : <String>[];
-                            final assignedWarehouseNames =
-                            assignedWarehouseIds.map(
-                                  (id) => datafeed.branches.firstWhere(
-                                    (b) => b.id == id,
-                                orElse: () => BranchModel(),
-                              ).branchname,
-                            ).where((name) => name.isNotEmpty).toList();
+                                  final normalizedBranchType = branchType
+                                      .toLowerCase()
+                                      .trim();
+                                  final isSalesPoint =
+                                      normalizedBranchType == 'sales point' ||
+                                      normalizedBranchType == 'salespoint';
+                                  final assignedWarehouseIds = isSalesPoint
+                                      ? _assignedWarehouseIds
+                                      : <String>[];
+                                  final assignedWarehouseNames =
+                                      assignedWarehouseIds
+                                          .map(
+                                            (id) => datafeed.branches
+                                                .firstWhere(
+                                                  (b) => b.id == id,
+                                                  orElse: () => BranchModel(),
+                                                )
+                                                .branchname,
+                                          )
+                                          .where((name) => name.isNotEmpty)
+                                          .toList();
 
+                                  final docid = email.toLowerCase();
+                                  try {
+                                    final id = (widget.docId ?? docid)
+                                        .toLowerCase();
 
-                            final docid = email.toLowerCase();
-                            try {
-                              final id = (widget.docId ?? docid).toLowerCase();
+                                    final staffRef = _db.collection('staff');
 
+                                    final query = await staffRef
+                                        .where('email', isEqualTo: email.trim())
+                                        .limit(1)
+                                        .get();
 
-                              final staffRef = _db.collection('staff');
+                                    final isCreating = widget.docId == null;
 
-                              final query = await staffRef
-                                  .where('email', isEqualTo: email.trim())
-                                  .limit(1)
-                                  .get();
+                                    if (query.docs.isNotEmpty) {
+                                      final matchedDocId = query.docs.first.id
+                                          .toLowerCase();
+                                      final isSameUser = matchedDocId == id;
 
-                              final isCreating = widget.docId == null;
+                                      if (!isSameUser) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            backgroundColor: Colors.red,
+                                            content: Text(
+                                              isCreating
+                                                  ? 'Staff already exists'
+                                                  : 'Email already used by another staff',
+                                              style: TextStyle(
+                                                color: ColorScheme.of(
+                                                  context,
+                                                ).onPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                        setState(() => _loading = false);
+                                        return;
+                                      }
+                                    }
+                                    final imageUrl = await uploadLogo(id);
+                                    // collect one-or-more pricing modes
+                                    final List<String> pricingModes = [];
+                                    if (_pricingRetail)
+                                      pricingModes.add('retail');
+                                    if (_pricingWholesale) {
+                                      pricingModes.add('wholesale');
+                                    }
+                                    if (_pricingNone) pricingModes.add('none');
 
-                              if (query.docs.isNotEmpty) {
-                                final matchedDocId = query.docs.first.id.toLowerCase();
-                                final isSameUser = matchedDocId == id;
+                                    // collect allowed payment methods
+                                    final List<String> allowedPaymentMethods =
+                                        [];
+                                    if (_payCash) {
+                                      allowedPaymentMethods.add('cash');
+                                    }
+                                    if (_payCredit) {
+                                      allowedPaymentMethods.add('credit');
+                                    }
+                                    if (_payMomo) {
+                                      allowedPaymentMethods.add('momo');
+                                    }
+                                    if (_payBankTransfer) {
+                                      allowedPaymentMethods.add(
+                                        'bank_transfer',
+                                      );
+                                    }
+                                    if (_payCheque) {
+                                      allowedPaymentMethods.add('cheque');
+                                    }
+                                    if (_payCard) {
+                                      allowedPaymentMethods.add('card');
+                                    }
+                                    // build StaffModel
+                                    final staffModel = StaffModel(
+                                      company: datafeed.company,
+                                      id: id,
+                                      name: name,
+                                      email: email,
+                                      phone: phone,
+                                      accesslevel: access,
+                                      branchid: branchId,
+                                      branchname: branchName,
+                                      pricingmode: pricingModes,
+                                      createdat:
+                                          widget.staff?.createdat ??
+                                          Timestamp.now(),
+                                      createdby:
+                                          widget.staff?.createdby ??
+                                          datafeed.staff,
+                                      deletedat: widget.staff?.deletedat,
+                                      deletedby: widget.staff?.deletedby,
+                                      companyid: datafeed.companyid,
+                                      startdate: _selectedStartDate,
+                                      enddate: _selectedEndDate,
+                                      salesWarehouseIds: assignedWarehouseIds,
+                                      salesWarehouseNames:
+                                          assignedWarehouseNames,
+                                      allowedPaymentMethods:
+                                          allowedPaymentMethods,
+                                      canPrint: canPrint,
+                                      canEditPrice: canEditPrice,
+                                      canSelectDate: canSelectDate,
+                                      canSellAnyBranch: canSellAnyBranch,
+                                      allowDiscount: allowDiscount,
+                                      allowDiscountCode: allowDiscountCode,
+                                      imageurl: imageUrl ?? '',
+                                      WarehouseIds: assignedWarehouseIds,
+                                      WarehouseNames: assignedWarehouseNames,
+                                      permissions: widget.staff?.permissions,
+                                    );
+                                    final record = staffModel.toMap()
+                                      ..removeWhere(
+                                        (key, value) => value == null,
+                                      );
 
-                                if (!isSameUser) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: Colors.red,
-                                      content: Text(
-                                        isCreating
-                                            ? 'Staff already exists'
-                                            : 'Email already used by another staff',
-                                        style: TextStyle(color: ColorScheme.of(context).onPrimary),
-                                      ),
-                                    ),
-                                  );
-                                  setState(() => _loading = false);
-                                  return;
-                                }
-                              }
-                              final imageUrl = await uploadLogo(id);
-                              // collect one-or-more pricing modes
-                              final List<String> pricingModes = [];
-                              if (_pricingRetail)
-                                pricingModes.add('retail');
-                              if (_pricingWholesale) {
-                                pricingModes.add('wholesale');
-                              }
-                              if (_pricingNone) pricingModes.add('none');
-
-                              // collect allowed payment methods
-                              final List<String> allowedPaymentMethods = [];
-                              if (_payCash) {
-                                allowedPaymentMethods.add('cash');
-                              }
-                              if (_payCredit) {
-                                allowedPaymentMethods.add('credit');
-                              }
-                              if (_payMomo) {
-                                allowedPaymentMethods.add('momo');
-                              }
-                              if (_payBankTransfer) {
-                                allowedPaymentMethods.add(
-                                  'bank_transfer',
-                                );
-                              }
-                              if (_payCheque) {
-                                allowedPaymentMethods.add('cheque');
-                              }
-                              if (_payCard) {
-                                allowedPaymentMethods.add('card');
-                              }
-                              // build StaffModel
-                              final staffModel = StaffModel(
-                                company: datafeed.company,
-                                id: id,
-                                name: name,
-                                email: email,
-                                phone: phone,
-                                accesslevel: access,
-                                branchid: branchId,
-                                branchname: branchName,
-                                pricingmode: pricingModes,
-                                createdat: widget.staff?.createdat ?? Timestamp.now(),
-                                createdby: widget.staff?.createdby ?? datafeed.staff,
-                                deletedat: widget.staff?.deletedat,
-                                deletedby: widget.staff?.deletedby,
-                                companyid: datafeed.companyid,
-                                startdate: _selectedStartDate,
-                                enddate: _selectedEndDate,
-                                salesWarehouseIds: assignedWarehouseIds,
-                                salesWarehouseNames: assignedWarehouseNames,
-                                allowedPaymentMethods: allowedPaymentMethods,
-                                canPrint: canPrint,
-                                canEditPrice: canEditPrice,
-                                canSelectDate: canSelectDate,
-                                canSellAnyBranch: canSellAnyBranch,
-                                allowDiscount: allowDiscount,
-                                allowDiscountCode: allowDiscountCode,
-                                imageurl: imageUrl ?? '',
-                                WarehouseIds: assignedWarehouseIds,
-                                WarehouseNames: assignedWarehouseNames,
-                                permissions: widget.staff?.permissions,
-                              );
-                              final record = staffModel.toMap()
-                                ..removeWhere((key, value) => value == null);
-
-                              /*
+                                    /*
                               final record = staffModel.toMap();
                               record.addAll({
                                 'warehouseids': assignedWarehouseIds,
@@ -1267,71 +1497,80 @@ class _StaffState extends State<Staff> {
                               });
                                    */
 
-                             // if (widget.docId == null) {
-                                await _db.collection('staff').doc(id).set(record, SetOptions(merge: true));
+                                    // if (widget.docId == null) {
+                                    await _db
+                                        .collection('staff')
+                                        .doc(id)
+                                        .set(record, SetOptions(merge: true));
 
-                              snackMsg(context, widget.docId == null
-                                  ? 'Staff Registered Successfully'
-                                  : 'Staff Updated Successfully', Colors.green);
+                                    snackMsg(
+                                      context,
+                                      widget.docId == null
+                                          ? 'Staff Registered Successfully'
+                                          : 'Staff Updated Successfully',
+                                      Colors.green,
+                                    );
 
+                                    // reset form
+                                    if (widget.docId == null) {
+                                      _nameController.clear();
+                                      _emailController.clear();
+                                      _phoneController.clear();
+                                      setState(() {
+                                        _accesslevel = null;
+                                        _selectedBranch = null;
+                                        _assignedWarehouseIds = [];
+                                      });
+                                    }
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(e.toString())),
+                                    );
+                                  }
 
-                              // reset form
-                            if (widget.docId == null){
-
-                            _nameController.clear();
-                            _emailController.clear();
-                            _phoneController.clear();
-                            setState(() {
-                            _accesslevel = null;
-                            _selectedBranch = null;
-                            _assignedWarehouseIds = [];
-                            });
-                          }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(e.toString())),
-                              );
-                            }
-
-                            if (!mounted) return;
-                            setState(() => _loading = false);
-                          },
+                                  if (!mounted) return;
+                                  setState(() => _loading = false);
+                                },
                           child: _loading
                               ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Text(
-                                'Saving...',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          )
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        color: colorScheme.onPrimary,
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Saving...',
+                                      style: TextStyle(
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                )
                               : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.save,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                widget.docId == null
-                                    ? 'Save Staff'
-                                    : 'Update Staff',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ],
-                          ),
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.save,
+                                      size: 18,
+                                      color: colorScheme.onPrimary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      widget.docId == null
+                                          ? 'Save Staff'
+                                          : 'Update Staff',
+                                      style: TextStyle(
+                                        color: colorScheme.onPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                       SizedBox(height: 4),
@@ -1341,8 +1580,8 @@ class _StaffState extends State<Staff> {
                         height: 52,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF415A77),
-                            foregroundColor: Colors.white,
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1358,7 +1597,7 @@ class _StaffState extends State<Staff> {
                               Icon(
                                 Icons.view_list_outlined,
                                 size: 18,
-                                color: Colors.white,
+                                color: colorScheme.onPrimary,
                               ),
                               const SizedBox(width: 8),
                               Text("View Staff"),
@@ -1377,6 +1616,20 @@ class _StaffState extends State<Staff> {
     );
   }
 
+  Widget _buildOptionPanel({required Widget child}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outline),
+      ),
+      child: child,
+    );
+  }
+
   // ================= IMAGE UI =================
   Widget _imagePickerSection() {
     Widget preview;
@@ -1388,18 +1641,26 @@ class _StaffState extends State<Staff> {
     } else if (_existingLogoUrl != null && _existingLogoUrl!.isNotEmpty) {
       preview = Image.network(_existingLogoUrl!, fit: BoxFit.contain);
     } else {
-      preview = const Icon(Icons.image, size: 40, color: Colors.white38);
+      preview = Icon(
+        Icons.image,
+        size: 40,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      );
     }
 
-    final bool hasImage =_logoBytes != null ||  _logoFile != null ||
+    final bool hasImage =
+        _logoBytes != null ||
+        _logoFile != null ||
         (_existingLogoUrl != null && _existingLogoUrl!.isNotEmpty);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Staff Image (optional)',
-          style: TextStyle(color: Colors.white70),
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
         const SizedBox(height: 8),
 
@@ -1411,9 +1672,11 @@ class _StaffState extends State<Staff> {
               height: 80,
               width: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF22304A),
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white24),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline,
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(6.0),
@@ -1429,8 +1692,16 @@ class _StaffState extends State<Staff> {
 
         TextButton.icon(
           onPressed: pickLogo,
-          icon: const Icon(Icons.upload),
-          label: const Text('Select Image'),
+          icon: Icon(
+            Icons.upload,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          label: Text(
+            'Select Image',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
         ),
       ],
     );
@@ -1438,36 +1709,36 @@ class _StaffState extends State<Staff> {
 
   // ================= FIELDS =================
   Widget _priceField(
-      TextEditingController controller,
-      String label,
-      IconData icon,
-      ) {
+    TextEditingController controller,
+    String label,
+    IconData icon,
+  ) {
     return TextFormField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       decoration: _inputDecoration(label, icon),
     );
   }
 
   TextFormField _buildField(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool isNumber = false,
-        TextInputType? keyboardType,
-        Function(String)? onChanged,
-        String? Function(String?)? validator,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool isNumber = false,
+    TextInputType? keyboardType,
+    Function(String)? onChanged,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       controller: controller,
       keyboardType:
-      keyboardType ??
+          keyboardType ??
           (isNumber
               ? const TextInputType.numberWithOptions(decimal: true)
               : null),
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       validator: validator ?? (v) => v == null || v.isEmpty ? 'Required' : null,
       decoration: _inputDecoration(label, icon),
       onChanged: onChanged,
@@ -1476,36 +1747,64 @@ class _StaffState extends State<Staff> {
   }
 
   InputDecoration _inputDecoration(String label, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : colorScheme.onSurfaceVariant;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      labelStyle: TextStyle(color: labelColor),
+      floatingLabelStyle: TextStyle(color: labelColor),
+      prefixIcon: Icon(icon, color: colorScheme.onSurfaceVariant),
       filled: true,
-      fillColor: const Color(0xFF22304A),
+      fillColor: colorScheme.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.error, width: 1.5),
       ),
     );
   }
 
   InputDecoration _buildDropdownDecoration(String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : colorScheme.onSurfaceVariant;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: labelColor),
+      floatingLabelStyle: TextStyle(color: labelColor),
       filled: true,
-      fillColor: const Color(0xFF22304A),
+      fillColor: colorScheme.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.error, width: 1.5),
       ),
     );
   }

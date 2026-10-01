@@ -205,19 +205,43 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
     }
   }
   //UI helpers
-  static const _inputFill = Color(0xFF1B2A3E);
-  static const _cardBg    = Color(0xFF162032);
+  ColorScheme get _colorScheme => Theme.of(context).colorScheme;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+
+  Color get _pageBg =>
+      _isLightTheme ? const Color(0xFFF7F8FA) : const Color(0xFF0F1826);
+  Color get _appBarBg =>
+      _isLightTheme ? _colorScheme.surface : const Color(0xFF111E2E);
+  Color get _cardBg =>
+      _isLightTheme ? _colorScheme.surface : const Color(0xFF162032);
+  Color get _inputFill => _isLightTheme
+      ? _colorScheme.surfaceContainerHighest
+      : const Color(0xFF1B2A3E);
+  Color get _suggestionBg =>
+      _isLightTheme ? _colorScheme.surface : const Color(0xFF111E2E);
+  Color get _borderColor =>
+      _isLightTheme ? _colorScheme.outlineVariant : Colors.white10;
+  Color get _mutedText =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white54;
+  Color get _subtleText =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white38;
+  Color get _faintText =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white24;
+  Color get _bodyText => _isLightTheme ? _colorScheme.onSurface : Colors.white;
+  Color get _successText =>
+      _isLightTheme ? Colors.green.shade700 : Colors.green.shade300;
+  Color get _errorText => _isLightTheme ? Colors.red.shade700 : Colors.red.shade300;
 
   InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+    labelStyle: TextStyle(color: _mutedText, fontSize: 12),
     filled: true,
     fillColor: _inputFill,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     suffixIcon: suffix,
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Colors.white12),
+      borderSide: BorderSide(color: _borderColor),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
@@ -229,8 +253,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(text,
-        style: const TextStyle(
-          color: Colors.white38,
+        style: TextStyle(
+          color: _subtleText,
           fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.2,
@@ -240,19 +264,19 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1826),
+      backgroundColor: _pageBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF111E2E),
+        backgroundColor: _appBarBg,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white70),
-        title: const Text('Sync Branch Balance',
+        iconTheme: IconThemeData(color: _bodyText),
+        title: Text('Sync Branch Balance',
             style: TextStyle(
-                color: Colors.white,
+                color: _bodyText,
                 fontSize: 16,
                 fontWeight: FontWeight.w600)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.white12, height: 1),
+          child: Container(color: _borderColor, height: 1),
         ),
       ),
       body: Consumer<Datafeed>(
@@ -277,10 +301,14 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A3A5C).withOpacity(0.5),
+                            color: _isLightTheme
+                                ? _colorScheme.onPrimaryContainer.withOpacity(0.45)
+                                : const Color(0xFF1A3A5C).withOpacity(0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: const Color(0xFF3B8BEB).withOpacity(0.2)),
+                                color: _isLightTheme
+                                    ? _colorScheme.primary.withOpacity(0.2)
+                                    : const Color(0xFF3B8BEB).withOpacity(0.2)),
                           ),
                           child: Row(children: [
                             const Icon(Icons.sync_alt,
@@ -290,7 +318,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                               child: Text(
                                 'Sync a single item or all items in a branch.',
                                 style: TextStyle(
-                                    color: Colors.white.withOpacity(0.55),
+                                    color: _mutedText,
                                     fontSize: 12),
                               ),
                             ),
@@ -304,7 +332,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                           decoration: BoxDecoration(
                             color: _cardBg,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white10),
+                            border: Border.all(color: _borderColor),
                           ),
                           padding: const EdgeInsets.all(6),
                           child: Row(children: [
@@ -320,7 +348,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                           decoration: BoxDecoration(
                             color: _cardBg,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white10),
+                            border: Border.all(color: _borderColor),
                           ),
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -331,11 +359,11 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                               DropdownButtonFormField<String>(
                                 value: _selectedBranchId,
                                 isExpanded: true,
-                                dropdownColor: const Color(0xFF1B2A3E),
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 14),
-                                icon: const Icon(Icons.keyboard_arrow_down,
-                                    color: Colors.white38),
+                                dropdownColor: _inputFill,
+                                style: TextStyle(
+                                    color: _bodyText, fontSize: 14),
+                                icon: Icon(Icons.keyboard_arrow_down,
+                                    color: _subtleText),
                                 decoration: _dec('Select branch…'),
                                 items: provider.branches
                                     .fold<Map<String, dynamic>>({}, (m, b) {
@@ -348,8 +376,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                                     .map((b) => DropdownMenuItem<String>(
                                   value: b.id as String,
                                   child: Text(b.branchname as String,
-                                      style: const TextStyle(
-                                          color: Colors.white)),
+                                      style: TextStyle(color: _bodyText)),
                                 ))
                                     .toList(),
                                 onChanged: _syncing
@@ -431,7 +458,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                             child: LinearProgressIndicator(
                               value: _bulkDone / _bulkTotal,
                               minHeight: 6,
-                              backgroundColor: Colors.white12,
+                              backgroundColor: _borderColor,
                               valueColor: const AlwaysStoppedAnimation(
                                   Color(0xFF3B8BEB)),
                             ),
@@ -473,8 +500,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                                     _resultMessage!,
                                     style: TextStyle(
                                       color: _resultSuccess
-                                          ? Colors.green[300]
-                                          : Colors.red[300],
+                                          ? _successText
+                                          : _errorText,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -489,9 +516,9 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                           Container(
                             constraints: const BoxConstraints(maxHeight: 240),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF111E2E),
+                              color: _suggestionBg,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white10),
+                              border: Border.all(color: _borderColor),
                             ),
                             child: ListView.builder(
                               padding: const EdgeInsets.all(10),
@@ -504,8 +531,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: _bulkLog[i].startsWith('✓')
-                                        ? Colors.green[300]
-                                        : Colors.red[300],
+                                        ? _successText
+                                        : _errorText,
                                   ),
                                 ),
                               ),
@@ -555,7 +582,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: active ? const Color(0xFF3B8BEB) : Colors.white38,
+              color: active ? const Color(0xFF3B8BEB) : _subtleText,
               fontSize: 12,
               fontWeight:
               active ? FontWeight.w700 : FontWeight.w500,
@@ -571,7 +598,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: _borderColor),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -581,7 +608,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
           TextFormField(
             controller: _searchController,
             focusNode: _searchFocus,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: _bodyText, fontSize: 14),
             onTap: () {
               if (_searchController.text.isNotEmpty) {
                 setState(() => _showSuggestions = true);
@@ -591,8 +618,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
               'Search by name or barcode',
               suffix: _searchController.text.isNotEmpty
                   ? IconButton(
-                icon: const Icon(Icons.close,
-                    color: Colors.white38, size: 16),
+                icon: Icon(Icons.close,
+                    color: _subtleText, size: 16),
                 onPressed: () {
                   _searchController.clear();
                   setState(() {
@@ -602,8 +629,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                   });
                 },
               )
-                  : const Icon(Icons.search,
-                  color: Colors.white24, size: 18),
+                  : Icon(Icons.search,
+                  color: _faintText, size: 18),
             ),
           ),
 
@@ -626,8 +653,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                 Expanded(
                   child: Text(
                     _selectedItem!.name,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: _bodyText,
                         fontSize: 13,
                         fontWeight: FontWeight.w500),
                   ),
@@ -635,7 +662,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                 Text(
                   _selectedItem!.barcode,
                   style:
-                  const TextStyle(color: Colors.white38, fontSize: 11),
+                  TextStyle(color: _subtleText, fontSize: 11),
                 ),
               ]),
             ),
@@ -658,11 +685,11 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
         decoration: BoxDecoration(
           color: _cardBg,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: _borderColor),
         ),
-        child: const Text(
+        child: Text(
           'Select a branch above to see how many items will be synced.',
-          style: TextStyle(color: Colors.white38, fontSize: 13),
+          style: TextStyle(color: _subtleText, fontSize: 13),
           textAlign: TextAlign.center,
         ),
       );
@@ -680,7 +707,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: _borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -692,25 +719,24 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
             Expanded(
               child: Text(
                 '${eligible.length} item${eligible.length == 1 ? '' : 's'} will be synced for $_selectedBranchName.',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(color: _mutedText, fontSize: 13),
               ),
             ),
           ]),
           if (eligible.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: _borderColor, height: 1),
             const SizedBox(height: 10),
             // preview list (first 5)
             ...eligible.take(5).map((i) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
-                const Icon(Icons.inventory_2_outlined,
-                    color: Colors.white24, size: 13),
+                Icon(Icons.inventory_2_outlined,
+                    color: _faintText, size: 13),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(i.name,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+                      style: TextStyle(color: _mutedText, fontSize: 12)),
                 ),
               ]),
             )),
@@ -719,8 +745,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '+ ${eligible.length - 5} more…',
-                  style: const TextStyle(
-                      color: Colors.white30, fontSize: 11),
+                  style: TextStyle(color: _subtleText, fontSize: 11),
                 ),
               ),
           ],
@@ -743,7 +768,7 @@ Widget _buildSuggestions(Datafeed provider) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Text('No items found for "$query"',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: _subtleText, fontSize: 12),
             textAlign: TextAlign.center),
       );
     }
@@ -751,7 +776,7 @@ Widget _buildSuggestions(Datafeed provider) {
     return Container(
       constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
-        color: const Color(0xFF111E2E),
+        color: _suggestionBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
             color: const Color(0xFF3B8BEB).withOpacity(0.2)),
@@ -765,7 +790,7 @@ Widget _buildSuggestions(Datafeed provider) {
         padding: const EdgeInsets.symmetric(vertical: 4),
         itemCount: filtered.length,
         separatorBuilder: (_, __) =>
-        const Divider(height: 1, color: Colors.white10),
+        Divider(height: 1, color: _borderColor),
         itemBuilder: (context, index) {
           final item = filtered[index];
           final bb   = item.branchbalance;
@@ -788,28 +813,29 @@ Widget _buildSuggestions(Datafeed provider) {
                   color: Color(0xFF3B8BEB), size: 16),
             ),
             title: Text(item.name,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: _bodyText,
                     fontSize: 13,
                     fontWeight: FontWeight.w500)),
             subtitle: Text(
               '${item.pcategory}  ·  ${item.barcode}',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: TextStyle(color: _subtleText, fontSize: 11),
             ),
             trailing: branchPieces != null
                 ? Container(
               padding: const EdgeInsets.symmetric(
                   horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
+                color: _isLightTheme
+                    ? _colorScheme.surfaceContainerHighest
+                    : Colors.white.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text('$branchPieces pcs',
-                  style: const TextStyle(
-                      color: Colors.white60, fontSize: 11)),
+                  style: TextStyle(color: _mutedText, fontSize: 11)),
             )
-                : const Icon(Icons.chevron_right,
-                color: Colors.white24, size: 16),
+                : Icon(Icons.chevron_right,
+                color: _faintText, size: 16),
             onTap: () => _selectItem(item),
           );
         },

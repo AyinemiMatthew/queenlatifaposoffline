@@ -58,6 +58,7 @@ class CustomerSelectionDialog {
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
         final size = MediaQuery.of(context).size;
         final dialogWidth = (size.width * 0.90).clamp(320.0, 720.0);
         final horizontalPad =
@@ -72,8 +73,9 @@ class CustomerSelectionDialog {
             width: dialogWidth,
             constraints: BoxConstraints(maxHeight: maxHeight),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A2332),
+              color: colorScheme.surface,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: Column(
               children: [
@@ -83,19 +85,26 @@ class CustomerSelectionDialog {
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFF6F00), Color(0xFFFF9800)],
+                      gradient: LinearGradient(
+                        colors: [
+                          colorScheme.primary,
+                          colorScheme.secondary,
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
-                      children: const [
-                        Icon(Icons.people, color: Colors.white, size: 28),
+                      children: [
+                        Icon(
+                          Icons.people,
+                          color: colorScheme.onPrimary,
+                          size: 28,
+                        ),
                         SizedBox(width: 12),
                         Text(
                           'Select Customer',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
@@ -125,14 +134,14 @@ class CustomerSelectionDialog {
                               mainAxisAlignment:
                               MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.person_off,
+                                Icon(Icons.person_off,
                                     size: 64,
-                                    color: Colors.white38),
+                                    color: colorScheme.onSurfaceVariant),
                                 const SizedBox(height: 16),
-                                const Text(
+                                Text(
                                   'No customers found',
                                   style: TextStyle(
-                                      color: Colors.white70),
+                                      color: colorScheme.onSurfaceVariant),
                                 ),
                                 const SizedBox(height: 8),
                                 TextButton.icon(
@@ -144,12 +153,14 @@ class CustomerSelectionDialog {
                                       datafeed.activeBranchId,
                                     );
                                   },
-                                  icon: const Icon(Icons.add,
-                                      color: Colors.white70),
-                                  label: const Text(
+                                  icon: Icon(
+                                    Icons.add,
+                                    color: colorScheme.primary,
+                                  ),
+                                  label: Text(
                                     'Add New Customer',
                                     style: TextStyle(
-                                        color: Colors.white70),
+                                        color: colorScheme.primary),
                                   ),
                                 ),
                               ],
@@ -179,13 +190,16 @@ class CustomerSelectionDialog {
                                       child: RadioListTile<String>(
                                         dense: true,
                                         contentPadding: EdgeInsets.zero,
-                                        title: const Text(
+                                        title: Text(
                                           'This Branch',
-                                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                                          style: TextStyle(
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                         value: 'branch',
                                         groupValue: scope,
-                                        activeColor: Colors.orange,
+                                        activeColor: colorScheme.primary,
                                         onChanged: (v) => setInnerState(() => scope = v!),
                                       ),
                                     ),
@@ -193,13 +207,16 @@ class CustomerSelectionDialog {
                                       child: RadioListTile<String>(
                                         dense: true,
                                         contentPadding: EdgeInsets.zero,
-                                        title: const Text(
+                                        title: Text(
                                           'All Company',
-                                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                                          style: TextStyle(
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                         value: 'company',
                                         groupValue: scope,
-                                        activeColor: Colors.orange,
+                                        activeColor: colorScheme.primary,
                                         onChanged: (v) => setInnerState(() => scope = v!),
                                       ),
                                     ),
@@ -212,19 +229,22 @@ class CustomerSelectionDialog {
                                       setInnerState(() {
                                         query = v;
                                       }),
-                                  style: const TextStyle(
-                                      color: Colors.white),
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                  ),
                                   decoration: InputDecoration(
                                     hintText:
                                     'Search by name or phone',
-                                    hintStyle: const TextStyle(
-                                        color: Colors.white54),
-                                    prefixIcon: const Icon(
-                                        Icons.search,
-                                        color: Colors.white70),
+                                    hintStyle: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.search,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
                                     filled: true,
                                     fillColor:
-                                    const Color(0xFF22304A),
+                                        colorScheme.surfaceContainerHighest,
                                     border: OutlineInputBorder(
                                       borderRadius:
                                       BorderRadius.circular(
@@ -237,12 +257,12 @@ class CustomerSelectionDialog {
                                 // CUSTOMER LIST
                                 Expanded(
                                   child: filtered.isEmpty
-                                      ? const Center(
+                                      ? Center(
                                     child: Text(
                                       'No matches',
                                       style: TextStyle(
-                                          color:
-                                          Colors.white70),
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
                                   )
                                       : ListView.builder(
@@ -258,21 +278,23 @@ class CustomerSelectionDialog {
                                       final initial = name.isEmpty ? 'U' : name[0].toUpperCase();
 
                                       return Card(
-                                        color: const Color( 0xFF22304A),
+                                        color:
+                                            colorScheme.surfaceContainerHighest,
                                         margin:const EdgeInsets.symmetric(vertical:  4),
                                         child: ListTile(
                                           leading: CircleAvatar(
-                                            backgroundColor:  Colors.orange,
+                                            backgroundColor:
+                                                colorScheme.primary,
                                             child: Text(initial,
-                                              style: const TextStyle(
-                                                  color: Colors.white,
+                                              style: TextStyle(
+                                                  color: colorScheme.onPrimary,
                                                   fontWeight:FontWeight.bold
                                               ),
                                             ),
                                           ),
                                           title: Text( name,
-                                            style: const TextStyle(
-                                                color: Colors.white,
+                                            style: TextStyle(
+                                                color: colorScheme.onSurface,
                                                 fontWeight: FontWeight.w500),
                                           ),
                                           subtitle: Column(
@@ -280,25 +302,24 @@ class CustomerSelectionDialog {
                                             children: [
                                               Text(
                                                 'Phone: $displayPhone',
-                                                style: const TextStyle(
-                                                    color: Colors.white70,
+                                                style: TextStyle(
+                                                    color: colorScheme.onSurfaceVariant,
                                                     fontSize: 12),
                                               ),
                                               Text(
                                                 'Credit Limit: ${customer.creditlimit ?? ''}',
-                                                style: const TextStyle(
-                                                    color: Colors
-                                                        .white70,
+                                                style: TextStyle(
+                                                    color: colorScheme
+                                                        .onSurfaceVariant,
                                                     fontSize:
                                                     12),
                                               ),
                                             ],
                                           ),
-                                          trailing: const Icon(
+                                          trailing: Icon(
                                             Icons
                                                 .arrow_forward_ios,
-                                            color:
-                                            Colors.orange,
+                                            color: colorScheme.primary,
                                             size: 16,
                                           ),
                                           onTap: () => Navigator
@@ -331,10 +352,11 @@ class CustomerSelectionDialog {
                       TextButton(
                         onPressed: () =>
                             Navigator.pop(context),
-                        child: const Text(
+                        child: Text(
                           'Cancel',
                           style: TextStyle(
-                              color: Colors.white70),
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ],

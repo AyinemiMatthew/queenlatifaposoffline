@@ -1,10 +1,8 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
 import '../providers/routes.dart';
-
 
 const String roleAccessSelectionsCollection = 'role_access_configurations';
 
@@ -42,26 +40,17 @@ class RolePageSelection {
   }
 
   Map<String, dynamic> toMap() {
-    return {
-      'route': route,
-      'label': label,
-    };
+    return {'route': route, 'label': label};
   }
 }
 
 String normalizeRoleKey(String accessLevel) {
-  return accessLevel
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '')
-      .trim();
+  return accessLevel.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '').trim();
 }
 
 Map<String, List<String>> getDefaultRoleAccessSelections() {
   return {
-    'salesattendance': [
-      Routes.salesview,
-      Routes.stockreport,
-    ],
+    'salesattendance': [Routes.salesview, Routes.stockreport],
     'salesmanager': [
       Routes.sales,
       Routes.stockreport,
@@ -137,9 +126,9 @@ Map<String, List<String>> getDefaultRoleAccessSelections() {
 }
 
 List<RoleAccessAction> buildRoleAccessActions(
-    String accessLevel, {
-      Map<String, List<String>>? roleSelections,
-    }) {
+  String accessLevel, {
+  Map<String, List<String>>? roleSelections,
+}) {
   final roleKey = normalizeRoleKey(accessLevel);
   final selections = roleSelections ?? getDefaultRoleAccessSelections();
   final selectedRoutes = <String>[];
@@ -190,7 +179,6 @@ RoleAccessAction? _buildActionFromRoute(String route) {
     color: metadata['color'] as Color,
   );
 }
-
 
 String pageLabelForRoute(String route) {
   return _routeMetadata[route]?['title']?.toString() ?? route;
@@ -512,8 +500,7 @@ class RoleAccessConfigScreen extends StatefulWidget {
   const RoleAccessConfigScreen({super.key});
 
   @override
-  State<RoleAccessConfigScreen> createState() =>
-      _RoleAccessConfigScreenState();
+  State<RoleAccessConfigScreen> createState() => _RoleAccessConfigScreenState();
 }
 
 class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
@@ -534,7 +521,10 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
 
   static const List<_PageOption> _pageOptions = [
     _PageOption(route: Routes.sales, label: 'Sales'),
-    _PageOption(route: Routes.warehousehomescreen, label: 'Warehouse Home Screen'),
+    _PageOption(
+      route: Routes.warehousehomescreen,
+      label: 'Warehouse Home Screen',
+    ),
     _PageOption(route: Routes.salesview, label: 'Sales View'),
     _PageOption(route: Routes.farmerreg, label: 'Farmer Registration'),
     _PageOption(route: Routes.viewfarmers, label: 'View Farmers'),
@@ -559,21 +549,23 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _PageOption(route: Routes.supplierlist, label: 'Suppliers'),
     _PageOption(route: Routes.coa, label: 'Accounts'),
     _PageOption(route: Routes.activityChartReg, label: 'Activity Chart'),
-    _PageOption(
-        route: Routes.activityChartView, label: 'Activity Chart View'),
+    _PageOption(route: Routes.activityChartView, label: 'Activity Chart View'),
     _PageOption(route: Routes.paymentaccounts, label: 'Payment Accounts'),
     _PageOption(route: Routes.paymentdurationreg, label: 'Payment Duration'),
     _PageOption(
-        route: Routes.paymentdurationview, label: 'Payment Duration View'),
+      route: Routes.paymentdurationview,
+      label: 'Payment Duration View',
+    ),
+    _PageOption(route: Routes.creditopenbal, label: 'Credit Opening Balance'),
     _PageOption(
-        route: Routes.creditopenbal, label: 'Credit Opening Balance'),
-    _PageOption(
-        route: Routes.creditopenbalview,
-        label: 'Credit Opening Balance View'),
+      route: Routes.creditopenbalview,
+      label: 'Credit Opening Balance View',
+    ),
     _PageOption(route: Routes.creditorpayable, label: 'Creditors Payable'),
     _PageOption(
-        route: Routes.creditorpayableview,
-        label: 'Creditors Payable View'),
+      route: Routes.creditorpayableview,
+      label: 'Creditors Payable View',
+    ),
     _PageOption(route: Routes.debtorlist, label: 'Debtors'),
     _PageOption(route: Routes.debtorBal, label: 'Debtor Balance'),
     _PageOption(route: Routes.debtpayments, label: 'Debtor Payments'),
@@ -584,7 +576,6 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _PageOption(route: Routes.journalView, label: 'Journal View'),
     _PageOption(route: Routes.staffsalereport, label: 'Staff Sales Report'),
     _PageOption(route: Routes.salesreport, label: 'Sales Report'),
-
   ];
 
   @override
@@ -604,7 +595,8 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     final datafeed = context.read<Datafeed>();
     await datafeed.loadRoleAccessSelections();
     if (!mounted) return;
-    final loaded = datafeed.roleAccessSelections ?? getDefaultRoleAccessSelections();
+    final loaded =
+        datafeed.roleAccessSelections ?? getDefaultRoleAccessSelections();
     setState(() {
       _isLoading = false;
       _selections.clear();
@@ -621,141 +613,129 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final selectedPages = _selections[_selectedRole] ?? <String>[];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Role page setup'),
-        actions: [
-          TextButton.icon(
-            onPressed: _isSaving ? null : _saveSelections,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Save'),
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        title: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _selectedRole,
+            dropdownColor: colorScheme.surface,
+            iconEnabledColor: colorScheme.onSurface,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+             // fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
+            items: _roleOptions
+                .map(
+                  (role) => DropdownMenuItem<String>(
+                    value: role.value,
+                    child: Text(role.label),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedRole = value;
+                if (!_selections.containsKey(_selectedRole)) {
+                  _selections[_selectedRole] = List<String>.from(
+                    getDefaultRoleAccessSelections()[_selectedRole] ??
+                        const <String>[],
+                  );
+                }
+              });
+            },
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Reset defaults',
+            onPressed: _resetToDefaults,
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: _isSaving ? 'Saving' : 'Save changes',
+            onPressed: _isSaving ? null : _saveSelections,
+            icon: _isSaving
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.onSurface,
+                    ),
+                  )
+                : const Icon(Icons.save_outlined),
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Choose which pages appear for each access level.',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedRole,
-              isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Access level',
-                border: OutlineInputBorder(),
-              ),
-              items: _roleOptions
-                  .map(
-                    (role) => DropdownMenuItem<String>(
-                  value: role.value,
-                  child: Text(role.label),
-                ),
-              )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _selectedRole = value;
-                  if (!_selections.containsKey(_selectedRole)) {
-                    _selections[_selectedRole] = List<String>.from(
-                      getDefaultRoleAccessSelections()[_selectedRole] ??
-                          const <String>[],
-                    );
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final page in _pageOptions)
-                    CheckboxListTile(
-                      dense: true,
-                      title: Text(page.label),
-                      subtitle: const Text(''),
-                      value: selectedPages.contains(page.route),
-                      onChanged: (value) {
-                        setState(() {
-                          final current =
-                          List<String>.from(selectedPages);
-                          if (value == true) {
-                            if (!current.contains(page.route)) {
-                              current.add(page.route);
-                            }
-                          } else {
-                            current.remove(page.route);
-                          }
-                          _selections[_selectedRole] = current;
-                        });
-                      },
+                  Text(
+                    'Choose which pages appear for each access level.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        for (final page in _pageOptions)
+                          CheckboxListTile(
+                            dense: true,
+                            title: Text(page.label),
+                            subtitle: const Text(''),
+                            value: selectedPages.contains(page.route),
+                            onChanged: (value) {
+                              setState(() {
+                                final current = List<String>.from(
+                                  selectedPages,
+                                );
+                                if (value == true) {
+                                  if (!current.contains(page.route)) {
+                                    current.add(page.route);
+                                  }
+                                } else {
+                                  current.remove(page.route);
+                                }
+                                _selections[_selectedRole] = current;
+                              });
+                            },
+                          ),
+                        for (final page in selectedPages.where(
+                          (route) => !_pageOptions.any(
+                            (known) => known.route == route,
+                          ),
+                        ))
+                          ListTile(
+                            title: Text(pageLabelForRoute(page)),
+                            subtitle: Text(page),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () {
+                                setState(() {
+                                  final current = List<String>.from(
+                                    selectedPages,
+                                  );
+                                  current.remove(page);
+                                  _selections[_selectedRole] = current;
+                                });
+                              },
+                            ),
+                          ),
+                      ],
                     ),
-                  for (final page in selectedPages.where((route) =>
-                  !_pageOptions.any((known) => known.route == route)))
-                    ListTile(
-                      title: Text(pageLabelForRoute(page)),
-                      subtitle: Text(page),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () {
-                          setState(() {
-                            final current =
-                            List<String>.from(selectedPages);
-                            current.remove(page);
-                            _selections[_selectedRole] = current;
-                          });
-                        },
-                      ),
-                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _resetToDefaults,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text(
-                    'Reset defaults',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _saveSelections,
-                  icon: _isSaving
-                      ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child:
-                    CircularProgressIndicator(strokeWidth: 2),
-                  )
-                      : const Icon(Icons.save),
-                  label: Text(_isSaving ? 'Saving...' : 'Save changes'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -770,7 +750,9 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     }
 
     setState(() {
-      final current = List<String>.from(_selections[_selectedRole] ?? <String>[]);
+      final current = List<String>.from(
+        _selections[_selectedRole] ?? <String>[],
+      );
       if (!current.contains(route)) {
         current.add(route);
       }
@@ -785,9 +767,9 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     final datafeed = context.read<Datafeed>();
     await datafeed.saveRoleAccessSelections(_selections);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Role page selection saved.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Role page selection saved.')));
     setState(() => _isSaving = false);
     Navigator.pop(context, true);
   }

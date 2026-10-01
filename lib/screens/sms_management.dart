@@ -6,6 +6,35 @@ import '../models/sms_template.dart';
 import '../services/sms_template_service.dart';
 import 'sms_template_manager.dart';
 
+bool _smsIsDark(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark;
+
+Color _smsForeground(BuildContext context) =>
+    _smsIsDark(context) ? Colors.white : Colors.black87;
+
+Color _smsMuted(BuildContext context) =>
+    _smsIsDark(context) ? Colors.white70 : Colors.black54;
+
+Color _smsSubtle(BuildContext context) =>
+    _smsIsDark(context) ? Colors.white54 : Colors.black45;
+
+Color _smsHint(BuildContext context) =>
+    _smsIsDark(context) ? Colors.white38 : Colors.black45;
+
+Color _smsSurface(BuildContext context) => _smsIsDark(context)
+    ? const Color(0xFF1A2744)
+    : Theme.of(context).colorScheme.surface;
+
+Color _smsSurfaceAccent(BuildContext context) =>
+    _smsIsDark(context) ? const Color(0xFF223456) : const Color(0xFFF5F7FA);
+
+Color _smsFieldFill(BuildContext context) => _smsIsDark(context)
+    ? Colors.white.withOpacity(0.05)
+    : const Color(0xFFF5F7FA);
+
+Color _smsBorder(BuildContext context) =>
+    _smsIsDark(context) ? Colors.white.withOpacity(0.06) : Colors.black12;
+
 class SMSManagement extends StatefulWidget {
   final String companyId;
   final String branchId;
@@ -42,27 +71,26 @@ class _SMSManagementState extends State<SMSManagement>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E1A),
+      backgroundColor: _smsIsDark(context)
+          ? const Color(0xFF0A0E1A)
+          : Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: _smsIsDark(context)
+            ? Colors.transparent
+            : Theme.of(context).colorScheme.surface,
+        foregroundColor: _smsForeground(context),
         elevation: 0,
-        title: const Text(
+        title: Text(
           'SMS Management',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          indicator: const BoxDecoration(
+          labelColor: _smsForeground(context),
+          unselectedLabelColor: _smsSubtle(context),
+          indicator: BoxDecoration(
             border: Border(
-              bottom: BorderSide(
-                color: Colors.blueAccent,
-                width: 3,
-              ),
+              bottom: BorderSide(color: Colors.blueAccent, width: 3),
             ),
           ),
           indicatorSize: TabBarIndicatorSize.label,
@@ -90,11 +118,14 @@ class _SMSManagementState extends State<SMSManagement>
           IconButton(
             tooltip: 'Manage templates',
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => SMSTemplateManagerScreen(companyId: widget.companyId),
-              ));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      SMSTemplateManagerScreen(companyId: widget.companyId),
+                ),
+              );
             },
-            icon: const Icon(Icons.edit_note_outlined),
+            icon: Icon(Icons.edit_note_outlined),
           ),
         ],
       ),
@@ -203,7 +234,8 @@ class _SendSMSPageState extends State<SendSMSPage> {
         if (data['majorcrop'] != null) {
           cropsMajor.add(data['majorcrop'].toString());
         }
-        if (data['languagespokens'] != null && data['languagespokens'] is List) {
+        if (data['languagespokens'] != null &&
+            data['languagespokens'] is List) {
           final langList = List<dynamic>.from(data['languagespokens']);
           for (var lang in langList) {
             if (lang != null) {
@@ -228,9 +260,9 @@ class _SendSMSPageState extends State<SendSMSPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading filters: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading filters: $e')));
       }
     }
   }
@@ -255,7 +287,10 @@ class _SendSMSPageState extends State<SendSMSPage> {
           break;
         case 'customerType':
           if (_selectedCustomerType != null) {
-            query = query.where('customertype', isEqualTo: _selectedCustomerType);
+            query = query.where(
+              'customertype',
+              isEqualTo: _selectedCustomerType,
+            );
           }
           break;
         case 'cropMajor':
@@ -265,7 +300,10 @@ class _SendSMSPageState extends State<SendSMSPage> {
           break;
         case 'language':
           if (_selectedLanguage != null) {
-            query = query.where('languagespokens', arrayContains: _selectedLanguage);
+            query = query.where(
+              'languagespokens',
+              arrayContains: _selectedLanguage,
+            );
           }
           break;
         case 'community':
@@ -280,7 +318,10 @@ class _SendSMSPageState extends State<SendSMSPage> {
           break;
         case 'educationLevel':
           if (_selectedEducation != null) {
-            query = query.where('educationlevel', isEqualTo: _selectedEducation);
+            query = query.where(
+              'educationlevel',
+              isEqualTo: _selectedEducation,
+            );
           }
           break;
       }
@@ -290,7 +331,12 @@ class _SendSMSPageState extends State<SendSMSPage> {
         _filteredCustomers = snapshot.docs;
         if (_sendType == 'bulk') {
           _selectedPhoneNumbers = snapshot.docs
-              .map((doc) => doc['contact']?.toString() ?? doc['phone']?.toString() ?? '')
+              .map(
+                (doc) =>
+                    doc['contact']?.toString() ??
+                    doc['phone']?.toString() ??
+                    '',
+              )
               .where((phone) => phone.isNotEmpty)
               .toList();
         }
@@ -304,18 +350,18 @@ class _SendSMSPageState extends State<SendSMSPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching farmers: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching farmers: $e')));
       }
     }
   }
 
   Future<void> _sendSMS() async {
     if (_messageController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a message')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a message')));
       return;
     }
 
@@ -323,7 +369,7 @@ class _SendSMSPageState extends State<SendSMSPage> {
 
     try {
       final message = _messageController.text;
-      final senderId =  _senderIdController.text;
+      final senderId = _senderIdController.text;
 
       if (_sendType == 'single') {
         if (_phoneController.text.isEmpty) {
@@ -364,7 +410,8 @@ class _SendSMSPageState extends State<SendSMSPage> {
           _phoneController.clear();
         }
       } else {
-        if (_bulkFilterType == 'customerType' && _selectedCustomerType == null) {
+        if (_bulkFilterType == 'customerType' &&
+            _selectedCustomerType == null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please select a customer type')),
           );
@@ -372,9 +419,9 @@ class _SendSMSPageState extends State<SendSMSPage> {
           return;
         }
         if (_bulkFilterType == 'cropMajor' && _selectedCropMajor == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a crop')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Please select a crop')));
           setState(() => _isSending = false);
           return;
         }
@@ -493,15 +540,13 @@ class _SendSMSPageState extends State<SendSMSPage> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF1A2744), Color(0xFF223456)],
+                    colors: [_smsSurface(context), _smsSurfaceAccent(context)],
                   ),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
-                  ),
+                  border: Border.all(color: _smsBorder(context)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),
@@ -518,24 +563,24 @@ class _SendSMSPageState extends State<SendSMSPage> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: [Colors.blueAccent, Colors.purpleAccent],
                             ),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.send_rounded,
                             color: Colors.white,
                             size: 20,
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'SMS Campaign',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: _smsForeground(context),
                           ),
                         ),
                       ],
@@ -544,7 +589,7 @@ class _SendSMSPageState extends State<SendSMSPage> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: _smsFieldFill(context),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -563,9 +608,9 @@ class _SendSMSPageState extends State<SendSMSPage> {
                                   borderRadius: BorderRadius.circular(10),
                                   border: _sendType == 'single'
                                       ? Border.all(
-                                    color: Colors.blueAccent,
-                                    width: 1,
-                                  )
+                                          color: Colors.blueAccent,
+                                          width: 1,
+                                        )
                                       : null,
                                 ),
                                 child: Row(
@@ -575,7 +620,7 @@ class _SendSMSPageState extends State<SendSMSPage> {
                                       Icons.person_rounded,
                                       color: _sendType == 'single'
                                           ? Colors.blueAccent
-                                          : Colors.white54,
+                                          : _smsSubtle(context),
                                       size: 18,
                                     ),
                                     const SizedBox(width: 8),
@@ -583,8 +628,8 @@ class _SendSMSPageState extends State<SendSMSPage> {
                                       'Single SMS',
                                       style: TextStyle(
                                         color: _sendType == 'single'
-                                            ? Colors.white
-                                            : Colors.white54,
+                                            ? _smsForeground(context)
+                                            : _smsSubtle(context),
                                         fontWeight: _sendType == 'single'
                                             ? FontWeight.w600
                                             : FontWeight.normal,
@@ -609,9 +654,9 @@ class _SendSMSPageState extends State<SendSMSPage> {
                                   borderRadius: BorderRadius.circular(10),
                                   border: _sendType == 'bulk'
                                       ? Border.all(
-                                    color: Colors.blueAccent,
-                                    width: 1,
-                                  )
+                                          color: Colors.blueAccent,
+                                          width: 1,
+                                        )
                                       : null,
                                 ),
                                 child: Row(
@@ -621,7 +666,7 @@ class _SendSMSPageState extends State<SendSMSPage> {
                                       Icons.groups_rounded,
                                       color: _sendType == 'bulk'
                                           ? Colors.blueAccent
-                                          : Colors.white54,
+                                          : _smsSubtle(context),
                                       size: 18,
                                     ),
                                     const SizedBox(width: 8),
@@ -629,8 +674,8 @@ class _SendSMSPageState extends State<SendSMSPage> {
                                       'Bulk SMS',
                                       style: TextStyle(
                                         color: _sendType == 'bulk'
-                                            ? Colors.white
-                                            : Colors.white54,
+                                            ? _smsForeground(context)
+                                            : _smsSubtle(context),
                                         fontWeight: _sendType == 'bulk'
                                             ? FontWeight.w600
                                             : FontWeight.normal,
@@ -666,7 +711,7 @@ class _SendSMSPageState extends State<SendSMSPage> {
                             Expanded(
                               child: Text(
                                 "Recipients selected: ${_selectedPhoneNumbers.length}",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.greenAccent,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -686,20 +731,18 @@ class _SendSMSPageState extends State<SendSMSPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A2744),
+                    color: _smsSurface(context),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: _smsBorder(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Phone Number',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Colors.white70,
+                          color: _smsMuted(context),
                           fontSize: 14,
                         ),
                       ),
@@ -709,20 +752,20 @@ class _SendSMSPageState extends State<SendSMSPage> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                         ],
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: _smsForeground(context)),
                         decoration: InputDecoration(
                           hintText: 'Enter phone number',
-                          hintStyle: TextStyle(color: Colors.white38),
-                          prefixIcon: const Icon(
+                          hintStyle: TextStyle(color: _smsHint(context)),
+                          prefixIcon: Icon(
                             Icons.phone_rounded,
-                            color: Colors.white38,
+                            color: _smsHint(context),
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: Colors.white.withOpacity(0.05),
+                          fillColor: _smsFieldFill(context),
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 14,
                           ),
@@ -738,20 +781,18 @@ class _SendSMSPageState extends State<SendSMSPage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A2744),
+                    color: _smsSurface(context),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: _smsBorder(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Filter Recipients',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Colors.white70,
+                          color: _smsMuted(context),
                           fontSize: 14,
                         ),
                       ),
@@ -759,21 +800,19 @@ class _SendSMSPageState extends State<SendSMSPage> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: _smsFieldFill(context),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.06),
-                          ),
+                          border: Border.all(color: _smsBorder(context)),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: _bulkFilterType,
                             isExpanded: true,
-                            dropdownColor: const Color(0xFF1A2744),
-                            style: const TextStyle(color: Colors.white),
+                            dropdownColor: _smsSurface(context),
+                            style: TextStyle(color: _smsForeground(context)),
                             icon: Icon(
                               Icons.arrow_drop_down_rounded,
-                              color: Colors.white54,
+                              color: _smsSubtle(context),
                             ),
                             items: const [
                               DropdownMenuItem(
@@ -854,28 +893,32 @@ class _SendSMSPageState extends State<SendSMSPage> {
                           value: _selectedCustomerType,
                           items: _availableCustomerTypes,
                           hint: 'Select Customer Type',
-                          onChanged: (v) => setState(() => _selectedCustomerType = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedCustomerType = v),
                         ),
                       if (_bulkFilterType == 'cropMajor')
                         _buildFilterDropdown(
                           value: _selectedCropMajor,
                           items: _availableCropsMajor,
                           hint: 'Select Major Crop',
-                          onChanged: (v) => setState(() => _selectedCropMajor = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedCropMajor = v),
                         ),
                       if (_bulkFilterType == 'language')
                         _buildFilterDropdown(
                           value: _selectedLanguage,
                           items: _availableLanguages,
                           hint: 'Select Language',
-                          onChanged: (v) => setState(() => _selectedLanguage = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedLanguage = v),
                         ),
                       if (_bulkFilterType == 'community')
                         _buildFilterDropdown(
                           value: _selectedCommunity,
                           items: _availableCommunities,
                           hint: 'Select Community',
-                          onChanged: (v) => setState(() => _selectedCommunity = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedCommunity = v),
                         ),
                       if (_bulkFilterType == 'gender')
                         _buildFilterDropdown(
@@ -889,17 +932,20 @@ class _SendSMSPageState extends State<SendSMSPage> {
                           value: _selectedEducation,
                           items: _availableEducationLevels,
                           hint: 'Select Education Level',
-                          onChanged: (v) => setState(() => _selectedEducation = v),
+                          onChanged: (v) =>
+                              setState(() => _selectedEducation = v),
                         ),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: _fetchFilteredCustomers,
-                          icon: const Icon(Icons.filter_list_rounded, size: 18),
-                          label: const Text('Apply Filter'),
+                          icon: Icon(Icons.filter_list_rounded, size: 18),
+                          label: Text('Apply Filter'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueAccent.withOpacity(0.15),
+                            backgroundColor: Colors.blueAccent.withOpacity(
+                              0.15,
+                            ),
                             foregroundColor: Colors.blueAccent,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -921,30 +967,28 @@ class _SendSMSPageState extends State<SendSMSPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A2744),
+                  color: _smsSurface(context),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
-                  ),
+                  border: Border.all(color: _smsBorder(context)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.message_rounded,
                           color: Colors.blueAccent,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Message',
                             style: TextStyle(
                               fontWeight: FontWeight.w500,
                               fontSize: 16,
-                              color: Colors.white,
+                              color: _smsForeground(context),
                             ),
                           ),
                         ),
@@ -982,18 +1026,19 @@ class _SendSMSPageState extends State<SendSMSPage> {
                       controller: _messageController,
                       maxLines: 6,
                       maxLength: 480,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: _smsForeground(context)),
                       decoration: InputDecoration(
-                        hintText: 'Enter your message (max 160 characters per SMS)',
-                        hintStyle: TextStyle(color: Colors.white38),
+                        hintText:
+                            'Enter your message (max 160 characters per SMS)',
+                        hintStyle: TextStyle(color: _smsHint(context)),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Colors.white.withOpacity(0.05),
+                        fillColor: _smsFieldFill(context),
                         contentPadding: const EdgeInsets.all(16),
-                        counterStyle: const TextStyle(color: Colors.white38),
+                        counterStyle: TextStyle(color: _smsHint(context)),
                       ),
                     ),
                   ],
@@ -1018,27 +1063,27 @@ class _SendSMSPageState extends State<SendSMSPage> {
                   ),
                   child: _isSending
                       ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
-                    ),
-                  )
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
                       : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.send_rounded, size: 18),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Send SMS',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.send_rounded, size: 18),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Send SMS',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
@@ -1060,28 +1105,23 @@ class _SendSMSPageState extends State<SendSMSPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: _smsFieldFill(context),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.06),
-            ),
+            border: Border.all(color: _smsBorder(context)),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               hint: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  hint,
-                  style: TextStyle(color: Colors.white54),
-                ),
+                child: Text(hint, style: TextStyle(color: _smsSubtle(context))),
               ),
               isExpanded: true,
-              dropdownColor: const Color(0xFF1A2744),
-              style: const TextStyle(color: Colors.white),
+              dropdownColor: _smsSurface(context),
+              style: TextStyle(color: _smsForeground(context)),
               icon: Icon(
                 Icons.arrow_drop_down_rounded,
-                color: Colors.white54,
+                color: _smsSubtle(context),
               ),
               items: items.map((item) {
                 return DropdownMenuItem(
@@ -1140,7 +1180,10 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
 
   Future<void> _loadBirthdayTemplates() async {
     try {
-      final list = await _templateService.getTemplatesByOccasion(widget.companyId, 'birthday');
+      final list = await _templateService.getTemplatesByOccasion(
+        widget.companyId,
+        'birthday',
+      );
       setState(() {
         _templatesList = list;
         _templates.clear();
@@ -1165,23 +1208,28 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
       final snapshot = await _firestore
           .collection('customers')
           .where('companyid', isEqualTo: widget.companyId)
-          .where('dateofbirth', isGreaterThanOrEqualTo: Timestamp.fromDate(today))
-          .where('dateofbirth', isLessThanOrEqualTo: Timestamp.fromDate(nextWeek))
+          .where(
+            'dateofbirth',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(today),
+          )
+          .where(
+            'dateofbirth',
+            isLessThanOrEqualTo: Timestamp.fromDate(nextWeek),
+          )
           .get();
 
       setState(() {
         _upcomingBirthdays = snapshot.docs
-            .map((doc) => {
-          ...doc.data() as Map<String, dynamic>,
-          'docId': doc.id,
-        })
+            .map(
+              (doc) => {...doc.data() as Map<String, dynamic>, 'docId': doc.id},
+            )
             .toList();
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching birthdays: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error fetching birthdays: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -1191,7 +1239,10 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
   Future<void> _sendBirthdayGreeting(Map<String, dynamic> customer) async {
     try {
       final message = _templates[_selectedTemplate] ?? 'Happy Birthday!';
-      final customizedMessage = message.replaceAll('{{name}}', customer['name'] ?? 'Friend');
+      final customizedMessage = message.replaceAll(
+        '{{name}}',
+        customer['name'] ?? 'Friend',
+      );
 
       await _firestore.collection('sms_logs').add({
         'companyid': widget.companyId,
@@ -1217,9 +1268,9 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
     } catch (e) {
       print(e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -1235,15 +1286,13 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1A2744), Color(0xFF223456)],
+                colors: [_smsSurface(context), _smsSurfaceAccent(context)],
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.06),
-              ),
+              border: Border.all(color: _smsBorder(context)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.2),
@@ -1260,24 +1309,24 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [Colors.pinkAccent, Colors.purpleAccent],
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.cake_rounded,
-                        color: Colors.white,
+                        color: _smsForeground(context),
                         size: 20,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text(
+                    Text(
                       'Birthday Greeting Template',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: _smsForeground(context),
                       ),
                     ),
                   ],
@@ -1286,32 +1335,32 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: _smsFieldFill(context),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: _smsBorder(context)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _selectedTemplate,
                       isExpanded: true,
-                      dropdownColor: const Color(0xFF1A2744),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: _smsSurface(context),
+                      style: TextStyle(color: _smsForeground(context)),
                       icon: Icon(
                         Icons.arrow_drop_down_rounded,
-                        color: Colors.white54,
+                        color: _smsSubtle(context),
                       ),
                       items: _templatesList
                           .map(
                             (t) => DropdownMenuItem(
-                          value: t.id,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(t.name),
-                          ),
-                        ),
-                      )
+                              value: t.id,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Text(t.name),
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         setState(() => _selectedTemplate = value!);
@@ -1324,17 +1373,15 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: _smsFieldFill(context),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: _smsBorder(context)),
                   ),
                   child: Text(
                     _templates[_selectedTemplate] ?? '',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontStyle: FontStyle.italic,
-                      color: Colors.white70,
+                      color: _smsMuted(context),
                     ),
                   ),
                 ),
@@ -1348,11 +1395,9 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A2744),
+              color: _smsSurface(context),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.06),
-              ),
+              border: Border.all(color: _smsBorder(context)),
             ),
             child: Row(
               children: [
@@ -1360,17 +1405,17 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Auto Birthday Sending',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
-                          color: Colors.white,
+                          color: _smsForeground(context),
                         ),
                       ),
                       Text(
                         'Send greetings automatically on birthdays',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: _smsSubtle(context),
                           fontSize: 12,
                         ),
                       ),
@@ -1395,12 +1440,12 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Upcoming Birthdays (7 Days)',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Colors.white,
+                  color: _smsForeground(context),
                 ),
               ),
               if (_upcomingBirthdays.isNotEmpty)
@@ -1429,7 +1474,7 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Text(
                   'No upcoming birthdays in the next 7 days',
-                  style: TextStyle(color: Colors.white54),
+                  style: TextStyle(color: _smsSubtle(context)),
                 ),
               ),
             )
@@ -1448,11 +1493,9 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A2744),
+                    color: _smsSurface(context),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: _smsBorder(context)),
                   ),
                   child: Row(
                     children: [
@@ -1475,15 +1518,15 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                           children: [
                             Text(
                               customer['name'] ?? 'Unknown',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: _smsForeground(context),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             Text(
                               DateFormat('MMM dd').format(birthDate),
                               style: TextStyle(
-                                color: Colors.white54,
+                                color: _smsSubtle(context),
                                 fontSize: 12,
                               ),
                             ),
@@ -1492,8 +1535,8 @@ class _BirthdayGreetingsPageState extends State<BirthdayGreetingsPage> {
                       ),
                       ElevatedButton.icon(
                         onPressed: () => _sendBirthdayGreeting(customer),
-                        icon: const Icon(Icons.send_rounded, size: 16),
-                        label: const Text('Send'),
+                        icon: Icon(Icons.send_rounded, size: 16),
+                        label: Text('Send'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.pinkAccent.withOpacity(0.15),
                           foregroundColor: Colors.pinkAccent,
@@ -1552,13 +1595,19 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
   int _recipientCount = 0;
 
   final Map<String, String> _seasonalMessages = {
-    'christmas': 'Merry Christmas! Thank you for your continued support. Wishing you joy and prosperity this festive season.',
-    'newyear': 'Happy New Year! Here\'s to a prosperous year ahead. Thank you for being part of our journey.',
-    'easter': 'Happy Easter! We appreciate your business. Wishing you and your family a blessed Easter celebration.',
-    'thanksgiving': 'Happy Thanksgiving! We are grateful for your loyalty and support.',
-    'ramadan': 'Ramadan Kareem! Wishing you and your family blessings during this holy month.',
+    'christmas':
+        'Merry Christmas! Thank you for your continued support. Wishing you joy and prosperity this festive season.',
+    'newyear':
+        'Happy New Year! Here\'s to a prosperous year ahead. Thank you for being part of our journey.',
+    'easter':
+        'Happy Easter! We appreciate your business. Wishing you and your family a blessed Easter celebration.',
+    'thanksgiving':
+        'Happy Thanksgiving! We are grateful for your loyalty and support.',
+    'ramadan':
+        'Ramadan Kareem! Wishing you and your family blessings during this holy month.',
     'eid': 'Eid Mubarak! Thank you for your continued patronage.',
-    'thanksgiving_day': 'Happy Thanksgiving Day! We appreciate your business and support.',
+    'thanksgiving_day':
+        'Happy Thanksgiving Day! We appreciate your business and support.',
     'custom': 'Enter custom message...',
   };
 
@@ -1574,12 +1623,18 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
 
   Future<void> _loadSeasonalTemplates() async {
     try {
-      final list = await _templateService.getTemplatesByOccasion(widget.companyId, 'seasonal');
+      final list = await _templateService.getTemplatesByOccasion(
+        widget.companyId,
+        'seasonal',
+      );
       setState(() {
         _seasonalTemplates = list;
         if (_seasonalTemplates.isNotEmpty) {
           // if any template has a tag matching the currently selected season, use it
-          final match = _seasonalTemplates.firstWhere((t) => t.tag == _selectedSeason, orElse: () => _seasonalTemplates.first);
+          final match = _seasonalTemplates.firstWhere(
+            (t) => t.tag == _selectedSeason,
+            orElse: () => _seasonalTemplates.first,
+          );
           _messageController.text = match.message;
         }
       });
@@ -1608,9 +1663,9 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
 
   Future<void> _sendSeasonalGreeting() async {
     if (_messageController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a message')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a message')));
       return;
     }
 
@@ -1642,7 +1697,9 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Seasonal greeting scheduled for ${recipients.length} customers'),
+            content: Text(
+              'Seasonal greeting scheduled for ${recipients.length} customers',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -1651,9 +1708,9 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
     } catch (e) {
       print(e);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       setState(() => _isSending = false);
@@ -1671,15 +1728,13 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1A2744), Color(0xFF223456)],
+                colors: [_smsSurface(context), _smsSurfaceAccent(context)],
               ),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.06),
-              ),
+              border: Border.all(color: _smsBorder(context)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.2),
@@ -1696,24 +1751,24 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [Colors.orangeAccent, Colors.redAccent],
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.celebration_rounded,
-                        color: Colors.white,
+                        color: _smsForeground(context),
                         size: 20,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text(
+                    Text(
                       'Seasonal / Occasion',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: _smsForeground(context),
                       ),
                     ),
                   ],
@@ -1722,53 +1777,59 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: _smsFieldFill(context),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: _smsBorder(context)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _selectedSeason,
                       isExpanded: true,
-                      dropdownColor: const Color(0xFF1A2744),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: _smsSurface(context),
+                      style: TextStyle(color: _smsForeground(context)),
                       icon: Icon(
                         Icons.arrow_drop_down_rounded,
-                        color: Colors.white54,
+                        color: _smsSubtle(context),
                       ),
                       items: _seasonalMessages.keys
-                          .map((season) => DropdownMenuItem(
-                        value: season,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            season.replaceAll('_', ' ').toUpperCase(),
-                          ),
-                        ),
-                      ))
+                          .map(
+                            (season) => DropdownMenuItem(
+                              value: season,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Text(
+                                  season.replaceAll('_', ' ').toUpperCase(),
+                                ),
+                              ),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         setState(() {
                           _selectedSeason = value!;
                           if (_selectedSeason != 'custom') {
                             final match = _seasonalTemplates.firstWhere(
-                                (t) => t.tag == _selectedSeason,
-                                orElse: () => SmsTemplate(
-                                      id: '',
-                                      companyId: widget.companyId,
-                                      occasion: 'seasonal',
-                                      name: '',
-                                      message: '',
-                                      tag: null,
-                                      createdAt: Timestamp.now(),
-                                      updatedAt: Timestamp.now(),
-                                    ));
+                              (t) => t.tag == _selectedSeason,
+                              orElse: () => SmsTemplate(
+                                id: '',
+                                companyId: widget.companyId,
+                                occasion: 'seasonal',
+                                name: '',
+                                message: '',
+                                tag: null,
+                                createdAt: Timestamp.now(),
+                                updatedAt: Timestamp.now(),
+                              ),
+                            );
                             if (match.id.isNotEmpty) {
                               _messageController.text = match.message;
-                            } else if (_seasonalMessages.containsKey(_selectedSeason)) {
-                              _messageController.text = _seasonalMessages[_selectedSeason]!;
+                            } else if (_seasonalMessages.containsKey(
+                              _selectedSeason,
+                            )) {
+                              _messageController.text =
+                                  _seasonalMessages[_selectedSeason]!;
                             }
                           }
                         });
@@ -1786,43 +1847,41 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A2744),
+              color: _smsSurface(context),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.06),
-              ),
+              border: Border.all(color: _smsBorder(context)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Message',
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: _smsForeground(context),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _messageController,
                   maxLines: 6,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: _smsForeground(context)),
                   decoration: InputDecoration(
                     hintText: 'Enter your seasonal message',
-                    hintStyle: TextStyle(color: Colors.white38),
+                    hintStyle: TextStyle(color: _smsHint(context)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
+                    fillColor: _smsFieldFill(context),
                     contentPadding: const EdgeInsets.all(16),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Character count: ${_messageController.text.length}',
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  style: TextStyle(color: _smsHint(context), fontSize: 12),
                 ),
               ],
             ),
@@ -1834,11 +1893,9 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A2744),
+              color: _smsSurface(context),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.06),
-              ),
+              border: Border.all(color: _smsBorder(context)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1853,8 +1910,8 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
                     const SizedBox(width: 10),
                     Text(
                       '$_recipientCount customers',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _smsForeground(context),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1889,27 +1946,27 @@ class _SeasonalGreetingsPageState extends State<SeasonalGreetingsPage> {
               ),
               child: _isSending
                   ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
                   : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.send_rounded, size: 18),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Send to All Customers',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.send_rounded, size: 18),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Send to All Customers',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -1952,28 +2009,32 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A2744),
+              color: _smsSurface(context),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.06),
-              ),
+              border: Border.all(color: _smsBorder(context)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _filterType,
                 isExpanded: true,
-                dropdownColor: const Color(0xFF1A2744),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: _smsSurface(context),
+                style: TextStyle(color: _smsForeground(context)),
                 icon: Icon(
                   Icons.arrow_drop_down_rounded,
-                  color: Colors.white54,
+                  color: _smsSubtle(context),
                 ),
                 items: const [
                   DropdownMenuItem(value: 'all', child: Text('All SMS')),
                   DropdownMenuItem(value: 'single', child: Text('Single SMS')),
                   DropdownMenuItem(value: 'bulk', child: Text('Bulk SMS')),
-                  DropdownMenuItem(value: 'birthday', child: Text('Birthday Greetings')),
-                  DropdownMenuItem(value: 'seasonal', child: Text('Seasonal Greetings')),
+                  DropdownMenuItem(
+                    value: 'birthday',
+                    child: Text('Birthday Greetings'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'seasonal',
+                    child: Text('Seasonal Greetings'),
+                  ),
                 ],
                 onChanged: (value) {
                   setState(() => _filterType = value!);
@@ -2003,13 +2064,13 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                       Icon(
                         Icons.history_rounded,
                         size: 64,
-                        color: Colors.white24,
+                        color: _smsSubtle(context),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'No SMS records found',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: _smsSubtle(context),
                           fontSize: 16,
                         ),
                       ),
@@ -2028,11 +2089,9 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A2744),
+                      color: _smsSurface(context),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.06),
-                      ),
+                      border: Border.all(color: _smsBorder(context)),
                     ),
                     child: ExpansionTile(
                       tilePadding: const EdgeInsets.symmetric(
@@ -2053,17 +2112,17 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                       ),
                       title: Text(
                         data['type']?.toString().toUpperCase() ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: _smsForeground(context),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       subtitle: Text(
-                        DateFormat('MMM dd, yyyy - hh:mm a').format(
-                          (data['createdAt'] as Timestamp).toDate(),
-                        ),
+                        DateFormat(
+                          'MMM dd, yyyy - hh:mm a',
+                        ).format((data['createdAt'] as Timestamp).toDate()),
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: _smsSubtle(context),
                           fontSize: 12,
                         ),
                       ),
@@ -2100,10 +2159,10 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Message',
                                 style: TextStyle(
-                                  color: Colors.white54,
+                                  color: _smsSubtle(context),
                                   fontSize: 12,
                                 ),
                               ),
@@ -2111,13 +2170,13 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
+                                  color: _smsFieldFill(context),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   data['message'] ?? '',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: _smsForeground(context),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -2128,13 +2187,13 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                                   Icon(
                                     Icons.people_rounded,
                                     size: 14,
-                                    color: Colors.white54,
+                                    color: _smsSubtle(context),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Recipients: ${data['recipientCount'] ?? data['recipients']?.length ?? 'N/A'}',
                                     style: TextStyle(
-                                      color: Colors.white54,
+                                      color: _smsSubtle(context),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -2143,7 +2202,7 @@ class _SMSHistoryPageState extends State<SMSHistoryPage> {
                                     Text(
                                       'By: ${data['staff']}',
                                       style: TextStyle(
-                                        color: Colors.white38,
+                                        color: _smsHint(context),
                                         fontSize: 11,
                                       ),
                                     ),

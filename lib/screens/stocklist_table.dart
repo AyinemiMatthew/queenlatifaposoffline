@@ -36,6 +36,48 @@ class _StockListTableState extends State<StockListTable> {
   List<Map<String, dynamic>> _displayData = [];
   int _totalCount = 0;
 
+  bool _isLightTheme(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.light;
+
+  Color _pageColor(BuildContext context) =>
+      Theme.of(context).scaffoldBackgroundColor;
+
+  Color _surfaceColor(BuildContext context) => _isLightTheme(context)
+      ? Theme.of(context).colorScheme.surfaceContainerLow
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  Color _alternateSurfaceColor(BuildContext context) => _isLightTheme(context)
+      ? Theme.of(context).colorScheme.surfaceContainerLow
+      : const Color(0xFF0D1B2A);
+
+  Color _primaryTextColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurface;
+
+  Color _mutedTextColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+
+  Color _subtleTextColor(BuildContext context) =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+
+  Color _dividerColor(BuildContext context) =>
+      Theme.of(context).colorScheme.outlineVariant;
+
+  Widget _buildDatePickerTheme(BuildContext context, Widget? child) {
+    final theme = Theme.of(context);
+    final colorScheme = _isLightTheme(context)
+        ? theme.colorScheme
+        : theme.colorScheme.copyWith(
+            primary: Colors.blue,
+            onPrimary: Colors.white,
+            surface: const Color(0xFF22304A),
+            onSurface: Colors.white,
+          );
+    return Theme(
+      data: theme.copyWith(colorScheme: colorScheme),
+      child: child!,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -129,19 +171,7 @@ class _StockListTableState extends State<StockListTable> {
       initialDate: _startDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Color(0xFF22304A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: _buildDatePickerTheme,
     );
 
     if (start != null) {
@@ -150,19 +180,7 @@ class _StockListTableState extends State<StockListTable> {
         initialDate: _endDate ?? start,
         firstDate: start,
         lastDate: DateTime.now(),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: Colors.blue,
-                onPrimary: Colors.white,
-                surface: Color(0xFF22304A),
-                onSurface: Colors.white,
-              ),
-            ),
-            child: child!,
-          );
-        },
+        builder: _buildDatePickerTheme,
       );
 
       if (end != null) {
@@ -200,6 +218,8 @@ class _StockListTableState extends State<StockListTable> {
 
   List<Widget> _buildAppBarActions() {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
+    final isLight = _isLightTheme(context);
     final actions = <Widget>[
       IconButton(
         icon: Container(
@@ -207,12 +227,14 @@ class _StockListTableState extends State<StockListTable> {
           decoration: BoxDecoration(
             color: _isDateRangeActive
                 ? Colors.blue.shade800.withOpacity(0.3)
-                : Colors.white.withOpacity(0.1),
+                : colors.onSurface.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             Icons.calendar_month,
-            color: _isDateRangeActive ? Colors.blue.shade300 : Colors.white70,
+            color: _isDateRangeActive
+                ? (isLight ? Colors.blue.shade800 : Colors.blue.shade300)
+                : colors.onSurface.withOpacity(0.7),
           ),
         ),
         onPressed: _showDateRangePicker,
@@ -222,10 +244,10 @@ class _StockListTableState extends State<StockListTable> {
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: colors.onSurface.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.refresh, color: Colors.white70),
+          child: Icon(Icons.refresh, color: colors.onSurface.withOpacity(0.7)),
         ),
         onPressed: _loadData,
         tooltip: 'Refresh',
@@ -239,13 +261,14 @@ class _StockListTableState extends State<StockListTable> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: _pageColor(context),
       appBar: AppBar(
         title: const Text("Stocked Item List"),
         actions: _buildAppBarActions(),
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF415A77),
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         child: const Icon(Icons.add),
         onPressed: () {
           Navigator.push(
@@ -270,14 +293,16 @@ class _StockListTableState extends State<StockListTable> {
                       });
                       _applySearchAndPagination();
                     },
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: _primaryTextColor(context)),
                     decoration: InputDecoration(
-                      fillColor: Color(0xFF22304A),
+                      fillColor: _isLightTheme(context)
+                          ? Theme.of(context).colorScheme.surfaceContainerHighest
+                          : const Color(0xFF22304A),
                       hintText: 'Search  ...',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                      hintStyle: TextStyle(color: _subtleTextColor(context)),
+                      prefixIcon: Icon(Icons.search, color: _subtleTextColor(context)),
                       suffixIcon: searchQuery.isNotEmpty ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.white54),
+                        icon: Icon(Icons.clear, color: _subtleTextColor(context)),
                         onPressed: () {
                           setState(() {
                             searchQuery = "";
@@ -288,11 +313,11 @@ class _StockListTableState extends State<StockListTable> {
                       ) : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.white10),
+                        borderSide: BorderSide(color: _dividerColor(context)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.white24),
+                        borderSide: BorderSide(color: _dividerColor(context)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -307,23 +332,41 @@ class _StockListTableState extends State<StockListTable> {
                   margin: const EdgeInsets.only(top: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade900.withOpacity(0.3),
+                    color: _isLightTheme(context)
+                        ? Theme.of(context).colorScheme.secondary.withOpacity(0.12)
+                        : Colors.blue.shade900.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.blue.shade700.withOpacity(0.3)),
+                    border: Border.all(
+                      color: _isLightTheme(context)
+                          ? Theme.of(context).colorScheme.secondary.withOpacity(0.35)
+                          : Colors.blue.shade700.withOpacity(0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.date_range, size: 14, color: Colors.blue),
+                      Icon(
+                        Icons.date_range,
+                        size: 14,
+                        color: _isLightTheme(context)
+                            ? Theme.of(context).colorScheme.secondary
+                            : Colors.blue,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: TextStyle(color: _primaryTextColor(context), fontSize: 12),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: _clearDateRange,
-                        child: const Icon(Icons.close, size: 14, color: Colors.blue),
+                        child: Icon(
+                          Icons.close,
+                          size: 14,
+                          color: _isLightTheme(context)
+                              ? Theme.of(context).colorScheme.secondary
+                              : Colors.blue,
+                        ),
                       ),
                     ],
                   ),
@@ -340,7 +383,7 @@ class _StockListTableState extends State<StockListTable> {
                     searchQuery.isEmpty
                         ? "No stock items available"
                         : "No items found matching '$searchQuery'",
-                    style: const TextStyle(color: Colors.white70),
+                    style: TextStyle(color: _mutedTextColor(context)),
                   ),
                 )
                     : LayoutBuilder(
@@ -397,17 +440,19 @@ class _StockListTableState extends State<StockListTable> {
             minWidth: constraints.maxWidth,
           ),
           child: DataTable(
+            dividerThickness: 1,
             headingRowColor: WidgetStateProperty.all(
-              const Color(0xFF1B263B),
+              _surfaceColor(context),
             ),
+            headingRowHeight: 56,
             columnSpacing: 10,
-            headingTextStyle: const TextStyle(
-              color: Colors.white,
+            headingTextStyle: TextStyle(
+              color: _primaryTextColor(context),
               fontWeight: FontWeight.bold,
               fontSize: 15,
             ),
-            dataTextStyle: const TextStyle(
-              color: Colors.white,
+            dataTextStyle: TextStyle(
+              color: _primaryTextColor(context),
             ),
             columns: const [
               DataColumn(label: Text('#')),
@@ -439,9 +484,9 @@ class _StockListTableState extends State<StockListTable> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
+        color: _surfaceColor(context),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.1)),
+          top: BorderSide(color: _dividerColor(context).withOpacity(0.7)),
         ),
       ),
       child: LayoutBuilder(
@@ -493,21 +538,21 @@ class _StockListTableState extends State<StockListTable> {
         Text(
           isSmall ? "Rows:" : "Rows per page:",
           style: TextStyle(
-            color: Colors.white70,
+            color: _mutedTextColor(context),
             fontSize: isSmall ? 12 : 14,
           ),
         ),
         const SizedBox(width: 4),
         DropdownButton<int>(
           value: _rowsPerPage,
-          dropdownColor: const Color(0xFF1B263B),
+          dropdownColor: _surfaceColor(context),
           style: TextStyle(
-            color: Colors.white,
+            color: _primaryTextColor(context),
             fontSize: isSmall ? 12 : 14,
           ),
           underline: Container(
             height: 1,
-            color: Colors.white24,
+            color: _dividerColor(context),
           ),
           items: const [
             DropdownMenuItem(value: 5, child: Text('5')),
@@ -539,7 +584,7 @@ class _StockListTableState extends State<StockListTable> {
     return Text(
       isSmall ? '$start-$end' : '$start - $end of $_totalCount',
       style: TextStyle(
-        color: Colors.white70,
+        color: _mutedTextColor(context),
         fontSize: isSmall ? 12 : 14,
       ),
     );
@@ -553,7 +598,7 @@ class _StockListTableState extends State<StockListTable> {
       IconButton(
         icon: Icon(
           Icons.first_page,
-          color: Colors.white70,
+          color: _mutedTextColor(context),
           size: iconSize,
         ),
         padding: EdgeInsets.zero,
@@ -567,7 +612,7 @@ class _StockListTableState extends State<StockListTable> {
       IconButton(
         icon: Icon(
           Icons.chevron_left,
-          color: Colors.white70,
+          color: _mutedTextColor(context),
           size: iconSize,
         ),
         padding: EdgeInsets.zero,
@@ -581,7 +626,7 @@ class _StockListTableState extends State<StockListTable> {
       IconButton(
         icon: Icon(
           Icons.chevron_right,
-          color: Colors.white70,
+          color: _mutedTextColor(context),
           size: iconSize,
         ),
         padding: EdgeInsets.zero,
@@ -595,7 +640,7 @@ class _StockListTableState extends State<StockListTable> {
       IconButton(
         icon: Icon(
           Icons.last_page,
-          color: Colors.white70,
+          color: _mutedTextColor(context),
           size: iconSize,
         ),
         padding: EdgeInsets.zero,
@@ -622,10 +667,13 @@ class _StockListTableState extends State<StockListTable> {
 
     final stockValue = (data['netval'] ?? 0.00).toDouble();
     final value = Provider.of<Datafeed>(context, listen: false);
-    final bool syncStatus = data['syncstatus'] is bool ? data['syncstatus'] as bool : false;    return Card(
+    final colors = Theme.of(context).colorScheme;
+    final isLight = _isLightTheme(context);
+    final bool syncStatus = data['syncstatus'] is bool ? data['syncstatus'] as bool : false;
+    return Card(
       color: index.isEven
-          ? const Color(0xFF0D1B2A)
-          : const Color(0xFF1B263B),
+          ? _alternateSurfaceColor(context)
+          : _surfaceColor(context),
       margin: const EdgeInsets.symmetric(
         horizontal: 8,
         vertical: 4,
@@ -640,20 +688,20 @@ class _StockListTableState extends State<StockListTable> {
               children: [
                 CircleAvatar(
                   radius: 14,
-                  backgroundColor: Colors.blueGrey,
+                  backgroundColor: isLight ? colors.secondary : Colors.blueGrey,
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isLight ? colors.onSecondary : Colors.white,
                       fontSize: 12,
                     ),
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  "GHC ${stockValue.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
+                  "GHS ${stockValue.toStringAsFixed(2)}",
+                  style: TextStyle(
+                    color: isLight ? Colors.green.shade800 : Colors.greenAccent,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -664,10 +712,10 @@ class _StockListTableState extends State<StockListTable> {
             // Invoice
             Row(
               children: [
-                const Text(
+                Text(
                   "Invoice: ",
                   style: TextStyle(
-                    color: Colors.white54,
+                    color: _subtleTextColor(context),
                     fontSize: 13,
                   ),
                 ),
@@ -682,8 +730,8 @@ class _StockListTableState extends State<StockListTable> {
                     },
                     child: Text(
                       data['invoice']?.toString() ?? '',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _primaryTextColor(context),
                         fontSize: 13,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -697,10 +745,10 @@ class _StockListTableState extends State<StockListTable> {
             // Waybill
             Row(
               children: [
-                const Text(
+                Text(
                   "Waybill: ",
                   style: TextStyle(
-                    color: Colors.white54,
+                    color: _subtleTextColor(context),
                     fontSize: 13,
                   ),
                 ),
@@ -715,8 +763,8 @@ class _StockListTableState extends State<StockListTable> {
                     },
                     child: Text(
                       data['waybill']?.toString() ?? '',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _primaryTextColor(context),
                         fontSize: 13,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -729,8 +777,8 @@ class _StockListTableState extends State<StockListTable> {
 
             Text(
               "Date: $invoiceDate",
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: _mutedTextColor(context),
                 fontSize: 13,
               ),
             ),
@@ -738,8 +786,8 @@ class _StockListTableState extends State<StockListTable> {
 
             Text(
               "Supplier: ${data['suppliername'] ?? ''}",
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _primaryTextColor(context),
                 fontSize: 13,
               ),
             ),
@@ -747,8 +795,8 @@ class _StockListTableState extends State<StockListTable> {
 
             Text(
               "Branch: ${data['branchname'] ?? ''}",
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _primaryTextColor(context),
                 fontSize: 13,
               ),
             ),
@@ -756,15 +804,15 @@ class _StockListTableState extends State<StockListTable> {
 
             Text(
               "Mode: ${data['purchasetype'] ?? ''}",
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _primaryTextColor(context),
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 8),
 
-            const Divider(
-              color: Colors.white24,
+            Divider(
+              color: _dividerColor(context),
             ),
 
             // Action Buttons
@@ -773,9 +821,9 @@ class _StockListTableState extends State<StockListTable> {
               spacing: 4,
               children: [
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.visibility,
-                    color: Colors.tealAccent,
+                    color: isLight ? Colors.teal.shade700 : Colors.tealAccent,
                     size: 20,
                   ),
                   onPressed: () {
@@ -790,9 +838,9 @@ class _StockListTableState extends State<StockListTable> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.print,
-                    color: Colors.blueGrey,
+                    color: isLight ? Colors.blueGrey.shade700 : Colors.blueGrey,
                     size: 20,
                   ),
                   onPressed: () async {
@@ -819,9 +867,9 @@ class _StockListTableState extends State<StockListTable> {
                 ),
                 if (value.canEdit(AppModules.stock))
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.edit,
-                      color: Colors.amber,
+                      color: isLight ? Colors.amber.shade800 : Colors.amber,
                       size: 20,
                     ),
                     onPressed: () {
@@ -838,9 +886,9 @@ class _StockListTableState extends State<StockListTable> {
                   ),
                 if (value.canDelete(AppModules.stock))
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.delete,
-                      color: Colors.redAccent,
+                      color: isLight ? Colors.red.shade700 : Colors.redAccent,
                       size: 20,
                     ),
                     onPressed: () => _handleDelete(context, data, value),
@@ -880,12 +928,14 @@ class _StockListTableState extends State<StockListTable> {
 
     final stockValue = (data['netval'] ?? 0.00).toDouble();
     final value = Provider.of<Datafeed>(context, listen: false);
-    final bool syncStatus = data['syncstatus'] is bool ? data['syncstatus'] as bool : false;    return DataRow(
+    final isLight = _isLightTheme(context);
+    final bool syncStatus = data['syncstatus'] is bool ? data['syncstatus'] as bool : false;
+    return DataRow(
       color: WidgetStateProperty.resolveWith<Color?>(
             (Set<WidgetState> states) {
           return index.isEven
-              ? const Color(0xFF0D1B2A)
-              : const Color(0xFF1B263B);
+              ? _alternateSurfaceColor(context)
+              : _surfaceColor(context);
         },
       ),
       cells: [
@@ -927,16 +977,16 @@ class _StockListTableState extends State<StockListTable> {
           Text(data['purchasetype']?.toString() ?? ''),
         ),
         DataCell(
-          Text("GHC ${stockValue.toStringAsFixed(2)}"),
+          Text("GHS ${stockValue.toStringAsFixed(2)}"),
         ),
         DataCell(
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.visibility,
-                  color: Colors.tealAccent,
+                  color: isLight ? Colors.teal.shade700 : Colors.tealAccent,
                   size: 20,
                 ),
                 onPressed: () {
@@ -951,9 +1001,9 @@ class _StockListTableState extends State<StockListTable> {
                 },
               ),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.print,
-                  color: Colors.blueGrey,
+                  color: isLight ? Colors.blueGrey.shade700 : Colors.blueGrey,
                   size: 20,
                 ),
                 onPressed: () async {
@@ -978,9 +1028,9 @@ class _StockListTableState extends State<StockListTable> {
               ),
               if (value.canEdit(AppModules.stock))
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.edit,
-                    color: Colors.amber,
+                    color: isLight ? Colors.amber.shade800 : Colors.amber,
                     size: 20,
                   ),
                   onPressed: () {
@@ -997,9 +1047,9 @@ class _StockListTableState extends State<StockListTable> {
                 ),
               if (value.canDelete(AppModules.stock))
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.delete,
-                    color: Colors.redAccent,
+                    color: isLight ? Colors.red.shade700 : Colors.redAccent,
                     size: 20,
                   ),
                   onPressed: () => _handleDelete(context, data, value),
@@ -1025,28 +1075,32 @@ class _StockListTableState extends State<StockListTable> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+      backgroundColor: _isLightTheme(context)
+          ? Theme.of(context).colorScheme.surface
+          : const Color(0xFF1B263B),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      title: Text(
+        "Delete Stock Invoice #${data['invoice']}",
+        style: TextStyle(
+          color: _primaryTextColor(context),
+          fontWeight: FontWeight.bold,
         ),
-        title: Text(
-          "Delete Stock Invoice #${data['invoice']}",
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: const Text(
-          "Are you sure you want to delete this stock invoice?",
-          style: TextStyle(
-            color: Colors.white70,
-          ),
-        ),
-        actions: [
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white54),
+      ),
+      content: Text(
+        "Are you sure you want to delete this stock invoice?",
+        style: TextStyle(color: _mutedTextColor(context)),
+      ),
+      actions: [
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _primaryTextColor(context),
+            side: BorderSide(
+              color: _isLightTheme(context)
+                  ? Theme.of(context).colorScheme.outline
+                  : Colors.white54,
+            ),
             ),
             onPressed: () => Navigator.pop(context, false),
             child: const Text("Cancel"),
@@ -1128,8 +1182,12 @@ class _StockListTableState extends State<StockListTable> {
                 actions: [
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white54),
+                      foregroundColor: _primaryTextColor(context),
+                      side: BorderSide(
+                        color: _isLightTheme(context)
+                            ? Theme.of(context).colorScheme.outline
+                            : Colors.white54,
+                      ),
                     ),
                     onPressed: () => Navigator.pop(context),
                     child: const Text("Ok"),

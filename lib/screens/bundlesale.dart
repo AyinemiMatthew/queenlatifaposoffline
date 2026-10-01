@@ -1,5 +1,3 @@
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,7 +21,6 @@ class BundlePage extends StatefulWidget {
 }
 
 class _BundlePageState extends State<BundlePage> {
-
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();
   final TextEditingController _bundlenameController = TextEditingController();
@@ -54,13 +51,11 @@ class _BundlePageState extends State<BundlePage> {
   String branchtype = '';
   bool isActive = true;
 
-
   List<Map<String, dynamic>> _salesItems = [];
 
   bool get _isEditMode => widget.docId != null;
   final Map<int, TextEditingController> _rowQtyControllers = {};
   final Map<int, TextEditingController> _rowPriceControllers = {};
-
 
   @override
   void initState() {
@@ -106,7 +101,6 @@ class _BundlePageState extends State<BundlePage> {
   }
 
   void _rebuildRowControllers() {
-
     for (final c in _rowQtyControllers.values) {
       c.dispose();
     }
@@ -118,35 +112,35 @@ class _BundlePageState extends State<BundlePage> {
 
     for (int i = 0; i < _salesItems.length; i++) {
       final item = _salesItems[i];
-      _rowQtyControllers[i] =
-          TextEditingController(text: item['quantity']?.toString() ?? '1');
-      _rowPriceControllers[i] =
-          TextEditingController(text: item['price']?.toString() ?? '0');
+      _rowQtyControllers[i] = TextEditingController(
+        text: item['quantity']?.toString() ?? '1',
+      );
+      _rowPriceControllers[i] = TextEditingController(
+        text: item['price']?.toString() ?? '0',
+      );
 
       // Listen so totals recalc live
       final idx = i;
       _rowQtyControllers[i]!.addListener(() {
         if (mounted) _recalcRow(idx);
       });
-      _rowPriceControllers[i]!.addListener((){
-          if (mounted) {
-            _recalcRow(idx);
-          }
+      _rowPriceControllers[i]!.addListener(() {
+        if (mounted) {
+          _recalcRow(idx);
+        }
       });
     }
   }
 
- void _recalcRow(int idx) {
-   if (!mounted || idx >= _salesItems.length) return;
-    if (idx >= _salesItems.length) return;
+  void _recalcRow(int idx) {
+    if (!mounted || idx >= _salesItems.length) return;
     final item = _salesItems[idx];
     final qty =
         double.tryParse(_rowQtyControllers[idx]?.text.trim() ?? '1') ?? 1.0;
     final price =
         double.tryParse(_rowPriceControllers[idx]?.text.trim() ?? '0') ?? 0.0;
-    final modeQty =
-        double.tryParse((item['modeqty'] ?? '1').toString()) ?? 1.0;
-    final pieces = (qty * modeQty).round();
+    final modeQty = double.tryParse((item['modeqty'] ?? '1').toString()) ?? 1.0;
+    final pieces = qty * modeQty;
     final total = qty * price;
 
     setState(() {
@@ -154,7 +148,7 @@ class _BundlePageState extends State<BundlePage> {
         ..._salesItems[idx],
         'quantity': qty.toString(),
         'price': price.toStringAsFixed(2),
-        'totalpieces': pieces.toString(),
+        'totalpieces': _formatQuantity(pieces),
         'totalamount': total.toStringAsFixed(2),
       };
     });
@@ -166,14 +160,19 @@ class _BundlePageState extends State<BundlePage> {
     return parsed;
   }
 
+  String _formatQuantity(double value) => value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toString();
+
   void _setQuantityValue(double value) {
     final normalized = value <= 0 ? 1 : value;
     final text = normalized % 1 == 0
         ? normalized.toStringAsFixed(0)
         : normalized.toString();
     _quantityController.text = text;
-    _quantityController.selection =
-        TextSelection.collapsed(offset: text.length);
+    _quantityController.selection = TextSelection.collapsed(
+      offset: text.length,
+    );
   }
 
   void _incrementQuantity() => _setQuantityValue(_currentQuantityValue() + 1);
@@ -211,8 +210,9 @@ class _BundlePageState extends State<BundlePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error opening scanner: $e'),
-              backgroundColor: Colors.red),
+            content: Text('Error opening scanner: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -227,22 +227,23 @@ class _BundlePageState extends State<BundlePage> {
 
   void _onQuantityChanged() => _calculateTotals();
 
- void _calculateTotals() {
+  void _calculateTotals() {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final qty = double.tryParse(_quantityController.text.trim()) ?? 0.0;
     final modeQty =
         double.tryParse((_currentModeData?['qty'] ?? '1').toString()) ?? 1.0;
-    final pieces = (qty * modeQty).round();
-    _totalPiecesController.text = pieces.toString();
+    _totalPiecesController.text = _formatQuantity(qty * modeQty);
 
     if (_isTotalManuallyEntered) {
       final manualTotal =
           double.tryParse(_totalAmountController.text.trim()) ?? 0.0;
       final discount =
-          double.tryParse(_discountController.text.trim().isEmpty
-              ? '0'
-              : _discountController.text.trim()) ??
-              0.0;
+          double.tryParse(
+            _discountController.text.trim().isEmpty
+                ? '0'
+                : _discountController.text.trim(),
+          ) ??
+          0.0;
       final computedPrice = qty > 0 ? ((manualTotal + discount) / qty) : 0.0;
       _priceController.text = computedPrice.toStringAsFixed(2);
       _totalAmountController.text = manualTotal.toStringAsFixed(2);
@@ -261,7 +262,7 @@ class _BundlePageState extends State<BundlePage> {
     setState(() {});
   }
 
- void _updatePrice() {
+  void _updatePrice() {
     if (_selectedItem == null ||
         _selectedSalesMode == null ||
         _itemModes == null ||
@@ -297,11 +298,12 @@ class _BundlePageState extends State<BundlePage> {
     if (!_isPriceManuallyEntered && !_isTotalManuallyEntered) {
       String pickRetail(Map<String, dynamic> data) =>
           data['rp']?.toString() ??
-              data['sp']?.toString() ??
-              data['cp']?.toString() ??
-              '0';
+          data['sp']?.toString() ??
+          data['cp']?.toString() ??
+          '0';
 
-      _priceController.text = _selectedPriceMode == 'Wholesale'
+      _priceController.text =
+          (_selectedPriceMode ?? '').trim().toLowerCase() == 'wholesale'
           ? selectedModeData['wp']?.toString() ?? '0'
           : pickRetail(selectedModeData);
     }
@@ -310,7 +312,7 @@ class _BundlePageState extends State<BundlePage> {
 
   void _addToSalesPreview() {
     final isMobile = MediaQuery.of(context).size.width < 600;
-  //  if (!isMobile && !_formKey.currentState!.validate()) return;
+
     if (!_formKey.currentState!.validate()) return;
     if (_bundlenameController.text.trim().isEmpty) {
       _snack('Please enter bundle name before adding items.', Colors.red);
@@ -320,7 +322,7 @@ class _BundlePageState extends State<BundlePage> {
       _snack('Select an item before adding to preview', Colors.red);
       return;
     }
-
+    debugPrint('BEFORE ADD PREVIEW: "${_bundlenameController.text}"');
     _updatePrice();
 
     final salesItem = {
@@ -330,7 +332,7 @@ class _BundlePageState extends State<BundlePage> {
       'barcode': _selectedItem?.barcode ?? _barcodeController.text,
       'mode': _selectedSalesMode ?? '',
       'modeqty':
-      double.tryParse((_currentModeData?['qty'] ?? '1').toString()) ?? 1.0,
+          double.tryParse((_currentModeData?['qty'] ?? '1').toString()) ?? 1.0,
       'quantity': _quantityController.text,
       'price': _priceController.text,
       'discount': _discountController.text.trim().isEmpty
@@ -353,7 +355,6 @@ class _BundlePageState extends State<BundlePage> {
     _snack('Item added to preview', Colors.green);
   }
 
-
   void _resetItemEntry() {
     _itemController.clear();
     _barcodeController.clear();
@@ -368,8 +369,9 @@ class _BundlePageState extends State<BundlePage> {
     setState(() {
       _selectedItem = null;
       _selectedSalesMode = null;
-      _selectedPriceMode =
-      _priceMode.isNotEmpty ? _priceMode.first.toString() : null;
+      _selectedPriceMode = _priceMode.isNotEmpty
+          ? _priceMode.first.toString()
+          : null;
       _currentModeData = null;
       _itemModes = null;
       _salesMode = [];
@@ -384,7 +386,6 @@ class _BundlePageState extends State<BundlePage> {
       _rebuildRowControllers();
     });
   }
-
 
   Future<void> _updateNameOnly() async {
     final newName = _bundlenameController.text.trim();
@@ -405,8 +406,9 @@ class _BundlePageState extends State<BundlePage> {
           .limit(2)
           .get();
 
-      final hasDuplicate =
-      duplicateQuery.docs.any((doc) => doc.id != widget.docId);
+      final hasDuplicate = duplicateQuery.docs.any(
+        (doc) => doc.id != widget.docId,
+      );
 
       if (hasDuplicate) {
         _snack('A bundle with this name already exists', Colors.red);
@@ -431,8 +433,9 @@ class _BundlePageState extends State<BundlePage> {
         _rebuildRowControllers();
       });
 
-      final idx =
-      datafeed.bundleview.indexWhere((b) => b['id'] == widget.docId);
+      final idx = datafeed.bundleview.indexWhere(
+        (b) => b['id'] == widget.docId,
+      );
       if (idx != -1) {
         datafeed.bundleview[idx]['name'] = newName;
         datafeed.bundleview[idx]['barcode'] = newName;
@@ -450,11 +453,14 @@ class _BundlePageState extends State<BundlePage> {
 
   Future<void> _saveBundle() async {
     if (_isSaving) return;
-    _formKey.currentState?.reset();
-    setState(() => _isSaving = true);
+    final bundleName = _bundlenameController.text.trim();
+    if (bundleName.isEmpty) {
+      _snack('Enter bundle name before saving', Colors.red);
+      return;
+    }
 
+    setState(() => _isSaving = true);
     try {
-      final bundleName = _bundlenameController.text.trim();
       final datafeed = Provider.of<Datafeed>(context, listen: false);
       final items = _salesItems
           .map((e) => {...e, 'bundleName': bundleName})
@@ -472,7 +478,8 @@ class _BundlePageState extends State<BundlePage> {
           .get();
 
       final hasDuplicate = duplicateQuery.docs.any(
-            (doc) => doc.id != widget.docId, );
+        (doc) => doc.id != widget.docId,
+      );
 
       if (hasDuplicate) {
         _snack('A bundle with this name already exists', Colors.red);
@@ -483,7 +490,9 @@ class _BundlePageState extends State<BundlePage> {
         return;
       }
 
-      String sanitize(String input) => input.trim().toLowerCase()
+      String sanitize(String input) => input
+          .trim()
+          .toLowerCase()
           .replaceAll(RegExp(r'\s+'), '')
           .replaceAll(RegExp(r'[^a-z0-9_]'), '');
 
@@ -511,8 +520,8 @@ class _BundlePageState extends State<BundlePage> {
         'companyid': datafeed.companyid,
         'branchid': datafeed.branchid,
         'barcode': barcode,
-        'producttype':'bundle',
-        'pcategory': 'bundle',
+        'producttype': 'bundle',
+        'pcategory': bundleName,
         'isHamper': true,
         'day': day,
         'week': week,
@@ -522,7 +531,6 @@ class _BundlePageState extends State<BundlePage> {
         'createdat': FieldValue.serverTimestamp(),
         'staff': datafeed.staff,
         'items': items,
-
       };
 
       await datafeed.db.collection('bundle').doc(docId).set(bundleDoc);
@@ -530,7 +538,9 @@ class _BundlePageState extends State<BundlePage> {
       if (!mounted) return;
 
       _snack(
-        _isEditMode ? 'Bundle updated successfully' : 'Bundle saved successfully',
+        _isEditMode
+            ? 'Bundle updated successfully'
+            : 'Bundle saved successfully',
         Colors.green,
       );
 
@@ -543,7 +553,9 @@ class _BundlePageState extends State<BundlePage> {
         final localDoc = Map<String, dynamic>.from(bundleDoc);
         localDoc['createdat'] = originalTimestamp;
 
-        final idx = datafeed.bundleview.indexWhere((b) => b['id'] == widget.docId);
+        final idx = datafeed.bundleview.indexWhere(
+          (b) => b['id'] == widget.docId,
+        );
         if (idx != -1) datafeed.bundleview[idx] = localDoc;
 
         datafeed.notifyListeners();
@@ -558,20 +570,24 @@ class _BundlePageState extends State<BundlePage> {
         _resetForm();
         setState(() => _salesItems = []);
       }
-
     } catch (e) {
       _snack('Failed to save bundle: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
+
   void _snack(String msg, Color color) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content: Text(msg,style: TextStyle(color: Colors.white),),
-          backgroundColor: color,
-          duration: const Duration(seconds: 2)),
+        content: Text(
+          msg,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        ),
+        backgroundColor: color,
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -582,13 +598,14 @@ class _BundlePageState extends State<BundlePage> {
 
         // Grand totals
         final grandTotal = items.fold(0.0, (s, e) {
-          return s +  (double.tryParse(e['totalamount']?.toString() ?? '0') ?? 0.0);
+          return s +
+              (double.tryParse(e['totalamount']?.toString() ?? '0') ?? 0.0);
         });
 
         return SizedBox(
           width: itemWidth,
           child: Container(
-            color: const Color(0xFF182232),
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,16 +615,18 @@ class _BundlePageState extends State<BundlePage> {
                   children: [
                     Text(
                       _isEditMode ? 'Edit Bundle Items' : 'Preview Items',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     if (_isEditMode)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.orange.withOpacity(0.2),
                           border: Border.all(color: Colors.orange),
@@ -616,9 +635,10 @@ class _BundlePageState extends State<BundlePage> {
                         child: const Text(
                           'EDIT MODE',
                           style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold),
+                            color: Colors.orange,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                   ],
@@ -626,11 +646,15 @@ class _BundlePageState extends State<BundlePage> {
                 const Divider(color: Colors.white24),
 
                 if (items.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
-                      child: Text('No items yet. Add items using the form.',
-                          style: TextStyle(color: Colors.white38)),
+                      child: Text(
+                        'No items yet. Add items using the form.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
                     ),
                   )
                 else
@@ -638,32 +662,69 @@ class _BundlePageState extends State<BundlePage> {
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       dataRowColor: MaterialStateProperty.all(
-                          const Color(0xFF1B263B)),
+                        Theme.of(context).colorScheme.surface,
+                      ),
                       headingRowColor: MaterialStateProperty.all(
-                          const Color(0xFF0D1B2A)),
+                        Theme.of(context).colorScheme.surface,
+                      ),
                       columnSpacing: 16,
-                      columns: const [
+                      columns: [
                         DataColumn(
-                            label: Text('Item',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Item',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                         DataColumn(
-                            label: Text('Mode',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Mode',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                         DataColumn(
-                            label: Text('Qty',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Qty',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                         DataColumn(
-                            label: Text('Price',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Price',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                         DataColumn(
-                            label: Text('Pieces',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Pieces',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                         DataColumn(
-                            label: Text('Total',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Total',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                         DataColumn(
-                            label: Text('Action',
-                                style: TextStyle(color: Colors.white))),
+                          label: Text(
+                            'Action',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
                       ],
                       rows: items.asMap().entries.map((entry) {
                         final idx = entry.key;
@@ -672,99 +733,145 @@ class _BundlePageState extends State<BundlePage> {
                         // Ensure controllers exist (safety)
                         _rowQtyControllers.putIfAbsent(
                           idx,
-                              () => TextEditingController(
-                              text: item['quantity']?.toString() ?? '1'),
+                          () => TextEditingController(
+                            text: item['quantity']?.toString() ?? '1',
+                          ),
                         );
                         _rowPriceControllers.putIfAbsent(
                           idx,
-                              () => TextEditingController(
-                              text: item['price']?.toString() ?? '0'),
+                          () => TextEditingController(
+                            text: item['price']?.toString() ?? '0',
+                          ),
                         );
 
-                        return DataRow(cells: [
-                          // ── Item name
-                          DataCell(SizedBox(
-                            width: 130,
-                            child: Text(
-                              item['item']?.toString() ?? '',
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
+                        return DataRow(
+                          cells: [
+                            // ── Item name
+                            DataCell(
+                              SizedBox(
+                                width: 130,
+                                child: Text(
+                                  item['item']?.toString() ?? '',
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          )),
 
-                          // ── Mode (read-only label)
-                          DataCell(Text(
-                            item['mode']?.toString() ?? '',
-                            style: const TextStyle(
-                                color: Colors.white54, fontSize: 12),
-                          )),
-
-                          // ── Qty (inline editable)
-                          DataCell(SizedBox(
-                            width: 70,
-                            child: TextFormField(
-                              controller: _rowQtyControllers[idx],
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
-                              keyboardType:
-                              const TextInputType.numberWithOptions(
-                                  decimal: true),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d*$')),
-                              ],
-                              decoration: _inlineCellDecoration(),
+                            // ── Mode (read-only label)
+                            DataCell(
+                              Text(
+                                item['mode']?.toString() ?? '',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
-                          )),
 
-                          // ── Price (inline editable)
-                          DataCell(SizedBox(
-                            width: 80,
-                            child: TextFormField(
-                              controller: _rowPriceControllers[idx],
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 12),
-                              keyboardType:
-                              const TextInputType.numberWithOptions(
-                                  decimal: true),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d*$')),
-                              ],
-                              decoration: _inlineCellDecoration(),
+                            // ── Qty (inline editable)
+                            DataCell(
+                              SizedBox(
+                                width: 70,
+                                child: TextFormField(
+                                  controller: _rowQtyControllers[idx],
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 12,
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d*$'),
+                                    ),
+                                  ],
+                                  decoration: _inlineCellDecoration(),
+                                ),
+                              ),
                             ),
-                          )),
 
-                          // ── Total pieces (computed, read-only)
-                          DataCell(Text(
-                            item['totalpieces']?.toString() ?? '0',
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 12),
-                          )),
+                            // ── Price (inline editable)
+                            DataCell(
+                              SizedBox(
+                                width: 80,
+                                child: TextFormField(
+                                  controller: _rowPriceControllers[idx],
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                    fontSize: 12,
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d*$'),
+                                    ),
+                                  ],
+                                  decoration: _inlineCellDecoration(),
+                                ),
+                              ),
+                            ),
 
-                          // ── Total amount (computed, read-only)
-                          DataCell(Text(
-                            item['totalamount']?.toString() ?? '0',
-                            style: const TextStyle(
-                                color: Colors.greenAccent,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold),
-                          )),
+                            // ── Total pieces (computed, read-only)
+                            DataCell(
+                              Text(
+                                item['totalpieces']?.toString() ?? '0',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
 
-                          // ── Delete
-                          DataCell(IconButton(
-                            icon: const Icon(Icons.delete,
-                                color: Colors.redAccent, size: 18),
-                            onPressed: () {
-                              setState(() {
-                                _salesItems.removeAt(idx);
-                                _rebuildRowControllers();
-                              });
-                            },
-                            tooltip: 'Remove item',
-                          )),
-                        ]);
+                            // ── Total amount (computed, read-only)
+                            DataCell(
+                              Text(
+                                item['totalamount']?.toString() ?? '0',
+                                style: const TextStyle(
+                                  color: Colors.greenAccent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+
+                            // ── Delete
+                            DataCell(
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.redAccent,
+                                  size: 18,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _salesItems.removeAt(idx);
+                                    _rebuildRowControllers();
+                                  });
+                                },
+                                tooltip: 'Remove item',
+                              ),
+                            ),
+                          ],
+                        );
                       }).toList(),
                     ),
                   ),
@@ -796,27 +903,32 @@ class _BundlePageState extends State<BundlePage> {
                     width: 220,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                        _isEditMode ? Colors.orange : Colors.green,
+                        backgroundColor: _isEditMode
+                            ? Colors.orange
+                            : Colors.green,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       onPressed: _isSaving ? null : _saveBundle,
                       child: _isSaving
                           ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                          AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
                           : Text(
-                        _isEditMode ? 'Update Bundle' : 'Save Bundle',
-                        style: const TextStyle(color: Colors.white),
-                      ),
+                              _isEditMode ? 'Update Bundle' : 'Save Bundle',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -830,17 +942,16 @@ class _BundlePageState extends State<BundlePage> {
 
   InputDecoration _inlineCellDecoration() => InputDecoration(
     isDense: true,
-    contentPadding:
-    const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
     filled: true,
-    fillColor: const Color(0xFF22304A),
+    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: const BorderSide(color: Colors.white24),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: const BorderSide(color: Colors.blue),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
     ),
   );
 
@@ -851,8 +962,10 @@ class _BundlePageState extends State<BundlePage> {
       _selectedItem = item;
 
       if (datafeed.isSalesPoint) {
-        final available =
-        salesProvider.availableSalesWarehousesForItem(datafeed, item);
+        final available = salesProvider.availableSalesWarehousesForItem(
+          datafeed,
+          item,
+        );
         if (available.isNotEmpty &&
             !available.contains(datafeed.salesWarehouseId)) {
           final selectedId = available.first;
@@ -863,7 +976,7 @@ class _BundlePageState extends State<BundlePage> {
           }
           if (selectedName.isEmpty) {
             final branch = datafeed.branches.firstWhere(
-                  (b) => b.id == selectedId,
+              (b) => b.id == selectedId,
               orElse: () => BranchModel(),
             );
             selectedName = branch.branchname;
@@ -883,8 +996,9 @@ class _BundlePageState extends State<BundlePage> {
       if (branchPrices != null &&
           branchPrices.containsKey(branchId) &&
           branchPrices[branchId]['pricing'] != null) {
-        effectivePricing =
-        Map<String, dynamic>.from(branchPrices[branchId]['pricing']);
+        effectivePricing = Map<String, dynamic>.from(
+          branchPrices[branchId]['pricing'],
+        );
       } else if (modes != null) {
         for (var mode in modes) {
           effectivePricing[mode.name] = {
@@ -935,61 +1049,68 @@ class _BundlePageState extends State<BundlePage> {
     });
   }
 
-   @override
+  @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, value, _) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(
               _isEditMode
                   ? 'Edit Bundle — ${value.branch.toString().toUpperCase()}'
                   : 'Bundle Transaction — ${value.branch.toString().toUpperCase()}',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
               ),
             ),
             centerTitle: true,
-            backgroundColor: const Color(0xFF1B263B),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            bottom: _isSaving
+                ? const PreferredSize(
+                    preferredSize: Size.fromHeight(3),
+                    child: LinearProgressIndicator(minHeight: 3),
+                  )
+                : null,
           ),
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => FocusScope.of(context).unfocus(),
             child: SingleChildScrollView(
-              keyboardDismissBehavior:
-              ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(8, 20, 8, 20),
-                child: LayoutBuilder(builder: (context, constraints) {
-                  final isSmall = constraints.maxWidth < 900;
-                  final isMobile = constraints.maxWidth < 600;
-                  final double colW = isSmall
-                      ? constraints.maxWidth
-                      : (constraints.maxWidth / 2) - 10;
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isSmall = constraints.maxWidth < 900;
+                    final isMobile = constraints.maxWidth < 600;
+                    final double colW = isSmall
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth / 2) - 10;
 
-                  final form = _buildForm(colW, value);
-                  final preview = _buildSalesPreview(colW);
+                    final form = _buildForm(colW, value);
+                    final preview = _buildSalesPreview(colW);
 
-                  return Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      if (isMobile) ...[
-                        form,
-                        const SizedBox(height: 16),
-                        preview,
-                      ] else
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 16,
-                          children: [form, preview],
-                        ),
-                    ],
-                  );
-                }),
+                    return Column(
+                      children: [
+                        const SizedBox(height: 12),
+                        if (isMobile) ...[
+                          form,
+                          const SizedBox(height: 16),
+                          preview,
+                        ] else
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 16,
+                            children: [form, preview],
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -1002,7 +1123,7 @@ class _BundlePageState extends State<BundlePage> {
     return SizedBox(
       width: width,
       child: Container(
-        color: const Color(0xFF182232),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1011,19 +1132,25 @@ class _BundlePageState extends State<BundlePage> {
             Wrap(
               spacing: 16,
               children: [
-                const Text(
+                Text(
                   'Register Bundle',
                   style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
 
                 // Active toggle
                 Row(
                   children: [
-                    const Text('Active',
-                        style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text(
+                      'Active',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 13,
+                      ),
+                    ),
                     Switch(
                       value: isActive,
                       onChanged: (v) => setState(() => isActive = v),
@@ -1041,24 +1168,16 @@ class _BundlePageState extends State<BundlePage> {
                 children: [
                   TextFormField(
                     controller: _bundlenameController,
-                    cursorColor: Colors.white,
+                    cursorColor: Theme.of(context).colorScheme.secondary,
                     enabled: true,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Bundle Name',
-                      labelStyle: TextStyle(color: Colors.white70),
-                      enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white24)),
-                      focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.blue)),
-                      fillColor: Color(0xFF22304A),
-                      filled: true,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
+                    decoration: _fieldDecoration('Bundle Name'),
                     validator: (v) =>
-                    v == null || v.isEmpty ? 'Bundle name required' : null,
+                        v == null || v.isEmpty ? 'Bundle name required' : null,
                     onChanged: (_) => setState(() {}),
                   ),
-
 
                   if (_isEditMode) ...[
                     const SizedBox(height: 8),
@@ -1069,19 +1188,34 @@ class _BundlePageState extends State<BundlePage> {
                           backgroundColor: Colors.blueGrey,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                        icon: const Icon(Icons.drive_file_rename_outline,
-                            color: Colors.white, size: 18),
-                        label: const Text(
-                          'Update Name Only',
-                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.drive_file_rename_outline,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                        label: Text(
+                          _isSaving ? 'Updating...' : 'Update Name Only',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 14,
+                          ),
                         ),
                         onPressed: _isSaving ? null : _updateNameOnly,
                       ),
                     ),
                   ],
-
 
                   const SizedBox(height: 8),
 
@@ -1091,7 +1225,12 @@ class _BundlePageState extends State<BundlePage> {
                       Expanded(
                         child: TextFormField(
                           controller: _barcodeController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
                           decoration: _fieldDecoration('Barcode / Search Item'),
                           validator: (v) => v == null || v.isEmpty
                               ? 'Barcode required'
@@ -1101,14 +1240,25 @@ class _BundlePageState extends State<BundlePage> {
                       const SizedBox(width: 8),
                       Container(
                         height: 56,
+                        width: 56,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF22304A),
+                          color:
+                              Theme.of(context).brightness == Brightness.light
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white24),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.qr_code_scanner,
-                              color: Colors.white70),
+                          icon: Icon(
+                            Icons.qr_code_scanner,
+                            color:
+                                Theme.of(context).brightness == Brightness.light
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.primary,
+                          ),
                           onPressed: _scanBarcode,
                           tooltip: 'Scan Barcode/QR Code',
                         ),
@@ -1120,8 +1270,11 @@ class _BundlePageState extends State<BundlePage> {
                   if (_showSuggestions)
                     value.loading
                         ? const Center(
-                        child: CircularProgressIndicator(
-                            color: Colors.blue, strokeWidth: 2))
+                            child: CircularProgressIndicator(
+                              color: Colors.blue,
+                              strokeWidth: 2,
+                            ),
+                          )
                         : _buildSuggestions(value),
 
                   const SizedBox(height: 8),
@@ -1130,25 +1283,33 @@ class _BundlePageState extends State<BundlePage> {
                   TextFormField(
                     controller: _itemController,
                     enabled: false,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     decoration: _fieldDecoration('Item'),
                     validator: (v) =>
-                    v == null || v.isEmpty ? 'Item required' : null,
+                        v == null || v.isEmpty ? 'Item required' : null,
                   ),
                   const SizedBox(height: 8),
 
                   // ── Sales mode
                   DropdownButtonFormField<String>(
                     value: _selectedSalesMode,
-                    dropdownColor: const Color(0xFF22304A),
-                    style: const TextStyle(color: Colors.white),
+                    dropdownColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     decoration: _fieldDecoration('Sales Mode'),
                     items: _salesMode.isEmpty
                         ? null
                         : _salesMode
-                        .map((t) => DropdownMenuItem(
-                        value: t, child: Text(t)))
-                        .toList(),
+                              .map(
+                                (t) =>
+                                    DropdownMenuItem(value: t, child: Text(t)),
+                              )
+                              .toList(),
                     onChanged: (v) => setState(() {
                       _selectedSalesMode = v;
                       _isPriceManuallyEntered = false;
@@ -1156,19 +1317,20 @@ class _BundlePageState extends State<BundlePage> {
                       _updatePrice();
                     }),
                     validator: (v) =>
-                    v == null ? 'Please select sales mode' : null,
+                        v == null ? 'Please select sales mode' : null,
                   ),
                   const SizedBox(height: 8),
 
                   // ── Price
                   TextFormField(
                     controller: _priceController,
-                    cursorColor: Colors.white,
-                    style: const TextStyle(color: Colors.white),
+                    cursorColor: Theme.of(context).colorScheme.secondary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                     decoration: _fieldDecoration('Price'),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                          RegExp(r'^\d*\.?\d*$')),
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
                     ],
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Enter amount';
@@ -1195,16 +1357,21 @@ class _BundlePageState extends State<BundlePage> {
                         child: TextFormField(
                           controller: _quantityController,
                           textAlign: TextAlign.center,
-                          cursorColor: Colors.white,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600),
-                          keyboardType:
-                          const TextInputType.numberWithOptions(
-                              decimal: true),
+                          cursorColor: Theme.of(context).colorScheme.secondary,
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                                RegExp(r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$')),
+                              RegExp(r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$'),
+                            ),
                           ],
                           decoration: _fieldDecoration('Quantity'),
                           validator: (v) {
@@ -1215,8 +1382,9 @@ class _BundlePageState extends State<BundlePage> {
                             if (qty == null || qty <= 0) {
                               return 'Quantity must be greater than zero';
                             }
-                            if (!RegExp(r'^(0|[1-9]\d*)(\.\d+)?$')
-                                .hasMatch(v)) {
+                            if (!RegExp(
+                              r'^(0|[1-9]\d*)(\.\d+)?$',
+                            ).hasMatch(v)) {
                               return 'Use decimals without leading zeros';
                             }
                             return null;
@@ -1236,7 +1404,9 @@ class _BundlePageState extends State<BundlePage> {
                         child: TextFormField(
                           controller: _totalPiecesController,
                           readOnly: true,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                           decoration: _fieldDecoration('Total Pieces'),
                         ),
                       ),
@@ -1244,8 +1414,10 @@ class _BundlePageState extends State<BundlePage> {
                       Expanded(
                         child: TextFormField(
                           controller: _totalAmountController,
-                          cursorColor: Colors.white,
-                          style: const TextStyle(color: Colors.white),
+                          cursorColor: Theme.of(context).colorScheme.secondary,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                           decoration: _fieldDecoration('Total Amount'),
                           onChanged: (_) => setState(() {
                             _isTotalManuallyEntered = true;
@@ -1270,17 +1442,17 @@ class _BundlePageState extends State<BundlePage> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.lightBlue,
-                            padding:
-                            const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           onPressed: _addToSalesPreview,
                           child: Text(
-                            _isEditMode
-                                ? 'Add to Bundle'
-                                : 'Add to Preview',
-                            style: const TextStyle(color: Colors.white),
+                            _isEditMode ? 'Add to Bundle' : 'Add to Preview',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
                           ),
                         ),
                       ),
@@ -1289,16 +1461,20 @@ class _BundlePageState extends State<BundlePage> {
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.orangeAccent,
-                            padding:
-                            const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           onPressed: _isEditMode
-                              ? _resetItemEntry  // in edit mode only reset the item entry, not the whole form
+                              ? _resetItemEntry // in edit mode only reset the item entry, not the whole form
                               : _resetForm,
-                          child: const Text('Reset',
-                              style: TextStyle(color: Colors.white)),
+                          child: Text(
+                            'Reset',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -1316,12 +1492,15 @@ class _BundlePageState extends State<BundlePage> {
     final query = _searchQuery.toLowerCase();
     final filtered = query.isEmpty
         ? value.items
-        : value.items.where((item) {
-      return item.name.toLowerCase().contains(query) ||
-          item.barcode.toLowerCase().contains(query) ||
-          item.company.toLowerCase().contains(query) ||
-          item.pcategory.toLowerCase().contains(query);
-    }).take(10).toList();
+        : value.items
+              .where((item) {
+                return item.name.toLowerCase().contains(query) ||
+                    item.barcode.toLowerCase().contains(query) ||
+                    item.company.toLowerCase().contains(query) ||
+                    item.pcategory.toLowerCase().contains(query);
+              })
+              .take(10)
+              .toList();
 
     if (filtered.isEmpty) return const SizedBox.shrink();
 
@@ -1329,11 +1508,11 @@ class _BundlePageState extends State<BundlePage> {
       margin: const EdgeInsets.only(top: 4),
       constraints: const BoxConstraints(maxHeight: 250),
       decoration: BoxDecoration(
-        color: const Color(0xFF22304A),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.blue.withOpacity(0.3)),
         boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))
+          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
         ],
       ),
       child: ListView.builder(
@@ -1342,24 +1521,38 @@ class _BundlePageState extends State<BundlePage> {
         itemBuilder: (context, index) {
           final item = filtered[index];
           final branchBalance =
-              item.branchbalance?[value.activeBranchId] as Map<String, dynamic>? ??
-                  {};
+              item.branchbalance?[value.activeBranchId]
+                  as Map<String, dynamic>? ??
+              {};
           final double netPieces =
               (branchBalance['netpieces'] as num?)?.toDouble() ?? 0.0;
           return ListTile(
             dense: true,
-            leading: const Icon(Icons.inventory_2, color: Colors.blue, size: 20),
-            title: Text(item.name,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500)),
+            leading: const Icon(
+              Icons.inventory_2,
+              color: Colors.blue,
+              size: 20,
+            ),
+            title: Text(
+              item.name,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             subtitle: Text(
               'Barcode: ${item.barcode} | CP: GHS ${item.cp} | Pieces: ${netPieces.toStringAsFixed(0)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 11,
+              ),
             ),
-            trailing: const Icon(Icons.arrow_forward_ios,
-                color: Colors.white54, size: 14),
+            trailing: const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white54,
+              size: 14,
+            ),
             onTap: () => _selectItem(item, value),
           );
         },
@@ -1369,17 +1562,31 @@ class _BundlePageState extends State<BundlePage> {
 
   InputDecoration _fieldDecoration(String label) => InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(color: Colors.white70),
+    labelStyle: TextStyle(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.white
+          : Theme.of(context).colorScheme.onSurface,
+    ),
+    floatingLabelStyle: TextStyle(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.white
+          : Theme.of(context).colorScheme.onSurface,
+    ),
+    hintStyle: TextStyle(
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.white70
+          : Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Colors.white24),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Colors.blue),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
     ),
-    fillColor: const Color(0xFF22304A),
+    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
     filled: true,
   );
 
@@ -1387,12 +1594,21 @@ class _BundlePageState extends State<BundlePage> {
     width: 52,
     height: 52,
     child: Material(
-      color: const Color(0xFF22304A),
+      color: Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Icon(icon, color: Colors.white70),
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Icon(
+            icon,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     ),
   );

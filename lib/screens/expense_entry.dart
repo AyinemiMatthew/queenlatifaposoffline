@@ -32,14 +32,22 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
   //Map<String, dynamic>? _selectedAccount;
   String? _selectedAccount;
   List<String> _linkedAccounts = [];
-  String method="";
+  String method = "";
   List<String> _categories = [];
   bool _isLoadingCategories = false;
 
   List<String> _paymentMethods = [];
   bool _isLoadingPaymentMethods = false;
 
-  Map<String,List<String>> linkedAccounts={};
+  Map<String, List<String>> linkedAccounts = {};
+
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _mutedColor => Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _fieldColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF182232);
+  Color get _borderColor =>
+      _isLightTheme ? Colors.grey.shade300 : Colors.white12;
 
   bool _isLoadingLinkedAccounts = false;
 
@@ -57,13 +65,15 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
   void _fetchPaymentMethods() async {
     try {
       final datafeed = context.read<Datafeed>();
-      final snapshot = await datafeed.db.collection('paymentaccounts').where('companyId', isEqualTo: datafeed.companyid).get();
-
+      final snapshot = await datafeed.db
+          .collection('paymentaccounts')
+          .where('companyId', isEqualTo: datafeed.companyid)
+          .get();
 
       for (var doc in snapshot.docs) {
         final map = doc.data();
 
-         method = map['paymentMethod']?.toString() ?? '';
+        method = map['paymentMethod']?.toString() ?? '';
         final accounts = List<String>.from(map['linkedAccounts'] ?? []);
 
         if (method.isNotEmpty) {
@@ -71,7 +81,6 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
         }
       }
       print(linkedAccounts.keys);
-
     } catch (e) {
       // Optionally handle error
     } finally {
@@ -120,7 +129,8 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     try {
       final datafeed = context.read<Datafeed>();
       final snapshot = await datafeed.db
-          .collection('accounts').where('companyId', isEqualTo: datafeed.companyid)
+          .collection('accounts')
+          .where('companyId', isEqualTo: datafeed.companyid)
           .where('accountClass', isEqualTo: 'Expense')
           .get();
       final names = snapshot.docs
@@ -134,11 +144,10 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       // Optionally handle error
     } finally {
       setState(() {
-       // _isLoadingCategories = false;
+        // _isLoadingCategories = false;
       });
     }
   }
-
 
   void _populateForm() {
     final expense = widget.expense!;
@@ -168,6 +177,15 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       initialDate: _expenseDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(
+            context,
+          ).colorScheme.copyWith(surface: _fieldColor, onSurface: _textColor),
+          dialogBackgroundColor: _fieldColor,
+        ),
+        child: child!,
+      ),
     );
     if (picked != null && picked != _expenseDate) {
       setState(() {
@@ -225,7 +243,9 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       final branchName = datafeed.branch;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
 
-      final docId = '${companyid}_${expenseName}_${staffPosition}_$timestamp'.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+      final docId = '${companyid}_${expenseName}_${staffPosition}_$timestamp'
+          .toLowerCase()
+          .replaceAll(RegExp(r'\s+'), '_');
 
       final expense = ExpenseEntryModel(
         id: widget.expense?.id ?? docId,
@@ -254,7 +274,6 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
 
       // Save to Firestore
       if (widget.expense == null) {
-
         // Check for duplicate first
         final existingDoc = await datafeed.db
             .collection('expenses')
@@ -284,9 +303,7 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
             .collection('expenses')
             .doc(docId)
             .set(expense.toMap());
-
       } else {
-
         // Existing expense: update by id
         await datafeed.db
             .collection('expenses')
@@ -339,21 +356,25 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: _isLightTheme ? Colors.white : const Color(0xFF101624),
       appBar: AppBar(
         title: Text(widget.expense == null ? 'New Expenses' : 'Edit Expense'),
+        backgroundColor: _isLightTheme
+            ? Colors.white
+            : Theme.of(context).colorScheme.surface,
+        foregroundColor: _textColor,
         elevation: 2,
         actions: [
           if (_isSaving)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -413,47 +434,46 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
                     const SizedBox(height: 16),
 
                     // Category
-                   _buildDropdown(
-                            label: 'Category',
-                            value: _selectedCategory.isEmpty
-                                ? null
-                                : _selectedCategory,
-                            items: _categories,
-                            icon: Icons.category,
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedCategory = value ?? '';
-                              });
-                            },
-                          ),
+                    _buildDropdown(
+                      label: 'Category',
+                      value: _selectedCategory.isEmpty
+                          ? null
+                          : _selectedCategory,
+                      items: _categories,
+                      icon: Icons.category,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCategory = value ?? '';
+                        });
+                      },
+                    ),
                     const SizedBox(height: 16),
 
                     // Payment Method
-
                     _buildDropdown(
-                            label: 'Payment Method',
-                            value: _selectedPaymentMethod.isEmpty
-                                ? null
-                                : _selectedPaymentMethod,
-                            items: linkedAccounts.keys.toList(),
-                            icon: Icons.payment,
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedPaymentMethod = value ?? '';
-                                _selectedAccount = null;
-                              });
-                              if (value != null && value.isNotEmpty) {
-                                setState(() {
-                                  _linkedAccounts = linkedAccounts[value]!.toList();
-                                });
-                               // _fetchLinkedAccounts(value);
-                              } else {
-                                setState(() {
-                                  _linkedAccounts = linkedAccounts[value]!.toList();
-                                });
-                              }
-                            },
-                          ),
+                      label: 'Payment Method',
+                      value: _selectedPaymentMethod.isEmpty
+                          ? null
+                          : _selectedPaymentMethod,
+                      items: linkedAccounts.keys.toList(),
+                      icon: Icons.payment,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedPaymentMethod = value ?? '';
+                          _selectedAccount = null;
+                        });
+                        if (value != null && value.isNotEmpty) {
+                          setState(() {
+                            _linkedAccounts = linkedAccounts[value]!.toList();
+                          });
+                          // _fetchLinkedAccounts(value);
+                        } else {
+                          setState(() {
+                            _linkedAccounts = linkedAccounts[value]!.toList();
+                          });
+                        }
+                      },
+                    ),
                     const SizedBox(height: 16),
 
                     // Payment Account
@@ -511,50 +531,78 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
                             child: ElevatedButton(
                               onPressed: _isSaving ? null : _saveExpense,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF0472ed),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                               child: _isSaving
                                   ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
                                   : Text(
-                                widget.expense == null
-                                    ? 'Save Expense'
-                                    : 'Update Expense',
-                                style: const TextStyle(fontSize: 16, color: Colors.white),
-                              ),
+                                      widget.expense == null
+                                          ? 'Save Expense'
+                                          : 'Update Expense',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                      ),
+                                    ),
                             ),
                           ),
                           SizedBox(
                             width: 270,
                             child: ElevatedButton(
-                              onPressed: (){
-                                Navigator.pushNamed(context, Routes.expenseview);
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  Routes.expenseview,
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    side: BorderSide(color: Colors.white70)
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
                                 ),
                               ),
-                              child: Text("View",
-                                style: const TextStyle(fontSize: 16, color: Colors.white),
+                              child: Text(
+                                "View",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -579,35 +627,36 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: _textColor),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: Colors.white70),
-        labelStyle: const TextStyle(color: Colors.white70),
-        hintStyle: const TextStyle(color: Colors.white38),
+        prefixIcon: Icon(icon, color: _mutedColor),
+        labelStyle: TextStyle(color: _mutedColor),
+        hintStyle: TextStyle(color: _mutedColor),
         filled: true,
-        fillColor: const Color(0xFF182232),
+        fillColor: _fieldColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Colors.red),
         ),
       ),
-      validator: required
-          ? validator
-          : null,
+      validator: required ? validator : null,
     );
   }
 
@@ -622,30 +671,30 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       value: value,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.white70),
-        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(icon, color: _mutedColor),
+        labelStyle: TextStyle(color: _mutedColor),
         filled: true,
-        fillColor: const Color(0xFF182232),
+        fillColor: _fieldColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
       ),
-      dropdownColor: const Color(0xFF182232),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: _fieldColor,
+      style: TextStyle(color: _textColor),
       items: items.map((String item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(item),
-        );
+        return DropdownMenuItem<String>(value: item, child: Text(item));
       }).toList(),
       onChanged: onChanged,
       validator: (value) {
@@ -664,43 +713,41 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     return DropdownButtonFormField<String>(
       value: _selectedAccount,
       disabledHint: Text(
-        !hasMethod
-            ? 'Select payment method first'
-            : 'No accounts available',
-        style: const TextStyle(color: Colors.white38),
+        !hasMethod ? 'Select payment method first' : 'No accounts available',
+        style: TextStyle(color: _mutedColor),
       ),
       decoration: InputDecoration(
         labelText: 'Payment Account',
-        prefixIcon: const Icon(
-          Icons.account_balance_outlined,
-          color: Colors.white70,
-        ),
-        labelStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: Icon(Icons.account_balance_outlined, color: _mutedColor),
+        labelStyle: TextStyle(color: _mutedColor),
         filled: true,
-        fillColor: const Color(0xFF182232),
+        fillColor: _fieldColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: _borderColor),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
       ),
-      dropdownColor: const Color(0xFF182232),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: _fieldColor,
+      style: TextStyle(color: _textColor),
 
       onChanged: (!hasMethod || !hasAccounts)
           ? null
           : (value) {
-        setState(() {
-          _selectedAccount = value;
-        });
-      },
+              setState(() {
+                _selectedAccount = value;
+              });
+            },
 
       items: _linkedAccounts.map((accountName) {
         return DropdownMenuItem<String>(
@@ -728,26 +775,29 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
-          labelStyle: const TextStyle(color: Colors.white70),
+          prefixIcon: Icon(Icons.calendar_today, color: _mutedColor),
+          labelStyle: TextStyle(color: _mutedColor),
           filled: true,
-          fillColor: const Color(0xFF182232),
+          fillColor: _fieldColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.white12),
+            borderSide: BorderSide(color: _borderColor),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.white12),
+            borderSide: BorderSide(color: _borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.blue, width: 2),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 2,
+            ),
           ),
         ),
         child: Text(
           DateFormat('MMM dd, yyyy').format(date),
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: _textColor, fontSize: 16),
         ),
       ),
     );

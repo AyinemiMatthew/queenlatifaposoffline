@@ -127,7 +127,7 @@ class DamageReportPdf {
               pw.Align(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
-                  'TOTAL DAMAGE VALUE: GHC ${grandTotal.toStringAsFixed(2)}',
+                  'TOTAL DAMAGE VALUE: GHS ${grandTotal.toStringAsFixed(2)}',
                   style: pw.TextStyle(
                     fontSize: 14,
                     font: ttfBold,

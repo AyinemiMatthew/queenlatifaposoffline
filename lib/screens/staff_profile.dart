@@ -25,14 +25,15 @@ class _StaffProfileState extends State<StaffProfile> {
       builder: (context, datafeed, child) {
         final staff = datafeed.currentStaff;
         final company = datafeed.currentCompany;
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
             title: const Text('My Profile'),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
-            elevation: 2,
+            backgroundColor: theme.appBarTheme.backgroundColor,
+            foregroundColor: theme.appBarTheme.foregroundColor,
           ),
           body: Center(
             child: ConstrainedBox(
@@ -48,14 +49,14 @@ class _StaffProfileState extends State<StaffProfile> {
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.blue.shade700, Colors.blue.shade500],
+                          colors: [colorScheme.primary, colorScheme.secondary],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.blue.withOpacity(0.3),
+                            color: colorScheme.primary.withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 6),
                           ),
@@ -65,7 +66,7 @@ class _StaffProfileState extends State<StaffProfile> {
                         children: [
                           CircleAvatar(
                             radius: 50,
-                            backgroundColor: Colors.white,
+                            backgroundColor: colorScheme.surface,
                             child: Text(
                               datafeed.staff.isNotEmpty
                                   ? datafeed.staff[0].toUpperCase()
@@ -73,17 +74,17 @@ class _StaffProfileState extends State<StaffProfile> {
                               style: TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade700,
+                                color: colorScheme.primary,
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             datafeed.staff.isNotEmpty ? datafeed.staff : 'User',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: colorScheme.onPrimary,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -93,13 +94,15 @@ class _StaffProfileState extends State<StaffProfile> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: colorScheme.onPrimary.withValues(
+                                alpha: 0.2,
+                              ),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               staff?.accesslevel ?? 'Staff',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: colorScheme.onPrimary,
                                 fontSize: 14,
                               ),
                             ),
@@ -184,13 +187,17 @@ class _StaffProfileState extends State<StaffProfile> {
                                     Icon(
                                       Icons.price_check,
                                       size: 20,
-                                      color: Colors.grey[400],
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                     const SizedBox(width: 12),
-                                    const Text(
+                                    Text(
                                       'Pricing Modes',
                                       style: TextStyle(
-                                        color: Colors.white70,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -208,20 +215,26 @@ class _StaffProfileState extends State<StaffProfile> {
                                             vertical: 6,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: Colors.blue.withOpacity(0.2),
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .secondary
+                                                .withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(
                                               12,
                                             ),
                                             border: Border.all(
-                                              color: Colors.blue.withOpacity(
-                                                0.3,
-                                              ),
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .secondary
+                                                  .withValues(alpha: 0.3),
                                             ),
                                           ),
                                           child: Text(
                                             mode,
-                                            style: const TextStyle(
-                                              color: Colors.blue,
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.secondary,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -270,13 +283,14 @@ class _StaffProfileState extends State<StaffProfile> {
     required IconData icon,
     required List<Widget> children,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E2A38),
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,18 +300,18 @@ class _StaffProfileState extends State<StaffProfile> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.2),
+                  color: colorScheme.secondary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: Colors.blue, size: 20),
+                child: Icon(icon, color: colorScheme.secondary, size: 20),
               ),
               const SizedBox(width: 12),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ],
@@ -314,12 +328,13 @@ class _StaffProfileState extends State<StaffProfile> {
     required String label,
     required String value,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.grey[400]),
+          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -327,14 +342,17 @@ class _StaffProfileState extends State<StaffProfile> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

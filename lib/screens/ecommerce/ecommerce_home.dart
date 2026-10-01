@@ -112,12 +112,15 @@ class _EcommerceHomeState extends State<EcommerceHome> {
       expandedHeight: isDesktop ? 100 : 80,
       floating: true,
       pinned: true,
-      backgroundColor: const Color(0xFF131921),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF131921), Color(0xFF232F3E)],
+              colors: [
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primary.withOpacity(0.88),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -226,16 +229,16 @@ class _EcommerceHomeState extends State<EcommerceHome> {
   Widget _buildSearchBar() {
     return SliverToBoxAdapter(
       child: Container(
-        color: const Color(0xFF232F3E),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: TextField(
           decoration: InputDecoration(
             hintText: 'Search products...',
-            prefixIcon: const Icon(Icons.search),
+            prefixIcon: Icon(Icons.search),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
             contentPadding: const EdgeInsets.symmetric(vertical: 0),
@@ -262,7 +265,7 @@ class _EcommerceHomeState extends State<EcommerceHome> {
 
     return SliverToBoxAdapter(
       child: Container(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,15 +317,19 @@ class _EcommerceHomeState extends State<EcommerceHome> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.category, size: 32, color: Colors.grey[700]),
+              Icon(
+                Icons.category,
+                size: 32,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(height: 8),
               Text(
                 category,
@@ -433,7 +440,7 @@ class _EcommerceHomeState extends State<EcommerceHome> {
   }) {
     return SliverToBoxAdapter(
       child: Container(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -502,7 +509,7 @@ class _EcommerceHomeState extends State<EcommerceHome> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(8),
                   ),

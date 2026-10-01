@@ -13,7 +13,7 @@ class ReceiptTest extends StatelessWidget {
   Widget build(BuildContext context) {
     final receiptData = ReceiptData.defaultReceipt();
     return Scaffold(
-      backgroundColor: Color(0xFFF4F8FF),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Receipt Preview'),
         backgroundColor: Color(0xFF1D4ED8),
@@ -122,7 +122,7 @@ class ReceiptTest extends StatelessWidget {
                           SizedBox(height: 2),
                           Text(
                             receiptData.companyTagline,
-                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                            style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                         ],
                       ),
@@ -131,15 +131,15 @@ class ReceiptTest extends StatelessWidget {
                   SizedBox(height: 14),
                   Text(
                     receiptData.address,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   Text(
                     'Phone: ${receiptData.phone} | Email: ${receiptData.email}',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
 
                   SizedBox(height: 20),
-                  Divider(thickness: 1.2, color: Colors.grey[300]),
+                  Divider(thickness: 1.2, color: Theme.of(context).colorScheme.outline),
                   SizedBox(height: 10),
 
                   // receipt metadata
@@ -173,7 +173,7 @@ class ReceiptTest extends StatelessWidget {
                   Container(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -203,7 +203,7 @@ class ReceiptTest extends StatelessWidget {
                   _sumRow('Change', receiptData.change < 0 ? 0.0 : receiptData.change, bold: true),
 
                   SizedBox(height: 18),
-                  Divider(thickness: 1.4, color: Colors.grey[300]),
+                  Divider(thickness: 1.4, color: Theme.of(context).colorScheme.outline),
                   SizedBox(height: 10),
 
                   // Barcode + QR code section
@@ -216,7 +216,7 @@ class ReceiptTest extends StatelessWidget {
                           children: [
                             Text(
                               'Barcode',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                             SizedBox(height: 8),
                             Container(
@@ -242,7 +242,7 @@ class ReceiptTest extends StatelessWidget {
                             SizedBox(height: 6),
                             Text(
                               receiptData.receiptNumber,
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                           ],
                         ),
@@ -252,7 +252,7 @@ class ReceiptTest extends StatelessWidget {
                         children: [
                           Text(
                             'Scan QR',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
                           SizedBox(height: 8),
                           Container(
@@ -279,7 +279,7 @@ class ReceiptTest extends StatelessWidget {
                       children: [
                         Text(
                           'Thank you for choosing ${receiptData.companyName}!',
-                          style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                          style: TextStyle(fontSize: 15, color: Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                         SizedBox(height: 6),
                         Text(
@@ -341,7 +341,7 @@ class ReceiptTest extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(title, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
         SizedBox(height: 2),
         Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
       ],

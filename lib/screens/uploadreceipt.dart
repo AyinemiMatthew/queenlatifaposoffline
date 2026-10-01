@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:math';
 
@@ -18,17 +17,22 @@ class ReceiptUploadPage extends StatefulWidget {
   final String? docId;
   final Map<String, dynamic>? item;
 
-  const ReceiptUploadPage({
-    Key? key,
-    this.docId,
-    this.item,
-  }) : super(key: key);
+  const ReceiptUploadPage({Key? key, this.docId, this.item}) : super(key: key);
 
   @override
   State<ReceiptUploadPage> createState() => _ReceiptUploadPageState();
 }
 
 class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _secondaryTextColor =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _outlineColor => Theme.of(context).colorScheme.outline;
+  Color get _fieldSurfaceColor =>
+      Theme.of(context).brightness == Brightness.light
+      ? Colors.white
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -38,36 +42,32 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
   final List<Uint8List> _logoBytesList = [];
   final List<File> _logoFileList = [];
   List<String> _existingLogoUrls = [];
-  static const int _maxImages     = 10;
+  static const int _maxImages = 10;
   static const int _maxFileSizeMB = 5;
   bool _loading = false;
   static const Map<String, List<int>> _magicBytes = {
     'image/jpeg': [0xFF, 0xD8, 0xFF],
-    'image/png' : [0x89, 0x50, 0x4E, 0x47],
+    'image/png': [0x89, 0x50, 0x4E, 0x47],
     'image/webp': [0x52, 0x49, 0x46, 0x46],
-    'image/gif' : [0x47, 0x49, 0x46],
+    'image/gif': [0x47, 0x49, 0x46],
   };
 
   @override
   void initState() {
     super.initState();
-    Future.microtask((){
-
-    });
+    Future.microtask(() {});
 
     if (widget.item != null) {
       final d = widget.item!;
       _nameController.text = d['name'];
-      _existingLogoUrls =List<String>.from(d['receiptUrl']??[]);
+      _existingLogoUrls = List<String>.from(d['receiptUrl'] ?? []);
       print(widget.docId);
     }
   }
 
-
   Future<void> pickLogo() async {
-    final totalExisting = _existingLogoUrls.length +
-        _logoFileList.length +
-        _logoBytesList.length;
+    final totalExisting =
+        _existingLogoUrls.length + _logoFileList.length + _logoBytesList.length;
 
     if (totalExisting >= _maxImages) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,9 +90,9 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
         break;
       }
 
-      final bytes    = await file.readAsBytes();
+      final bytes = await file.readAsBytes();
       final filename = file.name;
-      final error    = await _validateImageBytes(bytes, filename);
+      final error = await _validateImageBytes(bytes, filename);
 
       if (error != null) {
         errors.add(error);
@@ -119,10 +119,15 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
     setState(() {});
   }
+
   Future<List<String>> uploadLogos(String name) async {
     List<String> urls = [];
 
-    for (int i = 0; i < _logoFileList.length || i < _logoBytesList.length; i++) {
+    for (
+      int i = 0;
+      i < _logoFileList.length || i < _logoBytesList.length;
+      i++
+    ) {
       final ref = FirebaseStorage.instance
           .ref()
           .child('items')
@@ -150,7 +155,6 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
     return urls;
   }
 
-
   Future<void> deleteImagesFromStorage(List<String> urls) async {
     for (final url in urls) {
       try {
@@ -161,24 +165,22 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
       }
     }
   }
+
   String _uuid() {
     final rng = Random.secure();
     return List.generate(8, (_) => rng.nextInt(16).toRadixString(16)).join();
   }
 
   Future<String?> _validateImageBytes(Uint8List bytes, String filename) async {
-
     final sizeMB = bytes.lengthInBytes / (1024 * 1024);
     if (sizeMB > _maxFileSizeMB) {
       return '"$filename" exceeds ${_maxFileSizeMB}MB.';
     }
 
-
     final ext = filename.split('.').last.toLowerCase();
     if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
       return '"$filename" has an unsupported extension.';
     }
-
 
     for (final entry in _magicBytes.entries) {
       final sig = entry.value;
@@ -186,10 +188,12 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
         final header = bytes.sublist(0, sig.length);
         bool match = true;
         for (int i = 0; i < sig.length; i++) {
-          if (header[i] != sig[i]) { match = false; break; }
+          if (header[i] != sig[i]) {
+            match = false;
+            break;
+          }
         }
         if (match) {
-
           if (entry.key == 'image/webp') {
             if (bytes.length >= 12 &&
                 String.fromCharCodes(bytes.sublist(8, 12)) == 'WEBP') {
@@ -204,18 +208,21 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
     return '"$filename" is not a valid image file.';
   }
+
   Future<void> _savereceipt() async {
     if (!_formKey.currentState!.validate()) return;
 
     final bool hasNewImages =
         _logoFileList.isNotEmpty || _logoBytesList.isNotEmpty;
-    final bool hasAnyImages =
-        hasNewImages || _existingLogoUrls.isNotEmpty;
+    final bool hasAnyImages = hasNewImages || _existingLogoUrls.isNotEmpty;
 
     if (!hasAnyImages) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please upload an image',style: TextStyle(color: Theme.of(context).colorScheme.primary),),
+          content: Text(
+            'Please upload an image',
+            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -226,21 +233,25 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
     try {
       final datafeed = context.read<Datafeed>();
-      final name     = _nameController.text.trim();
+      final name = _nameController.text.trim();
 
-      String sanitize(String input) => input.trim().toLowerCase()
+      String sanitize(String input) => input
+          .trim()
+          .toLowerCase()
           .replaceAll(RegExp(r'\s+'), '')
           .replaceAll(RegExp(r'[^a-z0-9_]'), '');
 
-      final docId = widget.docId
-          ?? '${sanitize(datafeed.companyid)}_${datafeed.staffPosition}_${sanitize(name)}_${DateTime.now().millisecondsSinceEpoch}';
+      final docId =
+          widget.docId ??
+          '${sanitize(datafeed.companyid)}_${datafeed.staffPosition}_${sanitize(name)}_${DateTime.now().millisecondsSinceEpoch}';
 
       //  keep track original url
       if (widget.docId != null) {
-        final originalUrls =
-        List<String>.from(widget.item?['receiptUrl'] ?? []);
+        final originalUrls = List<String>.from(
+          widget.item?['receiptUrl'] ?? [],
+        );
 
-      // remove url
+        // remove url
         final removedUrls = originalUrls
             .where((url) => !_existingLogoUrls.contains(url))
             .toList();
@@ -251,40 +262,36 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
       }
 
       //  Upload newly picked images
-      final List<String> newUrls =
-      hasNewImages ? await uploadNewImages(docId) : [];
+      final List<String> newUrls = hasNewImages
+          ? await uploadNewImages(docId)
+          : [];
 
       //  Final URL list =
-      final List<String> finalUrls = [
-        ..._existingLogoUrls,
-        ...newUrls,
-      ];
+      final List<String> finalUrls = [..._existingLogoUrls, ...newUrls];
 
       final data = {
-        'name'      : name,
-        'id'        : docId,
+        'name': name,
+        'id': docId,
         'receiptUrl': finalUrls,
-        'companyid' : datafeed.companyid,
-        'branchid'  : datafeed.branchid,
-        'branch'    : datafeed.branch,
-        'company'   : datafeed.company,
-        'staff'     : datafeed.staff,
-        if (widget.docId == null)
-          'createdat' : FieldValue.serverTimestamp(),
-        if (widget.docId != null)
-          'updatedat' : FieldValue.serverTimestamp(),
+        'companyid': datafeed.companyid,
+        'branchid': datafeed.branchid,
+        'branch': datafeed.branch,
+        'company': datafeed.company,
+        'staff': datafeed.staff,
+        if (widget.docId == null) 'createdat': FieldValue.serverTimestamp(),
+        if (widget.docId != null) 'updatedat': FieldValue.serverTimestamp(),
       };
 
       await datafeed.db
           .collection('uploadreceipt')
           .doc(docId)
           .set(data, SetOptions(merge: true));
-   final index =datafeed.receiptList.indexWhere((u)=>u['id']==docId);
-   if(index ==-1){
-     datafeed.receiptList.add(data);
-   }else{
-     datafeed.receiptList[index]=data;
-   }
+      final index = datafeed.receiptList.indexWhere((u) => u['id'] == docId);
+      if (index == -1) {
+        datafeed.receiptList.add(data);
+      } else {
+        datafeed.receiptList[index] = data;
+      }
       _nameController.clear();
       setState(() {
         _logoBytesList.clear();
@@ -295,20 +302,27 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.docId == null
-              ? 'Saved successfully!'
-              : 'Updated successfully!',style: TextStyle(color: Theme.of(context).colorScheme.primary),),
+          content: Text(
+            widget.docId == null
+                ? 'Saved successfully!'
+                : 'Updated successfully!',
+            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          ),
           backgroundColor: Colors.green,
         ),
       );
 
       if (widget.docId != null) Navigator.pop(context);
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e',style: TextStyle(color: Theme.of(context).colorScheme.primary),), backgroundColor: Colors.red),
-
+          SnackBar(
+            content: Text(
+              'Error: $e',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -316,7 +330,7 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-//uploading new images
+  //uploading new images
   Future<List<String>> uploadNewImages(String docId) async {
     final List<String> urls = [];
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -351,26 +365,33 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
     return urls;
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, datafeed, child) {
+        final colorScheme = Theme.of(context).colorScheme;
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text(  widget.docId == null  ? 'Upload Receipt' : 'Edit ${_nameController.text}',
+            title: Text(
+              widget.docId == null
+                  ? 'Upload Receipt'
+                  : 'Edit ${_nameController.text}',
             ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.view_list),
-                color: const Color(0xFF415A77),
+                color: colorScheme.primary,
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const uploadReceiptViewPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const uploadReceiptViewPage(),
+                    ),
                   );
                 },
-              )
+              ),
             ],
           ),
 
@@ -390,7 +411,7 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                     children: [
                       SizedBox(
                         child: _buildField(
-                          enabled: widget.docId ==null,
+                          enabled: widget.docId == null,
                           _nameController,
                           'Item Name',
                           Icons.label,
@@ -407,21 +428,19 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.lightBlue,
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.onPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
-                          onPressed: _loading ? null :_savereceipt ,
+                          onPressed: _loading ? null : _savereceipt,
                           child: _loading
-                              ? const CircularProgressIndicator(
-                            color: Colors.white,
-                          )
-                              : const Text(
-                            'Save',
-                            style: TextStyle(color: Colors.white70),
-                          ),
+                              ? CircularProgressIndicator(
+                                  color: colorScheme.onPrimary,
+                                )
+                              : const Text('Save'),
                         ),
                       ),
                     ],
@@ -436,23 +455,23 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
   }
 
   TextFormField _buildField(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool enabled = true,
-        bool isNumber = false,
-        bool required = true,
-        Function(String)? onChanged,
-        String? Function(String?)? validator,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool enabled = true,
+    bool isNumber = false,
+    bool required = true,
+    Function(String)? onChanged,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       enabled: enabled,
       controller: controller,
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: _textColor),
 
       validator: (value) {
         if (validator != null) {
@@ -473,33 +492,39 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
       inputFormatters: inputFormatters,
     );
   }
+
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      labelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       filled: true,
-      fillColor: const Color(0xFF22304A),
+      fillColor: _fieldSurfaceColor,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
 
   Widget _imagePickerSection() {
-    bool hasImage = _logoBytesList.isNotEmpty ||
+    bool hasImage =
+        _logoBytesList.isNotEmpty ||
         _logoFileList.isNotEmpty ||
         _existingLogoUrls.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-
         const SizedBox(height: 12),
 
         //  MULTIPLE IMAGE GRID
@@ -508,122 +533,131 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF22304A),
+              color: _fieldSurfaceColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: hasImage ? Colors.green : Colors.white24,
+                color: hasImage ? Colors.green : _outlineColor,
                 width: hasImage ? 2 : 1,
               ),
             ),
             child: hasImage
                 ? Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                // Memory images (web)
-                ..._logoBytesList.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  Uint8List img = entry.value;
-
-                  return Stack(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Image.memory(
-                        img,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _logoBytesList.removeAt(index);
-                            });
-                          },
-                          child: const Icon(Icons.close,
-                              color: Colors.red, size: 18),
-                        ),
-                      ),
+                      // Memory images (web)
+                      ..._logoBytesList.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        Uint8List img = entry.value;
+
+                        return Stack(
+                          children: [
+                            Image.memory(
+                              img,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _logoBytesList.removeAt(index);
+                                  });
+                                },
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+
+                      // File images (mobile)
+                      ..._logoFileList.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        File file = entry.value;
+
+                        return Stack(
+                          children: [
+                            Image.file(
+                              file,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _logoFileList.removeAt(index);
+                                  });
+                                },
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+
+                      // Existing network images
+                      ..._existingLogoUrls.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        String url = entry.value;
+
+                        return Stack(
+                          children: [
+                            Image.network(
+                              url,
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: GestureDetector(
+                                onTap: () async {
+                                  // Delete from Storage immediately when user taps Ã—
+                                  await deleteImagesFromStorage([url]);
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _existingLogoUrls.removeAt(index);
+                                  });
+                                },
+                                child: const Icon(
+                                  Icons.close,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                     ],
-                  );
-                }),
-
-                // File images (mobile)
-                ..._logoFileList.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  File file = entry.value;
-
-                  return Stack(
-                    children: [
-                      Image.file(
-                        file,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
+                  )
+                : SizedBox(
+                    height: 120,
+                    child: Center(
+                      child: Icon(
+                        Icons.add_photo_alternate,
+                        size: 50,
+                        color: _secondaryTextColor,
                       ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _logoFileList.removeAt(index);
-                            });
-                          },
-                          child: const Icon(Icons.close,
-                              color: Colors.red, size: 18),
-                        ),
-                      ),
-                    ],
-                  );
-                }),
-
-                // Existing network images
-                ..._existingLogoUrls.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  String url = entry.value;
-
-                  return Stack(
-                    children: [
-                      Image.network(
-                        url,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: GestureDetector(
-                          onTap: () async {
-                            // Delete from Storage immediately when user taps ×
-                            await deleteImagesFromStorage([url]);
-                            if (!mounted) return;
-                            setState(() {
-                              _existingLogoUrls.removeAt(index);
-                            });
-                          },
-                          child: const Icon(Icons.close,
-                              color: Colors.red, size: 18),
-                        ),
-                      ),
-                    ],
-                  );
-                }),
-              ],
-            )
-                : const SizedBox(
-              height: 120,
-              child: Center(
-                child: Icon(
-                  Icons.add_photo_alternate,
-                  size: 50,
-                  color: Colors.white38,
-                ),
-              ),
-            ),
+                    ),
+                  ),
           ),
         ),
 
@@ -663,7 +697,6 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
           ],
         ),
       ],
-
     );
   }
 }

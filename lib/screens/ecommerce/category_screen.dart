@@ -54,7 +54,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('All Categories'),
-        backgroundColor: const Color(0xFF131921),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -125,7 +125,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
-              colors: [Colors.grey[100]!, Colors.white],
+              colors: [
+                Theme.of(context).colorScheme.surfaceContainerHighest!,
+                Theme.of(context).colorScheme.surface,
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -149,14 +152,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             errorBuilder: (context, error, stackTrace) => Icon(
                               Icons.category,
                               size: isDesktop ? 80 : 60,
-                              color: Colors.grey[400],
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         )
                       : Icon(
                           Icons.category,
                           size: isDesktop ? 80 : 60,
-                          color: Colors.grey[400],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                 ),
               ),
@@ -164,7 +169,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 padding: const EdgeInsets.all(12),
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: const BorderRadius.vertical(
                     bottom: Radius.circular(12),
                   ),
@@ -192,7 +197,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     const SizedBox(height: 4),
                     Text(
                       '${products.length} ${products.length == 1 ? "item" : "items"}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),

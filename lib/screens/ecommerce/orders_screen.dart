@@ -16,7 +16,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Orders'),
-        backgroundColor: const Color(0xFF131921),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -111,7 +111,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     return Container(
       padding: EdgeInsets.all(isDesktop ? 16 : 12),
-      color: Colors.grey[100],
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -145,7 +145,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.shopping_bag_outlined, size: 100, color: Colors.grey[400]),
+          Icon(
+            Icons.shopping_bag_outlined,
+            size: 100,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 16),
           const Text(
             'No orders yet',
@@ -154,7 +158,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
           const SizedBox(height: 8),
           Text(
             'Your orders will appear here',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -206,7 +213,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             _formatDate(orderDate.toDate()),
                             style: TextStyle(
                               fontSize: isDesktop ? 14 : 13,
-                              color: Colors.grey[600],
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
                       ],
@@ -223,7 +232,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   Icon(
                     Icons.person,
                     size: isDesktop ? 20 : 18,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -240,7 +249,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   Icon(
                     Icons.phone,
                     size: isDesktop ? 20 : 18,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -256,7 +265,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 '${items.length} ${items.length == 1 ? "item" : "items"}',
                 style: TextStyle(
                   fontSize: isDesktop ? 14 : 13,
-                  color: Colors.grey[600],
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 8),
@@ -381,7 +390,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   'Order #${orderId.substring(0, 8).toUpperCase()}',
                   style: TextStyle(
                     fontSize: isDesktop ? 16 : 14,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const Divider(height: 32),
@@ -451,7 +460,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               '$label:',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -466,7 +475,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.all(isDesktop ? 16 : 12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -483,7 +492,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '${item['priceMode']} - GHS ${item['price']} x ${item['quantity']}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),

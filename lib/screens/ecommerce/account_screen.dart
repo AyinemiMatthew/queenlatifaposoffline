@@ -11,7 +11,7 @@ class AccountScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Account'),
-        backgroundColor: const Color(0xFF131921),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -30,11 +30,12 @@ class AccountScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     // Profile Section
-                    _buildProfileCard(user, isDesktop),
+                    _buildProfileCard(context, user, isDesktop),
                     const SizedBox(height: 24),
 
                     // Account Options
                     _buildOptionCard(
+                      context: context,
                       icon: Icons.person,
                       title: 'Profile Information',
                       subtitle: 'Update your name, email and phone',
@@ -46,6 +47,7 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     _buildOptionCard(
+                      context: context,
                       icon: Icons.location_on,
                       title: 'Saved Addresses',
                       subtitle: 'Manage your delivery addresses',
@@ -57,6 +59,7 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     _buildOptionCard(
+                      context: context,
                       icon: Icons.payment,
                       title: 'Payment Methods',
                       subtitle: 'Manage your payment options',
@@ -68,6 +71,7 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     _buildOptionCard(
+                      context: context,
                       icon: Icons.notifications,
                       title: 'Notifications',
                       subtitle: 'Manage notification preferences',
@@ -79,6 +83,7 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     _buildOptionCard(
+                      context: context,
                       icon: Icons.help,
                       title: 'Help & Support',
                       subtitle: 'Get help with your orders',
@@ -90,6 +95,7 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     _buildOptionCard(
+                      context: context,
                       icon: Icons.info,
                       title: 'About',
                       subtitle: 'App version and information',
@@ -124,20 +130,34 @@ class AccountScreen extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: () async {
+                          final colorScheme = Theme.of(context).colorScheme;
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Logout'),
-                              content: const Text(
+                              backgroundColor: colorScheme.surface,
+                              title: Text(
+                                'Logout',
+                                style: TextStyle(color: colorScheme.onSurface),
+                              ),
+                              content: Text(
                                 'Are you sure you want to logout?',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: colorScheme.onSurface,
+                                  ),
                                   child: const Text('Cancel'),
                                 ),
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, true),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: colorScheme.primary,
+                                  ),
                                   child: const Text('Logout'),
                                 ),
                               ],
@@ -176,7 +196,7 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard(User? user, bool isDesktop) {
+  Widget _buildProfileCard(BuildContext context, User? user, bool isDesktop) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -215,7 +235,7 @@ class AccountScreen extends StatelessWidget {
                     user?.email ?? 'guest@example.com',
                     style: TextStyle(
                       fontSize: isDesktop ? 16 : 14,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -228,6 +248,7 @@ class AccountScreen extends StatelessWidget {
   }
 
   Widget _buildOptionCard({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -273,7 +294,7 @@ class AccountScreen extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: isDesktop ? 14 : 13,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -282,7 +303,7 @@ class AccountScreen extends StatelessWidget {
               Icon(
                 Icons.arrow_forward_ios,
                 size: isDesktop ? 20 : 16,
-                color: Colors.grey[400],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),

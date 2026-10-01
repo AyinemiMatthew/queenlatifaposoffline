@@ -30,9 +30,9 @@ class MomoPaymentFields extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildNetworkDropdown(),
+        _buildNetworkDropdown(context),
         const SizedBox(height: 10),
-        _buildMomoTypeDropdown(),
+        _buildMomoTypeDropdown(context),
 
         const SizedBox(height: 5),
 
@@ -45,40 +45,33 @@ class MomoPaymentFields extends StatelessWidget {
         // Hubtel phone
         if (momoType == 'hubtel' && phoneController != null) ...[
           const SizedBox(height: 8),
-          _buildPhoneField(),
+          _buildPhoneField(context),
         ],
       ],
     );
   }
 
-  Widget _buildNetworkDropdown() {
+  Widget _buildNetworkDropdown(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fieldColor = colorScheme.surfaceContainerHighest;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F),
+        color: fieldColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white,
-          width: 0.5,
-        ),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: DropdownButtonFormField<String>(
         value: selectedNetwork,
-        dropdownColor: const Color(0xFF1E3A5A),
-        style: const TextStyle(
-          color: Colors.white,
-        ),
+        dropdownColor: fieldColor,
+        style: TextStyle(color: colorScheme.onSurface),
         decoration: InputDecoration(
           labelText: 'Select Network',
-          labelStyle: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-          ),
-          prefixIcon: const Icon(
-            Icons.sim_card,
-            color: Colors.white70,
-          ),
+          labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(Icons.sim_card, color: colorScheme.onSurfaceVariant),
           filled: true,
-          fillColor: const Color(0xFF1E3A5A),
+          fillColor: fieldColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -95,12 +88,7 @@ class MomoPaymentFields extends StatelessWidget {
                   size: 20,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  network,
-                  style: const TextStyle(
-                    color: Colors.white,
-                  ),
-                ),
+                Text(network, style: TextStyle(color: colorScheme.onSurface)),
               ],
             ),
           );
@@ -117,52 +105,48 @@ class MomoPaymentFields extends StatelessWidget {
     );
   }
 
-  Widget _buildMomoTypeDropdown() {
+  Widget _buildMomoTypeDropdown(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fieldColor = colorScheme.surfaceContainerHighest;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E3A5F),
+        color: fieldColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white,
-          width: 0.5,
-        ),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: DropdownButtonFormField<String>(
         value: momoType,
-        dropdownColor: const Color(0xFF1E3A5A),
-        style: const TextStyle(
-          color: Colors.white,
-        ),
+        dropdownColor: fieldColor,
+        style: TextStyle(color: colorScheme.onSurface),
         decoration: InputDecoration(
           labelText: 'Payment Type',
-          labelStyle: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-          ),
-          prefixIcon: const Icon(
+          labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(
             Icons.account_balance_wallet,
-            color: Colors.white70,
+            color: colorScheme.onSurfaceVariant,
           ),
           filled: true,
-          fillColor: const Color(0xFF1E3A5A),
+          fillColor: fieldColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
         ),
-        items: const [
+        items: [
           DropdownMenuItem(
             value: 'hubtel',
             child: Text(
               'Hubtel',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
             ),
           ),
           DropdownMenuItem(
             value: 'merchant',
             child: Text(
               'Merchant',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
             ),
           ),
         ],
@@ -178,22 +162,21 @@ class MomoPaymentFields extends StatelessWidget {
     );
   }
 
-  Widget _buildPhoneField() {
+  Widget _buildPhoneField(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return TextFormField(
       controller: phoneController,
-      style: const TextStyle(
-        color: Colors.white70,
-      ),
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: _inputDecoration(
+        colorScheme: colorScheme,
         label: 'Phone Number',
         prefix: Icons.phone,
         hint: 'Enter contact number',
       ),
       keyboardType: TextInputType.phone,
       inputFormatters: [
-        FilteringTextInputFormatter.allow(
-          RegExp(r'[0-9+]'),
-        ),
+        FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
         LengthLimitingTextInputFormatter(13),
       ],
       validator: (v) {
@@ -210,16 +193,12 @@ class MomoPaymentFields extends StatelessWidget {
             return 'Invalid format. Use +233XXXXXXXXX';
           }
         }
-
         // 0XXXXXXXXX
         else if (cleaned.startsWith('0')) {
-          if (cleaned.length != 10 ||
-              !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
+          if (cleaned.length != 10 || !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
             return 'Invalid format. Use 0XXXXXXXXX';
           }
-        }
-
-        else {
+        } else {
           return 'Phone must start with 0 or +233';
         }
 
@@ -261,25 +240,19 @@ class MomoPaymentFields extends StatelessWidget {
   }
 
   InputDecoration _inputDecoration({
+    required ColorScheme colorScheme,
     required String label,
     required IconData prefix,
     required String hint,
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(
-        color: Colors.white70,
-      ),
+      labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
       hintText: hint,
-      hintStyle: const TextStyle(
-        color: Colors.white38,
-      ),
-      prefixIcon: Icon(
-        prefix,
-        color: Colors.white70,
-      ),
+      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      prefixIcon: Icon(prefix, color: colorScheme.onSurfaceVariant),
       filled: true,
-      fillColor: const Color(0xFF1E3A5F),
+      fillColor: colorScheme.surfaceContainerHighest,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

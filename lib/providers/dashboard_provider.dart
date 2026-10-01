@@ -84,8 +84,11 @@ void _listenToSalesSummary() {
               continue;
             }
 
-            // Preserve existing business logic: prefer branchsales_value or sales_value
-            dayTotal += _n(branchData['cash'] ?? branchData['credit'] ?? 0);
+            dayTotal += _n(
+              branchData['branchsales_value'] ??
+                  branchData['sales_value'] ??
+                  0,
+            );
           }
         }
 

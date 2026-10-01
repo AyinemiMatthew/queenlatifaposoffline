@@ -1,869 +1,3 @@
-//
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
-// import 'package:intl/intl.dart';
-// import 'package:provider/provider.dart';
-//
-// import '../providers/Datafeed.dart';
-// import 'bundlesale.dart';
-//
-//
-// class bundleSaleViewPage extends StatefulWidget {
-//   const bundleSaleViewPage({super.key});
-//
-//   @override
-//   State<bundleSaleViewPage> createState() => _bundleSaleViewPageState();
-// }
-//
-// class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
-//   String searchQuery = '';
-//   DateTimeRange? selectedDate;
-//   String _selectedBranch = '';
-//   String? _selectedBranchName;
-//   int? _sortColumnIndex;
-//   bool _sortAscending = true;
-//   int _rowsPerPage = 10;
-//   final verticalController = ScrollController();
-//   final horizontalController = ScrollController();
-//
-//   void _sort<T>(
-//       Comparable<T> Function(dynamic d) getField,
-//       int columnIndex,
-//       bool ascending,
-//       List list,
-//       ) {
-//     list.sort((a, b) {
-//       final aValue = getField(a);
-//       final bValue = getField(b);
-//
-//       return ascending
-//           ? Comparable.compare(aValue, bValue)
-//           : Comparable.compare(bValue, aValue);
-//     });
-//     setState(() {
-//       _sortColumnIndex = columnIndex;
-//       _sortAscending = ascending;
-//     });
-//   }
-//   Future<void> pickDateRange(BuildContext context) async {
-//     final DateTimeRange? picked = await showDateRangePicker(
-//       context: context,
-//       firstDate: DateTime(2000),
-//       lastDate: DateTime(2100),
-//       initialDateRange: selectedDate,
-//       builder: (context, child) {
-//         return Theme(
-//           data: Theme.of(context).copyWith(
-//             textButtonTheme: TextButtonThemeData(
-//               style: TextButton.styleFrom(foregroundColor: Colors.white),
-//             ),
-//           ),
-//           child: child!,
-//         );
-//       },
-//     );
-//
-//     if (picked != null) {
-//       setState(() {
-//         selectedDate = picked;
-//       });
-//
-//       if (_selectedBranch.isEmpty) {
-//         context.read<Datafeed>().fetchbundlesales();
-//       } else {
-//         context.read<Datafeed>().fetchbundlesales(selectedBranch: _selectedBranch);
-//       }
-//     }
-//   }
-//   String capitalize(String? text) {
-//     if (text == null || text.isEmpty) return '';
-//     return text[0].toUpperCase() + text.substring(1);
-//   }
-//
-//   Map<String, dynamic> _itemMapOf(dynamic salesview) {
-//     final rawItems = salesview['items'];
-//     if (rawItems is Map) {
-//       return Map<String, dynamic>.from(rawItems);
-//     } else if (rawItems is List) {
-//       return {
-//         for (int i = 0; i < rawItems.length; i++) i.toString(): rawItems[i]
-//       };
-//     }
-//     return {};
-//   }
-//
-//   double _totalOf(Map<String, dynamic> itemMap) {
-//     return itemMap.values.fold<double>(0, (sum, item) {
-//       if (item is Map<String, dynamic>) {
-//         final amount = double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0;
-//         return sum + amount;
-//       }
-//       return sum;
-//     });
-//   }
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     Future.microtask((){
-//       context.read<Datafeed>().fetchBranches();
-//       context.read<Datafeed>().fetchbundlesales();
-//     });
-//
-//   }
-//   @override
-//   Widget build(BuildContext context) {
-//     final ScreenWidth = MediaQuery.sizeOf(context).width;
-//     return Consumer<Datafeed>(
-//       builder: (context, value, child) {
-//         final filteredSalesview = value.filterbundlesales();
-//
-//         return Scaffold(
-//           backgroundColor: const Color(0xFF101624),
-//           appBar: AppBar(
-//             title: const Text('Bundle Sales View List'),
-//             actions: [
-//
-//             ],
-//           ),
-//
-//           floatingActionButton: FloatingActionButton(
-//             backgroundColor: const Color(0xFF415A77),
-//             child: const Icon(Icons.add),
-//             onPressed: () {
-//               Navigator.push(context, MaterialPageRoute(builder: (_) =>  BundlePage()),
-//               );
-//             },
-//           ),
-//           body: Padding(
-//             padding: const EdgeInsets.all(20),
-//             child: Align(
-//               alignment: Alignment.topCenter,
-//               child: ConstrainedBox(
-//                 constraints: const BoxConstraints(maxWidth: 900),
-//                 child: Column(
-//                   children: [
-//                     DropdownButtonFormField<String?>(
-//                       value: (() {
-//                         final id = value.selectedBranch?.id;
-//                         if (id == null) return null;
-//                         final exists = value.branches.any((b) => b.id == id);
-//                         return exists ? id : null;
-//                       })(),
-//                       isExpanded: true,
-//                       dropdownColor: const Color(0xFF22304A),
-//                       style: const TextStyle(color: Colors.white),
-//                       decoration: InputDecoration(
-//                         labelText: 'Select Branch',
-//                         labelStyle: const TextStyle(color: Colors.white70),
-//                         border: OutlineInputBorder(
-//                           borderRadius: BorderRadius.circular(12),
-//                         ),
-//                         enabledBorder: OutlineInputBorder(
-//                           borderRadius: BorderRadius.circular(12),
-//                           borderSide: const BorderSide(color: Colors.white24),
-//                         ),
-//                         focusedBorder: OutlineInputBorder(
-//                           borderRadius: BorderRadius.circular(12),
-//                           borderSide: const BorderSide(color: Colors.blue),
-//                         ),
-//                         fillColor: const Color(0xFF22304A),
-//                         filled: true,
-//                       ),
-//                       items: [
-//                         const DropdownMenuItem<String?>(
-//                           value: null,
-//                           child: Text('All Branches', style: TextStyle(color: Colors.white)),
-//                         ),
-//                         ...{ for (var b in value.branches) b.id: b }
-//                             .values
-//                             .map((branch) => DropdownMenuItem<String?>(
-//                           value: branch.id,
-//                           child: Text(
-//                             branch.branchname,
-//                             style: const TextStyle(color: Colors.white),
-//                           ),
-//                         )),
-//                       ],
-//                       onChanged: (val) {
-//                         setState(() {
-//                           _selectedBranch = val ?? '';
-//                           _selectedBranchName = val == null
-//                               ? ''
-//                               : value.branches
-//                               .firstWhere((b) => b.id == val)
-//                               .branchname;
-//                         });
-//
-//                         if (val == null) {
-//                           value.fetchbundlesales();
-//                         } else {
-//                           value.fetchbundlesales(selectedBranch: val);
-//                         }
-//                       },
-//                     ),
-//                     const SizedBox(height: 10),
-//                     TextFormField(
-//                       cursorColor: Colors.white70,
-//                       onChanged: value.updateSearch,
-//                       style: const TextStyle(color: Colors.white),
-//                       decoration: const InputDecoration(
-//                         hintText: 'Search ...',
-//                         hintStyle: TextStyle(color: Colors.white54),
-//                         prefixIcon: Icon(Icons.search, color: Colors.white54),
-//                         filled: true,
-//                         fillColor: Color(0xFF22304A),
-//                         border: OutlineInputBorder(
-//                           borderRadius: BorderRadius.all(Radius.circular(8)),
-//                           borderSide: BorderSide.none,
-//                         ),
-//                       ),
-//                     ),
-//                     const SizedBox(height: 10),
-//                     if ((_selectedBranchName ?? '').isNotEmpty) ...[
-//                       Text(
-//                         'Bundle View for $_selectedBranchName',
-//                         style: const TextStyle(fontSize: 12, color: Colors.white),
-//                       ),
-//                     ] else if (_selectedBranch.isEmpty && value.bundleview.isNotEmpty) ...[
-//                       Text(
-//                         'Bundle View for All Branches',
-//                         style: const TextStyle(fontSize: 12, color: Colors.white),
-//                       ),
-//                     ],
-//
-//                     Expanded(
-//                       child: value.isloadingsalesbundle
-//                           ? const Center(
-//                         child: CircularProgressIndicator(color: Colors.white),
-//                       )
-//                           : value.bundleview.isEmpty
-//                           ? const Center(
-//                         child: Text(
-//                           'No Sales found',
-//                           style: TextStyle(color: Colors.white70),
-//                         ),
-//                       )
-//                           : LayoutBuilder(
-//                         builder: (context, constraints) {
-//                           final isDesktop = ScreenWidth>900;
-//
-//                           if (isDesktop) {
-//                             // Apply current sort before building rows
-//                             if (_sortColumnIndex != null) {
-//                               switch (_sortColumnIndex) {
-//                                 case 1:
-//                                   filteredSalesview.sort((a, b) {
-//                                     final cmp = (a['name'] ?? '').toString().toLowerCase()
-//                                         .compareTo((b['name'] ?? '').toString().toLowerCase());
-//                                     return _sortAscending ? cmp : -cmp;
-//                                   });
-//                                   break;
-//                                 case 2:
-//                                   filteredSalesview.sort((a, b) {
-//                                     final aFirst = _itemMapOf(a).values.isNotEmpty &&
-//                                         _itemMapOf(a).values.first is Map<String, dynamic>
-//                                         ? (_itemMapOf(a).values.first as Map<String, dynamic>)['item']?.toString().toLowerCase() ?? ''
-//                                         : '';
-//                                     final bFirst = _itemMapOf(b).values.isNotEmpty &&
-//                                         _itemMapOf(b).values.first is Map<String, dynamic>
-//                                         ? (_itemMapOf(b).values.first as Map<String, dynamic>)['item']?.toString().toLowerCase() ?? ''
-//                                         : '';
-//                                     final cmp = aFirst.compareTo(bFirst);
-//                                     return _sortAscending ? cmp : -cmp;
-//                                   });
-//                                   break;
-//                                 case 3:
-//                                   filteredSalesview.sort((a, b) {
-//                                     final ta = _totalOf(_itemMapOf(a));
-//                                     final tb = _totalOf(_itemMapOf(b));
-//                                     final cmp = ta.compareTo(tb);
-//                                     return _sortAscending ? cmp : -cmp;
-//                                   });
-//                                   break;
-//                                 case 4:
-//                                   filteredSalesview.sort((a, b) {
-//                                     final da = (a['createdat'] as Timestamp?)?.toDate() ?? DateTime(1900);
-//                                     final db = (b['createdat'] as Timestamp?)?.toDate() ?? DateTime(1900);
-//                                     final cmp = da.compareTo(db);
-//                                     return _sortAscending ? cmp : -cmp;
-//                                   });
-//                                   break;
-//                               }
-//                             }
-//
-//                             const columnWidths = <double>[40, 150, 220, 110, 130, 120, 200];
-//                             const columnLabels = <String>[
-//                               '#', 'Name', 'Item', 'Total', 'Date', 'Enable/Disable', 'Action'
-//                             ];
-//
-//                             Widget buildHeaderLabel(int index) {
-//                               final sortable = index == 1 || index == 2 || index == 3 || index == 4;
-//                               final isActive = _sortColumnIndex == index;
-//                               final label = Text(
-//                                 columnLabels[index],
-//                                 style: const TextStyle(
-//                                   color: Colors.white70,
-//                                   fontWeight: FontWeight.w600,
-//                                   fontSize: 12,
-//                                   letterSpacing: 0.5,
-//                                 ),
-//                               );
-//
-//                               Widget content = label;
-//                               if (sortable) {
-//                                 content = Row(
-//                                   mainAxisSize: MainAxisSize.min,
-//                                   children: [
-//                                     label,
-//                                     if (isActive) ...[
-//                                       const SizedBox(width: 4),
-//                                       Icon(
-//                                         _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-//                                         color: Colors.white70,
-//                                         size: 14,
-//                                       ),
-//                                     ],
-//                                   ],
-//                                 );
-//                               }
-//
-//                               return SizedBox(
-//                                 width: columnWidths[index],
-//                                 child: sortable
-//                                     ? InkWell(
-//                                   onTap: () => setState(() {
-//                                     if (_sortColumnIndex == index) {
-//                                       _sortAscending = !_sortAscending;
-//                                     } else {
-//                                       _sortColumnIndex = index;
-//                                       _sortAscending = true;
-//                                     }
-//                                   }),
-//                                   child: Align(alignment: Alignment.centerLeft, child: content),
-//                                 )
-//                                     : Align(alignment: Alignment.centerLeft, child: content),
-//                               );
-//                             }
-//
-//                             List<Widget> withSpacing(List<Widget> cells) {
-//                               final spaced = <Widget>[];
-//                               for (var i = 0; i < cells.length; i++) {
-//                                 spaced.add(cells[i]);
-//                                 if (i != cells.length - 1) spaced.add(const SizedBox(width: 10));
-//                               }
-//                               return spaced;
-//                             }
-//
-//                             return ScrollbarTheme(
-//                               data: ScrollbarThemeData(
-//                                 thumbColor: MaterialStateProperty.all(
-//                                   const Color(0xFF415A77),
-//                                 ),
-//                                 trackColor: MaterialStateProperty.all(
-//                                   const Color(0xFF22304A),
-//                                 ),
-//                                 trackBorderColor: MaterialStateProperty.all(
-//                                   const Color(0xFF1B263B),
-//                                 ),
-//                                 thickness: MaterialStateProperty.all(10),
-//                                 radius: const Radius.circular(8),
-//                               ),
-//                               child: Scrollbar(
-//                                 controller: verticalController,
-//                                 thumbVisibility: true,
-//                                 trackVisibility: true,
-//                                 child: Scrollbar(
-//                                   controller: horizontalController,
-//                                   thumbVisibility: true,
-//                                   trackVisibility: true,
-//                                   notificationPredicate: (notif) => notif.depth == 1,
-//                                   child: SingleChildScrollView(
-//                                     controller: horizontalController,
-//                                     scrollDirection: Axis.horizontal,
-//                                     child: SizedBox(
-//                                       width: columnWidths.fold<double>(0, (a, b) => a + b) +
-//                                           (columnWidths.length - 1) * 10,
-//                                       child: Column(
-//                                         children: [
-//                                           Container(
-//                                             height: 44,
-//                                             padding: const EdgeInsets.symmetric(horizontal: 15),
-//                                             color: const Color(0xFF22304A),
-//                                             child: Row(
-//                                               children: withSpacing(
-//                                                 List.generate(columnLabels.length, buildHeaderLabel),
-//                                               ),
-//                                             ),
-//                                           ),
-//                                           Expanded(
-//                                             child: ListView.builder(
-//                                               controller: verticalController,
-//                                               itemCount: filteredSalesview.length,
-//                                               itemBuilder: (context, index) {
-//                                                 final salesview = filteredSalesview[index];
-//                                                 final id = salesview['id'] ?? '';
-//                                                 final name = salesview['name'] ?? '';
-//                                                 final itemMap = _itemMapOf(salesview);
-//
-//                                                 final firstItem = itemMap.values.isNotEmpty &&
-//                                                     itemMap.values.first is Map<String, dynamic>
-//                                                     ? itemMap.values.first as Map<String, dynamic>
-//                                                     : {};
-//                                                 final itemName = firstItem['item']?.toString() ?? name;
-//
-//                                                 final itemsSummary = itemMap.values
-//                                                     .whereType<Map<String, dynamic>>()
-//                                                     .map((e) => "${e['item']}(${e['quantity']})")
-//                                                     .join(", ");
-//
-//                                                 final total = _totalOf(itemMap);
-//
-//                                                 final dateStr = salesview['createdat'] != null
-//                                                     ? (salesview['createdat'] as Timestamp)
-//                                                     .toDate()
-//                                                     .toString()
-//                                                     .split(' ')
-//                                                     .first
-//                                                     : '';
-//
-//                                                 final cells = <Widget>[
-//                                                   Text('${index + 1}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-//                                                   Text(name, style: const TextStyle(color: Colors.white, fontSize: 12)),
-//                                                   Text(
-//                                                     itemsSummary,
-//                                                     style: const TextStyle(color: Colors.white, fontSize: 12),
-//                                                     maxLines: 2,
-//                                                     overflow: TextOverflow.ellipsis,
-//                                                   ),
-//                                                   Text(
-//                                                     NumberFormat("#,##0.00").format(total),
-//                                                     style: const TextStyle(color: Colors.white, fontSize: 12),
-//                                                   ),
-//                                                   Text(dateStr, style: const TextStyle(color: Colors.white, fontSize: 12)),
-//                                                   Switch(
-//                                                     value: salesview['isActive'] == true,
-//                                                     activeColor: Colors.green,
-//                                                     onChanged: (val) {
-//                                                       context.read<Datafeed>().toggleItemActive(
-//                                                         docId: id,
-//                                                         newStatus: val,
-//                                                       );
-//                                                     },
-//                                                   ),
-//                                                   Row(
-//                                                     children: [
-//                                                       IconButton(
-//                                                         icon: const Icon(Icons.edit, color: Colors.blueAccent, size: 18),
-//                                                         onPressed: () {
-//                                                           final itemList = itemMap.values
-//                                                               .whereType<Map<String, dynamic>>()
-//                                                               .toList();
-//                                                           _handleEdit(context, id, itemList);
-//                                                         },
-//                                                       ),
-//                                                       IconButton(
-//                                                         icon: const Icon(Icons.delete, color: Colors.redAccent, size: 18),
-//                                                         onPressed: () => _handleDelete(context, itemName, id),
-//                                                       ),
-//                                                     ],
-//                                                   ),
-//                                                 ];
-//
-//                                                 return Container(
-//                                                   constraints: const BoxConstraints(minHeight: 52),
-//                                                   padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-//                                                   color: index.isEven
-//                                                       ? const Color(0xFF0D1B2A)
-//                                                       : const Color(0xFF10192B),
-//                                                   child: Row(
-//                                                     crossAxisAlignment: CrossAxisAlignment.center,
-//                                                     children: withSpacing(
-//                                                       List.generate(columnWidths.length, (i) {
-//                                                         return SizedBox(
-//                                                           width: columnWidths[i],
-//                                                           child: Align(alignment: Alignment.centerLeft, child: cells[i]),
-//                                                         );
-//                                                       }),
-//                                                     ),
-//                                                   ),
-//                                                 );
-//                                               },
-//                                             ),
-//                                           ),
-//                                         ],
-//                                       ),
-//                                     ),
-//                                   ),
-//                                 ),
-//                               ),
-//                             );
-//                           }
-//
-//                           /// MOBILE
-//                           return ListView.separated(
-//                             itemCount: filteredSalesview.length,
-//                             separatorBuilder: (_, _) =>
-//                             const SizedBox(height: 12),
-//                             itemBuilder: (context, index) {
-//                               final salesview = filteredSalesview[index];
-//
-//                               final id = salesview['id'] ?? '';
-//                               final name = salesview['name'] ?? '';
-//                               final rawItems = salesview['items'];
-//                               final bool isActive = salesview['isActive'] == true;
-//                               Map<String, dynamic> itemMap = {};
-//
-//                               if (rawItems is Map) {
-//                                 itemMap = Map<String, dynamic>.from(rawItems);
-//                               } else if (rawItems is List) {
-//                                 itemMap = {
-//                                   for (int i = 0; i < rawItems.length; i++) i.toString(): rawItems[i]
-//                                 };
-//                               }
-//
-//                               final firstItem = itemMap.values.isNotEmpty &&
-//                                   itemMap.values.first is Map<String, dynamic>
-//                                   ? itemMap.values.first as Map<String, dynamic> : {};
-//
-//                               final itemName = firstItem['item']?.toString() ?? '';
-//
-//                               final totalamountt = itemMap.values.fold<double>( 0, (sum, item) {
-//                                 if (item is Map<String, dynamic>) {
-//                                   final amount = double.tryParse(
-//                                       item['totalamount']?.toString() ?? '0') ?? 0;
-//                                   return sum + amount;
-//                                 }
-//                                 return sum;
-//                               },);
-//                               return Container(
-//                                 margin: const EdgeInsets.symmetric(
-//                                     vertical: 8, horizontal: 4),
-//                                 decoration: BoxDecoration(
-//                                   color: const Color(0xFF1B263B),
-//                                   borderRadius: BorderRadius.circular(20),
-//                                   border: Border.all( color: Colors.white.withOpacity(0.05)),
-//                                   boxShadow: [
-//                                     BoxShadow(
-//                                       color: Colors.black.withOpacity(0.2),
-//                                       blurRadius: 12,
-//                                       offset: const Offset(0, 6),
-//                                     ),
-//                                   ],
-//                                 ),
-//                                 child: ClipRRect(
-//                                   borderRadius: BorderRadius.circular(20),
-//                                   child: Column(
-//                                     crossAxisAlignment: CrossAxisAlignment.start,
-//                                     children: [
-//                                       Container(
-//                                         padding: const EdgeInsets.all(16),
-//                                         color: Colors.white.withOpacity(0.03),
-//                                         child: Wrap(
-//                                           children: [
-//                                             Container(
-//                                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-//                                               decoration: BoxDecoration(
-//                                                 color: Colors.amberAccent.withOpacity(0.1),
-//                                                 borderRadius: BorderRadius.circular( 8),),
-//                                               child: Text(
-//                                                 "Name #$name",
-//                                                 style: const TextStyle(
-//                                                   color: Colors.amberAccent,
-//                                                   fontSize: 14,
-//                                                   fontWeight: FontWeight.bold,
-//                                                   letterSpacing: 1.1,
-//                                                 ),
-//                                               ),
-//                                             ),
-//                                             const Spacer(),
-//                                             Text("#: ${index + 1}",
-//                                               style: TextStyle(
-//                                                   color: Colors.white.withOpacity( 0.5),
-//                                                   fontSize: 12),
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       ),
-//
-//                                       Padding(
-//                                         padding: const EdgeInsets.all(16),
-//                                         child: Column(
-//                                           crossAxisAlignment: CrossAxisAlignment.start,
-//                                           children: [
-//
-//                                             ...itemMap.values.map((item) {
-//                                               if (item is! Map<String, dynamic>)
-//                                                 return const SizedBox();
-//                                               return Container(
-//                                                 margin: const EdgeInsets.only( bottom: 16),
-//                                                 padding: const EdgeInsets.all(12),
-//                                                 decoration: BoxDecoration(
-//                                                   color: Colors.black12,
-//                                                   borderRadius: BorderRadius.circular(12),
-//                                                 ),
-//                                                 child: Column(
-//                                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                                   children: [
-//                                                     Row(
-//                                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                                                       children: [
-//                                                         Expanded(
-//                                                           child: Text(
-//                                                             item['item']
-//                                                                 ?.toUpperCase() ??'',
-//                                                             style: const TextStyle(
-//                                                               color: Colors.white,
-//                                                               fontWeight: FontWeight.w800,
-//                                                               fontSize: 14,
-//                                                             ),
-//                                                           ),
-//                                                         ),
-//                                                         Text(
-//                                                           " ${item['totalamount']}",
-//                                                           style: const TextStyle(
-//                                                             color: Colors.white70,
-//                                                             fontWeight: FontWeight.bold,
-//                                                             fontSize: 16,
-//                                                           ),
-//                                                         ),
-//
-//
-//                                                       ],
-//                                                     ),
-//                                                     const Divider(color: Colors
-//                                                         .white10, height: 20),
-//
-//                                                     Table(
-//                                                       columnWidths: const {
-//                                                         0: FlexColumnWidth(1),
-//                                                         1: FlexColumnWidth(1),
-//                                                       },
-//                                                       children: [
-//                                                         _buildTableRow("Qty", "${item['quantity']} (${item['mode']})"),
-//                                                         _buildTableRow("Price", "GHC ${item['price']}"),
-//
-//                                                         _buildTableRow("pricemode", " ${capitalize(item['pricemode'])}"),
-//                                                         if(item['cp'] != null)
-//                                                           _buildTableRow( "Cost Price ","GHC ${item['cp']}"),
-//                                                         if(item['barcode'] != null)
-//                                                           _buildTableRow("Barcode", "${item['barcode']}"),
-//
-//
-//                                                       ],
-//                                                     ),
-//
-//
-//                                                   ],
-//                                                 ),
-//                                               );
-//                                             }),
-//
-//                                             const Divider(color: Colors.white24),
-//
-//
-//                                             Row(
-//                                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                                               children: [
-//                                                 Column(
-//                                                   crossAxisAlignment: CrossAxisAlignment.start,
-//                                                   children: [
-//                                                     _buildFooterLabel(
-//                                                         Icons.person_outline,
-//                                                         "Staff: ${salesview['staff']}"),
-//                                                     const SizedBox(height: 4),
-//                                                     _buildFooterLabel(
-//                                                       Icons.calendar_today_outlined,
-//                                                       "Date: ${(salesview['createdat'] as Timestamp?)?.toDate()}",
-//                                                     ),
-//                                                   ],
-//                                                 ),
-//                                                 Column(
-//                                                   crossAxisAlignment: CrossAxisAlignment.end,
-//                                                   children: [
-//                                                     const Text("TOTAL AMOUNT",
-//                                                         style: TextStyle(
-//                                                             color: Colors.white54,
-//                                                             fontSize: 10)),
-//                                                     Text(
-//                                                       "GHC ${totalamountt.toString()}",
-//                                                       style: const TextStyle(
-//                                                         color: Colors.white,
-//                                                         fontSize: 20,
-//                                                         fontWeight: FontWeight.w900,
-//                                                       ),
-//                                                     ),
-//                                                   ],
-//                                                 ),
-//                                               ],
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       ),
-//
-//
-//                                       Container(
-//                                         color: Colors.black26,
-//                                         padding: const EdgeInsets.symmetric(
-//                                             horizontal: 8),
-//                                         child: Row(
-//                                           mainAxisAlignment: MainAxisAlignment.spaceAround,
-//                                           children: [
-//
-//                                             _buildActionButton(
-//                                               Icons.edit, "Edit",
-//                                               Colors.blueAccent,
-//                                                   () {
-//                                                 List<Map<String, dynamic>> itemList =
-//                                                 itemMap.values.whereType<Map<String, dynamic>>().toList();
-//
-//                                                 _handleEdit(context, id, itemList);
-//                                               },
-//                                             ),
-//                                             _buildActionButton(
-//                                               Icons.delete_outline, "Delete",
-//                                               Colors.redAccent, () =>
-//                                                 _handleDelete(context, itemName, id),
-//                                             ),
-//                                           ],
-//                                         ),
-//                                       ),
-//                                       SwitchListTile(
-//                                         title: const Text(
-//                                           "Active",
-//                                           style: TextStyle(color: Colors.white70),
-//                                         ),
-//                                         value: salesview['isActive'] == true,
-//                                         activeColor: Colors.green,
-//
-//                                         onChanged: (val) {
-//                                           context.read<Datafeed>().toggleItemActive(
-//                                             docId: id,
-//                                             newStatus: val,
-//                                           );
-//                                         },
-//                                       )
-//                                     ],
-//                                   ),
-//                                 ),
-//                               );
-//
-//                             },
-//
-//                           );
-//                         },
-//                       ),
-//                     )
-//                   ],
-//                 ),
-//               ),
-//             ),
-//           ),
-//         );
-//       },
-//     );
-//
-//   }
-//   TableRow _buildTableRow(String label, String value) {
-//     return TableRow(
-//       children: [
-//         Padding(
-//           padding: const EdgeInsets.symmetric(vertical: 2),
-//           child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-//         ),
-//         Padding(
-//           padding: const EdgeInsets.symmetric(vertical: 2),
-//           child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-//         ),
-//       ],
-//     );
-//   }
-//
-//   Widget _buildFooterLabel(IconData icon, String text) {
-//     return Row(
-//       children: [
-//         Icon(icon, color: Colors.white38, size: 14),
-//         const SizedBox(width: 4),
-//         Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
-//       ],
-//     );
-//   }
-//
-//   Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
-//     return TextButton.icon(
-//       onPressed: onTap,
-//       icon: Icon(icon, color: color, size: 20),
-//       label: Text(label, style: TextStyle(color: color, fontSize: 13)),
-//     );
-//   }
-//   Future<void> _handleDelete(BuildContext context, String id,String itemName, ) async {
-//     final confirm = await showDialog<bool>(
-//       context: context,
-//       builder: (innerContext) => AlertDialog(
-//         backgroundColor: const Color(0xFF1B263B),
-//         title: Text(
-//             "Delete $itemName?",
-//             style: const TextStyle(color: Colors.white)
-//         ),
-//         content: Text(
-//           "This action cannot be undone. Are you sure?",
-//           style: TextStyle(color: Colors.white.withOpacity(0.7)),
-//         ),
-//         actions: [
-//           TextButton(
-//             onPressed: () => Navigator.pop(innerContext, false),
-//             child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
-//           ),
-//           ElevatedButton(
-//             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-//             onPressed: () => Navigator.pop(innerContext, true),
-//             child: const Text("Delete", style: TextStyle(color: Colors.white)),
-//           ),
-//         ],
-//       ),
-//     );
-//
-//     if (confirm == true) {
-//       try {
-//
-//         await context.read<Datafeed>().deletebundleview(id);
-//
-//         if (context.mounted) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             SnackBar(
-//               content: Text("$itemName deleted successfully"),
-//               backgroundColor: Colors.green,
-//               behavior: SnackBarBehavior.floating,
-//             ),
-//           );
-//         }
-//       } catch (e) {
-//         if (context.mounted) {
-//           ScaffoldMessenger.of(context).showSnackBar(
-//             const SnackBar(
-//               content: Text("Failed to delete item"),
-//               backgroundColor: Colors.redAccent,
-//               behavior: SnackBarBehavior.floating,
-//             ),
-//           );
-//         }
-//       }
-//     }
-//   }
-//   Future<void> _handleEdit( BuildContext context, String id, List<Map<String, dynamic>> item, ) async {
-//     Navigator.push( context,
-//       MaterialPageRoute(
-//         builder: (context) => BundlePage(
-//           docId: id,
-//           item: item,
-//         ),
-//       ),
-//     );
-//   }
-//
-// }
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -881,8 +15,27 @@ class bundleSaleViewPage extends StatefulWidget {
 }
 
 class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
+  Color get _dividerColor => Theme.of(context).colorScheme.outlineVariant;
+
+  Alignment _tableCellAlignment(int index) {
+    switch (index) {
+      case 0:
+        return Alignment.center;
+      case 3:
+        return Alignment.centerRight;
+      case 5:
+      case 6:
+        return Alignment.center;
+      default:
+        return Alignment.centerLeft;
+    }
+  }
+
   String searchQuery = '';
   DateTimeRange? selectedDate;
+  final TextEditingController _searchController = TextEditingController();
+  bool _showAppBarSearch = false;
+  bool _showAppBarBranch = false;
 
   String _selectedBranch = '';
   String? _selectedBranchName;
@@ -909,12 +62,123 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
   void dispose() {
     _horizontalController.dispose();
     _verticalController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-// ---------------------------------------------------------------------------
-// DATE FILTER
-// ---------------------------------------------------------------------------
+  Widget _buildBranchSelector(Datafeed value, {bool compact = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final branchId = value.selectedBranch?.id;
+    final selectedBranchId =
+        branchId != null &&
+            value.branches.any((branch) => branch.id == branchId)
+        ? branchId
+        : null;
+
+    return DropdownButtonFormField<String?>(
+      value: selectedBranchId,
+      isExpanded: true,
+      dropdownColor: colorScheme.surface,
+      style: TextStyle(color: colorScheme.onSurface, fontSize: 13),
+      decoration: InputDecoration(
+        labelText: compact ? null : 'Branch',
+        hintText: compact ? 'Branch' : null,
+        isDense: true,
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        prefixIcon: Icon(Icons.store_outlined, color: colorScheme.primary),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+        ),
+      ),
+      items: [
+        DropdownMenuItem<String?>(
+          value: null,
+          child: Text(
+            'All Branches',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+        ),
+        ...{for (final branch in value.branches) branch.id: branch}.values.map(
+          (branch) => DropdownMenuItem<String?>(
+            value: branch.id,
+            child: Text(
+              branch.branchname,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
+          ),
+        ),
+      ],
+      onChanged: (branchId) {
+        setState(() {
+          _selectedBranch = branchId ?? '';
+          _selectedBranchName = branchId == null
+              ? ''
+              : value.branches
+                    .firstWhere((branch) => branch.id == branchId)
+                    .branchname;
+        });
+        if (branchId == null) {
+          value.fetchbundlesales();
+        } else {
+          value.fetchbundlesales(selectedBranch: branchId);
+        }
+      },
+    );
+  }
+
+  Widget _buildSearchField() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 44,
+      child: TextField(
+        controller: _searchController,
+        autofocus: _showAppBarSearch,
+        cursorColor: colorScheme.secondary,
+        onChanged: (text) {
+          searchQuery = text;
+          context.read<Datafeed>().updateSearch(text);
+        },
+        style: TextStyle(color: colorScheme.onSurface),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: 'Search bundles...',
+          hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHighest,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: colorScheme.outline),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: colorScheme.outline),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // DATE FILTER
+  // ---------------------------------------------------------------------------
 
   void _clearDateRange() {
     setState(() {
@@ -923,8 +187,8 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
   }
 
   List<Map<String, dynamic>> _filterByDateRange(
-      List<Map<String, dynamic>> list,
-      ) {
+    List<Map<String, dynamic>> list,
+  ) {
     if (selectedDate == null) {
       return list;
     }
@@ -958,9 +222,9 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     }).toList();
   }
 
-// ---------------------------------------------------------------------------
-// HELPERS
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------------------------
 
   String capitalize(String? text) {
     if (text == null || text.isEmpty) {
@@ -979,8 +243,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
 
     if (rawItems is List) {
       return {
-        for (int i = 0; i < rawItems.length; i++)
-          i.toString(): rawItems[i],
+        for (int i = 0; i < rawItems.length; i++) i.toString(): rawItems[i],
       };
     }
 
@@ -988,19 +251,16 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
   }
 
   double _totalOf(Map<String, dynamic> itemMap) {
-    return itemMap.values.fold<double>(
-      0,
-          (sum, item) {
-        if (item is Map) {
-          final amount =
-              double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0;
+    return itemMap.values.fold<double>(0, (sum, item) {
+      if (item is Map) {
+        final amount =
+            double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0;
 
-          return sum + amount;
-        }
+        return sum + amount;
+      }
 
-        return sum;
-      },
-    );
+      return sum;
+    });
   }
 
   DateTime? _timestampToDate(dynamic value) {
@@ -1035,14 +295,11 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     return DateFormat('yyyy-MM-dd HH:mm').format(date);
   }
 
-// ---------------------------------------------------------------------------
-// SORT
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // SORT
+  // ---------------------------------------------------------------------------
 
-  void _sortSales(
-      List<Map<String, dynamic>> list,
-      int columnIndex,
-      ) {
+  void _sortSales(List<Map<String, dynamic>> list, int columnIndex) {
     setState(() {
       if (_sortColumnIndex == columnIndex) {
         _sortAscending = !_sortAscending;
@@ -1056,7 +313,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
       int result = 0;
 
       switch (columnIndex) {
-// Name
+        // Name
         case 1:
           final aName = (a['name'] ?? '').toString().toLowerCase();
           final bName = (b['name'] ?? '').toString().toLowerCase();
@@ -1064,29 +321,23 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
           result = aName.compareTo(bName);
           break;
 
-// Item
+        // Item
         case 2:
           final aItems = _itemMapOf(a);
           final bItems = _itemMapOf(b);
 
-          final aFirst = aItems.values.isNotEmpty &&
-              aItems.values.first is Map
-              ? (aItems.values.first['item'] ?? '')
-              .toString()
-              .toLowerCase()
+          final aFirst = aItems.values.isNotEmpty && aItems.values.first is Map
+              ? (aItems.values.first['item'] ?? '').toString().toLowerCase()
               : '';
 
-          final bFirst = bItems.values.isNotEmpty &&
-              bItems.values.first is Map
-              ? (bItems.values.first['item'] ?? '')
-              .toString()
-              .toLowerCase()
+          final bFirst = bItems.values.isNotEmpty && bItems.values.first is Map
+              ? (bItems.values.first['item'] ?? '').toString().toLowerCase()
               : '';
 
           result = aFirst.compareTo(bFirst);
           break;
 
-// Total
+        // Total
         case 3:
           final aTotal = _totalOf(_itemMapOf(a));
           final bTotal = _totalOf(_itemMapOf(b));
@@ -1094,13 +345,11 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
           result = aTotal.compareTo(bTotal);
           break;
 
-// Date
+        // Date
         case 4:
-          final aDate =
-              _timestampToDate(a['createdat']) ?? DateTime(1900);
+          final aDate = _timestampToDate(a['createdat']) ?? DateTime(1900);
 
-          final bDate =
-              _timestampToDate(b['createdat']) ?? DateTime(1900);
+          final bDate = _timestampToDate(b['createdat']) ?? DateTime(1900);
 
           result = aDate.compareTo(bDate);
           break;
@@ -1113,37 +362,92 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     });
   }
 
-// ---------------------------------------------------------------------------
-// BUILD
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // BUILD
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth >= 900;
 
     return Consumer<Datafeed>(
       builder: (context, value, child) {
-        final filteredSalesView = _filterByDateRange(
-          value.filterbundlesales(),
-        );
+        final filteredSalesView = _filterByDateRange(value.filterbundlesales());
+        final branchLabel = (_selectedBranchName ?? '').isNotEmpty
+            ? _selectedBranchName!
+            : 'All Branches';
+        final showBundleScope =
+            selectedDate != null ||
+            (_selectedBranchName ?? '').isNotEmpty ||
+            (_selectedBranch.isEmpty && value.bundleview.isNotEmpty);
+        final bundleScopeTitle = StringBuffer('Bundle View for $branchLabel');
+        if (selectedDate != null) {
+          bundleScopeTitle
+            ..write(' · ')
+            ..write(DateFormat.yMMMd().format(selectedDate!.start))
+            ..write(' - ')
+            ..write(DateFormat.yMMMd().format(selectedDate!.end));
+        }
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
-// -------------------------------------------------------------------
-// APP BAR
-// -------------------------------------------------------------------
-
+          // -------------------------------------------------------------------
+          // APP BAR
+          // -------------------------------------------------------------------
           appBar: AppBar(
-            title: const Text('Bundle Sales View List'),
-            backgroundColor: const Color(0xFF101624),
+            title: _showAppBarSearch
+                ? _buildSearchField()
+                : _showAppBarBranch
+                ? SizedBox(
+                    width: isDesktop ? 300 : null,
+                    child: _buildBranchSelector(value, compact: !isDesktop),
+                  )
+                : showBundleScope
+                ? Text(
+                    bundleScopeTitle.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : const Text(
+                    'Bundle Sales View List',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+            backgroundColor: Theme.of(context).colorScheme.surface,
 
             actions: [
-              ReusableDatePickerWidget(
-                child: const Icon(
-                  Icons.calendar_today,
-                  size: 25,
+              IconButton(
+                tooltip: _showAppBarSearch ? 'Close search' : 'Search bundles',
+                icon: Icon(_showAppBarSearch ? Icons.close : Icons.search),
+                onPressed: () {
+                  setState(() {
+                    _showAppBarSearch = !_showAppBarSearch;
+                    if (_showAppBarSearch) _showAppBarBranch = false;
+                    if (!_showAppBarSearch) {
+                      _searchController.clear();
+                      searchQuery = '';
+                      value.updateSearch('');
+                    }
+                  });
+                },
+              ),
+              IconButton(
+                tooltip: _showAppBarBranch
+                    ? 'Close branch selector'
+                    : 'Select branch',
+                icon: Icon(
+                  _showAppBarBranch ? Icons.close : Icons.store_outlined,
                 ),
+                onPressed: () {
+                  setState(() {
+                    _showAppBarBranch = !_showAppBarBranch;
+                    if (_showAppBarBranch) _showAppBarSearch = false;
+                  });
+                },
+              ),
+              ReusableDatePickerWidget(
+                child: const Icon(Icons.calendar_today, size: 25),
                 onDateSelected: (selection) {
                   setState(() {
                     selectedDate = selection;
@@ -1154,9 +458,9 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
               if (selectedDate != null)
                 IconButton(
                   tooltip: 'Clear date filter',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close,
-                    color: Colors.white70,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   onPressed: _clearDateRange,
                 ),
@@ -1165,274 +469,67 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
             ],
           ),
 
-// -------------------------------------------------------------------
-// ADD BUTTON
-// -------------------------------------------------------------------
-
+          // -------------------------------------------------------------------
+          // ADD BUTTON
+          // -------------------------------------------------------------------
           floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             child: const Icon(Icons.add),
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => BundlePage(),
-                ),
+                MaterialPageRoute(builder: (_) => BundlePage()),
               );
             },
           ),
 
-// -------------------------------------------------------------------
-// BODY
-// -------------------------------------------------------------------
-
+          // -------------------------------------------------------------------
+          // BODY
+          // -------------------------------------------------------------------
           body: Padding(
             padding: const EdgeInsets.all(20),
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 1200,
-                ),
+                constraints: const BoxConstraints(maxWidth: 1200),
                 child: Column(
                   children: [
-// =========================================================
-// BRANCH DROPDOWN
-// =========================================================
-
-                    DropdownButtonFormField<String?>(
-                      value: (() {
-                        final id = value.selectedBranch?.id;
-
-                        if (id == null) {
-                          return null;
-                        }
-
-                        final exists = value.branches.any(
-                              (branch) => branch.id == id,
-                        );
-
-                        return exists ? id : null;
-                      })(),
-
-                      isExpanded: true,
-
-                      dropdownColor: const Color(0xFF22304A),
-
-                      style: const TextStyle(
-                        color: Colors.white,
-                      ),
-
-                      decoration: InputDecoration(
-                        labelText: 'Select Branch',
-
-                        labelStyle: const TextStyle(
-                          color: Colors.white70,
-                        ),
-
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.white24,
-                          ),
-                        ),
-
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.blue,
-                          ),
-                        ),
-
-                        fillColor: const Color(0xFF22304A),
-                        filled: true,
-                      ),
-
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text(
-                            'All Branches',
-                            style: TextStyle(
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-
-                        ...{
-                          for (var branch in value.branches)
-                            branch.id: branch,
-                        }.values.map(
-                              (branch) {
-                            return DropdownMenuItem<String?>(
-                              value: branch.id,
-                              child: Text(
-                                branch.branchname,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedBranch = val ?? '';
-
-                          if (val == null) {
-                            _selectedBranchName = '';
-                          } else {
-                            final branch = value.branches.firstWhere(
-                                  (b) => b.id == val,
-                            );
-
-                            _selectedBranchName =
-                                branch.branchname;
-                          }
-                        });
-
-                        if (val == null) {
-                          value.fetchbundlesales();
-                        } else {
-                          value.fetchbundlesales(
-                            selectedBranch: val,
-                          );
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 10),
-
-// =========================================================
-// SEARCH
-// =========================================================
-
-                    TextFormField(
-                      cursorColor: Colors.white70,
-
-                      onChanged: (text) {
-                        searchQuery = text;
-                        value.updateSearch(text);
-                      },
-
-                      style: const TextStyle(
-                        color: Colors.white,
-                      ),
-
-                      decoration: const InputDecoration(
-                        hintText: 'Search ...',
-
-                        hintStyle: TextStyle(
-                          color: Colors.white54,
-                        ),
-
-                        prefixIcon: Icon(
-                          Icons.search,
-                          color: Colors.white54,
-                        ),
-
-                        filled: true,
-
-                        fillColor: Color(0xFF22304A),
-
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(
-                            Radius.circular(8),
-                          ),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-// =========================================================
-// DATE INFORMATION
-// =========================================================
-
-                    if (selectedDate != null) ...[
-                      Text(
-                        'Filtered: '
-                            '${DateFormat.yMMMd().format(selectedDate!.start)}'
-                            ' - '
-                            '${DateFormat.yMMMd().format(selectedDate!.end)}',
-
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-                    ],
-
-                    if ((_selectedBranchName ?? '').isNotEmpty) ...[
-                      Text(
-                        'Bundle View for $_selectedBranchName',
-
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ] else if (
-                    _selectedBranch.isEmpty &&
-                        value.bundleview.isNotEmpty
-                    ) ...[
-                        const Text(
-                          'Bundle View for All Branches',
-
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-
-                    const SizedBox(height: 8),
-
-// =========================================================
-// CONTENT
-// =========================================================
-
+                    // =========================================================
+                    // CONTENT
+                    // =========================================================
                     Expanded(
                       child: value.isloadingsalesbundle
-                          ? const Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                        ),
-                      )
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            )
                           : value.bundleview.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Sales found',
-                          style: TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      )
+                          ? Center(
+                              child: Text(
+                                'No Sales found',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            )
                           : filteredSalesView.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Sales found for the selected date range',
-                          style: TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      )
+                          ? Center(
+                              child: Text(
+                                'No Sales found for the selected date range',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            )
                           : screenWidth > 900
-                          ? _buildDesktopTable(
-                        filteredSalesView,
-                      )
-                          : _buildMobileList(
-                        filteredSalesView,
-                      ),
+                          ? _buildDesktopTable(filteredSalesView)
+                          : _buildMobileList(filteredSalesView),
                     ),
                   ],
                 ),
@@ -1444,22 +541,12 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     );
   }
 
-// ===========================================================================
-// DESKTOP
-// ===========================================================================
+  // ===========================================================================
+  // DESKTOP
+  // ===========================================================================
 
-  Widget _buildDesktopTable(
-      List<Map<String, dynamic>> sales,
-      ) {
-    final columnWidths = <double>[
-      40,
-      190,
-      300,
-      110,
-      100,
-      110,
-      220,
-    ];
+  Widget _buildDesktopTable(List<Map<String, dynamic>> sales) {
+    final columnWidths = <double>[40, 190, 300, 110, 100, 110, 220];
 
     final columnLabels = <String>[
       '#',
@@ -1472,12 +559,9 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     ];
 
     final totalWidth =
-        columnWidths.fold<double>(
-          0,
-              (sum, width) => sum + width,
-        ) +
-            ((columnWidths.length - 1) * 10) +
-            30;
+        columnWidths.fold<double>(0, (sum, width) => sum + width) +
+        ((columnWidths.length - 1) * 10) +
+        30;
 
     return Scrollbar(
       controller: _horizontalController,
@@ -1493,46 +577,43 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
 
           child: Column(
             children: [
-// ===============================================================
-// HEADER
-// ===============================================================
+              // ===============================================================
+              // HEADER
+              // ===============================================================
 
               Container(
                 height: 50,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 15,
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
                 ),
 
-                color: const Color(0xFF22304A),
-
                 child: Row(
-                  children: List.generate(
-                    columnLabels.length,
-                        (index) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          right:
-                          index == columnLabels.length - 1
-                              ? 0
-                              : 10,
-                        ),
+                  children: List.generate(columnLabels.length, (index) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index == columnLabels.length - 1 ? 0 : 10,
+                      ),
 
-                        child: _buildHeaderCell(
-                          index,
-                          columnLabels[index],
-                          columnWidths[index],
-                          sales,
-                        ),
-                      );
-                    },
-                  ),
+                      child: _buildHeaderCell(
+                        index,
+                        columnLabels[index],
+                        columnWidths[index],
+                        sales,
+                      ),
+                    );
+                  }),
                 ),
               ),
 
-// ===============================================================
-// DATA
-// ===============================================================
-
+              // ===============================================================
+              // DATA
+              // ===============================================================
               Expanded(
                 child: Scrollbar(
                   controller: _verticalController,
@@ -1560,29 +641,26 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     );
   }
 
-// ---------------------------------------------------------------------------
-// HEADER CELL
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // HEADER CELL
+  // ---------------------------------------------------------------------------
 
   Widget _buildHeaderCell(
-      int index,
-      String label,
-      double width,
-      List<Map<String, dynamic>> sales,
-      ) {
-    final sortable =
-        index == 1 ||
-            index == 2 ||
-            index == 3 ||
-            index == 4;
+    int index,
+    String label,
+    double width,
+    List<Map<String, dynamic>> sales,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final sortable = index == 1 || index == 2 || index == 3 || index == 4;
 
     final active = _sortColumnIndex == index;
 
     Widget content = Text(
       label,
 
-      style: const TextStyle(
-        color: Colors.white70,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
         fontWeight: FontWeight.w600,
         fontSize: 12,
         letterSpacing: 0.5,
@@ -1598,11 +676,9 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
           const SizedBox(width: 4),
 
           Icon(
-            _sortAscending
-                ? Icons.arrow_upward
-                : Icons.arrow_downward,
+            _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
 
-            color: Colors.white70,
+            color: colorScheme.onSurfaceVariant,
             size: 14,
           ),
         ],
@@ -1611,77 +687,62 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
 
     return SizedBox(
       width: width,
-
       child: sortable
           ? InkWell(
-        onTap: () {
-          _sortSales(
-            sales,
-            index,
-          );
-        },
-
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: content,
-        ),
-      )
-          : Align(
-        alignment: Alignment.centerLeft,
-        child: content,
-      ),
+              onTap: () => _sortSales(sales, index),
+              child: SizedBox(
+                width: width,
+                height: 50,
+                child: Align(
+                  alignment: _tableCellAlignment(index),
+                  child: content,
+                ),
+              ),
+            )
+          : Align(alignment: _tableCellAlignment(index), child: content),
     );
   }
 
-// ---------------------------------------------------------------------------
-// DESKTOP ROW
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // DESKTOP ROW
+  // ---------------------------------------------------------------------------
 
   Widget _buildDesktopRow(
-      Map<String, dynamic> salesView,
-      int index,
-      List<double> columnWidths,
-      ) {
+    Map<String, dynamic> salesView,
+    int index,
+    List<double> columnWidths,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
     final id = salesView['id']?.toString() ?? '';
 
-    final name =
-        salesView['name']?.toString() ?? '';
+    final name = salesView['name']?.toString() ?? '';
 
-    final itemMap = _itemMapOf(
-      salesView,
-    );
+    final itemMap = _itemMapOf(salesView);
 
-    final firstItem =
-    itemMap.values.isNotEmpty &&
-        itemMap.values.first is Map
-        ? Map<String, dynamic>.from(
-      itemMap.values.first,
-    )
+    final firstItem = itemMap.values.isNotEmpty && itemMap.values.first is Map
+        ? Map<String, dynamic>.from(itemMap.values.first)
         : <String, dynamic>{};
 
-    final itemName =
-        firstItem['item']?.toString() ?? name;
+    final itemName = firstItem['item']?.toString() ?? name;
 
     final itemsSummary = itemMap.values
         .whereType<Map>()
         .map(
           (item) =>
-      '${item['item'] ?? ''}'
-          '(${item['quantity'] ?? 0})',
-    )
+              '${item['item'] ?? ''}'
+              '(${item['quantity'] ?? 0})',
+        )
         .join(', ');
 
     final total = _totalOf(itemMap);
 
-    final date = _formatDate(
-      salesView['createdat'],
-    );
+    final date = _formatDate(salesView['createdat']);
 
     final cells = <Widget>[
       Text(
         '${index + 1}',
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
         ),
       ),
@@ -1690,8 +751,8 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
         name,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
         ),
       ),
@@ -1700,35 +761,35 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
         itemsSummary,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
         ),
       ),
 
       Text(
         NumberFormat('#,##0.00').format(total),
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
         ),
       ),
 
       Text(
         date,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12,
         ),
       ),
 
-      Align(
-        alignment: Alignment.centerLeft,
-
+      Center(
         child: Switch(
           value: salesView['isActive'] == true,
-
-          activeColor: Colors.green,
+          activeThumbColor: Colors.white,
+          activeTrackColor: Colors.green,
+          inactiveThumbColor: colorScheme.onSurfaceVariant,
+          inactiveTrackColor: colorScheme.surfaceContainerHighest,
 
           onChanged: (val) {
             context.read<Datafeed>().toggleItemActive(
@@ -1739,179 +800,92 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
         ),
       ),
 
-      Row(
-        mainAxisSize: MainAxisSize.min,
-
-        children: [
-          IconButton(
-            tooltip: 'Edit',
-
-            icon: const Icon(
-              Icons.edit,
-              color: Colors.blueAccent,
-              size: 18,
-            ),
-
-            onPressed: () {
-              final itemList = itemMap.values
-                  .whereType<Map>()
-                  .map(
-                    (item) =>
-                Map<String, dynamic>.from(item),
-              )
-                  .toList();
-
-              _handleEdit(
-                context,
-                id,
-                itemList,
-              );
-            },
-          ),
-
-          IconButton(
-            tooltip: 'Delete',
-
-            icon: const Icon(
-              Icons.delete,
-              color: Colors.redAccent,
-              size: 18,
-            ),
-
-            onPressed: () {
-              _handleDelete(
-                context,
-                itemName,
-                id,
-              );
-            },
-          ),
-        ],
-      ),
+      _buildBundleActionsMenu(itemName: itemName, id: id, itemMap: itemMap),
     ];
 
     return Container(
-      constraints: const BoxConstraints(
-        minHeight: 58,
-      ),
+      constraints: const BoxConstraints(minHeight: 58),
 
-      padding: const EdgeInsets.symmetric(
-        horizontal: 15,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
 
-      color: index.isEven
-          ? const Color(0xFF0D1B2A)
-          : const Color(0xFF10192B),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
+      ),
 
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
 
-        children: List.generate(
-          columnWidths.length,
-              (i) {
-            return Padding(
-              padding: EdgeInsets.only(
-                right:
-                i == columnWidths.length - 1
-                    ? 0
-                    : 10,
-              ),
+        children: List.generate(columnWidths.length, (i) {
+          return Padding(
+            padding: EdgeInsets.only(
+              right: i == columnWidths.length - 1 ? 0 : 10,
+            ),
 
-              child: SizedBox(
-                width: columnWidths[i],
+            child: SizedBox(
+              width: columnWidths[i],
 
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: cells[i],
-                ),
-              ),
-            );
-          },
-        ),
+              child: Align(alignment: _tableCellAlignment(i), child: cells[i]),
+            ),
+          );
+        }),
       ),
     );
   }
 
-// ===========================================================================
-// MOBILE
-// ===========================================================================
+  // ===========================================================================
+  // MOBILE
+  // ===========================================================================
 
-  Widget _buildMobileList(
-      List<Map<String, dynamic>> sales,
-      ) {
+  Widget _buildMobileList(List<Map<String, dynamic>> sales) {
     return ListView.separated(
-      padding: const EdgeInsets.only(
-        bottom: 80,
-      ),
+      padding: const EdgeInsets.only(bottom: 80),
 
       itemCount: sales.length,
 
       separatorBuilder: (_, __) {
-        return const SizedBox(
-          height: 12,
-        );
+        return const SizedBox(height: 12);
       },
 
       itemBuilder: (context, index) {
-        return _buildMobileCard(
-          sales[index],
-          index,
-        );
+        return _buildMobileCard(sales[index], index);
       },
     );
   }
 
-// ---------------------------------------------------------------------------
-// MOBILE CARD
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // MOBILE CARD
+  // ---------------------------------------------------------------------------
 
-  Widget _buildMobileCard(
-      Map<String, dynamic> salesView,
-      int index,
-      ) {
-    final id =
-        salesView['id']?.toString() ?? '';
+  Widget _buildMobileCard(Map<String, dynamic> salesView, int index) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final id = salesView['id']?.toString() ?? '';
 
-    final name =
-        salesView['name']?.toString() ?? '';
+    final name = salesView['name']?.toString() ?? '';
 
-    final itemMap =
-    _itemMapOf(salesView);
+    final itemMap = _itemMapOf(salesView);
 
-    final firstItem =
-    itemMap.values.isNotEmpty &&
-        itemMap.values.first is Map
-        ? Map<String, dynamic>.from(
-      itemMap.values.first,
-    )
+    final firstItem = itemMap.values.isNotEmpty && itemMap.values.first is Map
+        ? Map<String, dynamic>.from(itemMap.values.first)
         : <String, dynamic>{};
 
-    final itemName =
-        firstItem['item']?.toString() ?? '';
+    final itemName = firstItem['item']?.toString() ?? '';
 
-    final totalAmount =
-    _totalOf(itemMap);
+    final totalAmount = _totalOf(itemMap);
 
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 4,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
 
       decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
+        color: Theme.of(context).colorScheme.surface,
 
-        borderRadius: BorderRadius.circular(
-          20,
-        ),
+        borderRadius: BorderRadius.circular(20),
 
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        border: Border.all(color: colorScheme.outlineVariant),
 
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.20),
+            color: colorScheme.shadow.withValues(alpha: 0.20),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -1919,60 +893,47 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
       ),
 
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          20,
-        ),
+        borderRadius: BorderRadius.circular(20),
 
         child: Column(
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
-// ================================================================
-// HEADER
-// ================================================================
+            // ================================================================
+            // HEADER
+            // ================================================================
 
             Container(
               padding: const EdgeInsets.all(16),
 
-              color: Colors.white.withOpacity(
-                0.03,
-              ),
+              color: colorScheme.surfaceContainerHighest,
 
               child: Wrap(
                 spacing: 8,
                 runSpacing: 6,
 
-                crossAxisAlignment:
-                WrapCrossAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
 
                 children: [
                   Container(
-                    padding:
-                    const EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
                     ),
 
                     decoration: BoxDecoration(
-                      color: Colors.amberAccent
-                          .withOpacity(0.1),
+                      color: colorScheme.tertiaryContainer,
 
-                      borderRadius:
-                      BorderRadius.circular(
-                        8,
-                      ),
+                      borderRadius: BorderRadius.circular(8),
                     ),
 
                     child: Text(
                       'Name #$name',
 
-                      style: const TextStyle(
-                        color:
-                        Colors.amberAccent,
+                      style: TextStyle(
+                        color: colorScheme.onTertiaryContainer,
                         fontSize: 14,
-                        fontWeight:
-                        FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                         letterSpacing: 1.1,
                       ),
                     ),
@@ -1982,10 +943,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
                     '#: ${index + 1}',
 
                     style: TextStyle(
-                      color:
-                      Colors.white.withOpacity(
-                        0.5,
-                      ),
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 12,
                     ),
                   ),
@@ -1993,66 +951,53 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
               ),
             ),
 
-// ================================================================
-// BODY
-// ================================================================
-
+            // ================================================================
+            // BODY
+            // ================================================================
             Padding(
-              padding: const EdgeInsets.all(
-                16,
-              ),
+              padding: const EdgeInsets.all(16),
 
               child: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
 
                 children: [
-                  ...itemMap.values.map(
-                        (rawItem) {
-                      if (rawItem is! Map) {
-                        return const SizedBox();
-                      }
+                  ...itemMap.values.map((rawItem) {
+                    if (rawItem is! Map) {
+                      return const SizedBox();
+                    }
 
-                      final item =
-                      Map<String, dynamic>.from(
-                        rawItem,
-                      );
+                    final item = Map<String, dynamic>.from(rawItem);
 
-                      return _buildMobileItem(
-                        item,
-                      );
-                    },
-                  ),
+                    return _buildMobileItem(item);
+                  }),
 
-                  const Divider(
-                    color: Colors.white24,
-                  ),
+                  Divider(color: _dividerColor),
 
                   const SizedBox(height: 8),
 
-// STAFF
+                  // STAFF
                   _buildFooterLabel(
                     Icons.person_outline,
                     'Staff: '
-                        '${salesView['staff'] ?? ''}',
+                    '${salesView['staff'] ?? ''}',
                   ),
 
                   const SizedBox(height: 6),
 
-// DATE
+                  // DATE
                   _buildFooterLabel(
                     Icons.calendar_today_outlined,
                     'Date: '
-                        '${_formatDateTime(salesView['createdat'])}',
+                    '${_formatDateTime(salesView['createdat'])}',
                   ),
 
                   const SizedBox(height: 12),
 
-                  const Text(
+                  Text(
                     'TOTAL AMOUNT',
 
                     style: TextStyle(
-                      color: Colors.white54,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 10,
                     ),
                   ),
@@ -2060,104 +1005,58 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
                   const SizedBox(height: 2),
 
                   Text(
-                    'GHC '
-                        '${NumberFormat("#,##0.00").format(totalAmount)}',
+                    'GHS '
+                    '${NumberFormat("#,##0.00").format(totalAmount)}',
 
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 20,
-                      fontWeight:
-                      FontWeight.w900,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
               ),
             ),
 
-// ================================================================
-// ACTIONS
-// ================================================================
-
+            // ================================================================
+            // ACTIONS
+            // ================================================================
             Container(
-              color: Colors.black26,
+              color: colorScheme.surfaceContainerHighest,
 
-              padding:
-              const EdgeInsets.symmetric(
-                horizontal: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
 
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      Icons.edit,
-                      'Edit',
-                      Colors.blueAccent,
-                          () {
-                        final itemList =
-                        itemMap.values
-                            .whereType<Map>()
-                            .map(
-                              (item) =>
-                          Map<String,
-                              dynamic>.from(
-                            item,
-                          ),
-                        )
-                            .toList();
-
-                        _handleEdit(
-                          context,
-                          id,
-                          itemList,
-                        );
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(width: 5),
-
-                  Expanded(
-                    child: _buildActionButton(
-                      Icons.delete_outline,
-                      'Delete',
-                      Colors.redAccent,
-                          () {
-                        _handleDelete(
-                          context,
-                          itemName,
-                          id,
-                        );
-                      },
-                    ),
-                  ),
-                ],
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _buildBundleActionsMenu(
+                  itemName: itemName,
+                  id: id,
+                  itemMap: itemMap,
+                ),
               ),
             ),
 
-// ================================================================
-// ACTIVE SWITCH
-// ================================================================
-
+            // ================================================================
+            // ACTIVE SWITCH
+            // ================================================================
             SwitchListTile(
               dense: true,
 
-              title: const Text(
+              title: Text(
                 'Active',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
 
-              value:
-              salesView['isActive'] == true,
-
-              activeColor: Colors.green,
+              value: salesView['isActive'] == true,
+              activeThumbColor: Colors.white,
+              activeTrackColor: Colors.green,
+              inactiveThumbColor: colorScheme.onSurfaceVariant,
+              inactiveTrackColor: colorScheme.surfaceContainerHighest,
 
               onChanged: (val) {
-                context
-                    .read<Datafeed>()
-                    .toggleItemActive(
+                context.read<Datafeed>().toggleItemActive(
                   docId: id,
                   newStatus: val,
                 );
@@ -2169,45 +1068,36 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     );
   }
 
-// ---------------------------------------------------------------------------
-// MOBILE ITEM
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // MOBILE ITEM
+  // ---------------------------------------------------------------------------
 
-  Widget _buildMobileItem(
-      Map<String, dynamic> item,
-      ) {
+  Widget _buildMobileItem(Map<String, dynamic> item) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(
-        bottom: 16,
-      ),
+      margin: const EdgeInsets.only(bottom: 16),
 
       padding: const EdgeInsets.all(12),
 
       decoration: BoxDecoration(
-        color: Colors.black12,
+        color: colorScheme.surfaceContainerLow,
 
-        borderRadius:
-        BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12),
       ),
 
       child: Column(
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
           Text(
-            item['item']
-                ?.toString()
-                .toUpperCase() ??
-                '',
+            item['item']?.toString().toUpperCase() ?? '',
 
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight:
-              FontWeight.w800,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
               fontSize: 14,
             ),
           ),
@@ -2215,26 +1105,19 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
           const SizedBox(height: 4),
 
           Text(
-            'GHC ${item['totalamount'] ?? 0}',
+            'GHS ${item['totalamount'] ?? 0}',
 
-            style: const TextStyle(
-              color: Colors.white70,
-              fontWeight:
-              FontWeight.bold,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
           ),
 
-          const Divider(
-            color: Colors.white10,
-            height: 20,
-          ),
+          Divider(color: _dividerColor, height: 20),
 
           Table(
-            columnWidths: const {
-              0: FlexColumnWidth(1),
-              1: FlexColumnWidth(1),
-            },
+            columnWidths: const {0: FlexColumnWidth(1), 1: FlexColumnWidth(1)},
 
             children: [
               _buildTableRow(
@@ -2243,29 +1126,18 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
                     ' (${item['mode'] ?? ''})',
               ),
 
-              _buildTableRow(
-                'Price',
-                'GHC ${item['price'] ?? 0}',
-              ),
+              _buildTableRow('Price', 'GHS ${item['price'] ?? 0}'),
 
               _buildTableRow(
                 'Price mode',
-                capitalize(
-                  item['pricemode']?.toString(),
-                ),
+                capitalize(item['pricemode']?.toString()),
               ),
 
               if (item['cp'] != null)
-                _buildTableRow(
-                  'Cost Price',
-                  'GHC ${item['cp']}',
-                ),
+                _buildTableRow('Cost Price', 'GHS ${item['cp']}'),
 
               if (item['barcode'] != null)
-                _buildTableRow(
-                  'Barcode',
-                  '${item['barcode']}',
-                ),
+                _buildTableRow('Barcode', '${item['barcode']}'),
             ],
           ),
         ],
@@ -2273,50 +1145,39 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     );
   }
 
-// ===========================================================================
-// SMALL WIDGET HELPERS
-// ===========================================================================
+  // ===========================================================================
+  // SMALL WIDGET HELPERS
+  // ===========================================================================
 
-  TableRow _buildTableRow(
-      String label,
-      String value,
-      ) {
+  TableRow _buildTableRow(String label, String value) {
     return TableRow(
       children: [
         Padding(
-          padding:
-          const EdgeInsets.symmetric(
-            vertical: 3,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 3),
 
           child: Text(
             label,
 
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 12,
             ),
           ),
         ),
 
         Padding(
-          padding:
-          const EdgeInsets.symmetric(
-            vertical: 3,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 3),
 
           child: Text(
             value,
 
             maxLines: 2,
-            overflow:
-            TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 12,
-              fontWeight:
-              FontWeight.w500,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -2324,20 +1185,13 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     );
   }
 
-  Widget _buildFooterLabel(
-      IconData icon,
-      String text,
-      ) {
+  Widget _buildFooterLabel(IconData icon, String text) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
-      crossAxisAlignment:
-      CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
 
       children: [
-        Icon(
-          icon,
-          color: Colors.white38,
-          size: 14,
-        ),
+        Icon(icon, color: colorScheme.onSurfaceVariant, size: 14),
 
         const SizedBox(width: 5),
 
@@ -2346,11 +1200,10 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
             text,
 
             maxLines: 1,
-            overflow:
-            TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
 
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 12,
             ),
           ),
@@ -2359,146 +1212,110 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     );
   }
 
-  Widget _buildActionButton(
-      IconData icon,
-      String label,
-      Color color,
-      VoidCallback onTap,
-      ) {
-// IMPORTANT:
-// Do NOT wrap the label in Flexible here.
-//
-// TextButton.icon already uses an internal Row/Flexible arrangement.
-// Wrapping the Text in Flexible can create:
-//
-// Flexible -> Flexible -> Text
-//
-// which causes:
-// "Competing ParentDataWidgets are providing parent data"
+  Widget _buildBundleActionsMenu({
+    required String itemName,
+    required String id,
+    required Map<String, dynamic> itemMap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final itemList = itemMap.values
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
 
-    return TextButton(
-      onPressed: onTap,
-
-      style: TextButton.styleFrom(
-        padding:
-        const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 10,
+    return PopupMenuButton<String>(
+      tooltip: 'More actions',
+      color: colorScheme.surfaceContainerHighest,
+      icon: Icon(Icons.more_vert, color: colorScheme.onSurface),
+      onSelected: (action) {
+        if (action == 'edit') {
+          _handleEdit(context, id, itemList);
+        } else if (action == 'delete') {
+          _handleDelete(context, itemName, id);
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, color: colorScheme.onSurfaceVariant, size: 20),
+              const SizedBox(width: 10),
+              Text('Edit', style: TextStyle(color: colorScheme.onSurface)),
+            ],
+          ),
         ),
-
-        minimumSize:
-        const Size(0, 44),
-
-        tapTargetSize:
-        MaterialTapTargetSize.shrinkWrap,
-      ),
-
-      child: Row(
-        mainAxisAlignment:
-        MainAxisAlignment.center,
-
-        mainAxisSize:
-        MainAxisSize.min,
-
-        children: [
-          Icon(
-            icon,
-            color: color,
-            size: 20,
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                color: colorScheme.onSurfaceVariant,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text('Delete', style: TextStyle(color: colorScheme.onSurface)),
+            ],
           ),
-
-          const SizedBox(width: 6),
-
-          Text(
-            label,
-
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-            ),
-
-            maxLines: 1,
-            overflow:
-            TextOverflow.ellipsis,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-// ===========================================================================
-// DELETE
-// ===========================================================================
+  // ===========================================================================
+  // DELETE
+  // ===========================================================================
 
   Future<void> _handleDelete(
-      BuildContext context,
-      String itemName,
-      String id,
-      ) async {
-    final confirm =
-    await showDialog<bool>(
+    BuildContext context,
+    String itemName,
+    String id,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirm = await showDialog<bool>(
       context: context,
 
       builder: (innerContext) {
         return AlertDialog(
-          backgroundColor:
-          const Color(0xFF1B263B),
+          backgroundColor: colorScheme.surface,
 
           title: Text(
             'Delete $itemName?',
 
-            style: const TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: colorScheme.onSurface),
           ),
 
           content: Text(
             'This action cannot be undone. '
-                'Are you sure?',
+            'Are you sure?',
 
-            style: TextStyle(
-              color: Colors.white
-                  .withOpacity(0.7),
-            ),
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
           ),
 
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  innerContext,
-                  false,
-                );
+                Navigator.pop(innerContext, false);
               },
 
-              child: const Text(
+              child: Text(
                 'Cancel',
-                style: TextStyle(
-                  color: Colors.white54,
-                ),
+                style: TextStyle(color: colorScheme.primary),
               ),
             ),
 
             ElevatedButton(
-              style:
-              ElevatedButton.styleFrom(
-                backgroundColor:
-                Colors.redAccent,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
               ),
 
               onPressed: () {
-                Navigator.pop(
-                  innerContext,
-                  true,
-                );
+                Navigator.pop(innerContext, true);
               },
 
-              child: const Text(
-                'Delete',
-                style: TextStyle(
-                  color: Colors.white,
-                ),
-              ),
+              child: const Text('Delete'),
             ),
           ],
         );
@@ -2510,26 +1327,22 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     }
 
     try {
-      await context
-          .read<Datafeed>()
-          .deletebundleview(id);
+      await context.read<Datafeed>().deletebundleview(id);
 
       if (!context.mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$itemName deleted successfully',style: TextStyle(color: Colors.white),
+            '$itemName deleted successfully',
+            style: TextStyle(color: colorScheme.onPrimary),
           ),
 
-          backgroundColor:
-          Colors.green,
+          backgroundColor: colorScheme.primary,
 
-          behavior:
-          SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
@@ -2537,47 +1350,38 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
           content: Text(
             'Failed to delete item',
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: colorScheme.onError),
           ),
 
-          backgroundColor:
-          Colors.redAccent,
+          backgroundColor: colorScheme.error,
 
-          behavior:
-          SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-// ===========================================================================
-// EDIT
-// ===========================================================================
+  // ===========================================================================
+  // EDIT
+  // ===========================================================================
 
   Future<void> _handleEdit(
-      BuildContext context,
-      String id,
-      List<Map<String, dynamic>> items,
-      ) async {
+    BuildContext context,
+    String id,
+    List<Map<String, dynamic>> items,
+  ) async {
     await Navigator.push(
       context,
 
       MaterialPageRoute(
         builder: (context) {
-          return BundlePage(
-            docId: id,
-            item: items,
-          );
+          return BundlePage(docId: id, item: items);
         },
       ),
     );
   }
 }
-

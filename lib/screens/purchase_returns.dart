@@ -24,6 +24,73 @@ class PurchaseReturn extends StatefulWidget {
 }
 
 class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProviderStateMixin {
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+
+  Color get _primaryTextColor => Theme.of(context).colorScheme.onSurface;
+
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.72)
+      : Colors.white70;
+
+  Color get _mutedTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65)
+      : Colors.white54;
+
+  Color get _dividerColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.16)
+      : Colors.white24;
+
+  Color _adaptiveWhiteOpacity(double opacity) {
+    if (!_isLightTheme) return Colors.white.withValues(alpha: opacity);
+
+    return Theme.of(context).colorScheme.onSurface.withValues(alpha: opacity);
+  }
+
+  Color _adaptiveTextOpacity(double opacity) {
+    if (!_isLightTheme) return Colors.white.withValues(alpha: opacity);
+
+    final readableOpacity = opacity.clamp(0.65, 1.0).toDouble();
+    return Theme.of(context)
+        .colorScheme
+        .onSurface
+        .withValues(alpha: readableOpacity);
+  }
+
+  Color get _screenBackgroundColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF0A1A2F);
+
+  Color get _contentBackgroundColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF0F1E2E);
+
+  Color get _appBarBackgroundColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF0D2A3C);
+
+  Color get _cardBackgroundColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF0D2A3C);
+
+  Color get _panelBackgroundColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF102433);
+
+  Color get _inputBackgroundColor => _isLightTheme
+      ? Color.alphaBlend(
+          Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+          Theme.of(context).colorScheme.surface,
+        )
+      : const Color(0xFF1E3A5A);
+
+  Color get _accentForegroundColor => _isLightTheme ? Colors.black : Colors.white;
+
+  Color get _accentTextColor =>
+      _isLightTheme ? Colors.deepOrange : Colors.orange.shade300;
+
+  Color get _pendingStatusColor =>
+      _isLightTheme ? Colors.deepOrange : Colors.orange;
+
   List<StockModel> purchaseTransactions = [];
   StockModel? _selectedTransaction;
   String? _selectedTransactionId;
@@ -228,7 +295,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           children: [
             const Icon(Icons.check_circle, color: Colors.white),
             const SizedBox(width: 12),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(message, style: const TextStyle(color: Colors.white)),
+            ),
           ],
         ),
         backgroundColor: Colors.green.shade700,
@@ -245,7 +314,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           children: [
             const Icon(Icons.error, color: Colors.white),
             const SizedBox(width: 12),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(message, style: const TextStyle(color: Colors.white)),
+            ),
           ],
         ),
         backgroundColor: Colors.red.shade700,
@@ -260,7 +331,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0D2A3C),
+      backgroundColor: _cardBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -269,10 +340,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const Text(
+            Text(
               'Return Reason',
               style: TextStyle(
-                color: Colors.white,
+                color: _primaryTextColor,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -284,12 +355,12 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 title: Text(
                   reason.name,
                   style: TextStyle(
-                    color: isSelected ? Colors.orange : Colors.white70,
+                    color: isSelected ? _accentTextColor : _secondaryTextColor,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 trailing: isSelected
-                    ? const Icon(Icons.check_circle, color: Colors.orange)
+                    ? Icon(Icons.check_circle, color: Colors.orange)
                     : null,
                 onTap: () {
                   _updateReturnReason(itemId, reason.name);
@@ -315,7 +386,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
       enabled: dbstatus=='pending',
       controller: controller,
       autovalidateMode: AutovalidateMode.onUserInteraction,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      style: TextStyle(color: _primaryTextColor, fontSize: 14),
       textAlign: TextAlign.center,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
@@ -339,13 +410,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
       },
       decoration: InputDecoration(
         filled: true,
-        fillColor: const Color(0xFF1E3A5A),
+        fillColor: _inputBackgroundColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        errorStyle: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
+        errorStyle: TextStyle(color: _accentTextColor, fontSize: 12),
       ),
     );
   }
@@ -355,17 +426,17 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
     _isMobileView = screenWidth < 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1A2F),
+      backgroundColor: _screenBackgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF0D2A3C),
+        backgroundColor: _appBarBackgroundColor,
         title: _isMobileView
-            ? const Text(
+            ? Text(
           'Purchase Returns',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: _primaryTextColor,
           ),
         )
             : Row(
@@ -376,10 +447,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 color: Colors.orange.shade800.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.assignment_return, color: Colors.white, size: 24),
+              child: Icon(Icons.assignment_return, color: _primaryTextColor, size: 24),
             ),
             const SizedBox(width: 12),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -387,12 +458,12 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: _primaryTextColor,
                   ),
                 ),
                 Text(
                   'Process returns to suppliers',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                  style: TextStyle(fontSize: 12, color: _secondaryTextColor),
                 ),
               ],
             ),
@@ -403,8 +474,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             ? TabBar(
           controller: _tabController,
           indicatorColor: Colors.orange,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          labelColor: _primaryTextColor,
+          unselectedLabelColor: _secondaryTextColor,
           tabs: const [
             Tab(text: 'Items'),
             Tab(text: 'Reasons'),
@@ -426,10 +497,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: _adaptiveWhiteOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.white70),
+            child: Icon(Icons.arrow_back, color: _secondaryTextColor),
           ),
           onPressed: _resetReturn,
           tooltip: 'Back to search',
@@ -439,10 +510,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: _adaptiveWhiteOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.close, color: Colors.white70),
+            child: Icon(Icons.close, color: _secondaryTextColor),
           ),
           onPressed: _resetReturn,
           tooltip: 'Clear selection',
@@ -451,10 +522,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: _adaptiveWhiteOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.refresh, color: Colors.white70),
+          child: Icon(Icons.refresh, color: _secondaryTextColor),
         ),
         onPressed: _clearSearch,
         tooltip: 'Clear search',
@@ -485,9 +556,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
     return Container(
       width: 380,
       decoration: BoxDecoration(
-        color: const Color(0xFF102433),
+        color: _panelBackgroundColor,
         border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.1)),
+          right: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
         ),
       ),
       child: Column(
@@ -498,18 +569,18 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+                bottom: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Find Purchase Invoice',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: _primaryTextColor,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -519,13 +590,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     Expanded(
                       child: TextField(
                         controller: _invoiceSearchController,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: _primaryTextColor),
                         decoration: InputDecoration(
                           hintText: 'Enter invoice number...',
-                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                          prefixIcon: const Icon(Icons.receipt, color: Colors.white70),
+                          hintStyle: TextStyle(color: _adaptiveWhiteOpacity(0.5)),
+                          prefixIcon: Icon(Icons.receipt, color: _secondaryTextColor),
                           filled: true,
-                          fillColor: const Color(0xFF1E3A5A),
+                          fillColor: _inputBackgroundColor,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -551,15 +622,15 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                             child: _isSearching
-                                ? const SizedBox(
+                                ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                color: Colors.white,
+                                color: _accentForegroundColor,
                                 strokeWidth: 2,
                               ),
                             )
-                                : const Icon(Icons.search, color: Colors.white),
+                                : Icon(Icons.search, color: _accentForegroundColor),
                           ),
                         ),
                       ),
@@ -571,10 +642,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 if (purchaseTransactions.isNotEmpty)
                   TextButton.icon(
                     onPressed: _clearSearch,
-                    icon: const Icon(Icons.clear, size: 16, color: Colors.white70),
-                    label: const Text(
+                    icon: Icon(Icons.clear, size: 16, color: _secondaryTextColor),
+                    label: Text(
                       'Clear results',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: _secondaryTextColor),
                     ),
                   ),
               ],
@@ -586,9 +657,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D2A3C),
+                color: _cardBackgroundColor,
                 border: Border(
-                  bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  bottom: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
                 ),
               ),
               child: Row(
@@ -597,7 +668,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   Text(
                     'Search Result',
                     style: TextStyle(
-                      color: Colors.orange.shade300,
+                      color: _accentTextColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -611,7 +682,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     child: Text(
                       '${purchaseTransactions.length} found',
                       style: TextStyle(
-                        color: Colors.orange.shade300,
+                        color: _accentTextColor,
                         fontSize: 11,
                       ),
                     ),
@@ -630,20 +701,20 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: _adaptiveWhiteOpacity(0.05),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.search_off,
                       size: 48,
-                      color: Colors.white54,
+                      color: _mutedTextColor,
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No invoice loaded',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: _adaptiveWhiteOpacity(0.7),
                       fontSize: 16,
                     ),
                   ),
@@ -651,7 +722,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   Text(
                     'Enter an invoice number and click search',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: _adaptiveWhiteOpacity(0.5),
                       fontSize: 14,
                     ),
                   ),
@@ -682,7 +753,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
 
     Color getStatusColor() {
       if (purchasereturn == true) return Colors.green;
-      if (purchasereturn == false) return Colors.orange;
+      if (purchasereturn == false) return _pendingStatusColor;
       return Colors.grey;
     }
 
@@ -700,12 +771,12 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             ],
           )
               : null,
-          color: isSelected ? null : const Color(0xFF0D2A3C),
+          color: isSelected ? null : _cardBackgroundColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? Colors.orange.shade400
-                : Colors.white.withOpacity(0.1),
+                : _adaptiveWhiteOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -736,8 +807,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       children: [
                         Text(
                           transaction.supplierName,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryTextColor,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -746,7 +817,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         Text(
                           'Invoice: ${transaction.invoice}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: _adaptiveWhiteOpacity(0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -786,13 +857,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       Icon(
                         Icons.inventory,
                         size: 16,
-                        color: Colors.white.withOpacity(0.5),
+                        color: _adaptiveWhiteOpacity(0.5),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '$totalItems items',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: _adaptiveWhiteOpacity(0.7),
                           fontSize: 13,
                         ),
                       ),
@@ -803,13 +874,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       Icon(
                         Icons.calendar_today,
                         size: 14,
-                        color: Colors.white.withOpacity(0.5),
+                        color: _adaptiveWhiteOpacity(0.5),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         _dateFormat.format(date),
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: _adaptiveWhiteOpacity(0.7),
                           fontSize: 11,
                         ),
                       ),
@@ -826,13 +897,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       Icon(
                         Icons.receipt,
                         size: 14,
-                        color: Colors.white.withOpacity(0.5),
+                        color: _adaptiveWhiteOpacity(0.5),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Waybill: ${transaction.waybill}',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
+                          color: _adaptiveWhiteOpacity(0.6),
                           fontSize: 11,
                         ),
                       ),
@@ -840,8 +911,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   ),
                   Text(
                     'GHS ${(transaction.gross).toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: _primaryTextColor,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
@@ -870,19 +941,19 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF102433),
+            color: _panelBackgroundColor,
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+              bottom: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
             ),
           ),
           child: Column(
             children: [
-              const Text(
+              Text(
                 'Find Purchase Invoice',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: _primaryTextColor,
                 ),
               ),
               const SizedBox(height: 12),
@@ -891,13 +962,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   Expanded(
                     child: TextField(
                       controller: _invoiceSearchController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: _primaryTextColor),
                       decoration: InputDecoration(
                         hintText: 'Enter invoice number...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                        prefixIcon: const Icon(Icons.receipt, color: Colors.white70),
+                        hintStyle: TextStyle(color: _adaptiveWhiteOpacity(0.5)),
+                        prefixIcon: Icon(Icons.receipt, color: _secondaryTextColor),
                         filled: true,
-                        fillColor: const Color(0xFF1E3A5A),
+                        fillColor: _inputBackgroundColor,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -923,15 +994,15 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                           child: _isSearching
-                              ? const SizedBox(
+                              ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                            color: _accentForegroundColor,
                               strokeWidth: 2,
                             ),
                           )
-                              : const Icon(Icons.search, color: Colors.white),
+                            : Icon(Icons.search, color: _accentForegroundColor),
                         ),
                       ),
                     ),
@@ -941,8 +1012,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
               if (purchaseTransactions.isNotEmpty)
                 TextButton.icon(
                   onPressed: _clearSearch,
-                  icon: const Icon(Icons.clear, size: 16, color: Colors.white70),
-                  label: const Text('Clear', style: TextStyle(color: Colors.white70)),
+                  icon: Icon(Icons.clear, size: 16, color: _secondaryTextColor),
+                  label: Text('Clear', style: TextStyle(color: _secondaryTextColor)),
                 ),
             ],
           ),
@@ -951,14 +1022,14 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         if (purchaseTransactions.isNotEmpty)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: const Color(0xFF0D2A3C),
+            color: _cardBackgroundColor,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Search Result',
                   style: TextStyle(
-                    color: Colors.orange.shade300,
+                    color: _accentTextColor,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -966,7 +1037,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 Text(
                   '${purchaseTransactions.length} invoice found',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: _adaptiveWhiteOpacity(0.7),
                     fontSize: 12,
                   ),
                 ),
@@ -983,13 +1054,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 Icon(
                   Icons.search_off,
                   size: 64,
-                  color: Colors.white.withOpacity(0.3),
+                  color: _adaptiveWhiteOpacity(0.3),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'No invoice loaded',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: _adaptiveWhiteOpacity(0.6),
                     fontSize: 16,
                   ),
                 ),
@@ -997,7 +1068,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 Text(
                   'Enter invoice number and tap search',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
+                    color: _adaptiveWhiteOpacity(0.4),
                     fontSize: 13,
                   ),
                 ),
@@ -1039,12 +1110,12 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             ],
           )
               : null,
-          color: isSelected ? null : const Color(0xFF0D2A3C),
+          color: isSelected ? null : _cardBackgroundColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
                 ? Colors.orange.shade400
-                : Colors.white.withOpacity(0.1),
+                : _adaptiveWhiteOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1067,7 +1138,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       purchasereturn == true ? Icons.check_circle :
                       purchasereturn == false ? Icons.pending : Icons.shopping_cart,
                       color: purchasereturn == true ? Colors.green :
-                      purchasereturn == false ? Colors.orange : Colors.grey,
+                      purchasereturn == false ? _pendingStatusColor : Colors.grey,
                       size: 20,
                     ),
                   ),
@@ -1078,8 +1149,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       children: [
                         Text(
                           transaction.supplierName,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryTextColor,
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1088,7 +1159,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         Text(
                           'Invoice: ${transaction.invoice}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: _adaptiveWhiteOpacity(0.6),
                             fontSize: 13,
                           ),
                         ),
@@ -1146,7 +1217,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           purchasereturn == false ? Icons.pending : Icons.schedule,
                           size: 14,
                           color: purchasereturn == true ? Colors.green :
-                          purchasereturn == false ? Colors.orange : Colors.grey,
+                          purchasereturn == false ? _pendingStatusColor : Colors.grey,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -1154,7 +1225,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           purchasereturn == false ? 'Pending' : 'New',
                           style: TextStyle(
                             color: purchasereturn == true ? Colors.green :
-                            purchasereturn == false ? Colors.orange : Colors.grey,
+                            purchasereturn == false ? _pendingStatusColor : Colors.grey,
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1202,9 +1273,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF102433),
+            color: _panelBackgroundColor,
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+              bottom: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
             ),
           ),
           child: Column(
@@ -1218,8 +1289,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       children: [
                         Text(
                           _selectedTransaction!.supplierName,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryTextColor,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1228,7 +1299,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         Text(
                           'Invoice: ${_selectedTransaction!.invoice}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: _adaptiveWhiteOpacity(0.7),
                             fontSize: 13,
                           ),
                         ),
@@ -1236,7 +1307,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         Text(
                           'Waybill: ${_selectedTransaction!.waybill}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: _adaptiveWhiteOpacity(0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -1264,9 +1335,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF0D2A3C),
+            color: _cardBackgroundColor,
             border: Border(
-              top: BorderSide(color: Colors.white.withOpacity(0.1)),
+              top: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
             ),
           ),
           child: SafeArea(
@@ -1276,15 +1347,15 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   child: OutlinedButton(
                     onPressed: _resetReturn,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      side: BorderSide(color: _adaptiveWhiteOpacity(0.3)),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: _secondaryTextColor),
                     ),
                   ),
                 ),
@@ -1302,17 +1373,17 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       ),
                     ),
                     icon: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         strokeWidth: 2,
                       ),
                     )
-                        : const Icon(Icons.assignment_return, size: 18),
+                        : Icon(Icons.assignment_return, size: 18),
                     label: Text(
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: _primaryTextColor),
                       _isLoading ? 'Processing...' : 'Process Return',
                     ),
                   ),)
@@ -1344,12 +1415,12 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
 
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0D2A3C),
+            color: _cardBackgroundColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: returnedQty > 0
                   ? (returnedQty == purchasedQty ? Colors.green : Colors.orange)
-                  : Colors.white.withOpacity(0.1),
+                  : _adaptiveWhiteOpacity(0.1),
               width: returnedQty > 0 ? 1.5 : 1,
             ),
           ),
@@ -1366,9 +1437,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         color: Colors.orange.shade900.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.inventory_2,
-                        color: Colors.white70,
+                        color: _secondaryTextColor,
                         size: 20,
                       ),
                     ),
@@ -1379,8 +1450,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         children: [
                           Text(
                             item.item,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: _primaryTextColor,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -1390,7 +1461,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                             Text(
                               'Barcode: ${item.barcode}',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.5),
+                                color: _adaptiveWhiteOpacity(0.5),
                                 fontSize: 12,
                               ),
                             ),
@@ -1410,15 +1481,15 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           Text(
                             'Purchased',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: _adaptiveWhiteOpacity(0.6),
                               fontSize: 11,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             purchasedQty.toStringAsFixed(0),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: _primaryTextColor,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1429,7 +1500,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     Container(
                       height: 30,
                       width: 1,
-                      color: Colors.white.withOpacity(0.2),
+                      color: _adaptiveWhiteOpacity(0.2),
                     ),
                     Expanded(
                       child: Column(
@@ -1438,7 +1509,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           Text(
                             'Return',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: _adaptiveWhiteOpacity(0.6),
                               fontSize: 11,
                             ),
                           ),
@@ -1450,14 +1521,14 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                 width: 80,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E3A5A),
+                                  color: _inputBackgroundColor,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: returnedQty > 0
                                         ? (returnedQty == purchasedQty
                                         ? Colors.green
                                         : Colors.orange)
-                                        : Colors.white.withOpacity(0.2),
+                                        : _adaptiveWhiteOpacity(0.2),
                                   ),
                                 ),
                                 child: buildSupplyField(controller:_returncontrollers[controllerid]!, purchaseQty: purchasedQty, returnQty: returnedQty, itemId: itemId, dbstatus: 'pending', onUpdate: (String itemId, double purchaseQty, double safeQty) {
@@ -1479,13 +1550,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       Icon(
                         Icons.info,
                         size: 14,
-                        color: Colors.orange.shade300,
+                        color: _accentTextColor,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Return Value: GHS ${(returnedpcs * price).toStringAsFixed(2)}',
                         style: TextStyle(
-                          color: Colors.orange.shade300,
+                          color: _accentTextColor,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1516,13 +1587,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             Icon(
               Icons.info_outline,
               size: 48,
-              color: Colors.white.withOpacity(0.2),
+              color: _adaptiveWhiteOpacity(0.2),
             ),
             const SizedBox(height: 16),
             Text(
               'No items selected for return',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
+                color: _adaptiveWhiteOpacity(0.5),
                 fontSize: 16,
               ),
             ),
@@ -1530,7 +1601,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             Text(
               'Enter quantities in the Items tab first',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.3),
+                color: _adaptiveTextOpacity(0.3),
                 fontSize: 14,
               ),
             ),
@@ -1552,10 +1623,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
 
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0D2A3C),
+            color: _cardBackgroundColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: currentReason.isNotEmpty ? Colors.orange : Colors.white.withOpacity(0.1),
+              color: currentReason.isNotEmpty ? Colors.orange : _adaptiveWhiteOpacity(0.1),
               width: currentReason.isNotEmpty ? 1.5 : 1,
             ),
           ),
@@ -1569,8 +1640,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     Expanded(
                       child: Text(
                         item.item,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: _primaryTextColor,
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1587,7 +1658,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       ),
                       child: Text(
                         'Qty: ${returnedQty.toStringAsFixed(0)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.orange,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -1602,10 +1673,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E3A5A),
+                      color: _inputBackgroundColor,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: currentReason.isNotEmpty ? Colors.orange : Colors.white.withOpacity(0.2),
+                        color: currentReason.isNotEmpty ? Colors.orange : _adaptiveWhiteOpacity(0.2),
                       ),
                     ),
                     child: Row(
@@ -1613,7 +1684,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         Icon(
                           currentReason.isNotEmpty ? Icons.check_circle : Icons.info,
                           size: 16,
-                          color: currentReason.isNotEmpty ? Colors.orange : Colors.white70,
+                          color: currentReason.isNotEmpty ? Colors.orange : _secondaryTextColor,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1623,7 +1694,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                               Text(
                                 'Return Reason',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: _adaptiveWhiteOpacity(0.6),
                                   fontSize: 11,
                                 ),
                               ),
@@ -1631,7 +1702,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                               Text(
                                 currentReason.isNotEmpty ? currentReason : 'Tap to select reason',
                                 style: TextStyle(
-                                  color: currentReason.isNotEmpty ? Colors.white : Colors.white70,
+                                  color: currentReason.isNotEmpty ? _primaryTextColor : _secondaryTextColor,
                                   fontSize: 14,
                                   fontWeight: currentReason.isNotEmpty ? FontWeight.w500 : FontWeight.normal,
                                 ),
@@ -1639,7 +1710,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                        Icon(Icons.arrow_drop_down, color: _secondaryTextColor),
                       ],
                     ),
                   ),
@@ -1668,23 +1739,23 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: _cardBackgroundColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: _adaptiveWhiteOpacity(0.1),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.summarize, color: Colors.orange, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Return Summary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1714,23 +1785,23 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: _cardBackgroundColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: _adaptiveWhiteOpacity(0.1),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.receipt, color: Colors.orange, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Return Details',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1740,19 +1811,18 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _returnNumberController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: _primaryTextColor),
                   decoration: InputDecoration(
                     labelText: 'Return Number (Optional)',
                     labelStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: _adaptiveWhiteOpacity(0.7),
                     ),
                     hintText: 'Enter return reference',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
+                    hintStyle: TextStyle(color: _adaptiveTextOpacity(0.3),
                     ),
-                    prefixIcon: const Icon(Icons.numbers, color: Colors.white70),
+                    prefixIcon: Icon(Icons.numbers, color: _secondaryTextColor),
                     filled: true,
-                    fillColor: const Color(0xFF1E3A5A),
+                    fillColor: _inputBackgroundColor,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -1769,19 +1839,18 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   },
                   controller: _dateController,
                   readOnly: true,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: _primaryTextColor),
                   decoration: InputDecoration(
                     labelText: 'Return Date',
                     labelStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: _adaptiveWhiteOpacity(0.7),
                     ),
                     hintText: 'Select date',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
+                    hintStyle: TextStyle(color: _adaptiveTextOpacity(0.3),
                     ),
-                    prefixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
+                    prefixIcon: Icon(Icons.calendar_today, color: _secondaryTextColor),
                     filled: true,
-                    fillColor: const Color(0xFF1E3A5A),
+                    fillColor: _inputBackgroundColor,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -1796,11 +1865,11 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                       builder: (context, child) {
                         return Theme(
                           data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.dark(
+                            colorScheme: Theme.of(context).colorScheme.copyWith(
                               primary: Colors.orange,
-                              onPrimary: Colors.white,
-                              surface: Color(0xFF22304A),
-                              onSurface: Colors.white,
+                              onPrimary: _accentForegroundColor,
+                              surface: _inputBackgroundColor,
+                              onSurface: _primaryTextColor,
                             ),
                           ),
                           child: child!,
@@ -1819,20 +1888,19 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 const SizedBox(height: 12),
                 TextField(
                   controller: _notesController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: _primaryTextColor),
                   maxLines: 3,
                   decoration: InputDecoration(
                     labelText: 'Notes',
                     labelStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: _adaptiveWhiteOpacity(0.7),
                     ),
                     hintText: 'Add any return notes...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
+                    hintStyle: TextStyle(color: _adaptiveTextOpacity(0.3),
                     ),
-                    prefixIcon: const Icon(Icons.note, color: Colors.white70),
+                    prefixIcon: Icon(Icons.note, color: _secondaryTextColor),
                     filled: true,
-                    fillColor: const Color(0xFF1E3A5A),
+                    fillColor: _inputBackgroundColor,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -1848,23 +1916,23 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: _cardBackgroundColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: _adaptiveWhiteOpacity(0.1),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(Icons.attach_money, color: Colors.green, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Financial Summary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1913,14 +1981,14 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: _adaptiveWhiteOpacity(0.7),
                 fontSize: 13,
               ),
             ),
             Text(
               '${current.toStringAsFixed(0)} / ${total.toStringAsFixed(0)}',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _primaryTextColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -1935,7 +2003,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: percentage / 100,
-                  backgroundColor: Colors.white.withOpacity(0.1),
+                  backgroundColor: _adaptiveWhiteOpacity(0.1),
                   valueColor: AlwaysStoppedAnimation(color),
                   minHeight: 6,
                 ),
@@ -1965,7 +2033,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
           child: Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: _adaptiveWhiteOpacity(0.7),
               fontSize: 13,
             ),
           ),
@@ -1973,7 +2041,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         Text(
           value,
           style: TextStyle(
-            color: highlight ? color : Colors.white,
+            color: highlight ? color : _primaryTextColor,
             fontSize: 13,
             fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
           ),
@@ -1989,7 +2057,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
     final reasons = Provider.of<Datafeed>(context, listen: false).returnitemreasons;
     return Expanded(
       child: Container(
-        color: const Color(0xFF0F1E2E),
+        color: _contentBackgroundColor,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1997,7 +2065,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  bottom: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
                 ),
               ),
               child: Row(
@@ -2011,9 +2079,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           color: Colors.orange.shade800.withOpacity(0.3),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.assignment_return,
-                          color: Colors.white,
+                          color: _primaryTextColor,
                           size: 24,
                         ),
                       ),
@@ -2023,8 +2091,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         children: [
                           Text(
                             'Invoice: ${_selectedTransaction!.invoice}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: _primaryTextColor,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -2032,16 +2100,16 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.business,
                                 size: 14,
-                                color: Colors.white70,
+                                color: _secondaryTextColor,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 _selectedTransaction!.supplierName,
-                                style: const TextStyle(
-                                  color: Colors.white70,
+                                style: TextStyle(
+                                  color: _secondaryTextColor,
                                   fontSize: 14,
                                 ),
                               ),
@@ -2050,20 +2118,20 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                 height: 4,
                                 margin: const EdgeInsets.symmetric(horizontal: 8),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: _adaptiveWhiteOpacity(0.3),
                                   shape: BoxShape.circle,
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.receipt,
                                 size: 14,
-                                color: Colors.white70,
+                                color: _secondaryTextColor,
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 'Waybill: ${_selectedTransaction!.waybill}',
-                                style: const TextStyle(
-                                  color: Colors.white70,
+                                style: TextStyle(
+                                  color: _secondaryTextColor,
                                   fontSize: 14,
                                 ),
                               ),
@@ -2083,10 +2151,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Purchase Items',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _primaryTextColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2094,10 +2162,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     const SizedBox(height: 16),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D2A3C),
+                        color: _cardBackgroundColor,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: _adaptiveWhiteOpacity(0.1),
                         ),
                       ),
                       child: Column(
@@ -2108,7 +2176,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                               vertical: 16,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5A),
+                              color: _inputBackgroundColor,
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(16),
                               ),
@@ -2144,7 +2212,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                 border: index < items.length - 1
                                     ? Border(
                                   bottom: BorderSide(
-                                    color: Colors.white.withOpacity(0.1),
+                                    color: _adaptiveWhiteOpacity(0.1),
                                   ),
                                 )
                                     : null,
@@ -2158,8 +2226,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                       children: [
                                         Text(
                                           item.item,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: _primaryTextColor,
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -2168,7 +2236,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                           Text(
                                             'Barcode: ${item.barcode}',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color: _adaptiveWhiteOpacity(0.5),
                                               fontSize: 11,
                                             ),
                                           ),
@@ -2188,8 +2256,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                       ),
                                       child: Text(
                                         item.stockingMode,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: _primaryTextColor,
                                           fontSize: 12,
                                         ),
                                         textAlign: TextAlign.center,
@@ -2200,8 +2268,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                     flex: 1,
                                     child: Text(
                                       purchasedQty.toStringAsFixed(0),
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: _primaryTextColor,
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2217,14 +2285,14 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                           width: 100,
                                           height: 36,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF1E3A5A),
+                                            color: _inputBackgroundColor,
                                             borderRadius: BorderRadius.circular(6),
                                             border: Border.all(
                                               color: returnedQty > 0
                                                   ? (returnedQty == purchasedQty
                                                   ? Colors.green
                                                   : Colors.orange)
-                                                  : Colors.white.withOpacity(0.2),
+                                                  : _adaptiveWhiteOpacity(0.2),
                                             ),
                                           ),
                                           child: buildSupplyField(controller:_returncontrollers[controllerid]!, purchaseQty: purchasedQty, returnQty: returnedQty, itemId: itemId, dbstatus: 'pending', onUpdate: (String itemId, double purchaseQty, double safeQty) {
@@ -2244,14 +2312,14 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                             ? currentReason
                                             : null,
                                         isExpanded: true,
-                                        dropdownColor: const Color(0xFF1E3A5A),
+                                        dropdownColor: _inputBackgroundColor,
                                         decoration: InputDecoration(
                                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                           filled: true,
-                                          fillColor: const Color(0xFF1E3A5A),
+                                          fillColor: _inputBackgroundColor,
                                         ),
-                                        style: const TextStyle(color: Colors.white, fontSize: 12),
-                                        iconEnabledColor: Colors.white54,
+                                        style: TextStyle(color: _primaryTextColor, fontSize: 12),
+                                        iconEnabledColor: _mutedTextColor,
                                         items: reasons.map((cat) {
                                           return DropdownMenuItem(
                                             value: cat.name,
@@ -2279,13 +2347,13 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E3A5A).withOpacity(0.5),
+                              color: _inputBackgroundColor.withOpacity(0.5),
                               borderRadius: const BorderRadius.vertical(
                                 bottom: Radius.circular(16),
                               ),
                               border: Border(
                                 top: BorderSide(
-                                  color: Colors.white.withOpacity(0.1),
+                                  color: _adaptiveWhiteOpacity(0.1),
                                 ),
                               ),
                             ),
@@ -2294,16 +2362,16 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.inventory,
-                                      color: Colors.white70,
+                                      color: _secondaryTextColor,
                                       size: 16,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
                                       '${_returnItems.values.where((item) => (item['returned'] ?? 0) > 0).length} of ${items.length} items returned',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
+                                      style: TextStyle(
+                                        color: _secondaryTextColor,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -2311,7 +2379,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                 ),
                                 Text(
                                   'Return Value: GHS ${returnValue.toStringAsFixed(2)}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.orange,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -2329,19 +2397,19 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D2A3C),
+                        color: _cardBackgroundColor,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: _adaptiveWhiteOpacity(0.1),
                         ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Return Information',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: _primaryTextColor,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2352,19 +2420,18 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                               Expanded(
                                 child: TextFormField(
                                   controller: _returnNumberController,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _primaryTextColor),
                                   decoration: InputDecoration(
                                     labelText: 'Return Number',
                                     labelStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: _adaptiveWhiteOpacity(0.7),
                                     ),
                                     hintText: 'Enter return reference',
-                                    hintStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.3),
+                                    hintStyle: TextStyle(color: _adaptiveTextOpacity(0.3),
                                     ),
-                                    prefixIcon: const Icon(Icons.numbers, color: Colors.white70),
+                                    prefixIcon: Icon(Icons.numbers, color: _secondaryTextColor),
                                     filled: true,
-                                    fillColor: const Color(0xFF1E3A5A),
+                                    fillColor: _inputBackgroundColor,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide.none,
@@ -2383,19 +2450,18 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                   },
                                   controller: _dateController,
                                   readOnly: true,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _primaryTextColor),
                                   decoration: InputDecoration(
                                     labelText: 'Return Date',
                                     labelStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: _adaptiveWhiteOpacity(0.7),
                                     ),
                                     hintText: 'Select date',
-                                    hintStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.3),
+                                    hintStyle: TextStyle(color: _adaptiveTextOpacity(0.3),
                                     ),
-                                    prefixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
+                                    prefixIcon: Icon(Icons.calendar_today, color: _secondaryTextColor),
                                     filled: true,
-                                    fillColor: const Color(0xFF1E3A5A),
+                                    fillColor: _inputBackgroundColor,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide.none,
@@ -2410,11 +2476,11 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                       builder: (context, child) {
                                         return Theme(
                                           data: Theme.of(context).copyWith(
-                                            colorScheme: const ColorScheme.dark(
+                                            colorScheme: Theme.of(context).colorScheme.copyWith(
                                               primary: Colors.orange,
-                                              onPrimary: Colors.white,
-                                              surface: Color(0xFF22304A),
-                                              onSurface: Colors.white,
+                                              onPrimary: _accentForegroundColor,
+                                              surface: _inputBackgroundColor,
+                                              onSurface: _primaryTextColor,
                                             ),
                                           ),
                                           child: child!,
@@ -2438,20 +2504,19 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                               Expanded(
                                 child: TextField(
                                   controller: _notesController,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(color: _primaryTextColor),
                                   maxLines: 2,
                                   decoration: InputDecoration(
                                     labelText: 'Notes',
                                     labelStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: _adaptiveWhiteOpacity(0.7),
                                     ),
                                     hintText: 'Add any return notes...',
-                                    hintStyle: TextStyle(
-                                      color: Colors.white.withOpacity(0.3),
+                                    hintStyle: TextStyle(color: _adaptiveTextOpacity(0.3),
                                     ),
-                                    prefixIcon: const Icon(Icons.note, color: Colors.white70),
+                                    prefixIcon: Icon(Icons.note, color: _secondaryTextColor),
                                     filled: true,
-                                    fillColor: const Color(0xFF1E3A5A),
+                                    fillColor: _inputBackgroundColor,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide.none,
@@ -2470,10 +2535,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D2A3C),
+                        color: _cardBackgroundColor,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: _adaptiveWhiteOpacity(0.1),
                         ),
                       ),
                       child: Row(
@@ -2482,10 +2547,10 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Financial Summary',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: _primaryTextColor,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -2499,9 +2564,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                                 _buildSummaryRow(
                                   'Return Value',
                                   'GHS ${returnValue.toStringAsFixed(2)}',
-                                  valueColor: Colors.orange,
+                                  valueColor: _accentTextColor,
                                 ),
-                                const Divider(color: Colors.white24, height: 16),
+                                Divider(color: _dividerColor, height: 16),
                                 _buildSummaryRow(
                                   'Net Payable',
                                   'GHS ${(_selectedTransaction!.gross - returnValue).toStringAsFixed(2)}',
@@ -2522,9 +2587,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D2A3C),
+                color: _cardBackgroundColor,
                 border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  top: BorderSide(color: _adaptiveWhiteOpacity(0.1)),
                 ),
               ),
               child: Row(
@@ -2533,7 +2598,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                   OutlinedButton(
                     onPressed: _resetReturn,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      side: BorderSide(color: _adaptiveWhiteOpacity(0.3)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 14,
@@ -2542,9 +2607,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: _secondaryTextColor),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -2564,7 +2629,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                         ),
                       ),
                       icon: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -2572,9 +2637,9 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
                           strokeWidth: 2,
                         ),
                       )
-                          : const Icon(Icons.save),
+                          : Icon(Icons.save),
                       label: Text(
-                        style: TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.white),
                         _isLoading ? 'Processing...' : 'Save',
                       ),
                     ),)
@@ -2590,7 +2655,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
   Widget _buildEmptyState() {
     return Expanded(
       child: Container(
-        color: const Color(0xFF0F1E2E),
+        color: _contentBackgroundColor,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -2598,20 +2663,20 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: _adaptiveWhiteOpacity(0.05),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.search,
                   size: 64,
-                  color: Colors.white24,
+                  color: _dividerColor,
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Search for an Invoice',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _primaryTextColor,
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2620,7 +2685,7 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
               Text(
                 'Enter an invoice number and click search',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: _adaptiveWhiteOpacity(0.5),
                   fontSize: 14,
                 ),
               ),
@@ -2634,8 +2699,8 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
   Widget _tableHeaderCell(String text, {TextAlign align = TextAlign.left}) {
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: _primaryTextColor,
         fontWeight: FontWeight.w600,
         fontSize: 13,
       ),
@@ -2650,14 +2715,14 @@ class _PurchaseReturnState extends State<PurchaseReturn> with SingleTickerProvid
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
+            color: _adaptiveWhiteOpacity(0.7),
             fontSize: 13,
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            color: valueColor ?? Colors.white,
+            color: valueColor ?? _primaryTextColor,
             fontSize: 13,
             fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           ),

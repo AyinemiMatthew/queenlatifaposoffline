@@ -4,24 +4,31 @@ import 'package:provider/provider.dart';
 
 class LogoutDialog {
   static Future<void> show(BuildContext parentcontext) {
-    final datafeed =Provider.of<Datafeed>(parentcontext, listen: false);
+    final datafeed = Provider.of<Datafeed>(parentcontext, listen: false);
+    final colorScheme = Theme.of(parentcontext).colorScheme;
 
-    return  showDialog(
+    return showDialog(
       context: parentcontext,
       builder: (BuildContext context) {
         return AlertDialog(
-
-          title: const Text('Logout',style: TextStyle(),),
-          content: const Text('Are you sure you want to logout?',style: TextStyle(),),
+          backgroundColor: colorScheme.surface,
+          title: Text('Logout', style: TextStyle(color: colorScheme.onSurface)),
+          content: Text(
+            'Are you sure you want to logout?',
+            style: TextStyle(color: colorScheme.onSurfaceVariant),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel',style: TextStyle(),),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.onSurface,
+              ),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
               ),
               onPressed: () {
                 Navigator.pop(context);

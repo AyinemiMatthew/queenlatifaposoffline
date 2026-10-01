@@ -1,5 +1,3 @@
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
 import 'closesales.dart';
-
 
 class CloseSalesViewPage extends StatefulWidget {
   const CloseSalesViewPage({super.key});
@@ -17,17 +14,43 @@ class CloseSalesViewPage extends StatefulWidget {
 }
 
 class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _mutedTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _surfaceColor => Theme.of(context).colorScheme.surface;
+  Color get _cardColor => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _borderColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.outline : Colors.white24;
+  Color get _subtleSurface => _isLightTheme
+      ? Theme.of(context).colorScheme.surfaceContainerHighest
+      : Colors.black12;
+  Color get _mobileCardBorder =>
+      _isLightTheme ? _borderColor : Colors.white.withOpacity(0.05);
+  Color get _mobileHeaderSurface =>
+      _isLightTheme ? _cardColor : Colors.white.withOpacity(0.03);
+  Color get _mobileActionSurface => _isLightTheme ? _cardColor : Colors.black26;
+  Color get _scrollThumbColor => _isLightTheme
+      ? Theme.of(context).colorScheme.primary
+      : const Color(0xFF415A77);
+  Color get _scrollTrackColor =>
+      _isLightTheme ? _cardColor : const Color(0xFF22304A);
+  Color get _scrollTrackBorderColor =>
+      _isLightTheme ? _surfaceColor : const Color(0xFF1B263B);
+
   String searchQuery = '';
   DateTime? selectedDate;
   int? _sortColumnIndex;
   bool _sortAscending = true;
   int _rowsPerPage = 10;
   void _sort<T>(
-      Comparable<T> Function(dynamic d) getField,
-      int columnIndex,
-      bool ascending,
-      List list,
-      ) {
+    Comparable<T> Function(dynamic d) getField,
+    int columnIndex,
+    bool ascending,
+    List list,
+  ) {
     list.sort((a, b) {
       final aValue = getField(a);
       final bValue = getField(b);
@@ -41,10 +64,12 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
       _sortAscending = ascending;
     });
   }
+
   String capitalize(String? text) {
     if (text == null || text.isEmpty) return '';
     return text[0].toUpperCase() + text.substring(1);
   }
+
   Future<void> pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -55,9 +80,7 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
         return Theme(
           data: Theme.of(context).copyWith(
             textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-              ),
+              style: TextButton.styleFrom(foregroundColor: _textColor),
             ),
           ),
           child: child!,
@@ -73,16 +96,19 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
       context.read<Datafeed>().fetchcloseSales(picked);
     }
   }
+
   @override
   void initState() {
     super.initState();
-    Future.microtask((){
-
+    Future.microtask(() {
       context.read<Datafeed>().fetchcloseSales();
     });
-
   }
-  void _showDetailsDialog(BuildContext context, Map<String, dynamic> salesview) {
+
+  void _showDetailsDialog(
+    BuildContext context,
+    Map<String, dynamic> salesview,
+  ) {
     final staff = salesview['staff'] ?? '';
     final total = salesview['total'] ?? 0;
     final createdAt = salesview['createdAt'] as Timestamp?;
@@ -92,13 +118,16 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1B263B),
+          backgroundColor: Theme.of(context).colorScheme.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
             "Close Sale Details",
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: SizedBox(
             width: 400,
@@ -118,7 +147,7 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Divider(color: Colors.white24),
+                  Divider(color: _borderColor),
                   const SizedBox(height: 8),
                   ...money.map((denom) {
                     if (denom is Map<String, dynamic>) {
@@ -129,32 +158,50 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.black12,
+                          color: _subtleSurface,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text("GHC $denomination x $quantity", style: const TextStyle(color: Colors.white)),
-                            Text("GHC $denomTotal", style: const TextStyle(color: Colors.white70)),
+                            Text(
+                              "GHS $denomination x $quantity",
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            Text(
+                              "GHS $denomTotal",
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
                           ],
                         ),
                       );
                     }
                     return const SizedBox();
                   }),
-                  const Divider(color: Colors.white24),
+                  Divider(color: _borderColor),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         "TOTAL",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       Text(
-                        "GHC $total",
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18),
+                        "GHS $total",
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
                       ),
                     ],
                   ),
@@ -165,13 +212,14 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Close", style: TextStyle(color: Colors.white54)),
+              child: Text("Close", style: TextStyle(color: _mutedTextColor)),
             ),
           ],
         );
       },
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
@@ -179,22 +227,28 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
         final filteredSalesview = value.closesales;
         print(filteredSalesview);
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: const Text('Close Sales View List'),
             actions: [
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                ),
                 onPressed: () => pickDate(context),
-                child: const Text("Select Date",style: TextStyle(color: Colors.white),),
+                child: const Text("Select Date"),
               ),
             ],
           ),
 
           floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             child: const Icon(Icons.add),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const CloseSalesPage()),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CloseSalesPage()),
               );
             },
           ),
@@ -207,394 +261,658 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
                 child: Column(
                   children: [
                     const SizedBox(height: 3),
-                    if (selectedDate != null)...[
+                    if (selectedDate != null) ...[
                       const Text('Close Sales View List for the period of:'),
                       Text(
                         "${DateFormat.yMMMd().format(selectedDate!)} ",
-                        style: const TextStyle(fontSize: 12,color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                     ],
 
                     Expanded(
                       child: value.isloadingclosesale
-                          ? const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                          : value.closesales.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Close Sales found',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                          : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isDesktop = constraints.maxWidth > 500;
-
-                          if (isDesktop) {
-                            // Apply current sort before building rows
-                            if (_sortColumnIndex != null) {
-                              switch (_sortColumnIndex) {
-                                case 1:
-                                  filteredSalesview.sort((a, b) {
-                                    final cmp = (a['staff'] ?? '').toString().compareTo((b['staff'] ?? '').toString());
-                                    return _sortAscending ? cmp : -cmp;
-                                  });
-                                  break;
-                                case 2:
-                                  filteredSalesview.sort((a, b) {
-                                    final da = (a['createdAt'] as Timestamp?)?.toDate() ?? DateTime(1900);
-                                    final db = (b['createdAt'] as Timestamp?)?.toDate() ?? DateTime(1900);
-                                    final cmp = da.compareTo(db);
-                                    return _sortAscending ? cmp : -cmp;
-                                  });
-                                  break;
-                                case 3:
-                                  filteredSalesview.sort((a, b) {
-                                    final ta = (a['total'] ?? 0) as num;
-                                    final tb = (b['total'] ?? 0) as num;
-                                    final cmp = ta.compareTo(tb);
-                                    return _sortAscending ? cmp : -cmp;
-                                  });
-                                  break;
-                              }
-                            }
-
-                            const columnWidths = <double>[40, 150, 130, 110, 200];
-                            const columnLabels = <String>['#', 'Staff', 'Date', 'Total', 'Action'];
-
-                            Widget buildHeaderLabel(int index) {
-                              final sortable = index == 1 || index == 2 || index == 3;
-                              final isActive = _sortColumnIndex == index;
-                              final label = Text(
-                                columnLabels[index],
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                  letterSpacing: 0.5,
-                                ),
-                              );
-
-                              Widget content = label;
-                              if (sortable) {
-                                content = Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    label,
-                                    if (isActive) ...[
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                                        color: Colors.white70,
-                                        size: 14,
-                                      ),
-                                    ],
-                                  ],
-                                );
-                              }
-
-                              return SizedBox(
-                                width: columnWidths[index],
-                                child: sortable
-                                    ? InkWell(
-                                  onTap: () => setState(() {
-                                    if (_sortColumnIndex == index) {
-                                      _sortAscending = !_sortAscending;
-                                    } else {
-                                      _sortColumnIndex = index;
-                                      _sortAscending = true;
-                                    }
-                                  }),
-                                  child: Align(alignment: Alignment.centerLeft, child: content),
-                                )
-                                    : Align(alignment: Alignment.centerLeft, child: content),
-                              );
-                            }
-
-                            List<Widget> withSpacing(List<Widget> cells) {
-                              final spaced = <Widget>[];
-                              for (var i = 0; i < cells.length; i++) {
-                                spaced.add(cells[i]);
-                                if (i != cells.length - 1) spaced.add(const SizedBox(width: 10));
-                              }
-                              return spaced;
-                            }
-
-                            return ScrollbarTheme(
-                              data: ScrollbarThemeData(
-                                thumbColor: MaterialStateProperty.all(const Color(0xFF415A77)),
-                                trackColor: MaterialStateProperty.all(const Color(0xFF22304A)),
-                                trackBorderColor: MaterialStateProperty.all(const Color(0xFF1B263B)),
-                                thickness: MaterialStateProperty.all(10),
-                                radius: const Radius.circular(8),
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                              child: Scrollbar(
+                            )
+                          : value.closesales.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No Close Sales found',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isDesktop = constraints.maxWidth > 500;
 
-                                thumbVisibility: true,
-                                trackVisibility: true,
-                                interactive: true,
-                                notificationPredicate: (notif) => notif.depth == 1,
-                                child: SingleChildScrollView(
+                                if (isDesktop) {
+                                  // Apply current sort before building rows
+                                  if (_sortColumnIndex != null) {
+                                    switch (_sortColumnIndex) {
+                                      case 1:
+                                        filteredSalesview.sort((a, b) {
+                                          final cmp = (a['staff'] ?? '')
+                                              .toString()
+                                              .compareTo(
+                                                (b['staff'] ?? '').toString(),
+                                              );
+                                          return _sortAscending ? cmp : -cmp;
+                                        });
+                                        break;
+                                      case 2:
+                                        filteredSalesview.sort((a, b) {
+                                          final da =
+                                              (a['createdAt'] as Timestamp?)
+                                                  ?.toDate() ??
+                                              DateTime(1900);
+                                          final db =
+                                              (b['createdAt'] as Timestamp?)
+                                                  ?.toDate() ??
+                                              DateTime(1900);
+                                          final cmp = da.compareTo(db);
+                                          return _sortAscending ? cmp : -cmp;
+                                        });
+                                        break;
+                                      case 3:
+                                        filteredSalesview.sort((a, b) {
+                                          final ta = (a['total'] ?? 0) as num;
+                                          final tb = (b['total'] ?? 0) as num;
+                                          final cmp = ta.compareTo(tb);
+                                          return _sortAscending ? cmp : -cmp;
+                                        });
+                                        break;
+                                    }
+                                  }
 
-                                  scrollDirection: Axis.horizontal,
-                                  child: SizedBox(
-                                    width: 700,
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          height: 44,
-                                          padding: const EdgeInsets.symmetric(horizontal: 15),
-                                          color: const Color(0xFF22304A),
-                                          child: Row(
-                                            children: withSpacing(
-                                              List.generate(columnLabels.length, buildHeaderLabel),
+                                  const columnWidths = <double>[
+                                    40,
+                                    150,
+                                    130,
+                                    110,
+                                    200,
+                                  ];
+                                  const columnLabels = <String>[
+                                    '#',
+                                    'Staff',
+                                    'Date',
+                                    'Total',
+                                    'Action',
+                                  ];
+
+                                  Widget buildHeaderLabel(int index) {
+                                    final sortable =
+                                        index == 1 || index == 2 || index == 3;
+                                    final isActive = _sortColumnIndex == index;
+                                    final label = Text(
+                                      columnLabels[index],
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    );
+
+                                    Widget content = label;
+                                    if (sortable) {
+                                      content = Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          label,
+                                          if (isActive) ...[
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              _sortAscending
+                                                  ? Icons.arrow_upward
+                                                  : Icons.arrow_downward,
+                                              color: _mutedTextColor,
+                                              size: 14,
                                             ),
+                                          ],
+                                        ],
+                                      );
+                                    }
+
+                                    return SizedBox(
+                                      width: columnWidths[index],
+                                      child: sortable
+                                          ? InkWell(
+                                              onTap: () => setState(() {
+                                                if (_sortColumnIndex == index) {
+                                                  _sortAscending =
+                                                      !_sortAscending;
+                                                } else {
+                                                  _sortColumnIndex = index;
+                                                  _sortAscending = true;
+                                                }
+                                              }),
+                                              child: Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: content,
+                                              ),
+                                            )
+                                          : Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: content,
+                                            ),
+                                    );
+                                  }
+
+                                  List<Widget> withSpacing(List<Widget> cells) {
+                                    final spaced = <Widget>[];
+                                    for (var i = 0; i < cells.length; i++) {
+                                      spaced.add(cells[i]);
+                                      if (i != cells.length - 1)
+                                        spaced.add(const SizedBox(width: 10));
+                                    }
+                                    return spaced;
+                                  }
+
+                                  return ScrollbarTheme(
+                                    data: ScrollbarThemeData(
+                                      thumbColor: MaterialStateProperty.all(
+                                        _scrollThumbColor,
+                                      ),
+                                      trackColor: MaterialStateProperty.all(
+                                        _scrollTrackColor,
+                                      ),
+                                      trackBorderColor:
+                                          MaterialStateProperty.all(
+                                            _scrollTrackBorderColor,
                                           ),
-                                        ),
-                                        Expanded(
-                                          child: ListView.builder(
-                                            itemCount: filteredSalesview.length,
-                                            itemBuilder: (context, index) {
-                                              final salesview = filteredSalesview[index];
-                                              final id = salesview['id'] ?? '';
-                                              final staff = salesview['staff'] ?? '';
-                                              final total = salesview['total'] ?? 0;
-                                              final createdAt = salesview['createdAt'] as Timestamp?;
-                                              final money = salesview['money'] ?? [];
-
-                                              final cells = <Widget>[
-                                                Text('${index + 1}', style: const TextStyle(color: Colors.white70)),
-                                                Text(staff, style: const TextStyle(color: Colors.white)),
-                                                Text(
-                                                  createdAt != null ? DateFormat.yMMMd().format(createdAt.toDate()) : '',
-                                                  style: const TextStyle(color: Colors.white),
-                                                ),
-                                                Text('GHC $total', style: const TextStyle(color: Colors.white)),
-                                                Row(
-                                                  children: [
-                                                    IconButton(
-                                                      icon: const Icon(Icons.remove_red_eye, color: Colors.amberAccent, size: 18),
-                                                      onPressed: () => _showDetailsDialog(context, salesview),
+                                      thickness: MaterialStateProperty.all(10),
+                                      radius: const Radius.circular(8),
+                                    ),
+                                    child: Scrollbar(
+                                      thumbVisibility: true,
+                                      trackVisibility: true,
+                                      interactive: true,
+                                      notificationPredicate: (notif) =>
+                                          notif.depth == 1,
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: SizedBox(
+                                          width: 700,
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                height: 44,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 15,
                                                     ),
-                                                    IconButton(
-                                                      icon: const Icon(Icons.edit, color: Colors.blueAccent, size: 18),
-                                                      onPressed: () {
-                                                        _handleEdit(
-                                                          context,
-                                                          id,
-                                                          (money as List).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-                                                        );
-                                                      },
-                                                    ),
-                                                    IconButton(
-                                                      icon: const Icon(Icons.delete, color: Colors.redAccent, size: 18),
-                                                      onPressed: () => _handleDelete(context, staff, id),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ];
-
-                                              return InkWell(
-                                                onTap: () => _showDetailsDialog(context, salesview),
-                                                child: Container(
-                                                  height: 52,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                                                  color: const Color(0xFF1B263B),
-                                                  child: Row(
-                                                    children: withSpacing(
-                                                      List.generate(columnWidths.length, (i) {
-                                                        return SizedBox(
-                                                          width: columnWidths[i],
-                                                          child: Align(alignment: Alignment.centerLeft, child: cells[i]),
-                                                        );
-                                                      }),
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerHighest,
+                                                child: Row(
+                                                  children: withSpacing(
+                                                    List.generate(
+                                                      columnLabels.length,
+                                                      buildHeaderLabel,
                                                     ),
                                                   ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-                          /// MOBILE
-                          return ListView.separated(
-                            itemCount: filteredSalesview.length,
-                            separatorBuilder: (_, _) =>
-                            const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final salesview = filteredSalesview[index];
-
-                              final id = salesview['id'] ?? '';
-                              final staff = salesview['staff'] ?? '';
-                              final total = salesview['total'] ?? 0;
-                              final createdAt = salesview['createdAt'] as Timestamp?;
-                              final money = salesview['money'] as List<dynamic>? ?? [];
-                              return Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 8, horizontal: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1B263B),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all( color: Colors.white.withOpacity(0.05)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(16),
-                                        color: Colors.white.withOpacity(0.03),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amberAccent.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular( 8),),
-                                              child: Text(
-                                                "Staff: $staff",
-                                                style: const TextStyle(
-                                                  color: Colors.amberAccent,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 1.1,
                                                 ),
                                               ),
-                                            ),
-                                            const Spacer(),
-                                            Text("#: ${index + 1}",
-                                              style: TextStyle(
-                                                  color: Colors.white.withOpacity( 0.5),
-                                                  fontSize: 12),
-                                            ),
-                                          ],
+                                              Expanded(
+                                                child: ListView.builder(
+                                                  itemCount:
+                                                      filteredSalesview.length,
+                                                  itemBuilder: (context, index) {
+                                                    final salesview =
+                                                        filteredSalesview[index];
+                                                    final id =
+                                                        salesview['id'] ?? '';
+                                                    final staff =
+                                                        salesview['staff'] ??
+                                                        '';
+                                                    final total =
+                                                        salesview['total'] ?? 0;
+                                                    final createdAt =
+                                                        salesview['createdAt']
+                                                            as Timestamp?;
+                                                    final money =
+                                                        salesview['money'] ??
+                                                        [];
+
+                                                    final cells = <Widget>[
+                                                      Text(
+                                                        '${index + 1}',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        staff,
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        createdAt != null
+                                                            ? DateFormat.yMMMd()
+                                                                  .format(
+                                                                    createdAt
+                                                                        .toDate(),
+                                                                  )
+                                                            : '',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        'GHS $total',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                      ),
+                                                      Row(
+                                                        children: [
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons
+                                                                  .remove_red_eye,
+                                                              color: Colors
+                                                                  .amberAccent,
+                                                              size: 18,
+                                                            ),
+                                                            onPressed: () =>
+                                                                _showDetailsDialog(
+                                                                  context,
+                                                                  salesview,
+                                                                ),
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons.edit,
+                                                              color: Colors
+                                                                  .blueAccent,
+                                                              size: 18,
+                                                            ),
+                                                            onPressed: () {
+                                                              _handleEdit(
+                                                                context,
+                                                                id,
+                                                                (money as List)
+                                                                    .map(
+                                                                      (e) =>
+                                                                          Map<
+                                                                            String,
+                                                                            dynamic
+                                                                          >.from(
+                                                                            e
+                                                                                as Map,
+                                                                          ),
+                                                                    )
+                                                                    .toList(),
+                                                              );
+                                                            },
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(
+                                                              Icons.delete,
+                                                              color: Colors
+                                                                  .redAccent,
+                                                              size: 18,
+                                                            ),
+                                                            onPressed: () =>
+                                                                _handleDelete(
+                                                                  context,
+                                                                  staff,
+                                                                  id,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ];
+
+                                                    return InkWell(
+                                                      onTap: () =>
+                                                          _showDetailsDialog(
+                                                            context,
+                                                            salesview,
+                                                          ),
+                                                      child: Container(
+                                                        height: 52,
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 15,
+                                                            ),
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.surface,
+                                                        child: Row(
+                                                          children: withSpacing(
+                                                            List.generate(
+                                                              columnWidths
+                                                                  .length,
+                                                              (i) {
+                                                                return SizedBox(
+                                                                  width:
+                                                                      columnWidths[i],
+                                                                  child: Align(
+                                                                    alignment:
+                                                                        Alignment
+                                                                            .centerLeft,
+                                                                    child:
+                                                                        cells[i],
+                                                                  ),
+                                                                );
+                                                              },
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
+                                    ),
+                                  );
+                                }
 
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
+                                /// MOBILE
+                                return ListView.separated(
+                                  itemCount: filteredSalesview.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final salesview = filteredSalesview[index];
+
+                                    final id = salesview['id'] ?? '';
+                                    final staff = salesview['staff'] ?? '';
+                                    final total = salesview['total'] ?? 0;
+                                    final createdAt =
+                                        salesview['createdAt'] as Timestamp?;
+                                    final money =
+                                        salesview['money'] as List<dynamic>? ??
+                                        [];
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                        horizontal: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surface,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: _mobileCardBorder,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.2,
+                                            ),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-
-                                            ...money.map((denom) {
-                                              if (denom is Map<String, dynamic>) {
-                                                final denomination = denom['denomination'] ?? 0;
-                                                final quantity = denom['quantity'] ?? 0;
-                                                final denomTotal = denom['total'] ?? 0;
-                                                return Container(
-                                                  margin: const EdgeInsets.only(bottom: 8),
-                                                  padding: const EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.black12,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Text("GHC $denomination x $quantity", style: const TextStyle(color: Colors.white)),
-                                                      Text("GHC $denomTotal", style: const TextStyle(color: Colors.white70)),
-                                                    ],
-                                                  ),
-                                                );
-                                              }
-                                              return const SizedBox();
-                                            }),
-
-                                            const Divider(color: Colors.white24),
-
-
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    _buildFooterLabel(
-                                                        Icons.person_outline,
-                                                        "Staff: $staff"),
-                                                    const SizedBox(height: 4),
-                                                    _buildFooterLabel(
-                                                      Icons.calendar_today_outlined,
-                                                      "Date: ${createdAt != null ? DateFormat.yMMMd().format(createdAt.toDate()) : ''}",
+                                            Container(
+                                              padding: const EdgeInsets.all(16),
+                                              color: _mobileHeaderSurface,
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.amberAccent
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
                                                     ),
-                                                  ],
-                                                ),
-                                                Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                                  children: [
-                                                    const Text("TOTAL AMOUNT",
-                                                        style: TextStyle(
-                                                            color: Colors.white54,
-                                                            fontSize: 10)),
-                                                    Text(
-                                                      "GHC $total",
+                                                    child: Text(
+                                                      "Staff: $staff",
                                                       style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 20,
-                                                        fontWeight: FontWeight.w900,
+                                                        color:
+                                                            Colors.amberAccent,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        letterSpacing: 1.1,
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
-                                              ],
+                                                  ),
+                                                  const Spacer(),
+                                                  Text(
+                                                    "#: ${index + 1}",
+                                                    style: TextStyle(
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).colorScheme.onSurface,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            Padding(
+                                              padding: const EdgeInsets.all(16),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  ...money.map((denom) {
+                                                    if (denom
+                                                        is Map<
+                                                          String,
+                                                          dynamic
+                                                        >) {
+                                                      final denomination =
+                                                          denom['denomination'] ??
+                                                          0;
+                                                      final quantity =
+                                                          denom['quantity'] ??
+                                                          0;
+                                                      final denomTotal =
+                                                          denom['total'] ?? 0;
+                                                      return Container(
+                                                        margin:
+                                                            const EdgeInsets.only(
+                                                              bottom: 8,
+                                                            ),
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              8,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: _subtleSurface,
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              "GHS $denomination x $quantity",
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              "GHS $denomTotal",
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    }
+                                                    return const SizedBox();
+                                                  }),
+
+                                                  Divider(color: _borderColor),
+
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          _buildFooterLabel(
+                                                            Icons
+                                                                .person_outline,
+                                                            "Staff: $staff",
+                                                          ),
+                                                          const SizedBox(
+                                                            height: 4,
+                                                          ),
+                                                          _buildFooterLabel(
+                                                            Icons
+                                                                .calendar_today_outlined,
+                                                            "Date: ${createdAt != null ? DateFormat.yMMMd().format(createdAt.toDate()) : ''}",
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .end,
+                                                        children: [
+                                                          Text(
+                                                            "TOTAL AMOUNT",
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .onSurface,
+                                                              fontSize: 10,
+                                                            ),
+                                                          ),
+                                                          Text(
+                                                            "GHS $total",
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .onSurface,
+                                                              fontSize: 20,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w900,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            Container(
+                                              color: _mobileActionSurface,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                  ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
+                                                children: [
+                                                  _buildActionButton(
+                                                    Icons.edit,
+                                                    "Edit",
+                                                    Colors.blueAccent,
+                                                    () {
+                                                      _handleEdit(
+                                                        context,
+                                                        id,
+                                                        (money as List)
+                                                            .map(
+                                                              (e) =>
+                                                                  Map<
+                                                                    String,
+                                                                    dynamic
+                                                                  >.from(
+                                                                    e as Map,
+                                                                  ),
+                                                            )
+                                                            .toList(),
+                                                      );
+                                                    },
+                                                  ),
+                                                  _buildActionButton(
+                                                    Icons.delete_outline,
+                                                    "Delete",
+                                                    Colors.redAccent,
+                                                    () => _handleDelete(
+                                                      context,
+                                                      staff,
+                                                      id,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
-
-
-                                      Container(
-                                        color: Colors.black26,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                          children: [
-                                            _buildActionButton(
-                                              Icons.edit, "Edit",
-                                              Colors.blueAccent,
-                                                  () {
-                                                _handleEdit( context,
-                                                  id,
-                                                  (money as List).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-                                                );
-                                              },
-                                            ),
-                                            _buildActionButton(
-                                              Icons.delete_outline, "Delete",
-                                              Colors.redAccent, () =>
-                                                _handleDelete(context, staff, id),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-
-                            },
-
-                          );
-                        },
-                      ),
-                    )
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                    ),
                   ],
                 ),
               ),
@@ -603,47 +921,66 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
         );
       },
     );
-
   }
+
   Widget _buildFooterLabel(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white38, size: 14),
+        Icon(icon, color: _mutedTextColor, size: 14),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        Text(
+          text,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 12,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, Color color, VoidCallback onTap) {
+  Widget _buildActionButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return TextButton.icon(
       onPressed: onTap,
       icon: Icon(icon, color: color, size: 20),
       label: Text(label, style: TextStyle(color: color, fontSize: 13)),
     );
   }
-  Future<void> _handleDelete(BuildContext context, String staff, String id) async {
+
+  Future<void> _handleDelete(
+    BuildContext context,
+    String staff,
+    String id,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (innerContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
-            "Delete close sale by $staff?",
-            style: const TextStyle(color: Colors.white)
+          "Delete close sale by $staff?",
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         content: Text(
           "This action cannot be undone. Are you sure?",
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(innerContext, false),
-            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+            child: Text("Cancel", style: TextStyle(color: _mutedTextColor)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(innerContext, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.white)),
+            child: Text(
+              "Delete",
+              style: TextStyle(color: Theme.of(context).colorScheme.onError),
+            ),
           ),
         ],
       ),
@@ -676,17 +1013,19 @@ class _CloseSalesViewPageState extends State<CloseSalesViewPage> {
       }
     }
   }
-  Future<void> _handleEdit( BuildContext context, String id, List<Map<String, dynamic>> item, ) async {
-    Navigator.push( context,
+
+  Future<void> _handleEdit(
+    BuildContext context,
+    String id,
+    List<Map<String, dynamic>> item,
+  ) async {
+    Navigator.push(
+      context,
       MaterialPageRoute(
-        builder: (context) => CloseSalesPage(
-          docId: id,
-          item: item,
-        ),
+        builder: (context) => CloseSalesPage(docId: id, item: item),
       ),
     );
   }
-
 }
 
 class SalesDataSource extends DataTableSource {
@@ -717,8 +1056,14 @@ class SalesDataSource extends DataTableSource {
       cells: [
         DataCell(Text("${index + 1}")),
         DataCell(Text(staff)),
-        DataCell(Text(createdAt != null ? DateFormat.yMMMd().format(createdAt.toDate()) : '')),
-        DataCell(Text("GHC $total")),
+        DataCell(
+          Text(
+            createdAt != null
+                ? DateFormat.yMMMd().format(createdAt.toDate())
+                : '',
+          ),
+        ),
+        DataCell(Text("GHS $total")),
         DataCell(
           Row(
             children: [
