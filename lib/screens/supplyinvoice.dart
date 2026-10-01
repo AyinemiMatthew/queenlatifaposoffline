@@ -9,7 +9,7 @@ Future<void> generateInvoicePdf(data) async {
 
   // Format currency
   final currencyFormat = NumberFormat.currency(
-    symbol: 'GHC ',
+    symbol: 'GHS ',
     decimalDigits: 2,
   );
 

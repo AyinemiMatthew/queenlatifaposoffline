@@ -14,11 +14,24 @@ class PurchaseReturnTableScreen extends StatefulWidget {
   const PurchaseReturnTableScreen({super.key});
 
   @override
-  State<PurchaseReturnTableScreen> createState() => _PurchaseReturnTableScreenState();
+  State<PurchaseReturnTableScreen> createState() =>
+      _PurchaseReturnTableScreenState();
 }
 
 class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
+  ColorScheme get _colors => Theme.of(context).colorScheme;
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  Color get _pageColor => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surfaceColor => _colors.surface;
+  Color get _raisedSurfaceColor => _colors.surfaceContainerHighest;
+  Color get _primaryTextColor => _colors.onSurface;
+  Color get _secondaryTextColor => _colors.onSurfaceVariant;
+  Color get _borderColor => _colors.outlineVariant;
+  Color get _accentColor => _colors.secondary;
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _purchaseReturnsStream;
+  String? _streamCompanyId;
   String _searchQuery = "";
   String _selectedFilter = 'All';
   DateTime? _startDate;
@@ -51,13 +64,12 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       builder: (context, child) {
+        final theme = Theme.of(context);
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Color(0xFF22304A),
-              onSurface: Colors.white,
+          data: theme.copyWith(
+            colorScheme: theme.colorScheme.copyWith(
+              primary: _accentColor,
+              surface: _isDark ? _raisedSurfaceColor : _surfaceColor,
             ),
           ),
           child: child!,
@@ -72,13 +84,12 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
         firstDate: start,
         lastDate: DateTime.now(),
         builder: (context, child) {
+          final theme = Theme.of(context);
           return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: Colors.blue,
-                onPrimary: Colors.white,
-                surface: Color(0xFF22304A),
-                onSurface: Colors.white,
+            data: theme.copyWith(
+              colorScheme: theme.colorScheme.copyWith(
+                primary: _accentColor,
+                surface: _isDark ? _raisedSurfaceColor : _surfaceColor,
               ),
             ),
             child: child!,
@@ -110,7 +121,20 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = Provider.of<Datafeed>(context, listen: false);
       await provider.getdata();
+      if (!mounted) return;
+      setState(() {
+        _setPurchaseReturnsStream(provider.companyid);
+      });
     });
+  }
+
+  void _setPurchaseReturnsStream(String companyId) {
+    _streamCompanyId = companyId;
+    _purchaseReturnsStream = _firestore
+        .collection('purchase_returns')
+        .where('companyid', isEqualTo: companyId)
+        .orderBy('submittedat', descending: true)
+        .snapshots();
   }
 
   bool _filterReturnItem(Map<String, dynamic> data, Map<String, dynamic> item) {
@@ -151,7 +175,8 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
       final supplier = data['suppliername']?.toString().toLowerCase() ?? '';
       final returnReason = item['returnreason']?.toString().toLowerCase() ?? '';
 
-      bool fieldMatches = purchaseType.contains(filterLower) ||
+      bool fieldMatches =
+          purchaseType.contains(filterLower) ||
           supplier.contains(filterLower) ||
           returnReason.contains(filterLower);
 
@@ -191,7 +216,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
 
   Widget _buildStatusChip(String status) {
     final statusLower = status.toLowerCase();
-    Color color;
+    MaterialColor color;
     String displayStatus = status.isEmpty ? 'Pending' : status;
 
     if (statusLower.contains('approved')) {
@@ -203,25 +228,30 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
     } else if (statusLower.contains('processing')) {
       color = Colors.orange;
     } else {
-      color = Colors.grey;
+      color = Colors.blueGrey;
     }
+    final chipColor = _isDark ? color.shade300 : color.shade800;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: chipColor.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color),
+        border: Border.all(color: chipColor.withValues(alpha: 0.65)),
       ),
       child: Text(
         displayStatus,
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          color: chipColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
 
   Widget _buildPurchaseTypeChip(String type) {
-    Color color;
+    MaterialColor color;
     switch (type.toLowerCase()) {
       case 'credit':
         color = Colors.orange;
@@ -235,16 +265,21 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
       default:
         color = Colors.blue;
     }
+    final chipColor = _isDark ? color.shade300 : color.shade800;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: chipColor.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: chipColor.withValues(alpha: 0.65)),
       ),
       child: Text(
         type.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: chipColor,
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -411,19 +446,31 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           final isEven = idx % 2 == 0;
                           return pw.TableRow(
                             decoration: pw.BoxDecoration(
-                              color: isEven ? PdfColors.white : PdfColors.grey100,
+                              color: isEven
+                                  ? PdfColors.white
+                                  : PdfColors.grey100,
                             ),
                             children: [
                               _buildTableCell('${idx + 1}'),
-                              _buildTableCell(item['item']?.toString() ?? 'N/A'),
-                              _buildTableCell(item['barcode']?.toString() ?? 'N/A'),
-                              _buildTableCell(item['returnquantity']?.toString() ?? '0', alignment: pw.Alignment.centerRight),
+                              _buildTableCell(
+                                item['item']?.toString() ?? 'N/A',
+                              ),
+                              _buildTableCell(
+                                item['barcode']?.toString() ?? 'N/A',
+                              ),
+                              _buildTableCell(
+                                item['returnquantity']?.toString() ?? '0',
+                                alignment: pw.Alignment.centerRight,
+                              ),
                               _buildTableCell(
                                 _formatCurrency(item['unitprice'] ?? 0),
                                 alignment: pw.Alignment.centerRight,
                               ),
                               _buildTableCell(
-                                _formatCurrency('${invoiceItems.first['net_returnvalue'] ?? 0.00}' as num),
+                                _formatCurrency(
+                                  '${invoiceItems.first['net_returnvalue'] ?? 0.00}'
+                                      as num,
+                                ),
                                 alignment: pw.Alignment.centerRight,
                                 isBold: true,
                               ),
@@ -441,7 +488,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                               _formatCurrency(
                                 invoiceItems.fold<double>(
                                   0,
-                                      (sum, item) => sum + (item['net_returnvalue'] as num? ?? 0).toDouble(),
+                                  (sum, item) =>
+                                      sum +
+                                      (item['net_returnvalue'] as num? ?? 0)
+                                          .toDouble(),
                                 ),
                               ),
                               alignment: pw.Alignment.centerRight,
@@ -458,7 +508,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                     // Return Reason Summary
                     pw.Text(
                       'Return Reasons:',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                     pw.SizedBox(height: 4),
                     ...invoiceItems.map((item) {
@@ -480,11 +533,17 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                       children: [
                         pw.Text(
                           'Generated on: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-                          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                          style: pw.TextStyle(
+                            fontSize: 8,
+                            color: PdfColors.grey600,
+                          ),
                         ),
                         pw.Text(
                           'Page ${context.pageNumber ?? 1} of ${context.pagesCount ?? 1}',
-                          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                          style: pw.TextStyle(
+                            fontSize: 8,
+                            color: PdfColors.grey600,
+                          ),
                         ),
                       ],
                     ),
@@ -499,7 +558,8 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
       // Show print preview
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'purchase_returns_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf',
+        name:
+            'purchase_returns_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf',
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -511,13 +571,12 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
     }
   }
 
-
   Future<void> _printSingleInvoice(Map<String, dynamic> document) async {
     // Extract items array
     final List<Map<String, dynamic>> items =
-    (document['itemz'] as List<dynamic>? ?? [])
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+        (document['itemz'] as List<dynamic>? ?? [])
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
 
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -602,9 +661,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                         pw.Text(
                           'Supplier: ${document['suppliername'] ?? 'N/A'}',
                         ),
-                        pw.Text(
-                          'Branch: ${document['branchname'] ?? 'N/A'}',
-                        ),
+                        pw.Text('Branch: ${document['branchname'] ?? 'N/A'}'),
                       ],
                     ),
                   ),
@@ -612,12 +669,8 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Text(
-                          'Type: ${document['purchasetype'] ?? 'N/A'}',
-                        ),
-                        pw.Text(
-                          'Waybill: ${document['waybill'] ?? 'N/A'}',
-                        ),
+                        pw.Text('Type: ${document['purchasetype'] ?? 'N/A'}'),
+                        pw.Text('Waybill: ${document['waybill'] ?? 'N/A'}'),
                       ],
                     ),
                   ),
@@ -746,259 +799,256 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
     }
   }
   // Print single invoice
-//   Future<void> _printSingleInvoice(List<Map<String, dynamic>> item) async {
-//     if (item.isEmpty) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         const SnackBar(
-//           content: Text('No item to print'),
-//           backgroundColor: Colors.orange,
-//         ),
-//       );
-//       return;
-//     }
-//
-// try {
-//       final pdf = pw.Document();
-//       final provider = Provider.of<StockProvider>(context, listen: false);
-//       final companyName = provider.company ?? 'Company Name';
-//       final companyAddress = provider.companyemail ?? 'Address';
-//
-//       final invoice = item['invoice']?.toString() ?? 'N/A';
-//
-//       pdf.addPage(
-//         pw.MultiPage(
-//           pageFormat: PdfPageFormat.a4,
-//           orientation: pw.PageOrientation.portrait,
-//           margin: pw.EdgeInsets.all(16),
-//           build: (pw.Context context) {
-//             return [
-//               // Header
-//               pw.Column(
-//                 crossAxisAlignment: pw.CrossAxisAlignment.start,
-//                 children: [
-//                   pw.Row(
-//                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-//                     children: [
-//                       pw.Column(
-//                         crossAxisAlignment: pw.CrossAxisAlignment.start,
-//                         children: [
-//                           pw.Text(
-//                             companyName,
-//                             style: pw.TextStyle(
-//                               fontSize: 18,
-//                               fontWeight: pw.FontWeight.bold,
-//                             ),
-//                           ),
-//                           pw.Text(
-//                             companyAddress,
-//                             style: pw.TextStyle(fontSize: 10),
-//                           ),
-//                         ],
-//                       ),
-//                       pw.Column(
-//                         crossAxisAlignment: pw.CrossAxisAlignment.end,
-//                         children: [
-//                           pw.Text(
-//                             'PURCHASE RETURN INVOICE',
-//                             style: pw.TextStyle(
-//                               fontSize: 16,
-//                               fontWeight: pw.FontWeight.bold,
-//                             ),
-//                           ),
-//                           pw.Text(
-//                             'Invoice #: $invoice',
-//                             style: pw.TextStyle(fontSize: 12),
-//                           ),
-//                           pw.Text(
-//                             'Date: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
-//                             style: pw.TextStyle(fontSize: 10),
-//                           ),
-//                         ],
-//                       ),
-//                     ],
-//                   ),
-//                   pw.SizedBox(height: 16),
-//                   pw.Divider(thickness: 1),
-//                   pw.SizedBox(height: 16),
-//
-//                   // Supplier and Branch Info
-//                   pw.Row(
-//                     children: [
-//                       pw.Expanded(
-//                         child: pw.Column(
-//                           crossAxisAlignment: pw.CrossAxisAlignment.start,
-//                           children: [
-//                             pw.Text(
-//                               'Supplier: ${item['suppliername'] ?? 'N/A'}',
-//                               style: pw.TextStyle(fontSize: 11),
-//                             ),
-//                             pw.Text(
-//                               'Branch: ${item['branchname'] ?? 'N/A'}',
-//                               style: pw.TextStyle(fontSize: 11),
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                       pw.Expanded(
-//                         child: pw.Column(
-//                           crossAxisAlignment: pw.CrossAxisAlignment.end,
-//                           children: [
-//                             pw.Text(
-//                               'Type: ${item['purchasetype'] ?? 'N/A'}',
-//                               style: pw.TextStyle(fontSize: 11),
-//                             ),
-//                             pw.Text(
-//                               'Waybill: ${item['waybill'] ?? 'N/A'}',
-//                               style: pw.TextStyle(fontSize: 11),
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                   pw.SizedBox(height: 16),
-//
-//                   // Return Details
-//                   pw.Table(
-//                     border: pw.TableBorder.all(width: 0.5),
-//                     columnWidths: {
-//                       0: const pw.FixedColumnWidth(30),
-//                       1: const pw.FlexColumnWidth(3),
-//                       2: const pw.FlexColumnWidth(2),
-//                       3: const pw.FixedColumnWidth(60),
-//                       4: const pw.FixedColumnWidth(70),
-//                       5: const pw.FixedColumnWidth(50),
-//                     },
-//                     children: [
-//                       // Header Row
-//                       pw.TableRow(
-//                         decoration: const pw.BoxDecoration(
-//                           color: PdfColors.grey300,
-//                         ),
-//                         children: [
-//                           _buildTableHeader('S/N'),
-//                           _buildTableHeader('Item'),
-//                           //_buildTableHeader('Barcode'),
-//                           _buildTableHeader('Qty'),
-//                           _buildTableHeader('Unit Price'),
-//                           _buildTableHeader('Total'),
-//                         ],
-//                       ),
-//                       // Data Row
-//                       pw.TableRow(
-//                         children: [
-//                           _buildTableCell('1'),
-//                           _buildTableCell(item['item']?.toString() ?? 'N/A'),
-//                          // _buildTableCell(item['barcode']?.toString() ?? 'N/A'),
-//                           _buildTableCell(
-//                             item['returnquantity']?.toString() ?? '0',
-//                             alignment: pw.Alignment.centerRight,
-//                           ),
-//                           _buildTableCell(
-//                             _formatCurrency(item['price'] ?? 0),
-//                             alignment: pw.Alignment.centerRight,
-//                           ),
-//                           _buildTableCell(
-//                             _formatCurrency(item['net_returnvalue'] ?? 0),
-//                             alignment: pw.Alignment.centerRight,
-//                             isBold: true,
-//                           ),
-//                         ],
-//                       ),
-//                       // Total Row
-//                       pw.TableRow(
-//                         decoration: const pw.BoxDecoration(
-//                           color: PdfColors.grey200,
-//                         ),
-//                         children: [
-//                           _buildTableCell('', colspan: 5),
-//                           _buildTableCell('', colspan: 5),
-//                           _buildTableCell('', colspan: 5),
-//                           _buildTableCell('', colspan: 5),
-//                           _buildTableCell(
-//                             _formatCurrency(item['returnvalue'] ?? 0),
-//                             alignment: pw.Alignment.centerRight,
-//                             isBold: true,
-//                             fontSize: 12,
-//                           ),
-//                         ],
-//                       ),
-//                     ],
-//                   ),
-//
-//                   pw.SizedBox(height: 16),
-//
-//                   // Return Reason
-//                   pw.Text(
-//                     'Return Reason:',
-//                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
-//                   ),
-//                   pw.SizedBox(height: 4),
-//                   pw.Text(
-//                     item['returnreason']?.toString() ?? 'N/A',
-//                     style: pw.TextStyle(fontSize: 10),
-//                   ),
-//
-//                   pw.SizedBox(height: 16),
-//
-//                   // Footer
-//                   pw.Divider(thickness: 0.5),
-//                   pw.SizedBox(height: 8),
-//                   pw.Row(
-//                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-//                     children: [
-//                       pw.Text(
-//                         'Generated on: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-//                         style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
-//                       ),
-//                       // pw.Text(
-//                       //   'Page ${context.pageNumber ?? 1} of ${context.pagesCount ?? 1}',
-//                       //   style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
-//                       // ),
-//                     ],
-//                   ),
-//                 ],
-//               ),
-//             ];
-//           },
-//         ),
-//       );
-//
-//       await Printing.layoutPdf(
-//         onLayout: (PdfPageFormat format) async => pdf.save(),
-//         name: 'purchase_return_$invoice.pdf',
-//       );
-//     } catch (e) {
-//       ScaffoldMessenger.of(context).showSnackBar(
-//         SnackBar(
-//           content: Text('Error generating PDF: $e'),
-//           backgroundColor: Colors.red,
-//         ),
-//       );
-//     }
-//   }
+  //   Future<void> _printSingleInvoice(List<Map<String, dynamic>> item) async {
+  //     if (item.isEmpty) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(
+  //           content: Text('No item to print'),
+  //           backgroundColor: Colors.orange,
+  //         ),
+  //       );
+  //       return;
+  //     }
+  //
+  // try {
+  //       final pdf = pw.Document();
+  //       final provider = Provider.of<StockProvider>(context, listen: false);
+  //       final companyName = provider.company ?? 'Company Name';
+  //       final companyAddress = provider.companyemail ?? 'Address';
+  //
+  //       final invoice = item['invoice']?.toString() ?? 'N/A';
+  //
+  //       pdf.addPage(
+  //         pw.MultiPage(
+  //           pageFormat: PdfPageFormat.a4,
+  //           orientation: pw.PageOrientation.portrait,
+  //           margin: pw.EdgeInsets.all(16),
+  //           build: (pw.Context context) {
+  //             return [
+  //               // Header
+  //               pw.Column(
+  //                 crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //                 children: [
+  //                   pw.Row(
+  //                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+  //                     children: [
+  //                       pw.Column(
+  //                         crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //                         children: [
+  //                           pw.Text(
+  //                             companyName,
+  //                             style: pw.TextStyle(
+  //                               fontSize: 18,
+  //                               fontWeight: pw.FontWeight.bold,
+  //                             ),
+  //                           ),
+  //                           pw.Text(
+  //                             companyAddress,
+  //                             style: pw.TextStyle(fontSize: 10),
+  //                           ),
+  //                         ],
+  //                       ),
+  //                       pw.Column(
+  //                         crossAxisAlignment: pw.CrossAxisAlignment.end,
+  //                         children: [
+  //                           pw.Text(
+  //                             'PURCHASE RETURN INVOICE',
+  //                             style: pw.TextStyle(
+  //                               fontSize: 16,
+  //                               fontWeight: pw.FontWeight.bold,
+  //                             ),
+  //                           ),
+  //                           pw.Text(
+  //                             'Invoice #: $invoice',
+  //                             style: pw.TextStyle(fontSize: 12),
+  //                           ),
+  //                           pw.Text(
+  //                             'Date: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
+  //                             style: pw.TextStyle(fontSize: 10),
+  //                           ),
+  //                         ],
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   pw.SizedBox(height: 16),
+  //                   pw.Divider(thickness: 1),
+  //                   pw.SizedBox(height: 16),
+  //
+  //                   // Supplier and Branch Info
+  //                   pw.Row(
+  //                     children: [
+  //                       pw.Expanded(
+  //                         child: pw.Column(
+  //                           crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //                           children: [
+  //                             pw.Text(
+  //                               'Supplier: ${item['suppliername'] ?? 'N/A'}',
+  //                               style: pw.TextStyle(fontSize: 11),
+  //                             ),
+  //                             pw.Text(
+  //                               'Branch: ${item['branchname'] ?? 'N/A'}',
+  //                               style: pw.TextStyle(fontSize: 11),
+  //                             ),
+  //                           ],
+  //                         ),
+  //                       ),
+  //                       pw.Expanded(
+  //                         child: pw.Column(
+  //                           crossAxisAlignment: pw.CrossAxisAlignment.end,
+  //                           children: [
+  //                             pw.Text(
+  //                               'Type: ${item['purchasetype'] ?? 'N/A'}',
+  //                               style: pw.TextStyle(fontSize: 11),
+  //                             ),
+  //                             pw.Text(
+  //                               'Waybill: ${item['waybill'] ?? 'N/A'}',
+  //                               style: pw.TextStyle(fontSize: 11),
+  //                             ),
+  //                           ],
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   pw.SizedBox(height: 16),
+  //
+  //                   // Return Details
+  //                   pw.Table(
+  //                     border: pw.TableBorder.all(width: 0.5),
+  //                     columnWidths: {
+  //                       0: const pw.FixedColumnWidth(30),
+  //                       1: const pw.FlexColumnWidth(3),
+  //                       2: const pw.FlexColumnWidth(2),
+  //                       3: const pw.FixedColumnWidth(60),
+  //                       4: const pw.FixedColumnWidth(70),
+  //                       5: const pw.FixedColumnWidth(50),
+  //                     },
+  //                     children: [
+  //                       // Header Row
+  //                       pw.TableRow(
+  //                         decoration: const pw.BoxDecoration(
+  //                           color: PdfColors.grey300,
+  //                         ),
+  //                         children: [
+  //                           _buildTableHeader('S/N'),
+  //                           _buildTableHeader('Item'),
+  //                           //_buildTableHeader('Barcode'),
+  //                           _buildTableHeader('Qty'),
+  //                           _buildTableHeader('Unit Price'),
+  //                           _buildTableHeader('Total'),
+  //                         ],
+  //                       ),
+  //                       // Data Row
+  //                       pw.TableRow(
+  //                         children: [
+  //                           _buildTableCell('1'),
+  //                           _buildTableCell(item['item']?.toString() ?? 'N/A'),
+  //                          // _buildTableCell(item['barcode']?.toString() ?? 'N/A'),
+  //                           _buildTableCell(
+  //                             item['returnquantity']?.toString() ?? '0',
+  //                             alignment: pw.Alignment.centerRight,
+  //                           ),
+  //                           _buildTableCell(
+  //                             _formatCurrency(item['price'] ?? 0),
+  //                             alignment: pw.Alignment.centerRight,
+  //                           ),
+  //                           _buildTableCell(
+  //                             _formatCurrency(item['net_returnvalue'] ?? 0),
+  //                             alignment: pw.Alignment.centerRight,
+  //                             isBold: true,
+  //                           ),
+  //                         ],
+  //                       ),
+  //                       // Total Row
+  //                       pw.TableRow(
+  //                         decoration: const pw.BoxDecoration(
+  //                           color: PdfColors.grey200,
+  //                         ),
+  //                         children: [
+  //                           _buildTableCell('', colspan: 5),
+  //                           _buildTableCell('', colspan: 5),
+  //                           _buildTableCell('', colspan: 5),
+  //                           _buildTableCell('', colspan: 5),
+  //                           _buildTableCell(
+  //                             _formatCurrency(item['returnvalue'] ?? 0),
+  //                             alignment: pw.Alignment.centerRight,
+  //                             isBold: true,
+  //                             fontSize: 12,
+  //                           ),
+  //                         ],
+  //                       ),
+  //                     ],
+  //                   ),
+  //
+  //                   pw.SizedBox(height: 16),
+  //
+  //                   // Return Reason
+  //                   pw.Text(
+  //                     'Return Reason:',
+  //                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
+  //                   ),
+  //                   pw.SizedBox(height: 4),
+  //                   pw.Text(
+  //                     item['returnreason']?.toString() ?? 'N/A',
+  //                     style: pw.TextStyle(fontSize: 10),
+  //                   ),
+  //
+  //                   pw.SizedBox(height: 16),
+  //
+  //                   // Footer
+  //                   pw.Divider(thickness: 0.5),
+  //                   pw.SizedBox(height: 8),
+  //                   pw.Row(
+  //                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+  //                     children: [
+  //                       pw.Text(
+  //                         'Generated on: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+  //                         style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+  //                       ),
+  //                       // pw.Text(
+  //                       //   'Page ${context.pageNumber ?? 1} of ${context.pagesCount ?? 1}',
+  //                       //   style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+  //                       // ),
+  //                     ],
+  //                   ),
+  //                 ],
+  //               ),
+  //             ];
+  //           },
+  //         ),
+  //       );
+  //
+  //       await Printing.layoutPdf(
+  //         onLayout: (PdfPageFormat format) async => pdf.save(),
+  //         name: 'purchase_return_$invoice.pdf',
+  //       );
+  //     } catch (e) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Error generating PDF: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   }
 
   pw.Widget _buildTableHeader(String text) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(6),
       child: pw.Text(
         text,
-        style: pw.TextStyle(
-          fontWeight: pw.FontWeight.bold,
-          fontSize: 10,
-        ),
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
         textAlign: pw.TextAlign.center,
       ),
     );
   }
 
   pw.Widget _buildTableCell(
-      String text, {
-        pw.Alignment alignment = pw.Alignment.centerLeft,
-        bool isBold = false,
-        int colspan = 1,
-        double fontSize = 10,
-      }) {
+    String text, {
+    pw.Alignment alignment = pw.Alignment.centerLeft,
+    bool isBold = false,
+    int colspan = 1,
+    double fontSize = 10,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(6),
       child: pw.Text(
@@ -1044,11 +1094,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             final totalReturns = items.length;
             final totalValue = items.fold<double>(
               0,
-                  (sum, item) => sum + (item['returnvalue'] as num? ?? 0).toDouble(),
+              (sum, item) =>
+                  sum + (item['returnvalue'] as num? ?? 0).toDouble(),
             );
             final totalQuantity = items.fold<int>(
               0,
-                  (sum, item) => sum + (item['returnquantity'] as num? ?? 0).toInt(),
+              (sum, item) =>
+                  sum + (item['returnquantity'] as num? ?? 0).toInt(),
             );
 
             // Group by supplier
@@ -1057,7 +1109,8 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             for (var item in items) {
               final supplier = item['suppliername']?.toString() ?? 'Unknown';
               supplierCounts[supplier] = (supplierCounts[supplier] ?? 0) + 1;
-              supplierValues[supplier] = (supplierValues[supplier] ?? 0) +
+              supplierValues[supplier] =
+                  (supplierValues[supplier] ?? 0) +
                   (item['returnvalue'] as num? ?? 0).toDouble();
             }
 
@@ -1099,10 +1152,15 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                             'Date: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
                             style: pw.TextStyle(fontSize: 10),
                           ),
-                          if (_isDateRangeActive && _startDate != null && _endDate != null)
+                          if (_isDateRangeActive &&
+                              _startDate != null &&
+                              _endDate != null)
                             pw.Text(
                               'Period: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
-                              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+                              style: pw.TextStyle(
+                                fontSize: 9,
+                                color: PdfColors.grey600,
+                              ),
                             ),
                         ],
                       ),
@@ -1116,9 +1174,18 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildSummaryCard('Total Returns', totalReturns.toString()),
-                      _buildSummaryCard('Total Items', totalQuantity.toString()),
-                      _buildSummaryCard('Total Value', _formatCurrency(totalValue)),
+                      _buildSummaryCard(
+                        'Total Returns',
+                        totalReturns.toString(),
+                      ),
+                      _buildSummaryCard(
+                        'Total Items',
+                        totalQuantity.toString(),
+                      ),
+                      _buildSummaryCard(
+                        'Total Value',
+                        _formatCurrency(totalValue),
+                      ),
                     ],
                   ),
                   pw.SizedBox(height: 20),
@@ -1126,7 +1193,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                   // Supplier Summary Table
                   pw.Text(
                     'Supplier Summary',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                   pw.SizedBox(height: 8),
                   pw.Table(
@@ -1169,7 +1239,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                   // All Items Table
                   pw.Text(
                     'All Return Items',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                   pw.SizedBox(height: 8),
                   pw.Table(
@@ -1206,7 +1279,9 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           ),
                           children: [
                             _buildTableCell('${idx + 1}'),
-                            _buildTableCell(item['invoice']?.toString() ?? 'N/A'),
+                            _buildTableCell(
+                              item['invoice']?.toString() ?? 'N/A',
+                            ),
                             _buildTableCell(item['item']?.toString() ?? 'N/A'),
                             _buildTableCell(
                               item['returnquantity']?.toString() ?? '0',
@@ -1252,11 +1327,17 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                     children: [
                       pw.Text(
                         'Generated on: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-                        style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                        style: pw.TextStyle(
+                          fontSize: 8,
+                          color: PdfColors.grey600,
+                        ),
                       ),
                       pw.Text(
                         'Page ${context.pageNumber ?? 1} of ${context.pagesCount} ?? 1',
-                        style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                        style: pw.TextStyle(
+                          fontSize: 8,
+                          color: PdfColors.grey600,
+                        ),
                       ),
                     ],
                   ),
@@ -1269,7 +1350,8 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
 
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'purchase_returns_summary_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf',
+        name:
+            'purchase_returns_summary_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf',
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1293,17 +1375,11 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
         children: [
           pw.Text(
             value,
-            style: pw.TextStyle(
-              fontSize: 18,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
           ),
           pw.Text(
             label,
-            style: pw.TextStyle(
-              fontSize: 10,
-              color: PdfColors.grey600,
-            ),
+            style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
           ),
         ],
       ),
@@ -1311,23 +1387,29 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
   }
 
   // Delete confirmation dialog
-  Future<void> _showDeleteConfirmation(BuildContext context, Map<String, dynamic> item) async {
+  Future<void> _showDeleteConfirmation(
+    BuildContext context,
+    Map<String, dynamic> item,
+  ) async {
     return showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E3A5F),
+          backgroundColor: _surfaceColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade400),
+              Icon(Icons.warning_amber_rounded, color: _colors.error),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Delete Return Item',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: _primaryTextColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
@@ -1337,31 +1419,46 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             children: [
               Text(
                 'Are you sure you want to delete this return item?',
-                style: TextStyle(color: Colors.grey.shade300, fontSize: 14),
+                style: TextStyle(color: _secondaryTextColor, fontSize: 14),
               ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D2A4A),
+                  color: _raisedSurfaceColor,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade900.withOpacity(0.3)),
+                  border: Border.all(
+                    color: _colors.error.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildDeleteInfoRow('Item', item['item'] ?? 'N/A'),
                     _buildDeleteInfoRow('Invoice', item['invoice'] ?? 'N/A'),
-                    _buildDeleteInfoRow('Supplier', item['suppliername'] ?? 'N/A'),
-                    _buildDeleteInfoRow('Quantity', item['returnquantity'].toString()),
-                    _buildDeleteInfoRow('Value', _formatCurrency(item['returnvalue'] ?? 0)),
+                    _buildDeleteInfoRow(
+                      'Supplier',
+                      item['suppliername'] ?? 'N/A',
+                    ),
+                    _buildDeleteInfoRow(
+                      'Quantity',
+                      item['returnquantity'].toString(),
+                    ),
+                    _buildDeleteInfoRow(
+                      'Value',
+                      _formatCurrency(item['returnvalue'] ?? 0),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'This action cannot be undone.',
-                style: TextStyle(color: Colors.red.shade300, fontSize: 12, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                  color: _colors.error,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
               ),
             ],
           ),
@@ -1370,14 +1467,14 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
               onPressed: () => Navigator.of(context).pop(false),
               child: Text(
                 'Cancel',
-                style: TextStyle(color: Colors.grey.shade400),
+                style: TextStyle(color: _secondaryTextColor),
               ),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700,
-                foregroundColor: Colors.white,
+                backgroundColor: _colors.error,
+                foregroundColor: _colors.onError,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1403,13 +1500,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             width: 70,
             child: Text(
               label,
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              style: TextStyle(color: _secondaryTextColor, fontSize: 12),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
+              style: TextStyle(color: _primaryTextColor, fontSize: 12),
             ),
           ),
         ],
@@ -1478,9 +1575,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Return item "${item['item']}" deleted successfully',
-          ),
+          content: Text('Return item "${item['item']}" deleted successfully'),
           backgroundColor: Colors.green.shade700,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
@@ -1488,7 +1583,6 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
       );
 
       setState(() {});
-
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1509,16 +1603,19 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 800;
     final value = context.watch<Datafeed>();
+    if (_streamCompanyId != null && _streamCompanyId != value.companyid) {
+      _setPurchaseReturnsStream(value.companyid);
+    }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1A2F),
+      backgroundColor: _pageColor,
       appBar: AppBar(
         title: const Text(
           'Purchase Returns',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF0D2A4A),
-        foregroundColor: Colors.white,
+        backgroundColor: _surfaceColor,
+        foregroundColor: _primaryTextColor,
         elevation: 2,
         actions: [
           IconButton(
@@ -1526,13 +1623,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: _isDateRangeActive
-                    ? Colors.blue.shade800.withOpacity(0.3)
-                    : Colors.white.withOpacity(0.1),
+                    ? _accentColor.withValues(alpha: 0.16)
+                    : _primaryTextColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 Icons.calendar_month,
-                color: _isDateRangeActive ? Colors.blue.shade300 : Colors.white70,
+                color: _isDateRangeActive ? _accentColor : _secondaryTextColor,
               ),
             ),
             onPressed: _showDateRangePicker,
@@ -1542,12 +1639,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: _primaryTextColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.refresh, color: Colors.white70),
+              child: Icon(Icons.refresh, color: _secondaryTextColor),
             ),
-            onPressed: () => setState(() {}),
+            onPressed: () =>
+                setState(() => _setPurchaseReturnsStream(value.companyid)),
             tooltip: 'Refresh',
           ),
           // Print button
@@ -1555,16 +1653,19 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
+                color: _primaryTextColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.print, color: Colors.white70),
+              child: Icon(Icons.print, color: _secondaryTextColor),
             ),
             onSelected: (value) async {
               // Get current filtered items
               final snapshot = await _firestore
                   .collection('purchase_returns')
-                  .where('companyid', isEqualTo: context.read<Datafeed>().companyid)
+                  .where(
+                    'companyid',
+                    isEqualTo: context.read<Datafeed>().companyid,
+                  )
                   .orderBy('submittedat', descending: true)
                   .get();
 
@@ -1585,7 +1686,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                       'waybill': data['waybill'] ?? 'N/A',
                       'submittedat': data['submittedat'],
                       'docid': doc.id,
-                      'returnvalue': data['returnvalue']??0
+                      'returnvalue': data['returnvalue'] ?? 0,
                     };
                     if (_filterReturnItem(data, mergedItem)) {
                       allItems.add(mergedItem);
@@ -1600,29 +1701,29 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                 await _printSummary(allItems);
               }
             },
+            color: _surfaceColor,
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'Print Detailed',
                 child: Row(
                   children: [
-                    Icon(Icons.receipt, color: Colors.white),
-                    SizedBox(width: 8),
+                    Icon(Icons.receipt, color: _accentColor),
+                    const SizedBox(width: 8),
                     Text('Print Detailed Report'),
                   ],
                 ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'Print Summary',
                 child: Row(
                   children: [
-                    Icon(Icons.summarize, color: Colors.white),
-                    SizedBox(width: 8),
+                    Icon(Icons.summarize, color: _accentColor),
+                    const SizedBox(width: 8),
                     Text('Print Summary'),
                   ],
                 ),
               ),
             ],
-            color: const Color(0xFF1E3A5F),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -1630,241 +1731,280 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
         ],
       ),
       body: _isLoading || _isDeleting
-          ? const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-        ),
-      )
+          ? Center(child: CircularProgressIndicator(color: _accentColor))
           : Column(
-        children: [
-          // Search and Filter Section
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
               children: [
-                // Search Bar
-                TextFormField(
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    fillColor: const Color(0xFF22304A),
-                    hintText: 'Search by invoice, supplier, item, barcode...',
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white54),
-                      onPressed: () {
-                        setState(() {
-                          _searchQuery = "";
-                        });
-                      },
-                    )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.white10),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.white24),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.blue),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+                // Search and Filter Section
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      ..._filterOptions.map((filter) {
-                        final isSelected = _selectedFilter == filter;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(
-                              filter,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.white70,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedFilter = selected ? filter : 'All';
-                              });
-                            },
-                            backgroundColor: const Color(0xFF22304A),
-                            selectedColor: Colors.blue.shade800,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? Colors.blue.shade300
-                                  : Colors.white24,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                      // Search Bar
+                      TextFormField(
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                        style: TextStyle(color: _primaryTextColor),
+                        decoration: InputDecoration(
+                          fillColor: _raisedSurfaceColor,
+                          hintText:
+                              'Search by invoice, supplier, item, barcode...',
+                          hintStyle: TextStyle(color: _secondaryTextColor),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: _secondaryTextColor,
                           ),
-                        );
-                      }),
-                      if (_isDateRangeActive)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade900.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.blue.shade700.withOpacity(0.3)),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: _secondaryTextColor,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchQuery = "";
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: _borderColor),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.date_range, size: 14, color: Colors.blue),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                              ),
-                              const SizedBox(width: 6),
-                              GestureDetector(
-                                onTap: _clearDateRange,
-                                child: const Icon(Icons.close, size: 14, color: Colors.blue),
-                              ),
-                            ],
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: _borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: _accentColor),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Filter Chips
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ..._filterOptions.map((filter) {
+                              final isSelected = _selectedFilter == filter;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: Text(
+                                    filter,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? _colors.onPrimary
+                                          : _secondaryTextColor,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _selectedFilter = selected
+                                          ? filter
+                                          : 'All';
+                                    });
+                                  },
+                                  backgroundColor: _raisedSurfaceColor,
+                                  selectedColor: _colors.primary,
+                                  showCheckmark: false,
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? _accentColor
+                                        : _borderColor,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                              );
+                            }),
+                            if (_isDateRangeActive)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _accentColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: _accentColor.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.date_range,
+                                      size: 14,
+                                      color: _accentColor,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
+                                      style: TextStyle(
+                                        color: _primaryTextColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: _clearDateRange,
+                                      child: Icon(
+                                        Icons.close,
+                                        size: 14,
+                                        color: _accentColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
+
+                // Table/List View
+                Expanded(
+                  child: _purchaseReturnsStream == null
+                      ? Center(
+                          child: CircularProgressIndicator(color: _accentColor),
+                        )
+                      : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                          stream: _purchaseReturnsStream,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: _accentColor,
+                                ),
+                              );
+                            }
+
+                            if (snapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  'Error: ${snapshot.error}',
+                                  style: TextStyle(color: _colors.error),
+                                ),
+                              );
+                            }
+
+                            if (!snapshot.hasData ||
+                                snapshot.data!.docs.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox,
+                                      color: _secondaryTextColor,
+                                      size: 64,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No purchase returns found',
+                                      style: TextStyle(
+                                        color: _secondaryTextColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            // Flatten all items from all transactions with proper type casting
+                            final allItems = <Map<String, dynamic>>[];
+                            for (var doc in snapshot.data!.docs) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              final items = data['items'] as List? ?? [];
+
+                              for (var item in items) {
+                                if (item is Map) {
+                                  final itemMap = Map<String, dynamic>.from(
+                                    item,
+                                  );
+                                  final mergedItem = {
+                                    ...itemMap,
+                                    'invoice': data['invoice'] ?? 'N/A',
+                                    'suppliername':
+                                        data['suppliername'] ?? 'N/A',
+                                    'branchname': data['branchname'] ?? 'N/A',
+                                    'createdby': data['createdby'] ?? 'N/A',
+                                    'purchasetype':
+                                        data['purchasetype'] ?? 'N/A',
+                                    'waybill': data['waybill'] ?? 'N/A',
+                                    'submittedat': data['submittedat'],
+                                    'docid': doc.id,
+                                    'returnvalue': data['returnvalue'] ?? 0,
+                                    'itemz': data['items'] ?? [],
+                                  };
+
+                                  if (_filterReturnItem(data, mergedItem)) {
+                                    allItems.add(mergedItem);
+                                  }
+                                }
+                              }
+                            }
+
+                            if (allItems.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _searchQuery.isNotEmpty
+                                          ? Icons.search_off
+                                          : Icons.inbox,
+                                      size: 64,
+                                      color: _secondaryTextColor,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _searchQuery.isNotEmpty
+                                          ? 'No returns found for "$_searchQuery"'
+                                          : 'No matching returns found',
+                                      style: TextStyle(
+                                        color: _secondaryTextColor,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    if (_searchQuery.isNotEmpty)
+                                      TextButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            _searchQuery = "";
+                                          });
+                                        },
+                                        child: const Text('Clear search'),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            if (isMobile) {
+                              return _buildMobileList(allItems, value);
+                            } else {
+                              return _buildDesktopTable(allItems);
+                            }
+                          },
+                        ),
+                ),
               ],
             ),
-          ),
-
-          // Table/List View
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('purchase_returns')
-                  .where('companyid', isEqualTo: value.companyid)
-                  .orderBy('submittedat', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inbox,
-                          color: Colors.white38,
-                          size: 64,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No purchase returns found',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Flatten all items from all transactions with proper type casting
-                final allItems = <Map<String, dynamic>>[];
-                for (var doc in snapshot.data!.docs) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  final items = data['items'] as List? ?? [];
-
-                  for (var item in items) {
-                    if (item is Map) {
-                      final itemMap = Map<String, dynamic>.from(item);
-                      final mergedItem = {
-                        ...itemMap,
-                        'invoice': data['invoice'] ?? 'N/A',
-                        'suppliername': data['suppliername'] ?? 'N/A',
-                        'branchname': data['branchname'] ?? 'N/A',
-                        'createdby': data['createdby'] ?? 'N/A',
-                        'purchasetype': data['purchasetype'] ?? 'N/A',
-                        'waybill': data['waybill'] ?? 'N/A',
-                        'submittedat': data['submittedat'],
-                        'docid': doc.id,
-                        'returnvalue': data['returnvalue'] ??0,
-                        'itemz': data['items'] ?? [],
-                      };
-
-                      if (_filterReturnItem(data, mergedItem)) {
-                        allItems.add(mergedItem);
-                      }
-                    }
-                  }
-                }
-
-                if (allItems.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _searchQuery.isNotEmpty ? Icons.search_off : Icons.inbox,
-                          size: 64,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isNotEmpty
-                              ? 'No returns found for "$_searchQuery"'
-                              : 'No matching returns found',
-                          style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
-                        ),
-                        if (_searchQuery.isNotEmpty)
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _searchQuery = "";
-                              });
-                            },
-                            child: const Text('Clear search'),
-                          ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (isMobile) {
-                  return _buildMobileList(allItems, value);
-                } else {
-                  return _buildDesktopTable(allItems);
-                }
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1878,17 +2018,22 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
         final canDelete = value.canDelete(AppModules.stock);
 
         return Dismissible(
-          key: Key(item['returnid'] ?? '${index}_${DateTime.now().millisecondsSinceEpoch}'),
-          direction: canDelete ? DismissDirection.endToStart : DismissDirection.none,
+          key: Key(
+            item['returnid'] ??
+                '${index}_${DateTime.now().millisecondsSinceEpoch}',
+          ),
+          direction: canDelete
+              ? DismissDirection.endToStart
+              : DismissDirection.none,
           background: Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.red.shade800,
+              color: _colors.error,
               borderRadius: BorderRadius.circular(12),
             ),
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 20),
-            child: const Icon(Icons.delete, color: Colors.white, size: 30),
+            child: Icon(Icons.delete, color: _colors.onError, size: 30),
           ),
           onDismissed: (direction) {
             if (canDelete) {
@@ -1898,8 +2043,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
           child: Card(
             margin: const EdgeInsets.only(bottom: 12),
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            color: const Color(0xFF1E3A5F),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            color: _surfaceColor,
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
@@ -1910,10 +2057,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                     children: [
                       CircleAvatar(
                         radius: 14,
-                        backgroundColor: Colors.blue.shade900.withOpacity(0.3),
+                        backgroundColor: _accentColor.withValues(alpha: 0.15),
                         child: Text(
                           '${index + 1}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: TextStyle(
+                            color: _primaryTextColor,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -1923,16 +2073,16 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           children: [
                             Text(
                               'INV: ${item['invoice']}',
-                              style: const TextStyle(
-                                color: Colors.blueAccent,
+                              style: TextStyle(
+                                color: _accentColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
                             ),
                             Text(
                               item['item'] ?? 'N/A',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: _primaryTextColor,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 13,
                               ),
@@ -1954,7 +2104,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           children: [
                             _buildInfoRow('Supplier', item['suppliername']),
                             _buildInfoRow('Barcode', item['barcode']),
-                            _buildInfoRow('Date', _formatDateOnly(item['submittedat'])),
+                            _buildInfoRow(
+                              'Date',
+                              _formatDateOnly(item['submittedat']),
+                            ),
                           ],
                         ),
                       ),
@@ -1962,7 +2115,10 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            _buildInfoRow('Qty', item['returnquantity'].toString()),
+                            _buildInfoRow(
+                              'Qty',
+                              item['returnquantity'].toString(),
+                            ),
                             _buildInfoRow(
                               'Value',
                               _formatCurrency(item['net_returnvalue'] ?? 0),
@@ -1981,15 +2137,18 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                     children: [
                       Expanded(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0D2A4A),
+                            color: _raisedSurfaceColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
                             'Reason: ${item['returnreason'] ?? 'N/A'}',
                             style: TextStyle(
-                              color: Colors.grey.shade400,
+                              color: _secondaryTextColor,
                               fontSize: 11,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -2001,11 +2160,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                       const SizedBox(width: 4),
                       // Print icon (always visible, before delete)
                       IconButton(
-                        icon: const Icon(
-                          Icons.print,
-                          color: Colors.blueGrey,
-                          size: 20,
-                        ),
+                        icon: Icon(Icons.print, color: _accentColor, size: 20),
                         onPressed: () => _printSingleInvoice(item),
                         tooltip: 'Print this return',
                         padding: const EdgeInsets.all(4),
@@ -2014,12 +2169,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                       if (canDelete) ...[
                         const SizedBox(width: 4),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.delete_outline,
-                            color: Colors.redAccent,
+                            color: _colors.error,
                             size: 20,
                           ),
-                          onPressed: () => _showDeleteConfirmation(context, item),
+                          onPressed: () =>
+                              _showDeleteConfirmation(context, item),
                           tooltip: 'Delete',
                           padding: const EdgeInsets.all(4),
                           constraints: const BoxConstraints(),
@@ -2054,17 +2210,17 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(
-                  const Color(0xFF0D2A4A),
-                ),
+                headingRowColor: WidgetStateProperty.all(_raisedSurfaceColor),
                 columnSpacing: 12,
-                headingTextStyle: const TextStyle(
-                  color: Colors.white,
+                dataRowColor: WidgetStateProperty.all(_surfaceColor),
+                dividerThickness: 1,
+                headingTextStyle: TextStyle(
+                  color: _primaryTextColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
-                dataTextStyle: const TextStyle(
-                  color: Colors.white,
+                dataTextStyle: TextStyle(
+                  color: _primaryTextColor,
                   fontSize: 11,
                 ),
                 columns: const [
@@ -2088,19 +2244,15 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
 
                   return DataRow(
                     color: WidgetStateProperty.resolveWith<Color?>(
-                          (Set<WidgetState> states) {
-                        return index.isEven
-                            ? const Color(0xFF1E3A5F)
-                            : const Color(0xFF162D4A);
-                      },
+                      (Set<WidgetState> states) => _surfaceColor,
                     ),
                     cells: [
                       DataCell(Text('${index + 1}')),
                       DataCell(
                         Text(
                           item['invoice'] ?? 'N/A',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryTextColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -2114,7 +2266,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                       DataCell(
                         Text(
                           item['barcode'] ?? 'N/A',
-                          style: TextStyle(color: Colors.grey.shade400),
+                          style: TextStyle(color: _secondaryTextColor),
                         ),
                       ),
                       DataCell(
@@ -2123,20 +2275,18 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           style: TextStyle(fontSize: 10),
                         ),
                       ),
-                      DataCell(
-                        Text(_formatDateOnly(item['submittedat'])),
-                      ),
+                      DataCell(Text(_formatDateOnly(item['submittedat']))),
                       DataCell(
                         Text(
                           item['returnquantity'].toString(),
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: _primaryTextColor),
                         ),
                       ),
                       DataCell(
                         Text(
                           _formatCurrency(item['net_returnvalue'] ?? 0),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _primaryTextColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -2146,7 +2296,7 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           constraints: const BoxConstraints(maxWidth: 100),
                           child: Text(
                             item['returnreason'] ?? 'N/A',
-                            style: TextStyle(color: Colors.grey.shade300),
+                            style: TextStyle(color: _secondaryTextColor),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -2166,9 +2316,9 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                           children: [
                             // Print icon (always visible, before delete)
                             IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.print,
-                                color: Colors.blueGrey,
+                                color: _accentColor,
                                 size: 20,
                               ),
                               onPressed: () => _printSingleInvoice(item),
@@ -2178,12 +2328,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
                             ),
                             if (canDelete)
                               IconButton(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.delete_outline,
-                                  color: Colors.redAccent,
+                                  color: _colors.error,
                                   size: 20,
                                 ),
-                                onPressed: () => _showDeleteConfirmation(context, item),
+                                onPressed: () =>
+                                    _showDeleteConfirmation(context, item),
                                 tooltip: 'Delete',
                                 padding: const EdgeInsets.all(4),
                                 constraints: const BoxConstraints(),
@@ -2212,19 +2363,13 @@ class _PurchaseReturnTableScreenState extends State<PurchaseReturnTableScreen> {
             width: 60,
             child: Text(
               label,
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: _secondaryTextColor, fontSize: 11),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: _primaryTextColor, fontSize: 11),
             ),
           ),
         ],

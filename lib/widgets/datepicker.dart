@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 
@@ -25,7 +24,6 @@ class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
     end: DateTime.now(),
   );
 
-
   void _openDatePicker() {
     DateTimeRange tempRange = _selectedRange;
 
@@ -33,69 +31,92 @@ class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
+          final theme = Theme.of(dialogContext);
+          final colors = theme.colorScheme;
+          final isLightTheme = theme.brightness == Brightness.light;
+          final backgroundColor = isLightTheme
+              ? Colors.white
+              : const Color(0xFF101624);
+          final headerColor = isLightTheme
+              ? Colors.white
+              : const Color(0xFF1E293B);
+          final textColor = isLightTheme ? colors.onSurface : Colors.white;
+          final mutedTextColor = isLightTheme
+              ? colors.onSurfaceVariant
+              : Colors.white70;
+          final disabledTextColor = isLightTheme
+              ? colors.onSurfaceVariant.withOpacity(0.45)
+              : Colors.white24;
+          final selectionColor = isLightTheme
+              ? colors.primary
+              : Colors.blueAccent;
+
           return AlertDialog(
-            backgroundColor: const Color(0xFF101624),
-            title: const Text(
+            backgroundColor: backgroundColor,
+            title: Text(
               'Select Date Range',
-              style: TextStyle(color: Color(0xFFF9FAFB)),
+              style: TextStyle(color: textColor),
             ),
             content: SizedBox(
               height: 400,
               width: 320,
               child: Theme(
-                data: Theme.of(context).copyWith(
-                  textTheme: Theme.of(context).textTheme.apply(
-                    bodyColor: Colors.white,
-                    displayColor: Colors.white,
+                data: theme.copyWith(
+                  textTheme: theme.textTheme.apply(
+                    bodyColor: textColor,
+                    displayColor: textColor,
                   ),
                 ),
                 child: SfDateRangePicker(
-                  backgroundColor: const Color(0xFF101624),
-                
+                  backgroundColor: backgroundColor,
                   yearCellStyle: DateRangePickerYearCellStyle(
-                    textStyle: const TextStyle(color: Colors.white),
+                    textStyle: TextStyle(color: textColor),
+                    todayTextStyle: TextStyle(
+                      color: selectionColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    disabledDatesTextStyle: TextStyle(color: disabledTextColor),
                   ),
-                
-                  headerStyle: const DateRangePickerHeaderStyle(
-                    backgroundColor: Color(0xFF1E293B),
+                  headerStyle: DateRangePickerHeaderStyle(
+                    backgroundColor: headerColor,
                     textAlign: TextAlign.center,
                     textStyle: TextStyle(
-                      color: Colors.white,
+                      color: textColor,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
                   ),
-                  monthViewSettings: const DateRangePickerMonthViewSettings(
+                  monthViewSettings: DateRangePickerMonthViewSettings(
                     viewHeaderStyle: DateRangePickerViewHeaderStyle(
                       textStyle: TextStyle(
-                        color: Colors.white70,
+                        color: mutedTextColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                   monthCellStyle: DateRangePickerMonthCellStyle(
-                    textStyle: const TextStyle(color: Colors.white),
-                    todayTextStyle: const TextStyle(
-                      color: Colors.blueAccent,
+                    textStyle: TextStyle(color: textColor),
+                    todayTextStyle: TextStyle(
+                      color: selectionColor,
                       fontWeight: FontWeight.bold,
                     ),
-                    rangeTextStyle: const TextStyle(
-                      color: Colors.white,
+                    rangeTextStyle: TextStyle(
+                      color: textColor,
                       fontWeight: FontWeight.w600,
                     ),
-
-
-                    weekendTextStyle: const TextStyle(color: Colors.white60),
-                    disabledDatesTextStyle: const TextStyle(color: Colors.white24),
-                    leadingDatesTextStyle: const TextStyle(color: Colors.white38),
+                    weekendTextStyle: TextStyle(color: mutedTextColor),
+                    disabledDatesTextStyle: TextStyle(color: disabledTextColor),
+                    leadingDatesTextStyle: TextStyle(color: mutedTextColor),
                   ),
-                  selectionColor: Colors.blueAccent,
-                  startRangeSelectionColor: Colors.blueAccent,
-                  endRangeSelectionColor: Colors.blueAccent,
-                  rangeSelectionColor: Colors.blueAccent.withOpacity(0.35),
-                  todayHighlightColor: Colors.blueAccent,
-                  selectionTextStyle: const TextStyle(
-                    color: Colors.white,
+                  selectionColor: selectionColor,
+                  startRangeSelectionColor: selectionColor,
+                  endRangeSelectionColor: selectionColor,
+                  rangeSelectionColor: selectionColor.withOpacity(
+                    isLightTheme ? 0.2 : 0.35,
+                  ),
+                  todayHighlightColor: selectionColor,
+                  selectionTextStyle: TextStyle(
+                    color: isLightTheme ? colors.onPrimary : Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
                   selectionMode: DateRangePickerSelectionMode.range,
@@ -103,19 +124,20 @@ class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
                     _selectedRange.start,
                     _selectedRange.end,
                   ),
-                  onSelectionChanged: (DateRangePickerSelectionChangedArgs args) {
-                    if (args.value is PickerDateRange) {
-                      final range = args.value as PickerDateRange;
-                      if (range.startDate != null) {
-                        setDialogState(() {
-                          tempRange = DateTimeRange(
-                            start: range.startDate!,
-                            end: range.endDate ?? range.startDate!,
-                          );
-                        });
-                      }
-                    }
-                  },
+                  onSelectionChanged:
+                      (DateRangePickerSelectionChangedArgs args) {
+                        if (args.value is PickerDateRange) {
+                          final range = args.value as PickerDateRange;
+                          if (range.startDate != null) {
+                            setDialogState(() {
+                              tempRange = DateTimeRange(
+                                start: range.startDate!,
+                                end: range.endDate ?? range.startDate!,
+                              );
+                            });
+                          }
+                        }
+                      },
                 ),
               ),
             ),
@@ -125,13 +147,15 @@ class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
                   Navigator.pop(dialogContext);
                   if (!mounted) return;
 
-                  setState(() => _selectedRange = DateTimeRange(
-                    start: DateTime.now().subtract(const Duration(days: 30)),
-                    end: DateTime.now(),
-                  ));
-                 widget.onDateSelected(null);
+                  setState(
+                    () => _selectedRange = DateTimeRange(
+                      start: DateTime.now().subtract(const Duration(days: 30)),
+                      end: DateTime.now(),
+                    ),
+                  );
+                  widget.onDateSelected(null);
                 },
-                child: const Text('Clear', style: TextStyle(color: Colors.white54)),
+                child: Text('Clear', style: TextStyle(color: mutedTextColor)),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -140,7 +164,12 @@ class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
                   setState(() => _selectedRange = tempRange);
                   widget.onDateSelected(tempRange);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectionColor,
+                  foregroundColor: isLightTheme
+                      ? colors.onPrimary
+                      : Colors.white,
+                ),
                 child: const Text('Apply'),
               ),
             ],
@@ -152,9 +181,6 @@ class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _openDatePicker,
-      child: widget.child,
-    );
+    return GestureDetector(onTap: _openDatePicker, child: widget.child);
   }
 }

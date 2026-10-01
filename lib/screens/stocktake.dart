@@ -5,8 +5,56 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../models/itemregmodel.dart';
-import '../paymentwidgets/BarcodeScannerScreen.dart';
 
+class _StockTakePalette {
+  _StockTakePalette(ThemeData theme)
+      : colorScheme = theme.colorScheme,
+        isDark = theme.brightness == Brightness.dark;
+
+  final ColorScheme colorScheme;
+  final bool isDark;
+
+  Color get background =>
+      isDark ? const Color(0xFF0F1826) : colorScheme.surface;
+  Color get appBar =>
+      isDark ? const Color(0xFF111E2E) : colorScheme.surface;
+  Color get card =>
+      isDark ? const Color(0xFF162032) : colorScheme.surfaceContainerLow;
+  Color get input =>
+      isDark ? const Color(0xFF1B2A3E) : Colors.white;
+  Color get primary =>
+      isDark ? const Color(0xFF3B8BEB) : colorScheme.primary;
+  Color get headerHighlight =>
+      isDark ? const Color(0xFF1A3A5C) : colorScheme.primaryContainer;
+  Color get text => isDark ? Colors.white : colorScheme.onSurface;
+  Color get textBody =>
+      isDark ? Colors.white70 : colorScheme.onSurfaceVariant;
+  Color get textSecondary =>
+      isDark ? Colors.white54 : colorScheme.onSurfaceVariant;
+  Color get textSubtle =>
+      isDark ? Colors.white38 : colorScheme.onSurfaceVariant;
+  Color get textMuted =>
+      isDark ? Colors.white30 : colorScheme.onSurfaceVariant;
+  Color get hint => isDark ? Colors.white24 : colorScheme.onSurfaceVariant;
+  Color get border =>
+      isDark ? Colors.white10 : colorScheme.outlineVariant;
+  Color get prominentBorder =>
+      isDark ? Colors.white12 : colorScheme.outlineVariant;
+  Color get disabledForeground =>
+      isDark ? Colors.white24 : colorScheme.onSurfaceVariant;
+  Color get disabledBackground =>
+      isDark
+          ? Colors.white10
+          : colorScheme.surfaceContainerHighest;
+  Color get success =>
+      isDark ? Colors.green.shade300 : Colors.green.shade800;
+  Color get successFill => isDark ? Colors.green : Colors.green.shade700;
+  Color get error => isDark ? Colors.red.shade300 : Colors.red.shade800;
+  Color get successBackground => Colors.green.shade700;
+  Color get errorBackground => Colors.red.shade700;
+  Color get warning =>
+      isDark ? Colors.orange.shade300 : Colors.orange.shade800;
+}
 
 class StockTake extends StatefulWidget {
   const StockTake({super.key});
@@ -58,6 +106,8 @@ class _StockTakeState extends State<StockTake> {
   final Map<String, bool> _rowSuccess = {};
   final Set<String> _updatedItems = <String>{};
 
+  _StockTakePalette get _palette =>
+      _StockTakePalette(Theme.of(context));
 
   @override
   void initState() {
@@ -323,7 +373,9 @@ class _StockTakeState extends State<StockTake> {
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black87,
+      barrierColor: Theme.of(context).brightness == Brightness.dark
+          ? Colors.black87
+          : Colors.black54,
       builder: (context) {
         return const Dialog(
           backgroundColor: Colors.transparent,
@@ -510,27 +562,12 @@ class _StockTakeState extends State<StockTake> {
         content: Text(message),
         backgroundColor:
         success
-            ? Colors.green[700]
-            : Colors.red[700],
+            ? _palette.successBackground
+            : _palette.errorBackground,
       ),
     );
   }
 
-
-  static const Color _background =
-  Color(0xFF0F1826);
-
-  static const Color _appBar =
-  Color(0xFF111E2E);
-
-  static const Color _card =
-  Color(0xFF162032);
-
-  static const Color _input =
-  Color(0xFF1B2A3E);
-
-  static const Color _primary =
-  Color(0xFF3B8BEB);
 
   InputDecoration _inputDecoration({
     String? hint,
@@ -538,12 +575,12 @@ class _StockTakeState extends State<StockTake> {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(
-        color: Colors.white24,
+      hintStyle: TextStyle(
+        color: _palette.hint,
         fontSize: 12,
       ),
       filled: true,
-      fillColor: _input,
+      fillColor: _palette.input,
       contentPadding:
       const EdgeInsets.symmetric(
         horizontal: 10,
@@ -555,8 +592,8 @@ class _StockTakeState extends State<StockTake> {
         borderRadius:
         BorderRadius.circular(8),
         borderSide:
-        const BorderSide(
-          color: Colors.white10,
+        BorderSide(
+          color: _palette.border,
         ),
       ),
       focusedBorder:
@@ -564,8 +601,8 @@ class _StockTakeState extends State<StockTake> {
         borderRadius:
         BorderRadius.circular(8),
         borderSide:
-        const BorderSide(
-          color: _primary,
+        BorderSide(
+          color: _palette.primary,
           width: 1.2,
         ),
       ),
@@ -576,19 +613,19 @@ class _StockTakeState extends State<StockTake> {
   Widget build(
       BuildContext context,
       ) {
+    final palette = _palette;
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: _appBar,
+        backgroundColor: palette.appBar,
         elevation: 0,
-        iconTheme:
-        const IconThemeData(
-          color: Colors.white70,
+        iconTheme: IconThemeData(
+          color: palette.textBody,
         ),
-        title: const Text(
+        title: Text(
           'Stock Take',
           style: TextStyle(
-            color: Colors.white,
+            color: palette.text,
             fontSize: 16,
             fontWeight:
             FontWeight.w600,
@@ -600,7 +637,7 @@ class _StockTakeState extends State<StockTake> {
           const Size.fromHeight(1),
           child: Container(
             height: 1,
-            color: Colors.white12,
+            color: palette.prominentBorder,
           ),
         ),
       ),
@@ -679,21 +716,21 @@ class _StockTakeState extends State<StockTake> {
       const EdgeInsets.all(16),
       decoration:
       BoxDecoration(
-        color: const Color(
-          0xFF1A3A5C,
-        ).withOpacity(.5),
+        color: _palette.isDark
+            ? _palette.headerHighlight.withValues(alpha: 0.5)
+            : Colors.white,
         borderRadius:
         BorderRadius.circular(12),
         border: Border.all(
           color:
-          _primary.withOpacity(.2),
+          _palette.primary.withOpacity(.2),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.inventory_2_outlined,
-            color: _primary,
+            color: _palette.primary,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -702,7 +739,7 @@ class _StockTakeState extends State<StockTake> {
               'Select a branch, search for an item, '
                   'enter the physical balance and update it.',
               style: TextStyle(
-                color: Colors.white
+                color: _palette.text
                     .withOpacity(.6),
                 fontSize: 12,
               ),
@@ -745,18 +782,18 @@ class _StockTakeState extends State<StockTake> {
         String>(
       value: _selectedBranchId,
       isExpanded: true,
-      dropdownColor: _input,
-      style: const TextStyle(
-        color: Colors.white,
+      dropdownColor: _palette.input,
+      style: TextStyle(
+        color: _palette.text,
         fontSize: 14,
       ),
       decoration:
       _inputDecoration(
         hint: 'Select branch...',
       ),
-      icon: const Icon(
+      icon: Icon(
         Icons.keyboard_arrow_down,
-        color: Colors.white38,
+        color: _palette.textSubtle,
       ),
       items: branches.map(
             (branch) {
@@ -768,9 +805,9 @@ class _StockTakeState extends State<StockTake> {
               branch.branchname
               as String,
               style:
-              const TextStyle(
+              TextStyle(
                 color:
-                Colors.white,
+                _palette.text,
               ),
             ),
           );
@@ -809,8 +846,8 @@ class _StockTakeState extends State<StockTake> {
     controller: _searchController,
     focusNode: _searchFocus,
     enabled: _selectedBranchId != null && !_loading,
-    style: const TextStyle(
-    color: Colors.white,
+    style: TextStyle(
+    color: _palette.text,
     fontSize: 13,
     ),
     decoration: _inputDecoration(
@@ -818,25 +855,25 @@ class _StockTakeState extends State<StockTake> {
     suffixIcon: _searchQuery.isNotEmpty
     ? IconButton(
     tooltip: 'Clear search',
-    icon: const Icon(
+    icon: Icon(
     Icons.close,
-    color: Colors.white38,
+    color: _palette.textSubtle,
     size: 17,
     ),
     onPressed: _clearSearch,
     )
-        : const Icon(
+        : Icon(
     Icons.search,
-    color: Colors.white30,
+    color: _palette.textMuted,
     size: 18,
     ),
     ),
     );
 
     final qrcode = IconButton(
-    icon: const Icon(
+    icon: Icon(
     Icons.qr_code_scanner,
-    color: Colors.white70,
+    color: _palette.textBody,
     ),
     onPressed: _scanBarcode,
     tooltip: 'Scan Barcode/QR Code',
@@ -861,20 +898,20 @@ class _StockTakeState extends State<StockTake> {
     child: Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-    color: _card,
+    color: _palette.card,
     borderRadius: BorderRadius.circular(12),
     border: Border.all(
-    color: Colors.white10,
+    color: _palette.border,
     ),
     ),
     child: isMobile
     ? Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-    const Text(
+    Text(
     'BRANCH',
     style: TextStyle(
-    color: Colors.white38,
+    color: _palette.textSubtle,
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.2,
@@ -887,10 +924,10 @@ class _StockTakeState extends State<StockTake> {
 
     const SizedBox(height: 14),
 
-    const Text(
+    Text(
     'SEARCH ITEMS',
     style: TextStyle(
-    color: Colors.white38,
+    color: _palette.textSubtle,
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.2,
@@ -911,10 +948,10 @@ class _StockTakeState extends State<StockTake> {
     crossAxisAlignment:
     CrossAxisAlignment.stretch,
     children: [
-    const Text(
+    Text(
     'BRANCH',
     style: TextStyle(
-    color: Colors.white38,
+    color: _palette.textSubtle,
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.2,
@@ -936,10 +973,10 @@ class _StockTakeState extends State<StockTake> {
     crossAxisAlignment:
     CrossAxisAlignment.stretch,
     children: [
-    const Text(
+    Text(
     'SEARCH ITEMS',
     style: TextStyle(
-    color: Colors.white38,
+    color: _palette.textSubtle,
     fontSize: 11,
     fontWeight: FontWeight.w600,
     letterSpacing: 1.2,
@@ -970,16 +1007,16 @@ class _StockTakeState extends State<StockTake> {
           minWidth: 0,
           maxWidth: 300,
         ),
-      child:const Column(
+      child: Column(
         children: [
           CircularProgressIndicator(
-            color: _primary,
+            color: _palette.primary,
           ),
           SizedBox(height: 14),
           Text(
             'Loading branch items...',
             style: TextStyle(
-              color: Colors.white54,
+              color: _palette.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -997,12 +1034,12 @@ class _StockTakeState extends State<StockTake> {
         minWidth: 0,
         maxWidth: 300,
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.account_tree_outlined,
-            color: Colors.white24,
+            color: _palette.hint,
             size: 40,
           ),
           SizedBox(height: 12),
@@ -1011,7 +1048,7 @@ class _StockTakeState extends State<StockTake> {
             textAlign: TextAlign.center,
             softWrap: true,
             style: TextStyle(
-              color: Colors.white38,
+              color: _palette.textSubtle,
               fontSize: 13,
             ),
           ),
@@ -1030,18 +1067,18 @@ class _StockTakeState extends State<StockTake> {
         const EdgeInsets.all(30),
         decoration:
         BoxDecoration(
-          color: _card,
+          color: _palette.card,
           borderRadius:
           BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white10,
+            color: _palette.border,
           ),
         ),
         child: Column(
           children: [
-            const Icon(
+            Icon(
               Icons.search_off,
-              color: Colors.white24,
+              color: _palette.hint,
               size: 36,
             ),
             const SizedBox(
@@ -1054,9 +1091,9 @@ class _StockTakeState extends State<StockTake> {
               textAlign:
               TextAlign.center,
               style:
-              const TextStyle(
+              TextStyle(
                 color:
-                Colors.white38,
+                _palette.textSubtle,
                 fontSize: 13,
               ),
             ),
@@ -1076,11 +1113,11 @@ class _StockTakeState extends State<StockTake> {
       child:Container(
       decoration:
       BoxDecoration(
-        color: _card,
+        color: _palette.card,
         borderRadius:
         BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white10,
+          color: _palette.border,
         ),
       ),
       child: Column(
@@ -1095,10 +1132,10 @@ class _StockTakeState extends State<StockTake> {
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons
                       .table_chart_outlined,
-                  color: _primary,
+                  color: _palette.primary,
                   size: 18,
                 ),
                 const SizedBox(
@@ -1110,9 +1147,9 @@ class _StockTakeState extends State<StockTake> {
                         ? '${_branchItems.length} items — $_selectedBranchName'
                         : '${_branchItems.length} matching items — $_selectedBranchName',
                     style:
-                    const TextStyle(
+                    TextStyle(
                       color:
-                      Colors.white70,
+                      _palette.textBody,
                       fontSize: 13,
                       fontWeight:
                       FontWeight
@@ -1125,18 +1162,18 @@ class _StockTakeState extends State<StockTake> {
                   Text(
                     'Search: $_searchQuery',
                     style:
-                    const TextStyle(
+                    TextStyle(
                       color:
-                      Colors.white30,
+                      _palette.textMuted,
                       fontSize: 10,
                     ),
                   ),
               ],
             ),
           ),
-          const Divider(
+          Divider(
             height: 1,
-            color: Colors.white10,
+            color: _palette.border,
           ),
           isMobile
               ? _buildMobileList()
@@ -1164,17 +1201,17 @@ class _StockTakeState extends State<StockTake> {
               child: DataTable(
                 headingRowColor:
                 WidgetStateProperty.all(
-                  const Color(0xFF111E2E),
+                  _palette.appBar,
                 ),
                 dataRowMinHeight: 34,
                 dataRowMaxHeight: 40,
                 columnSpacing: 14,
-                columns: const [
+                columns: [
                   DataColumn(
                     label: Text(
                       'ITEM',
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: _palette.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1185,7 +1222,7 @@ class _StockTakeState extends State<StockTake> {
                     label: Text(
                       'CURRENT',
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: _palette.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1195,7 +1232,7 @@ class _StockTakeState extends State<StockTake> {
                     label: Text(
                       'NEW BALANCE',
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: _palette.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1206,7 +1243,7 @@ class _StockTakeState extends State<StockTake> {
                     label: Text(
                       'DIFFERENCE',
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: _palette.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1216,7 +1253,7 @@ class _StockTakeState extends State<StockTake> {
                     label: Text(
                       'ACTION',
                       style: TextStyle(
-                        color: Colors.white54,
+                        color: _palette.textSecondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1268,9 +1305,9 @@ class _StockTakeState extends State<StockTake> {
                   // TextOverflow
                   //     .ellipsis,
                   style:
-                  const TextStyle(
+                  TextStyle(
                     color:
-                    Colors.white,
+                    _palette.text,
                     fontSize: 13,
                     fontWeight:
                     FontWeight.w500,
@@ -1285,9 +1322,9 @@ class _StockTakeState extends State<StockTake> {
           Text(
             _formatNumber(current),
             style:
-            const TextStyle(
+            TextStyle(
               color:
-              Colors.white70,
+              _palette.textBody,
               fontSize: 13,
               fontWeight:
               FontWeight.w600,
@@ -1308,9 +1345,9 @@ class _StockTakeState extends State<StockTake> {
                 decimal: true,
               ),
               style:
-              const TextStyle(
+              TextStyle(
                 color:
-                Colors.white,
+                _palette.text,
                 fontSize: 13,
               ),
               onChanged: (_) {
@@ -1351,13 +1388,13 @@ class _StockTakeState extends State<StockTake> {
 
     if (difference > 0) {
       textColor =
-      Colors.green[300]!;
+      _palette.success;
     } else if (difference < 0) {
       textColor =
-      Colors.orange[300]!;
+      _palette.warning;
     } else {
       textColor =
-          Colors.white30;
+          _palette.textMuted;
     }
 
     return Container(
@@ -1398,7 +1435,7 @@ class _StockTakeState extends State<StockTake> {
     final updated = _updatedItems.contains(itemId);
 
     if (updating) {
-      return const SizedBox(
+      return SizedBox(
         width: 100,
         child: Center(
           child: SizedBox(
@@ -1406,7 +1443,7 @@ class _StockTakeState extends State<StockTake> {
             height: 15,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: _primary,
+              color: _palette.primary,
             ),
           ),
         ),
@@ -1420,10 +1457,10 @@ class _StockTakeState extends State<StockTake> {
           horizontal: 12,
         ),
         decoration: BoxDecoration(
-          color: Colors.green.withOpacity(.10),
+          color: _palette.successFill.withOpacity(.10),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: Colors.green.withOpacity(.25),
+            color: _palette.successFill.withOpacity(.25),
           ),
         ),
         child: Row(
@@ -1432,13 +1469,13 @@ class _StockTakeState extends State<StockTake> {
             Icon(
               Icons.check_circle,
               size: 15,
-              color: Colors.green[300],
+              color: _palette.success,
             ),
             const SizedBox(width: 6),
             Text(
               'Updated',
               style: TextStyle(
-                color: Colors.green[300],
+                color: _palette.success,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -1454,11 +1491,11 @@ class _StockTakeState extends State<StockTake> {
         onPressed: difference == 0
             ? null
             : () => _updateItem(item),
-        icon: const Icon(
+        icon: Icon(
           Icons.save_outlined,
           size: 15,
         ),
-        label: const Text(
+        label: Text(
           'Update',
           style: TextStyle(
             fontSize: 11,
@@ -1466,10 +1503,10 @@ class _StockTakeState extends State<StockTake> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primary,
-          disabledBackgroundColor: Colors.white10,
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white24,
+          backgroundColor: _palette.primary,
+          disabledBackgroundColor: _palette.disabledBackground,
+          foregroundColor: _palette.text,
+          disabledForegroundColor: _palette.disabledForeground,
           elevation: 0,
           padding: const EdgeInsets.symmetric(
             horizontal: 12,
@@ -1492,9 +1529,9 @@ class _StockTakeState extends State<StockTake> {
       _branchItems.length,
       separatorBuilder:
           (_, __) =>
-      const Divider(
+      Divider(
         height: 1,
-        color: Colors.white10,
+        color: _palette.border,
       ),
       itemBuilder:
           (context, index) {
@@ -1534,7 +1571,7 @@ class _StockTakeState extends State<StockTake> {
                     height: 34,
                     decoration:
                     BoxDecoration(
-                      color: _primary
+                      color: _palette.primary
                           .withOpacity(
                         .1,
                       ),
@@ -1545,11 +1582,11 @@ class _StockTakeState extends State<StockTake> {
                       ),
                     ),
                     child:
-                    const Icon(
+                    Icon(
                       Icons
                           .inventory_2_outlined,
                       color:
-                      _primary,
+                      _palette.primary,
                       size: 17,
                     ),
                   ),
@@ -1569,9 +1606,9 @@ class _StockTakeState extends State<StockTake> {
                           TextOverflow
                               .ellipsis,
                           style:
-                          const TextStyle(
+                          TextStyle(
                             color:
-                            Colors.white,
+                            _palette.text,
                             fontSize: 13,
                             fontWeight:
                             FontWeight
@@ -1588,9 +1625,9 @@ class _StockTakeState extends State<StockTake> {
                           TextOverflow
                               .ellipsis,
                           style:
-                          const TextStyle(
+                          TextStyle(
                             color:
-                            Colors.white30,
+                            _palette.textMuted,
                             fontSize: 10,
                           ),
                         ),
@@ -1631,9 +1668,9 @@ class _StockTakeState extends State<StockTake> {
                         decimal: true,
                       ),
                       style:
-                      const TextStyle(
+                      TextStyle(
                         color:
-                        Colors.white,
+                        _palette.text,
                         fontSize: 13,
                       ),
                       onChanged:
@@ -1661,12 +1698,12 @@ class _StockTakeState extends State<StockTake> {
                       CrossAxisAlignment
                           .start,
                       children: [
-                        const Text(
+                        Text(
                           'DIFFERENCE',
                           style:
                           TextStyle(
                             color:
-                            Colors.white30,
+                            _palette.textMuted,
                             fontSize: 9,
                             fontWeight:
                             FontWeight
@@ -1716,10 +1753,8 @@ class _StockTakeState extends State<StockTake> {
                       color: _rowSuccess[
                       itemId] ==
                           true
-                          ? Colors.green[
-                      300]
-                          : Colors.red[
-                      300],
+                          ? _palette.success
+                          : _palette.error,
                     ),
                     const SizedBox(
                       width: 6,
@@ -1733,12 +1768,8 @@ class _StockTakeState extends State<StockTake> {
                           color: _rowSuccess[
                           itemId] ==
                               true
-                              ? Colors
-                              .green[
-                          300]
-                              : Colors
-                              .red[
-                          300],
+                              ? _palette.success
+                              : _palette.error,
                           fontSize: 10,
                         ),
                       ),
@@ -1764,9 +1795,9 @@ class _StockTakeState extends State<StockTake> {
         Text(
           label,
           style:
-          const TextStyle(
+          TextStyle(
             color:
-            Colors.white30,
+            _palette.textMuted,
             fontSize: 9,
             fontWeight:
             FontWeight.w600,
@@ -1778,9 +1809,9 @@ class _StockTakeState extends State<StockTake> {
         Text(
           value,
           style:
-          const TextStyle(
+          TextStyle(
             color:
-            Colors.white70,
+            _palette.textBody,
             fontSize: 14,
             fontWeight:
             FontWeight.w600,
@@ -1801,6 +1832,9 @@ class BarcodeScannerDialog extends StatefulWidget {
 
 class _BarcodeScannerDialogState
     extends State<BarcodeScannerDialog> {
+  _StockTakePalette get _palette =>
+      _StockTakePalette(Theme.of(context));
+
   final MobileScannerController cameraController =
   MobileScannerController();
 
@@ -1839,10 +1873,10 @@ class _BarcodeScannerDialogState
         maxHeight: 650,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF111E2E),
+        color: _palette.appBar,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: Colors.white12,
+          color: _palette.prominentBorder,
         ),
         boxShadow: const [
           BoxShadow(
@@ -1866,19 +1900,19 @@ class _BarcodeScannerDialogState
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.qr_code_scanner,
-                  color: Colors.white70,
+                  color: _palette.textBody,
                   size: 21,
                 ),
 
                 const SizedBox(width: 10),
 
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Scan Barcode / QR Code',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: _palette.text,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1887,9 +1921,9 @@ class _BarcodeScannerDialogState
 
                 IconButton(
                   tooltip: 'Close',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close,
-                    color: Colors.white54,
+                    color: _palette.textSecondary,
                   ),
                   onPressed: () {
                     Navigator.of(context).pop();
@@ -1956,7 +1990,7 @@ class _BarcodeScannerDialogState
                       borderRadius:
                       BorderRadius.circular(8),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Position the barcode or QR code inside the frame',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -2000,7 +2034,7 @@ class _BarcodeScannerDialogState
                         flashOn
                             ? Icons.flash_on
                             : Icons.flash_off,
-                        color: Colors.white70,
+                        color: _palette.textBody,
                       ),
                       onPressed: () {
                         cameraController.toggleTorch();
@@ -2013,9 +2047,9 @@ class _BarcodeScannerDialogState
 
                 IconButton(
                   tooltip: 'Switch camera',
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.cameraswitch,
-                    color: Colors.white70,
+                    color: _palette.textBody,
                   ),
                   onPressed: () {
                     cameraController.switchCamera();
@@ -2055,7 +2089,3 @@ class ScannerOverlayPainter extends CustomPainter {
     return false;
   }
 }
-
-
-
-

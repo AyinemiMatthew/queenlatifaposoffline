@@ -10,7 +10,7 @@ import 'ReturnReasonList.dart';
 class ReturnReasons extends StatefulWidget {
   final String? docId;
   final Map<String, dynamic>? data;
-  const ReturnReasons({Key? key,this.docId, this.data}) : super(key: key);
+  const ReturnReasons({Key? key, this.docId, this.data}) : super(key: key);
 
   @override
   State<ReturnReasons> createState() => _ReturnReasonsState();
@@ -21,7 +21,6 @@ class _ReturnReasonsState extends State<ReturnReasons> {
   final TextEditingController _nameController = TextEditingController();
   bool _isLoading = false;
   @override
-
   initState() {
     super.initState();
     if (widget.data != null) {
@@ -34,30 +33,35 @@ class _ReturnReasonsState extends State<ReturnReasons> {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final formWidth = screenWidth > 900 ? screenWidth * 0.6 : screenWidth * 0.95;
+        final colorScheme = Theme.of(context).colorScheme;
+        final formWidth = screenWidth > 900
+            ? screenWidth * 0.6
+            : screenWidth * 0.95;
 
         return Scaffold(
-
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text(widget.docId != null ? "Edit Reason" : "Register Reasons"),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
-            elevation: 2,
+            title: Text(
+              widget.docId != null ? "Edit Reason" : "Register Reasons",
+            ),
+            backgroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.surface
+                : Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.onSurface
+                : Theme.of(context).colorScheme.onPrimary,
           ),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(10.0),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                    maxWidth: 700
-                ),
+                constraints: BoxConstraints(maxWidth: 700),
                 child: Form(
                   key: _formKey,
                   child: ListView(
                     children: [
                       Card(
-                        color: const Color(0xFF182232),
+                        color: Theme.of(context).colorScheme.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -65,38 +69,52 @@ class _ReturnReasonsState extends State<ReturnReasons> {
                           padding: const EdgeInsets.all(12),
                           child: Column(
                             children: [
-
                               TextFormField(
                                 controller: _nameController,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
                                 decoration: InputDecoration(
                                   labelText: 'Name',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
+                                  labelStyle: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
-                                  prefixIcon: const Icon(
+                                  prefixIcon: Icon(
                                     Icons.mode,
-                                    color: Colors.white70,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
+                                    borderSide: BorderSide(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outline,
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.blue,
+                                    borderSide: BorderSide(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   filled: true,
                                 ),
-                                validator: (value) => value == null || value.isEmpty
+                                validator: (value) =>
+                                    value == null || value.isEmpty
                                     ? 'Enter reason'
                                     : null,
                               ),
@@ -111,96 +129,150 @@ class _ReturnReasonsState extends State<ReturnReasons> {
                                     width: 200,
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue,
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        backgroundColor: colorScheme.secondary,
+                                        foregroundColor: colorScheme.onPrimary,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14)),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
                                       ),
                                       onPressed: _isLoading
                                           ? null
                                           : () async {
-                                        if (!_formKey.currentState!.validate()) return;
-                                        setState(() => _isLoading = true);
-                                        final name = _nameController.text.trim();
-                                        String docid = value.normalizeAndSanitize("${value.companyid}${name}");
-                                        final id = widget.docId ?? docid;
+                                              if (!_formKey.currentState!
+                                                  .validate())
+                                                return;
+                                              setState(() => _isLoading = true);
+                                              final name = _nameController.text
+                                                  .trim();
+                                              String docid = value
+                                                  .normalizeAndSanitize(
+                                                    "${value.companyid}${name}",
+                                                  );
+                                              final id = widget.docId ?? docid;
 
+                                              try {
+                                                cropModel newMode = cropModel(
+                                                  name: name,
+                                                  staff: value.staff,
+                                                  id: id,
+                                                  date: DateTime.now(),
+                                                  companyid: value.companyid,
+                                                  company: value.company,
+                                                );
 
-                                        try {
-                                          cropModel newMode = cropModel(
-                                            name: name,
-                                            staff: value.staff,
-                                            id:id,
-                                            date: DateTime.now(),
-                                            companyid: value.companyid,
-                                            company:value.company,
-                                          );
+                                                await value.db
+                                                    .collection(
+                                                      'return_reasons',
+                                                    )
+                                                    .doc(id)
+                                                    .set(newMode.toMap());
 
-                                          await value.db
-                                              .collection('return_reasons')
-                                              .doc(id)
-                                              .set(newMode.toMap());
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      widget.docId != null
+                                                          ? "Reason updated successfully"
+                                                          : "reason saved successfully",
+                                                    ),
+                                                  ),
+                                                );
 
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(widget.docId != null
-                                                  ? "Reason updated successfully"
-                                                  : "reason saved successfully"),
-                                            ),
-                                          );
-
-                                          _formKey.currentState!.reset();
-                                          _nameController.clear();
-                                        } catch (e) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text("Error: ${e.toString()}")),
-                                          );
-                                        } finally {
-                                          setState(() => _isLoading = false);
-                                        }
-                                      },
+                                                _formKey.currentState!.reset();
+                                                _nameController.clear();
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      "Error: ${e.toString()}",
+                                                    ),
+                                                  ),
+                                                );
+                                              } finally {
+                                                setState(
+                                                  () => _isLoading = false,
+                                                );
+                                              }
+                                            },
                                       child: _isLoading
-                                          ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                          AlwaysStoppedAnimation(Colors.white),
-                                        ),
-                                      )
+                                          ? SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor:
+                                                    AlwaysStoppedAnimation(
+                                                      Colors.white,
+                                                    ),
+                                              ),
+                                            )
                                           : Text(
-                                        widget.docId != null ? "Update" : "Register",
-                                        style: const TextStyle(
-                                            fontSize: 16, fontWeight: FontWeight.bold,color: Colors.white),
-                                      ),
+                                              widget.docId != null
+                                                  ? "Update"
+                                                  : "Register",
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   SizedBox(
                                     width: 200,
                                     child: OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Colors.white70),
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        foregroundColor: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        side: BorderSide(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outline,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14)),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
                                       ),
-                                      icon: const Icon(Icons.view_list, color: Colors.white70),
-                                      label: const Text("View",
-                                          style: TextStyle(color: Colors.white70)),
+                                      icon: Icon(
+                                        Icons.view_list,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                      ),
+                                      label: Text(
+                                        "View",
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
+                                        ),
+                                      ),
                                       onPressed: () {
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                              builder: (_) => ReturnReasonLists()),
+                                            builder: (_) => ReturnReasonLists(),
+                                          ),
                                         );
                                       },
                                     ),
                                   ),
                                 ],
-                              )
-
-
+                              ),
                             ],
                           ),
                         ),

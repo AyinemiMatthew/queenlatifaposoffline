@@ -1,18 +1,4 @@
-// ============================================================
-//  lib/services/print_manager.dart
-//  Kologsoft — Smart Print Manager Mixin
-//
-//  Mix this into any StatefulWidget State to get:
-//    silentPrint(pdf)      auto-detects printer, prints silently
-//    changePrinter()       lets user pick a new printer
-//    showPrinterPicker()   shows dark-themed picker dialog
-//
-//  Priority order:
-//    1. Saved printer from last session  (SharedPreferences)
-//    2. Windows default printer          (Win32 GetDefaultPrinter)
-//    3. First printer in the list        (fallback)
-//    4. User picker dialog               (last resort)
-// ============================================================
+
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -22,11 +8,6 @@ import 'print_service.dart';
 
 mixin PrintManager<T extends StatefulWidget> on State<T> {
 
-  // ----------------------------------------------------------
-  //  silentPrint(pdf)
-  //  Main entry point. Call this wherever you currently call
-  //  Printing.layoutPdf(). No Windows dialog will appear.
-  // ----------------------------------------------------------
   Future<void> silentPrint(pw.Document pdf) async {
     if (kIsWeb) {
       await Printing.layoutPdf(onLayout: (_) async => pdf.save());

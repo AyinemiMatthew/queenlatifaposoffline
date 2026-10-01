@@ -17,21 +17,29 @@ class DiscountCodeListPage extends StatefulWidget {
 }
 
 class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
+  ColorScheme get _colors => Theme.of(context).colorScheme;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor => _colors.onSurface;
+  Color get _mutedTextColor =>
+      _isLightTheme ? _colors.onSurfaceVariant : Colors.white70;
+  Color get _borderColor => _isLightTheme ? _colors.outline : Colors.white24;
+  Color get _usedTextColor =>
+      _isLightTheme ? _colors.onSurfaceVariant : Colors.white38;
+  Color get _activeStatusColor =>
+      _isLightTheme ? Colors.green.shade700 : Colors.greenAccent;
+  Color get _inactiveStatusColor =>
+      _isLightTheme ? Colors.deepOrange.shade700 : Colors.orangeAccent;
 
   String _filter = 'all';
   final ScrollController _scrollController = ScrollController();
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-          () => context.read<Datafeed>().fetchDiscountCodes(),
-    );
+    Future.microtask(() => context.read<Datafeed>().fetchDiscountCodes());
   }
 
-
   Future<void> _edit(DiscountCodeModel dc) async {
-    final amtCtrl  = TextEditingController(
-    text: dc.amount.toStringAsFixed(2));
+    final amtCtrl = TextEditingController(text: dc.amount.toStringAsFixed(2));
 
     DateTime? newExpiry = dc.expiresAt?.toDate();
     bool newActive = dc.isActive;
@@ -40,21 +48,27 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          backgroundColor: const Color(0xFF1B263B),
-          title: Text(
-            'Edit  ${dc.code}',
-            style: const TextStyle(color: Colors.white),
-          ),
+          backgroundColor: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest,
+          title: Text('Edit  ${dc.code}', style: TextStyle(color: _textColor)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-
               // Amount
               TextFormField(
-                controller:   amtCtrl,
-                style:        const TextStyle(color: Colors.white),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: decorationInput('Amount (GHS)', prefix: 'GHS  '),
+                controller: amtCtrl,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: decorationInput(
+                  context,
+                  'Amount (GHS)',
+                  prefix: 'GHS  ',
+                ),
               ),
               const SizedBox(height: 14),
 
@@ -62,17 +76,17 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
               GestureDetector(
                 onTap: () async {
                   final p = await showDatePicker(
-                    context:     ctx,
-                    initialDate: newExpiry ??
+                    context: ctx,
+                    initialDate:
+                        newExpiry ??
                         DateTime.now().add(const Duration(days: 7)),
-                    firstDate:   DateTime.now(),
-                    lastDate:    DateTime.now()
-                        .add(const Duration(days: 365)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
                     builder: (_, child) => Theme(
-                      data: ThemeData.dark().copyWith(
-                        colorScheme: const ColorScheme.dark(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: Theme.of(context).colorScheme.copyWith(
                           primary: Colors.blue,
-                          surface: Color(0xFF1B263B),
+                          surface: Theme.of(context).colorScheme.surface,
                         ),
                       ),
                       child: child!,
@@ -82,24 +96,32 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 14),
-                  decoration: BoxDecoration(
-                    color:        const Color(0xFF22304A),
-                    borderRadius: BorderRadius.circular(12),
-                    border:       Border.all(color: Colors.white24),
+                    horizontal: 12,
+                    vertical: 14,
                   ),
-                  child: Row(children: [
-                    const Icon(Icons.calendar_today,
-                        color: Colors.white54, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      newExpiry != null
-                          ? 'Expires: ${_formatDate(newExpiry!)}'
-                          : 'No expiry — tap to set',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 13),
-                    ),
-                  ]),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        color: _mutedTextColor,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        newExpiry != null
+                            ? 'Expires: ${_formatDate(newExpiry!)}'
+                            : 'No expiry - tap to set',
+                        style: TextStyle(color: _mutedTextColor, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -108,12 +130,11 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Active',
-                      style: TextStyle(color: Colors.white70)),
+                  Text('Active', style: TextStyle(color: _mutedTextColor)),
                   Switch(
-                    value:       newActive,
+                    value: newActive,
                     activeColor: Colors.greenAccent,
-                    onChanged:   (v) => setS(() => newActive = v),
+                    onChanged: (v) => setS(() => newActive = v),
                   ),
                 ],
               ),
@@ -122,18 +143,15 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white54)),
+              child: Text('Cancel', style: TextStyle(color: _mutedTextColor)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
               onPressed: () async {
-
                 final amt = double.tryParse(amtCtrl.text.trim());
                 if (amt == null || amt <= 0) return;
-                dc.amount    = amt;
-                dc.isActive  = newActive;
+                dc.amount = amt;
+                dc.isActive = newActive;
 
                 dc.expiresAt = newExpiry != null
                     ? Timestamp.fromDate(newExpiry!)
@@ -142,8 +160,12 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                 await context.read<Datafeed>().editDiscountCode(dc);
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Save',
-                  style: TextStyle(color: Colors.white)),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
             ),
           ],
         ),
@@ -152,83 +174,88 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
     amtCtrl.dispose();
   }
 
-
   Future<void> _delete(DiscountCodeModel dc) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
-        title: const Text('Delete Code', style: TextStyle(color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        title: Text('Delete Code', style: TextStyle(color: _textColor)),
         content: Text(
           'Delete "${dc.code}"? Cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: _mutedTextColor),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: Colors.white54)),
+            child: Text('Cancel', style: TextStyle(color: _mutedTextColor)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete',
-                style: TextStyle(color: Colors.white)),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: Theme.of(context).colorScheme.onError),
+            ),
           ),
         ],
       ),
     );
     if (confirm != true || !mounted) return;
-    final ok =
-    await context.read<Datafeed>().deleteDiscountCode(dc.id);
+    final ok = await context.read<Datafeed>().deleteDiscountCode(dc.id);
     if (!ok && mounted) {
-      snackMsg(context,'Cannot delete a used code.', Colors.red);
+      snackMsg(context, 'Cannot delete a used code.', Colors.red);
     }
   }
 
-
   void _copy(String code) {
     Clipboard.setData(ClipboardData(text: code));
-    snackMsg(context,'"$code" copied', Colors.green,
-        dur: const Duration(seconds: 1));
+    snackMsg(
+      context,
+      '"$code" copied',
+      Colors.green,
+      dur: const Duration(seconds: 1),
+    );
   }
+
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (_, datafeed, _) {
-        final all     = datafeed.discountCodes;
-        final active  = all.where((c) => c.canBeUsed).length;
-        final used    = all.where((c) => c.isUsed).length;
+        final all = datafeed.discountCodes;
+        final active = all.where((c) => c.canBeUsed).length;
+        final used = all.where((c) => c.isUsed).length;
         final expired = all.where((c) => c.isExpired).length;
 
         final filtered = all.where((c) {
-          if (_filter == 'active')  return c.canBeUsed;
-          if (_filter == 'used')    return c.isUsed;
+          if (_filter == 'active') return c.canBeUsed;
+          if (_filter == 'used') return c.isUsed;
           if (_filter == 'expired') return c.isExpired;
           return true;
         }).toList();
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            title: const Text( 'Discount Codes',
+            title: Text(
+              'Discount Codes',
               style: TextStyle(
-                color:         Colors.white,
-                fontSize:      16,
-                fontWeight:    FontWeight.bold,
+                color: _textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
                 letterSpacing: 1,
               ),
             ),
             centerTitle: true,
-            backgroundColor: const Color(0xFF1B263B),
-            iconTheme:       const IconThemeData(color: Colors.white),
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
+            iconTheme: IconThemeData(color: _textColor),
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 12),
@@ -238,20 +265,19 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                     foregroundColor: Colors.blue,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: const BorderSide(
-                          color: Colors.blue, width: 0.8),
+                      side: const BorderSide(color: Colors.blue, width: 0.8),
                     ),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                   ),
-                  icon:     const Icon(Icons.add, size: 18),
-                  label:    const Text('New Code',
-                      style: TextStyle(fontSize: 13)),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('New Code', style: TextStyle(fontSize: 13)),
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                      const DiscountCodeRegisterPage(),
+                      builder: (_) => const DiscountCodeRegisterPage(),
                     ),
                   ),
                 ),
@@ -266,70 +292,89 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                 constraints: const BoxConstraints(maxWidth: 800),
                 child: Column(
                   children: [
-
                     // Filter chips
                     Padding(
-                      padding: const EdgeInsets.only(left: 16.0,right: 16),
+                      padding: const EdgeInsets.only(left: 16.0, right: 16),
                       child: Container(
-                        color:   const Color(0xFF1B263B),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         child: Wrap(
                           spacing: 8,
-                            children: [
-                          _chipDiscount('All',  'all',   all.length),
-                        //  const SizedBox(width: 8),
-                          _chipDiscount('Active', 'active',  active),
-                        //  const SizedBox(width: 8),
-                          _chipDiscount('Used','used',    used),
-                        //  const SizedBox(width: 8),
-                          _chipDiscount('Expired','expired', expired),
-                        ]),
+                          children: [
+                            _chipDiscount('All', 'all', all.length),
+                            //  const SizedBox(width: 8),
+                            _chipDiscount('Active', 'active', active),
+                            //  const SizedBox(width: 8),
+                            _chipDiscount('Used', 'used', used),
+                            //  const SizedBox(width: 8),
+                            _chipDiscount('Expired', 'expired', expired),
+                          ],
+                        ),
                       ),
                     ),
 
                     Expanded(
                       child: filtered.isEmpty
                           ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.discount_outlined,
-                                color: Colors.white24, size: 56),
-                            SizedBox(height: 12),
-                            Text('No codes here',
-                                style: TextStyle(
-                                    color:    Colors.white38,
-                                    fontSize: 15)),
-                          ],
-                        ),
-                      )
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.discount_outlined,
+                                    color: _mutedTextColor,
+                                    size: 56,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'No codes here',
+                                    style: TextStyle(
+                                      color: _mutedTextColor,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
                           : ScrollbarTheme(
-                         data: ScrollbarThemeData(
-                          thumbColor: MaterialStateProperty.all(Color(0xFF22304A)),
-                          trackColor: MaterialStateProperty.all(Colors.grey.shade300),
-                          thickness: MaterialStateProperty.all(10),
-                          radius: const Radius.circular(10),
-                          thumbVisibility: MaterialStateProperty.all(true),
-                        ),
-                            child: Scrollbar(
-                              controller: _scrollController,
-                              thumbVisibility: true,
-                              interactive: true,
-                              thickness: 10,
-                              radius: const Radius.circular(10),
-                              child: ListView.separated(
+                              data: ScrollbarThemeData(
+                                thumbColor: MaterialStateProperty.all(
+                                  _isLightTheme
+                                      ? _colors.outline
+                                      : const Color(0xFF22304A),
+                                ),
+                                trackColor: MaterialStateProperty.all(
+                                  Colors.grey.shade300,
+                                ),
+                                thickness: MaterialStateProperty.all(10),
+                                radius: const Radius.circular(10),
+                                thumbVisibility: MaterialStateProperty.all(
+                                  true,
+                                ),
+                              ),
+                              child: Scrollbar(
                                 controller: _scrollController,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.all(16),
-                                itemCount: filtered.length,
-                                separatorBuilder: (_, __) =>
-                                const SizedBox(height: 10),
-                                itemBuilder: (_, i) =>
-                                _buildTile(filtered[i]),
-                                                    ),
-                                                  ),
-                          ),
+                                thumbVisibility: true,
+                                interactive: true,
+                                thickness: 10,
+                                radius: const Radius.circular(10),
+                                child: ListView.separated(
+                                  controller: _scrollController,
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 10),
+                                  itemBuilder: (_, i) =>
+                                      _buildTile(filtered[i]),
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -346,21 +391,19 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
     return GestureDetector(
       onTap: () => setState(() => _filter = value),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color:  sel
+          color: sel
               ? Colors.orangeAccent.withOpacity(0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border:       Border.all(
-              color: sel ? Colors.blue : Colors.white24),
+          border: Border.all(color: sel ? Colors.blue : _borderColor),
         ),
         child: Text(
           '$label ($count)',
           style: TextStyle(
-            color:      sel ? Colors.blue : Colors.white54,
-            fontSize:   11,
+            color: sel ? Colors.blue : _mutedTextColor,
+            fontSize: 11,
             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -372,42 +415,41 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
     Color dotColor;
     String statusLabel;
     if (dc.isUsed) {
-      dotColor    = Colors.white24;
+      dotColor = _mutedTextColor;
       statusLabel = 'Used';
     } else if (dc.isExpired) {
-      dotColor    = Colors.redAccent;
+      dotColor = _isLightTheme ? Colors.red.shade700 : Colors.redAccent;
       statusLabel = 'Expired';
     } else if (dc.isActive) {
-      dotColor    = Colors.greenAccent;
+      dotColor = _activeStatusColor;
       statusLabel = 'Active';
     } else {
-      dotColor    = Colors.orangeAccent;
+      dotColor = _inactiveStatusColor;
       statusLabel = 'Inactive';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color:        const Color(0xFF182232),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: dc.isUsed
-              ? Colors.white12
+              ? _isLightTheme
+                    ? _borderColor.withOpacity(0.35)
+                    : Colors.white12
               : dc.canBeUsed
               ? Colors.green.withOpacity(0.35)
-              : Colors.white24,
+              : _borderColor,
         ),
       ),
       child: Wrap(
         children: [
-
           // Status dot
           Container(
-            width: 10, height: 10,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle, color: dotColor,
-            ),
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
           ),
           const SizedBox(width: 12),
 
@@ -415,57 +457,59 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 // Code + amount + status badge
                 Wrap(
-                  spacing:     8,
-                  runSpacing:  4,
+                  spacing: 8,
+                  runSpacing: 4,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       dc.code,
                       style: TextStyle(
-                        color: dc.isUsed
-                            ? Colors.white38
-                            : Colors.white,
-                        fontWeight:    FontWeight.bold,
-                        fontSize:      15,
+                        color: dc.isUsed ? _usedTextColor : _textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
                         letterSpacing: 1.5,
-                        decoration:    dc.isUsed
+                        decoration: dc.isUsed
                             ? TextDecoration.lineThrough
                             : null,
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: dc.isUsed
-                            ? Colors.white12
+                            ? (_isLightTheme
+                                  ? _borderColor.withOpacity(0.2)
+                                  : Colors.white12)
                             : Colors.orangeAccent.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         'GHS ${dc.amount.toStringAsFixed(2)}',
                         style: TextStyle(
-                          color: dc.isUsed
-                              ? Colors.white38
-                              : Colors.blue,
-                          fontSize:   12,
+                          color: dc.isUsed ? _usedTextColor : Colors.blue,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color:        dotColor.withOpacity(0.15),
+                        color: dotColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(statusLabel,
-                          style: TextStyle(
-                              color: dotColor, fontSize: 10)),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(color: dotColor, fontSize: 10),
+                      ),
                     ),
                   ],
                 ),
@@ -484,26 +528,27 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                         dc.usedBranch != null &&
                         dc.usedBranch!.isNotEmpty)
                       'by ${dc.usedBranch}',
-                  ].join('  •  '),
-                  style: const TextStyle(
-                      color: Colors.white38, fontSize: 11),
+                  ].join('  -  '),
+                  style: TextStyle(color: _mutedTextColor, fontSize: 11),
                 ),
               ],
             ),
           ),
 
-          // Actions — copy + edit
+          // Actions - copy + edit
           if (!dc.isUsed && !dc.isExpired) ...[
             IconButton(
-              icon:      const Icon(Icons.copy,
-                  color: Colors.white54, size: 20),
-              tooltip:   'Copy',
+              icon: Icon(Icons.copy, color: _mutedTextColor, size: 20),
+              tooltip: 'Copy',
               onPressed: () => _copy(dc.code),
             ),
             IconButton(
-              icon:      const Icon(Icons.edit_outlined,
-                  color: Colors.green, size: 20),
-              tooltip:   'Edit',
+              icon: const Icon(
+                Icons.edit_outlined,
+                color: Colors.green,
+                size: 20,
+              ),
+              tooltip: 'Edit',
               onPressed: () => _edit(dc),
             ),
           ],
@@ -511,14 +556,10 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
           IconButton(
             icon: Icon(
               Icons.delete_outline,
-              color: dc.isUsed
-                  ? Colors.white24
-                  : Colors.redAccent,
+              color: dc.isUsed ? _mutedTextColor : Colors.redAccent,
               size: 20,
             ),
-            tooltip:   dc.isUsed
-                ? 'Cannot delete used code'
-                : 'Delete',
+            tooltip: dc.isUsed ? 'Cannot delete used code' : 'Delete',
             onPressed: dc.isUsed ? null : () => _delete(dc),
           ),
         ],
@@ -528,6 +569,6 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
 
   String _formatDate(DateTime dt) =>
       '${dt.day.toString().padLeft(2, '0')}/'
-          '${dt.month.toString().padLeft(2, '0')}/'
-          '${dt.year}';
+      '${dt.month.toString().padLeft(2, '0')}/'
+      '${dt.year}';
 }

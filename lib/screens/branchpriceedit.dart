@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,7 +35,6 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
   final _costController = TextEditingController();
   int pricingStep = 0;
   bool _enableBoxPricing = false;
-  bool _showBoxPricingSwitch = false;
   final _boxQtyController = TextEditingController();
   final _halfboxqty_controller = TextEditingController();
   final _quarterqty_controller = TextEditingController();
@@ -56,6 +54,10 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
 
   String? branchname;
   Mode? modess;
+
+  String _formatSplitQuantity(double quantity) {
+    return quantity.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
 
   String? _validateField(String fieldName, String? value) {
     if (value == null || value.isEmpty) {
@@ -104,7 +106,7 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
         return null;
 
       case 'boxQty':
-        final boxQty = int.tryParse(value) ?? 0;
+        final boxQty = double.tryParse(value) ?? 0;
         if (boxQty < 1) {
           return 'Box quantity must be at least 1';
         }
@@ -173,17 +175,17 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
         return null;
 
       case 'halfBoxQty':
-        final halfBoxQty = int.tryParse(value) ?? 0;
-        final boxQty = int.tryParse(_boxQtyController.text) ?? 0;
+        final halfBoxQty = double.tryParse(value) ?? 0;
+        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
 
         if (boxQty == 0) return null;
 
-        final requiredHalfQty = (boxQty / 2).ceil();
+        final requiredHalfQty = boxQty / 2;
         if (halfBoxQty > boxQty) {
           return 'Half Box Qty cannot exceed Box Qty';
         }
-        if (halfBoxQty < requiredHalfQty) {
-          return 'Half Box Qty must be at least $requiredHalfQty';
+        if ((halfBoxQty - requiredHalfQty).abs() > 0.001) {
+          return 'Half Box Qty must be $requiredHalfQty';
         }
         return null;
 
@@ -202,19 +204,19 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
         return null;
 
       case 'quarterQty':
-        final quarterQty = int.tryParse(value) ?? 0;
-        final boxQty = int.tryParse(_boxQtyController.text) ?? 0;
-        final halfQty = int.tryParse(_halfboxqty_controller.text) ?? 0;
-        final packQty = int.tryParse(_packQtyController.text) ?? 0;
+        final quarterQty = double.tryParse(value) ?? 0;
+        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
+        final halfQty = double.tryParse(_halfboxqty_controller.text) ?? 0;
+        final packQty = double.tryParse(_packQtyController.text) ?? 0;
 
         if (boxQty == 0) return null;
 
-        final requiredQuarterQty = (boxQty / 4).ceil();
+        final requiredQuarterQty = boxQty / 4;
         if (quarterQty > boxQty) {
           return 'Quarter Qty cannot exceed Box Qty';
         }
-        if (quarterQty < requiredQuarterQty) {
-          return 'Quarter Qty must be at least $requiredQuarterQty';
+        if ((quarterQty - requiredQuarterQty).abs() > 0.001) {
+          return 'Quarter Qty must be $requiredQuarterQty';
         }
         if (halfQty > 0 && quarterQty >= halfQty) {
           return 'Quarter Qty must be less than Half Qty';
@@ -248,9 +250,9 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
         if (!_enableBoxPricing) return null;
 
         final packQty = int.tryParse(value) ?? 0;
-        final boxQty = int.tryParse(_boxQtyController.text) ?? 0;
-        final halfQty = int.tryParse(_halfboxqty_controller.text) ?? 0;
-        final quarterQty = int.tryParse(_quarterqty_controller.text) ?? 0;
+        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
+        final halfQty = double.tryParse(_halfboxqty_controller.text) ?? 0;
+        final quarterQty = double.tryParse(_quarterqty_controller.text) ?? 0;
 
         if (boxQty > 0 && packQty > 0 && boxQty % packQty != 0) {
           return 'Box Qty must be divisible by Pack Qty';
@@ -303,9 +305,9 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
         if (!_enableBoxPricing) return null;
 
         final packQty = int.tryParse(value ?? '') ?? 0;
-        final boxQty = int.tryParse(_boxQtyController.text) ?? 0;
-        final halfQty = int.tryParse(_halfboxqty_controller.text) ?? 0;
-        final quarterQty = int.tryParse(_quarterqty_controller.text) ?? 0;
+        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
+        final halfQty = double.tryParse(_halfboxqty_controller.text) ?? 0;
+        final quarterQty = double.tryParse(_quarterqty_controller.text) ?? 0;
 
         if (boxQty > 0 && packQty > 0 && boxQty % packQty != 0) {
           return 'Box Qty must be divisible by Pack Qty';
@@ -323,10 +325,8 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
           return 'Pack Qty must be less than Quarter Qty';
         }
 
-        final packUnitPrice =
-            double.tryParse(_packprice_controller.text) ?? 0;
-        final unitCost =
-            double.tryParse(_costController.text) ?? 0;
+        final packUnitPrice = double.tryParse(_packprice_controller.text) ?? 0;
+        final unitCost = double.tryParse(_costController.text) ?? 0;
 
         final totalPackPrice = packUnitPrice * boxQty;
         final totalUnitCost = unitCost * boxQty;
@@ -363,19 +363,22 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
     _barcodeController.text = d.barcode;
 
     final Map<String, dynamic> branchData = Map<String, dynamic>.from(
-        (d.branchprices?[widget.branchId] as Map<String, dynamic>?) ?? {});
+      (d.branchprices?[widget.branchId] as Map<String, dynamic>?) ?? {},
+    );
     branchname = branchData['name'] ?? widget.branchname;
     _supplierMinQtyController.text =
         branchData['sminqty']?.toString() ?? d.sminqty;
     final pricing = Map<String, dynamic>.from(
-        branchData['pricing'] as Map<String, dynamic>? ?? {});
+      branchData['pricing'] as Map<String, dynamic>? ?? {},
+    );
 
     final List<Mode> branchPricing = pricing.entries
         .map((e) => Mode.fromMap(e.key, Map<String, dynamic>.from(e.value)))
         .toList();
 
-    final List<Mode> modes =
-    branchPricing.isNotEmpty ? branchPricing : d.modes ?? [];
+    final List<Mode> modes = branchPricing.isNotEmpty
+        ? branchPricing
+        : d.modes ?? [];
 
     Mode? getMode(String id) {
       try {
@@ -390,13 +393,16 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
       _costController.text = single.cp;
       _retail_price.text = single.rp;
       _boxQtyController.text = single.qty;
-      _supplierPriceController.text = single.sp;
       _wholesalePriceController.text = single.wp;
+      _supplierPriceController.text = single.sp;
     }
 
     final carton = getMode('carton');
     if (carton != null) {
       _costController.text = carton.cp;
+      if (single == null) {
+        _retail_price.text = carton.rp;
+      }
       _boxQtyController.text = carton.qty;
       _supplierPriceController.text = carton.sp;
       _wholesalePriceController.text = carton.wp;
@@ -423,13 +429,22 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
       _packprice_controller.text = pack.wp;
     }
 
+    final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
+    if (boxQty >= 1) {
+      _halfboxqty_controller.text = _formatSplitQuantity(boxQty / 2);
+      _quarterqty_controller.text = _formatSplitQuantity(boxQty / 4);
+    }
+
     pricingStep = 0;
     if (getMode('half') != null) pricingStep = 1;
     if (getMode('quarter') != null) pricingStep = 2;
     if (getMode('pack') != null) pricingStep = 3;
 
-    _enableBoxPricing = modes.isNotEmpty;
-    _showBoxPricingSwitch = _enableBoxPricing;
+    _enableBoxPricing =
+        boxQty >= 1 ||
+        modes.any(
+          (mode) => ['carton', 'half', 'quarter', 'pack'].contains(mode.id),
+        );
   }
 
   @override
@@ -451,7 +466,6 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
     _supplierMinQtyController.dispose();
     super.dispose();
   }
-
 
   void _syncLocalBranchPricing(String branchId, String name, List<Mode> modes) {
     widget.item.branchprices ??= {};
@@ -477,1182 +491,1294 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
     return Consumer<Datafeed>(
       builder: (context, datafeed, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
+            leading: IconButton(
+              tooltip: 'Back',
+              icon: Icon(
+                Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
             title: Text(
               '${datafeed.company} - ${branchname != null && branchname!.isNotEmpty ? branchname : widget.branchname}',
             ),
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: width < 610
-                    ? width * 0.9
-                    : width < 1024
-                    ? 500
-                    : 900,
-              ),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    SizedBox(
-                      child: _buildField(
-                        enabled: false,
-                        _nameController,
-                        'Item Name',
-                        Icons.label,
-                        onChanged: (v) {
-                          _formKey.currentState!.validate();
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      child: _buildField(
-                        _retail_price,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}$'),
-                          ),
-                        ],
-                        'Retail Price',
-                        Icons.attach_money,
-                        isNumber: true,
-                        validator: (v) => _validateField('retailPrice', v),
-                        onChanged: (value) {
-                          final boxQty =
-                              double.tryParse(_boxQtyController.text) ?? 0;
-                          if (boxQty == 1) {
-                            setState(() {
-                              if (_wholesalePriceController.text.trim().isEmpty) {
-                                _wholesalePriceController.text = value;
-                              }
-                              if (_supplierPriceController.text.trim().isEmpty) {
-                                _supplierPriceController.text = value;
-                              }
-                            });
-                          }
-                          _formKey.currentState?.validate();
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      child: _buildField(
-                        _costController,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}$'),
-                          ),
-                        ],
-                        'Unit Cost Price',
-                        Icons.attach_money,
-                        isNumber: true,
-                        onChanged: (_) {
-                          _formKey.currentState?.validate();
-                        },
-                        validator: (v) => _validateField('costPrice', v),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      child: _buildField(
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,1}$'),
-                          ),
-                        ],
-                        _boxQtyController,
-                        'Box quantity',
-                        Icons.attach_money,
-                        isNumber: true,
-                        onChanged: (value) {
-                          final qty = double.tryParse(value) ?? 0;
-                          if (qty > 1) {
-                            setState(() {
-                              _showBoxPricingSwitch = true;
-                              _enableBoxPricing = true;
-
-                              _halfboxqty_controller.text =
-                                  (qty / 2).ceil().toString();
-                              _quarterqty_controller.text =
-                                  (qty / 4).ceil().toString();
-                            });
-                          } else if (qty == 1) {
-                            setState(() {
-                              _showBoxPricingSwitch = true;
-                              _enableBoxPricing = true;
-
-                              final retailPrice = _retail_price.text;
-                              if (_wholesalePriceController.text.trim().isEmpty) {
-                                _wholesalePriceController.text = retailPrice;
-                              }
-                              if (_supplierPriceController.text.trim().isEmpty) {
-                                _supplierPriceController.text = retailPrice;
-                              }
-                            });
-                          } else {
-                            setState(() {
-                              _showBoxPricingSwitch = false;
-                              _enableBoxPricing = false;
-                              pricingStep = 0;
-                            });
-                          }
-                          _formKey.currentState!.validate();
-                        },
-                        validator: (v) => _validateField('boxQty', v),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildFieldWithEnabled(
-                            onChanged: (val) {
-                              final price = double.tryParse(val) ?? 0;
-                              _halfboxprice_controller.text =
-                                  (price / 2).toStringAsFixed(2);
-                              _quarterprice_controller.text =
-                                  (price / 4).toStringAsFixed(2);
-                              _formKey.currentState?.validate();
-                            },
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'^\d*\.?\d{0,2}$'),
-                              ),
-                            ],
-                            _wholesalePriceController,
-                            'Box Price',
-                            Icons.attach_money,
-                            isNumber: true,
-                            validator: (v) => _validateField('boxPrice', v),
-                          ),
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: width < 610
+                      ? width * 0.9
+                      : width < 1024
+                      ? 500
+                      : 900,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        child: _buildField(
+                          enabled: false,
+                          _nameController,
+                          'Item Name',
+                          Icons.label,
+                          onChanged: (v) {
+                            _formKey.currentState!.validate();
+                          },
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildFieldWithEnabled(
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'^\d*\.?\d{0,2}$'),
-                              ),
-                            ],
-                            _supplierPriceController,
-                            'Supplier Price',
-                            Icons.attach_money,
-                            isNumber: true,
-                            onChanged: (v) {
-                              _formKey.currentState!.validate();
-                            },
-                            validator: (v) =>
-                                _validateField('supplierPrice', v),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      child: _buildField(
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}$'),
-                          ),
-                        ],
-                        _supplierMinQtyController,
-                        'Supplier Min Qty',
-                        Icons.numbers,
-                        isNumber: true,
-                        onChanged: (value) {
-                          _formKey.currentState?.validate();
-                        },
-                        validator: (v) =>
-                            _validateField('supplierMinQty', v),
                       ),
-                    ),
-                    if (_enableBoxPricing) ...[
-                      const SizedBox(height: 15),
-
-                      /// HALF ROW
-                      if (pricingStep >= 1)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildField(
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d{0,2}$'),
-                                  ),
-                                ],
-                                enabled: false,
-                                _halfboxqty_controller,
-                                'Half Box Qty',
-                                Icons.inventory,
-                                isNumber: true,
-                                validator: (v) =>
-                                    _validateField('halfBoxQty', v),
-                                onChanged: (value) {
-                                  _formKey.currentState?.validate();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildField(
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d{0,2}$'),
-                                  ),
-                                ],
-                                _halfboxprice_controller,
-                                'Half Box Price',
-                                Icons.attach_money,
-                                isNumber: true,
-                                validator: (v) =>
-                                    _validateField('halfBoxPrice', v),
-                                onChanged: (value) {
-                                  _formKey.currentState?.validate();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Container(
-                              height: 30,
-                              width: 30,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF22304A),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white24),
-                              ),
-                              child: IconButton(
-                                tooltip: 'Remove half pricing',
-                                padding: EdgeInsets.zero,
-                                splashRadius: 20,
-                                constraints: const BoxConstraints(),
-                                icon: const Icon(
-                                  Icons.remove_circle,
-                                  size: 20,
-                                  color: Colors.white70,
-                                ),
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder: (context) => AlertDialog(
-                                      backgroundColor:
-                                      const Color(0xFF182232),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                        BorderRadius.circular(12),
-                                      ),
-                                      title: const Text(
-                                        'Confirm removal',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      content: const Text(
-                                        'Remove half-box pricing for this item? This cannot be undone.',
-                                        style:
-                                        TextStyle(color: Colors.white70),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text(
-                                            'Cancel',
-                                            style:
-                                            TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red),
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: const Text(
-                                            'Remove',
-                                            style:
-                                            TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-
-                                  if (confirm != true) return;
-
-                                  final String targetBranchId =
-                                      widget.branchId;
-
-                                  setState(() {
-                                    pricingStep = 0;
-
-                                    _halfboxqty_controller.clear();
-                                    _halfboxprice_controller.clear();
-                                    _quarterqty_controller.clear();
-                                    _quarterprice_controller.clear();
-                                    _packQtyController.clear();
-                                    _packprice_controller.clear();
-                                  });
-
-                                  if (widget.item.id != null) {
-                                    try {
-                                      final branchData = widget
-                                          .item
-                                          .branchprices?[targetBranchId] ??
-                                          {};
-
-                                      if (branchData.isNotEmpty) {
-                                        final fieldPath = FieldPath([
-                                          'branchprices',
-                                          targetBranchId,
-                                          'pricing',
-                                          'half',
-                                        ]);
-                                        await db
-                                            .collection('itemsreg')
-                                            .doc(widget.item.id)
-                                            .update({
-                                          fieldPath: FieldValue.delete(),
-                                        });
-                                      }
-
-                                      if (!mounted) return;
-
-                                      final modes =
-                                      _currentModesForBranch(
-                                          targetBranchId)
-                                        ..removeWhere(
-                                                (m) => m.id == 'half');
-                                      _syncLocalBranchPricing(
-                                        targetBranchId,
-                                        branchname ?? widget.branchname,
-                                        modes,
-                                      );
-                                      context
-                                          .read<Datafeed>()
-                                          .notifyListeners();
-
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content:
-                                          Text('Half pricing removed',style: TextStyle(color: Colors.white),),
-                                          backgroundColor: Colors.green,
-                                          duration: Duration(seconds: 2),
-                                        ),
-                                      );
-                                    } catch (e) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                                'Failed to remove half pricing: $e'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }
-                                },
-                              ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        child: _buildField(
+                          _retail_price,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}$'),
                             ),
                           ],
+                          'Retail Price',
+                          Icons.attach_money,
+                          isNumber: true,
+                          validator: (v) => _validateField('retailPrice', v),
+                          onChanged: (_) {
+                            _formKey.currentState?.validate();
+                          },
                         ),
-
-                      if (pricingStep >= 1) const SizedBox(height: 15),
-
-                      /// QUARTER ROW
-                      if (pricingStep >= 2)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildField(
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d{0,1}$'),
-                                  ),
-                                ],
-                                enabled: false,
-                                _quarterqty_controller,
-                                'Quarter Qty',
-                                Icons.inventory,
-                                isNumber: true,
-                                validator: (v) =>
-                                    _validateField('quarterQty', v),
-                                onChanged: (value) {
-                                  _formKey.currentState?.validate();
-                                },
-                              ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        child: _buildField(
+                          _costController,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}$'),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildField(
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d{0,2}$'),
-                                  ),
-                                ],
-                                _quarterprice_controller,
-                                'Quarter Price',
-                                Icons.attach_money,
-                                isNumber: true,
-                                validator: (v) {
-                                  if (v == null || v.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  final quarterPrice = double.tryParse(v) ?? 0;
-                                  final boxPrice =
-                                      double.tryParse(_wholesalePriceController.text) ?? 0;
-                                  final halfBoxPrice =
-                                      double.tryParse(_halfboxprice_controller.text) ?? 0;
-
-                                  if (boxPrice == 0) return null;
-
-                                  final requiredQuarterPrice = boxPrice / 4;
-                                  if (quarterPrice > boxPrice) {
-                                    return 'Quarter Price cannot exceed Box Price';
-                                  }
-                                  if (quarterPrice < requiredQuarterPrice) {
-                                    return 'Quarter Price must be at least ${requiredQuarterPrice.toStringAsFixed(2)}';
-                                  }
-                                  if (halfBoxPrice > 0 && quarterPrice >= halfBoxPrice) {
-                                    return 'Quarter Price must be less than Half Box Price';
-                                  }
-                                  return null;
-                                },
-                                onChanged: (value) {
-                                  _formKey.currentState?.validate();
-                                },
-                              ),
+                          ],
+                          'Unit Cost Price',
+                          Icons.attach_money,
+                          isNumber: true,
+                          onChanged: (_) {
+                            _formKey.currentState?.validate();
+                          },
+                          validator: (v) => _validateField('costPrice', v),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        child: _buildField(
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,1}$'),
                             ),
-                            const SizedBox(width: 10),
-                            Container(
-                              height: 30,
-                              width: 30,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF22304A),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white24),
-                              ),
-                              child: IconButton(
-                                tooltip: 'Remove quarter pricing',
-                                padding: EdgeInsets.zero,
-                                splashRadius: 20,
-                                constraints: const BoxConstraints(),
-                                icon: const Icon(
-                                  Icons.remove_circle,
-                                  size: 20,
-                                  color: Colors.white70,
+                          ],
+                          _boxQtyController,
+                          'Box quantity',
+                          Icons.attach_money,
+                          isNumber: true,
+                          onChanged: (value) {
+                            final qty = double.tryParse(value) ?? 0;
+                            if (qty >= 1) {
+                              setState(() {
+                                _enableBoxPricing = true;
+
+                                _halfboxqty_controller.text =
+                                    _formatSplitQuantity(qty / 2);
+                                _quarterqty_controller.text =
+                                    _formatSplitQuantity(qty / 4);
+                              });
+                            } else {
+                              setState(() {
+                                _enableBoxPricing = false;
+                                pricingStep = 0;
+                              });
+                            }
+                            _formKey.currentState!.validate();
+                          },
+                          validator: (v) => _validateField('boxQty', v),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildFieldWithEnabled(
+                              onChanged: (val) {
+                                _formKey.currentState?.validate();
+                              },
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d{0,2}$'),
                                 ),
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder: (context) => AlertDialog(
-                                      backgroundColor:
-                                      const Color(0xFF182232),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                        BorderRadius.circular(12),
-                                      ),
-                                      title: const Text(
-                                        'Confirm removal',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      content: const Text(
-                                        'Remove quarter pricing for this item? This cannot be undone.',
-                                        style:
-                                        TextStyle(color: Colors.white70),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text(
-                                            'Cancel',
-                                            style:
-                                            TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red),
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: const Text(
-                                            'Remove',
-                                            style:
-                                            TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                      ],
+                              ],
+                              _wholesalePriceController,
+                              'Box Price',
+                              Icons.attach_money,
+                              isNumber: true,
+                              validator: (v) => _validateField('boxPrice', v),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildFieldWithEnabled(
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d{0,2}$'),
+                                ),
+                              ],
+                              _supplierPriceController,
+                              'Supplier Price',
+                              Icons.attach_money,
+                              isNumber: true,
+                              onChanged: (v) {
+                                _formKey.currentState!.validate();
+                              },
+                              validator: (v) =>
+                                  _validateField('supplierPrice', v),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        child: _buildField(
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,2}$'),
+                            ),
+                          ],
+                          _supplierMinQtyController,
+                          'Supplier Min Qty',
+                          Icons.numbers,
+                          isNumber: true,
+                          onChanged: (value) {
+                            _formKey.currentState?.validate();
+                          },
+                          validator: (v) => _validateField('supplierMinQty', v),
+                        ),
+                      ),
+                      if (_enableBoxPricing) ...[
+                        const SizedBox(height: 15),
+
+                        /// HALF ROW
+                        if (pricingStep >= 1)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildField(
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,3}$'),
                                     ),
-                                  );
-
-                                  if (confirm != true) return;
-
-                                  final String targetBranchId =
-                                      widget.branchId;
-
-                                  setState(() {
-                                    pricingStep = 1;
-                                    _quarterqty_controller.clear();
-                                    _quarterprice_controller.clear();
-                                  });
-
-                                  if (widget.item.id != null) {
-                                    try {
-                                      final branchData = widget
-                                          .item
-                                          .branchprices?[targetBranchId] ??
-                                          {};
-                                      if (branchData.isNotEmpty) {
-                                        final fieldPath = FieldPath([
-                                          'branchprices',
-                                          targetBranchId,
-                                          'pricing',
-                                          'quarter',
-                                        ]);
-                                        await db
-                                            .collection('itemsreg')
-                                            .doc(widget.item.id)
-                                            .update({
-                                          fieldPath: FieldValue.delete(),
-                                        });
-                                      }
-
-                                      if (!mounted) return;
-
-                                      final modes =
-                                      _currentModesForBranch(
-                                          targetBranchId)
-                                        ..removeWhere(
-                                                (m) => m.id == 'quarter');
-                                      _syncLocalBranchPricing(
-                                        targetBranchId,
-                                        branchname ?? widget.branchname,
-                                        modes,
-                                      );
-                                      context
-                                          .read<Datafeed>()
-                                          .notifyListeners();
-
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
+                                  ],
+                                  enabled: false,
+                                  _halfboxqty_controller,
+                                  'Half Box Qty',
+                                  Icons.inventory,
+                                  isNumber: true,
+                                  validator: (v) =>
+                                      _validateField('halfBoxQty', v),
+                                  onChanged: (value) {
+                                    _formKey.currentState?.validate();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildField(
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,2}$'),
+                                    ),
+                                  ],
+                                  _halfboxprice_controller,
+                                  'Half Box Price',
+                                  Icons.attach_money,
+                                  isNumber: true,
+                                  validator: (v) =>
+                                      _validateField('halfBoxPrice', v),
+                                  onChanged: (value) {
+                                    _formKey.currentState?.validate();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                height: 30,
+                                width: 30,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  tooltip: 'Remove half pricing',
+                                  padding: EdgeInsets.zero,
+                                  splashRadius: 20,
+                                  constraints: const BoxConstraints(),
+                                  icon: Icon(
+                                    Icons.remove_circle,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (dialogContext) {
+                                        final colorScheme = Theme.of(
+                                          dialogContext,
+                                        ).colorScheme;
+                                        return AlertDialog(
+                                          backgroundColor: colorScheme.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            'Confirm removal',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
                                           content: Text(
-                                              'Quarter pricing removed',style: TextStyle(color: Colors.white),),
+                                            'Remove half-box pricing for this item? This cannot be undone.',
+                                            style: TextStyle(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                                foregroundColor:
+                                                    colorScheme.onError,
+                                              ),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (confirm != true) return;
+
+                                    final String targetBranchId =
+                                        widget.branchId;
+
+                                    setState(() {
+                                      pricingStep = 0;
+
+                                      _halfboxqty_controller.clear();
+                                      _halfboxprice_controller.clear();
+                                      _quarterqty_controller.clear();
+                                      _quarterprice_controller.clear();
+                                      _packQtyController.clear();
+                                      _packprice_controller.clear();
+                                    });
+
+                                    if (widget.item.id != null) {
+                                      try {
+                                        final branchData =
+                                            widget
+                                                .item
+                                                .branchprices?[targetBranchId] ??
+                                            {};
+
+                                        if (branchData.isNotEmpty) {
+                                          final fieldPath = FieldPath([
+                                            'branchprices',
+                                            targetBranchId,
+                                            'pricing',
+                                            'half',
+                                          ]);
+                                          await db
+                                              .collection('itemsreg')
+                                              .doc(widget.item.id)
+                                              .update({
+                                                fieldPath: FieldValue.delete(),
+                                              });
+                                        }
+
+                                        if (!mounted) return;
+
+                                        final modes = _currentModesForBranch(
+                                          targetBranchId,
+                                        )..removeWhere((m) => m.id == 'half');
+                                        _syncLocalBranchPricing(
+                                          targetBranchId,
+                                          branchname ?? widget.branchname,
+                                          modes,
+                                        );
+                                        context
+                                            .read<Datafeed>()
+                                            .notifyListeners();
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Half pricing removed',
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            backgroundColor: Colors.green,
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Failed to remove half pricing: $e',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        if (pricingStep >= 1) const SizedBox(height: 15),
+
+                        /// QUARTER ROW
+                        if (pricingStep >= 2)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildField(
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,3}$'),
+                                    ),
+                                  ],
+                                  enabled: false,
+                                  _quarterqty_controller,
+                                  'Quarter Qty',
+                                  Icons.inventory,
+                                  isNumber: true,
+                                  validator: (v) =>
+                                      _validateField('quarterQty', v),
+                                  onChanged: (value) {
+                                    _formKey.currentState?.validate();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildField(
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,2}$'),
+                                    ),
+                                  ],
+                                  _quarterprice_controller,
+                                  'Quarter Price',
+                                  Icons.attach_money,
+                                  isNumber: true,
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) {
+                                      return 'Required';
+                                    }
+                                    final quarterPrice =
+                                        double.tryParse(v) ?? 0;
+                                    final boxPrice =
+                                        double.tryParse(
+                                          _wholesalePriceController.text,
+                                        ) ??
+                                        0;
+                                    final halfBoxPrice =
+                                        double.tryParse(
+                                          _halfboxprice_controller.text,
+                                        ) ??
+                                        0;
+
+                                    if (boxPrice == 0) return null;
+
+                                    final requiredQuarterPrice = boxPrice / 4;
+                                    if (quarterPrice > boxPrice) {
+                                      return 'Quarter Price cannot exceed Box Price';
+                                    }
+                                    if (quarterPrice < requiredQuarterPrice) {
+                                      return 'Quarter Price must be at least ${requiredQuarterPrice.toStringAsFixed(2)}';
+                                    }
+                                    if (halfBoxPrice > 0 &&
+                                        quarterPrice >= halfBoxPrice) {
+                                      return 'Quarter Price must be less than Half Box Price';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (value) {
+                                    _formKey.currentState?.validate();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                height: 30,
+                                width: 30,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  tooltip: 'Remove quarter pricing',
+                                  padding: EdgeInsets.zero,
+                                  splashRadius: 20,
+                                  constraints: const BoxConstraints(),
+                                  icon: Icon(
+                                    Icons.remove_circle,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (dialogContext) {
+                                        final colorScheme = Theme.of(
+                                          dialogContext,
+                                        ).colorScheme;
+                                        return AlertDialog(
+                                          backgroundColor: colorScheme.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            'Confirm removal',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            'Remove quarter pricing for this item? This cannot be undone.',
+                                            style: TextStyle(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                                foregroundColor:
+                                                    colorScheme.onError,
+                                              ),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (confirm != true) return;
+
+                                    final String targetBranchId =
+                                        widget.branchId;
+
+                                    setState(() {
+                                      pricingStep = 1;
+                                      _quarterqty_controller.clear();
+                                      _quarterprice_controller.clear();
+                                    });
+
+                                    if (widget.item.id != null) {
+                                      try {
+                                        final branchData =
+                                            widget
+                                                .item
+                                                .branchprices?[targetBranchId] ??
+                                            {};
+                                        if (branchData.isNotEmpty) {
+                                          final fieldPath = FieldPath([
+                                            'branchprices',
+                                            targetBranchId,
+                                            'pricing',
+                                            'quarter',
+                                          ]);
+                                          await db
+                                              .collection('itemsreg')
+                                              .doc(widget.item.id)
+                                              .update({
+                                                fieldPath: FieldValue.delete(),
+                                              });
+                                        }
+
+                                        if (!mounted) return;
+
+                                        final modes =
+                                            _currentModesForBranch(
+                                              targetBranchId,
+                                            )..removeWhere(
+                                              (m) => m.id == 'quarter',
+                                            );
+                                        _syncLocalBranchPricing(
+                                          targetBranchId,
+                                          branchname ?? widget.branchname,
+                                          modes,
+                                        );
+                                        context
+                                            .read<Datafeed>()
+                                            .notifyListeners();
+
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Quarter pricing removed',
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            backgroundColor: Colors.green,
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      } catch (e) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Failed to remove quarter pricing: $e',
+                                                style: TextStyle(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.onSurface,
+                                                ),
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        if (pricingStep >= 2) const SizedBox(height: 15),
+
+                        /// PACK ROW
+                        if (pricingStep >= 3)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildField(
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,1}$'),
+                                    ),
+                                  ],
+                                  _packQtyController,
+                                  'Pack Qty',
+                                  Icons.inventory,
+                                  isNumber: true,
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) {
+                                      return 'Required';
+                                    }
+                                    if (!_enableBoxPricing) return null;
+
+                                    final packQty = int.tryParse(v) ?? 0;
+                                    final boxQty =
+                                        int.tryParse(_boxQtyController.text) ??
+                                        0;
+                                    final halfQty =
+                                        int.tryParse(
+                                          _halfboxqty_controller.text,
+                                        ) ??
+                                        0;
+                                    final quarterQty =
+                                        int.tryParse(
+                                          _quarterqty_controller.text,
+                                        ) ??
+                                        0;
+
+                                    if (boxQty > 0 &&
+                                        packQty > 0 &&
+                                        boxQty % packQty != 0) {
+                                      return 'Box Qty must be divisible by Pack Qty';
+                                    }
+
+                                    if (boxQty > 0 && packQty > boxQty) {
+                                      return 'Pack Qty cannot exceed Box Qty';
+                                    }
+
+                                    if (halfQty > 0 && packQty >= halfQty) {
+                                      return 'Pack Qty must be less than Half Qty';
+                                    }
+
+                                    if (quarterQty > 0 &&
+                                        packQty >= quarterQty) {
+                                      return 'Pack Qty must be less than Quarter Qty';
+                                    }
+
+                                    final packUnitPrice =
+                                        double.tryParse(
+                                          _packprice_controller.text,
+                                        ) ??
+                                        0;
+                                    final unitCost =
+                                        double.tryParse(_costController.text) ??
+                                        0;
+
+                                    final totalPackPrice =
+                                        packUnitPrice * boxQty;
+                                    final totalUnitCost = unitCost * boxQty;
+
+                                    if (totalPackPrice < totalUnitCost) {
+                                      return 'Pack unit price × Box Qty must be ≥ Unit Cost × Box Qty';
+                                    }
+
+                                    return null;
+                                  },
+                                  onChanged: (v) {
+                                    _formKey.currentState!.validate();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildField(
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,2}$'),
+                                    ),
+                                  ],
+                                  _packprice_controller,
+                                  'Pack Price',
+                                  Icons.attach_money,
+                                  isNumber: true,
+                                  validator: (v) {
+                                    if (v == null || v.isEmpty) {
+                                      return 'Required';
+                                    }
+
+                                    final packPrice = double.tryParse(v) ?? 0;
+                                    final boxPrice =
+                                        double.tryParse(
+                                          _wholesalePriceController.text,
+                                        ) ??
+                                        0;
+                                    final boxQty =
+                                        double.tryParse(
+                                          _boxQtyController.text,
+                                        ) ??
+                                        0;
+                                    final packQty =
+                                        double.tryParse(
+                                          _packQtyController.text,
+                                        ) ??
+                                        0;
+                                    final retailprice =
+                                        double.tryParse(_retail_price.text) ??
+                                        0;
+                                    final unitcostprice =
+                                        int.tryParse(
+                                          _costController.text.toString(),
+                                        ) ??
+                                        0;
+
+                                    if (boxQty == 0 ||
+                                        packQty == 0 ||
+                                        boxPrice == 0) {
+                                      return null;
+                                    }
+
+                                    double unitboxprice = boxPrice / boxQty;
+
+                                    final requiredPackPrice =
+                                        packPrice / packQty;
+
+                                    if (requiredPackPrice > retailprice ||
+                                        requiredPackPrice < unitcostprice ||
+                                        requiredPackPrice < unitboxprice) {
+                                      return 'Please check Unit(box/cost/retail) price ';
+                                    }
+
+                                    return null;
+                                  },
+                                  onChanged: (value) {
+                                    _formKey.currentState?.validate();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                height: 30,
+                                width: 30,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  tooltip: 'Remove pack pricing',
+                                  padding: EdgeInsets.zero,
+                                  splashRadius: 20,
+                                  constraints: const BoxConstraints(),
+                                  icon: Icon(
+                                    Icons.remove_circle,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (dialogContext) {
+                                        final colorScheme = Theme.of(
+                                          dialogContext,
+                                        ).colorScheme;
+                                        return AlertDialog(
+                                          backgroundColor: colorScheme.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            'Confirm removal',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            'Remove pack pricing for this item? This cannot be undone.',
+                                            style: TextStyle(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                                foregroundColor:
+                                                    colorScheme.onError,
+                                              ),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+
+                                    if (confirm != true) return;
+
+                                    final String targetBranchId =
+                                        widget.branchId;
+
+                                    setState(() {
+                                      pricingStep = 2;
+                                      _packQtyController.clear();
+                                      _packprice_controller.clear();
+                                    });
+
+                                    try {
+                                      final branchData =
+                                          widget
+                                              .item
+                                              .branchprices?[targetBranchId] ??
+                                          {};
+                                      if (branchData.isNotEmpty) {
+                                        final fieldPath = FieldPath([
+                                          'branchprices',
+                                          targetBranchId,
+                                          'pricing',
+                                          'pack',
+                                        ]);
+                                        await db
+                                            .collection('itemsreg')
+                                            .doc(widget.item.id)
+                                            .update({
+                                              fieldPath: FieldValue.delete(),
+                                            });
+                                      }
+
+                                      if (!mounted) return;
+
+                                      final modes = _currentModesForBranch(
+                                        targetBranchId,
+                                      )..removeWhere((m) => m.id == 'pack');
+                                      _syncLocalBranchPricing(
+                                        targetBranchId,
+                                        branchname ?? widget.branchname,
+                                        modes,
+                                      );
+                                      context
+                                          .read<Datafeed>()
+                                          .notifyListeners();
+
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Pack pricing removed'),
                                           backgroundColor: Colors.green,
                                           duration: Duration(seconds: 2),
                                         ),
                                       );
                                     } catch (e) {
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
                                             content: Text(
-                                                'Failed to remove quarter pricing: $e',style: TextStyle(color: Colors.white),),
+                                              'Failed to remove pack pricing: $e',
+                                            ),
                                             backgroundColor: Colors.red,
                                           ),
                                         );
                                       }
                                     }
-                                  }
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      if (pricingStep >= 2) const SizedBox(height: 15),
-
-                      /// PACK ROW
-                      if (pricingStep >= 3)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildField(
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d{0,1}$'),
-                                  ),
-                                ],
-                                _packQtyController,
-                                'Pack Qty',
-                                Icons.inventory,
-                                isNumber: true,
-                                validator: (v) {
-                                  if (v == null || v.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  if (!_enableBoxPricing) return null;
-
-                                  final packQty = int.tryParse(v) ?? 0;
-                                  final boxQty = int.tryParse(
-                                    _boxQtyController.text,
-                                  ) ??
-                                      0;
-                                  final halfQty = int.tryParse(
-                                    _halfboxqty_controller.text,
-                                  ) ??
-                                      0;
-                                  final quarterQty = int.tryParse(
-                                    _quarterqty_controller.text,
-                                  ) ??
-                                      0;
-
-                                  if (boxQty > 0 &&
-                                      packQty > 0 &&
-                                      boxQty % packQty != 0) {
-                                    return 'Box Qty must be divisible by Pack Qty';
-                                  }
-
-                                  if (boxQty > 0 && packQty > boxQty) {
-                                    return 'Pack Qty cannot exceed Box Qty';
-                                  }
-
-                                  if (halfQty > 0 && packQty >= halfQty) {
-                                    return 'Pack Qty must be less than Half Qty';
-                                  }
-
-                                  if (quarterQty > 0 &&
-                                      packQty >= quarterQty) {
-                                    return 'Pack Qty must be less than Quarter Qty';
-                                  }
-
-                                  final packUnitPrice = double.tryParse(
-                                    _packprice_controller.text,
-                                  ) ??
-                                      0;
-                                  final unitCost = double.tryParse(
-                                    _costController.text,
-                                  ) ??
-                                      0;
-
-                                  final totalPackPrice =
-                                      packUnitPrice * boxQty;
-                                  final totalUnitCost = unitCost * boxQty;
-
-                                  if (totalPackPrice < totalUnitCost) {
-                                    return 'Pack unit price × Box Qty must be ≥ Unit Cost × Box Qty';
-                                  }
-
-                                  return null;
-                                },
-                                onChanged: (v) {
-                                  _formKey.currentState!.validate();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildField(
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d{0,2}$'),
-                                  ),
-                                ],
-                                _packprice_controller,
-                                'Pack Price',
-                                Icons.attach_money,
-                                isNumber: true,
-                                validator: (v) {
-                                  if (v == null || v.isEmpty) {
-                                    return 'Required';
-                                  }
-
-                                  final packPrice = double.tryParse(v) ?? 0;
-                                  final boxPrice = double.tryParse(
-                                    _wholesalePriceController.text,
-                                  ) ??
-                                      0;
-                                  final boxQty = double.tryParse(
-                                    _boxQtyController.text,
-                                  ) ??
-                                      0;
-                                  final packQty = double.tryParse(
-                                    _packQtyController.text,
-                                  ) ??
-                                      0;
-                                  final retailprice = double.tryParse(
-                                      _retail_price.text) ??
-                                      0;
-                                  final unitcostprice = int.tryParse(
-                                    _costController.text.toString(),
-                                  ) ??
-                                      0;
-
-                                  if (boxQty == 0 ||
-                                      packQty == 0 ||
-                                      boxPrice == 0) {
-                                    return null;
-                                  }
-
-                                  double unitboxprice =
-                                      boxPrice / boxQty;
-
-                                  final requiredPackPrice =
-                                      packPrice / packQty;
-
-                                  if (requiredPackPrice > retailprice ||
-                                      requiredPackPrice < unitcostprice ||
-                                      requiredPackPrice < unitboxprice) {
-                                    return 'Please check Unit(box/cost/retail) price ';
-                                  }
-
-                                  return null;
-                                },
-                                onChanged: (value) {
-                                  _formKey.currentState?.validate();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Container(
-                              height: 30,
-                              width: 30,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF22304A),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white24),
-                              ),
-                              child: IconButton(
-                                tooltip: 'Remove pack pricing',
-                                padding: EdgeInsets.zero,
-                                splashRadius: 20,
-                                constraints: const BoxConstraints(),
-                                icon: const Icon(
-                                  Icons.remove_circle,
-                                  size: 20,
-                                  color: Colors.white70,
+                                  },
                                 ),
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    builder: (context) => AlertDialog(
-                                      backgroundColor:
-                                      const Color(0xFF182232),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                        BorderRadius.circular(12),
-                                      ),
-                                      title: const Text(
-                                        'Confirm removal',
-                                        style: TextStyle(color: Colors.white),
-                                      ),
-                                      content: const Text(
-                                        'Remove pack pricing for this item? This cannot be undone.',
-                                        style:
-                                        TextStyle(color: Colors.white70),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text(
-                                            'Cancel',
-                                            style:
-                                            TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red),
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: const Text(
-                                            'Remove',
-                                            style:
-                                            TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-
-                                  if (confirm != true) return;
-
-                                  final String targetBranchId =
-                                      widget.branchId;
-
-                                  setState(() {
-                                    pricingStep = 2;
-                                    _packQtyController.clear();
-                                    _packprice_controller.clear();
-                                  });
-
+                              ),
+                            ],
+                          ),
+                      ],
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                          ),
+                          onPressed: _loading
+                              ? null
+                              : () async {
+                                  if (!_formKey.currentState!.validate()) {
+                                    return;
+                                  }
+                                  setState(() => _loading = true);
                                   try {
-                                    final branchData = widget.item
-                                        .branchprices?[targetBranchId] ??
+                                    final String targetBranchId =
+                                        widget.branchId;
+                                    final String targetBranchName =
+                                        (branchname != null &&
+                                            branchname!.isNotEmpty)
+                                        ? branchname!
+                                        : widget.branchname;
+
+                                    final branchData =
+                                        widget
+                                                .item
+                                                .branchprices?[targetBranchId]
+                                            as Map<String, dynamic>? ??
                                         {};
-                                    if (branchData.isNotEmpty) {
-                                      final fieldPath = FieldPath([
-                                        'branchprices',
-                                        targetBranchId,
-                                        'pricing',
-                                        'pack',
-                                      ]);
-                                      await db
-                                          .collection('itemsreg')
-                                          .doc(widget.item.id)
-                                          .update({
-                                        fieldPath: FieldValue.delete(),
-                                      });
+                                    final pricing =
+                                        branchData['pricing']
+                                            as Map<String, dynamic>? ??
+                                        {};
+                                    final List<Mode> modes = pricing.entries
+                                        .map(
+                                          (e) => Mode.fromMap(
+                                            e.key,
+                                            Map<String, dynamic>.from(e.value),
+                                          ),
+                                        )
+                                        .toList();
+
+                                    final double boxqty =
+                                        double.tryParse(
+                                          _boxQtyController.text,
+                                        ) ??
+                                        0;
+                                    final businessType = context
+                                        .read<Datafeed>()
+                                        .companytype
+                                        .toLowerCase()
+                                        .trim();
+
+                                    void upsertMode(String id, Mode newMode) {
+                                      int index = modes.indexWhere(
+                                        (m) => m.id == id,
+                                      );
+                                      if (index != -1) {
+                                        modes[index] = newMode;
+                                      } else {
+                                        modes.add(newMode);
+                                      }
                                     }
 
-                                    if (!mounted) return;
+                                    void removeMode(String id) {
+                                      modes.removeWhere((m) => m.id == id);
+                                    }
 
-                                    final modes =
-                                    _currentModesForBranch(
-                                        targetBranchId)
-                                      ..removeWhere(
-                                              (m) => m.id == 'pack');
+                                    final hasBoxQuantity = boxqty >= 1;
+                                    final supportsRetail =
+                                        businessType != 'wholesale';
+                                    final supportsWholesale =
+                                        businessType != 'retail';
+                                    final wantSingle =
+                                        hasBoxQuantity && supportsRetail;
+                                    final wantCarton =
+                                        hasBoxQuantity && supportsWholesale;
+
+                                    final singlePrice = _retail_price.text
+                                        .trim();
+                                    final boxPrice = _wholesalePriceController
+                                        .text
+                                        .trim();
+                                    final supplierPrice =
+                                        _supplierPriceController.text.trim();
+
+                                    if (wantSingle) {
+                                      upsertMode(
+                                        "single",
+                                        Mode(
+                                          id: "single",
+                                          name: "Single",
+                                          qty: "1",
+                                          cp: _costController.text.trim(),
+                                          rp: singlePrice,
+                                          wp: boxqty == 1
+                                              ? boxPrice
+                                              : singlePrice,
+                                          sp: boxqty == 1
+                                              ? supplierPrice
+                                              : singlePrice,
+                                        ),
+                                      );
+                                    } else {
+                                      removeMode("single");
+                                    }
+
+                                    if (wantCarton) {
+                                      upsertMode(
+                                        "carton",
+                                        Mode(
+                                          id: "carton",
+                                          name: "Carton",
+                                          qty: _boxQtyController.text.trim(),
+                                          cp: _costController.text.trim(),
+                                          rp: boxqty > 1
+                                              ? boxPrice
+                                              : singlePrice,
+                                          wp: boxPrice,
+                                          sp: supplierPrice,
+                                        ),
+                                      );
+                                    } else {
+                                      removeMode("carton");
+                                    }
+
+                                    if (hasBoxQuantity && _enableBoxPricing) {
+                                      if (pricingStep >= 1 &&
+                                          _halfboxqty_controller
+                                              .text
+                                              .isNotEmpty &&
+                                          _halfboxprice_controller
+                                              .text
+                                              .isNotEmpty) {
+                                        upsertMode(
+                                          "half",
+                                          Mode(
+                                            id: "half",
+                                            name: "Half Carton",
+                                            qty: _halfboxqty_controller.text
+                                                .trim(),
+                                            cp: _costController.text.trim(),
+                                            rp: _halfboxprice_controller.text
+                                                .trim(),
+                                            wp: _halfboxprice_controller.text
+                                                .trim(),
+                                            sp: _halfboxprice_controller.text
+                                                .trim(),
+                                          ),
+                                        );
+                                      } else {
+                                        removeMode("half");
+                                      }
+
+                                      if (pricingStep >= 2 &&
+                                          _quarterqty_controller
+                                              .text
+                                              .isNotEmpty &&
+                                          _quarterprice_controller
+                                              .text
+                                              .isNotEmpty) {
+                                        upsertMode(
+                                          "quarter",
+                                          Mode(
+                                            id: "quarter",
+                                            name: "Quarter Carton",
+                                            qty: _quarterqty_controller.text
+                                                .trim(),
+                                            cp: _costController.text.trim(),
+                                            rp: _quarterprice_controller.text
+                                                .trim(),
+                                            wp: _quarterprice_controller.text
+                                                .trim(),
+                                            sp: _quarterprice_controller.text
+                                                .trim(),
+                                          ),
+                                        );
+                                      } else {
+                                        removeMode("quarter");
+                                      }
+
+                                      if (pricingStep >= 3 &&
+                                          _packQtyController.text.isNotEmpty &&
+                                          _packprice_controller
+                                              .text
+                                              .isNotEmpty) {
+                                        upsertMode(
+                                          "pack",
+                                          Mode(
+                                            id: "pack",
+                                            name: "Pack",
+                                            qty: _packQtyController.text.trim(),
+                                            cp: _costController.text.trim(),
+                                            rp: _packprice_controller.text
+                                                .trim(),
+                                            wp: _packprice_controller.text
+                                                .trim(),
+                                            sp: _packprice_controller.text
+                                                .trim(),
+                                          ),
+                                        );
+                                      } else {
+                                        removeMode("pack");
+                                      }
+                                    } else {
+                                      removeMode("half");
+                                      removeMode("quarter");
+                                      removeMode("pack");
+                                    }
+
+                                    final branchFieldPath = FieldPath([
+                                      'branchprices',
+                                      targetBranchId,
+                                    ]);
+
+                                    await db
+                                        .collection('itemsreg')
+                                        .doc(widget.item.id)
+                                        .update({
+                                          branchFieldPath: {
+                                            'name': targetBranchName,
+                                            'pricing': {
+                                              for (var m in modes)
+                                                m.id: m.toMap(),
+                                            },
+                                            'sminqty': _supplierMinQtyController
+                                                .text
+                                                .trim(),
+                                            'updatedat':
+                                                FieldValue.serverTimestamp(),
+                                            'updatedby': widget.staff,
+                                          },
+                                          'pricingmode': true,
+                                        });
+
                                     _syncLocalBranchPricing(
                                       targetBranchId,
-                                      branchname ?? widget.branchname,
+                                      targetBranchName,
                                       modes,
                                     );
-                                    context
-                                        .read<Datafeed>()
-                                        .notifyListeners();
 
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      const SnackBar(
-                                        content:
-                                        Text('Pack pricing removed'),
-                                        backgroundColor: Colors.green,
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  } catch (e) {
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      context
+                                          .read<Datafeed>()
+                                          .notifyListeners();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                              'Failed to remove pack pricing: $e'),
+                                            'Item updated successfully!',
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          backgroundColor: Colors.green,
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error: $e',
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
+                                            ),
+                                          ),
                                           backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 4),
                                         ),
                                       );
                                     }
                                   }
+
+                                  if (mounted) {
+                                    setState(() => _loading = false);
+                                  }
                                 },
-                              ),
-                            ),
-                          ],
+                          child: _loading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                              : const Text('Update Item'),
                         ),
-                    ],
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                        ),
-                        onPressed: _loading
-                            ? null
-                            : () async {
-                          if (!_formKey.currentState!.validate()) {
-                            return;
-                          }
-                          setState(() => _loading = true);
-                          try {
-                            final String targetBranchId =
-                                widget.branchId;
-                            final String targetBranchName =
-                            (branchname != null &&
-                                branchname!.isNotEmpty)
-                                ? branchname!
-                                : widget.branchname;
-
-                            final branchData = widget.item
-                                .branchprices?[targetBranchId]
-                            as Map<String, dynamic>? ??
-                                {};
-                            final pricing = branchData['pricing']
-                            as Map<String, dynamic>? ??
-                                {};
-                            final List<Mode> modes = pricing.entries
-                                .map((e) => Mode.fromMap(
-                                e.key,
-                                Map<String, dynamic>.from(
-                                    e.value)))
-                                .toList();
-
-                            final double boxqty = double.tryParse(
-                                _boxQtyController.text) ??
-                                0;
-
-                            void upsertMode(
-                                String id, Mode newMode) {
-                              int index = modes
-                                  .indexWhere((m) => m.id == id);
-                              if (index != -1) {
-                                modes[index] = newMode;
-                              } else {
-                                modes.add(newMode);
-                              }
-                            }
-
-                            void removeMode(String id) {
-                              modes.removeWhere((m) => m.id == id);
-                            }
-
-                            final singleWp =
-                            _wholesalePriceController.text.trim().isNotEmpty
-                                ? _wholesalePriceController.text.trim()
-                                : _retail_price.text.trim();
-                            final singleSp =
-                            _supplierPriceController.text.trim().isNotEmpty
-                                ? _supplierPriceController.text.trim()
-                                : _retail_price.text.trim();
-
-                            upsertMode(
-                              "single",
-                              Mode(
-                                id: "single",
-                                name: "Single",
-                                qty: "1",
-                                cp: _costController.text.trim(),
-                                rp: _retail_price.text.trim(),
-                                wp: singleWp,
-                                sp: singleSp,
-                              ),
-                            );
-
-                            if (boxqty >= 2) {
-                              upsertMode(
-                                "carton",
-                                Mode(
-                                  id: "carton",
-                                  name: "Carton",
-                                  qty: _boxQtyController.text
-                                      .trim(),
-                                  cp: _costController.text.trim(),
-                                  rp: _wholesalePriceController
-                                      .text
-                                      .trim(),
-                                  wp: _wholesalePriceController
-                                      .text
-                                      .trim(),
-                                  sp: _supplierPriceController
-                                      .text
-                                      .trim(),
-                                ),
-                              );
-                            } else {
-                              removeMode("carton");
-                            }
-
-                            if (_enableBoxPricing) {
-                              if (pricingStep >= 1 &&
-                                  _halfboxqty_controller
-                                      .text.isNotEmpty &&
-                                  _halfboxprice_controller
-                                      .text.isNotEmpty) {
-                                upsertMode(
-                                  "half",
-                                  Mode(
-                                    id: "half",
-                                    name: "Half Carton",
-                                    qty: _halfboxqty_controller
-                                        .text
-                                        .trim(),
-                                    cp: _costController.text
-                                        .trim(),
-                                    rp: _halfboxprice_controller
-                                        .text
-                                        .trim(),
-                                    wp: _halfboxprice_controller
-                                        .text
-                                        .trim(),
-                                    sp: _halfboxprice_controller
-                                        .text
-                                        .trim(),
-                                  ),
-                                );
-                              } else {
-                                removeMode("half");
-                              }
-
-                              if (pricingStep >= 2 &&
-                                  _quarterqty_controller
-                                      .text.isNotEmpty &&
-                                  _quarterprice_controller
-                                      .text.isNotEmpty) {
-                                upsertMode(
-                                  "quarter",
-                                  Mode(
-                                    id: "quarter",
-                                    name: "Quarter Carton",
-                                    qty: _quarterqty_controller
-                                        .text
-                                        .trim(),
-                                    cp: _costController.text
-                                        .trim(),
-                                    rp: _quarterprice_controller
-                                        .text
-                                        .trim(),
-                                    wp: _quarterprice_controller
-                                        .text
-                                        .trim(),
-                                    sp: _quarterprice_controller
-                                        .text
-                                        .trim(),
-                                  ),
-                                );
-                              } else {
-                                removeMode("quarter");
-                              }
-
-                              if (pricingStep >= 3 &&
-                                  _packQtyController
-                                      .text.isNotEmpty &&
-                                  _packprice_controller
-                                      .text.isNotEmpty) {
-                                upsertMode(
-                                  "pack",
-                                  Mode(
-                                    id: "pack",
-                                    name: "Pack",
-                                    qty: _packQtyController.text
-                                        .trim(),
-                                    cp: _costController.text
-                                        .trim(),
-                                    rp: _packprice_controller
-                                        .text
-                                        .trim(),
-                                    wp: _packprice_controller
-                                        .text
-                                        .trim(),
-                                    sp: _packprice_controller
-                                        .text
-                                        .trim(),
-                                  ),
-                                );
-                              } else {
-                                removeMode("pack");
-                              }
-                            } else {
-                              removeMode("half");
-                              removeMode("quarter");
-                              removeMode("pack");
-                            }
-
-                            final branchFieldPath = FieldPath(
-                                ['branchprices', targetBranchId]);
-
-                            await db
-                                .collection('itemsreg')
-                                .doc(widget.item.id)
-                                .update({
-                              branchFieldPath: {
-                                'name': targetBranchName,
-                                'pricing': {
-                                  for (var m in modes)
-                                    m.id: m.toMap(),
-                                },
-                                'sminqty': _supplierMinQtyController
-                                    .text
-                                    .trim(),
-                                'updatedat':
-                                FieldValue.serverTimestamp(),
-                                'updatedby': widget.staff,
-                              },
-                              'pricingmode': true,
-                            });
-
-                            _syncLocalBranchPricing(
-                              targetBranchId,
-                              targetBranchName,
-                              modes,
-                            );
-
-                            if (mounted) {
-                              context
-                                  .read<Datafeed>()
-                                  .notifyListeners();
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Item updated successfully!',style: TextStyle(color: Colors.white),),
-                                  backgroundColor: Colors.green,
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(
-                                SnackBar(
-                                  content: Text('Error: $e',style: TextStyle(color: Colors.white),),
-                                  backgroundColor: Colors.red,
-                                  duration:
-                                  const Duration(seconds: 4),
-                                ),
-                              );
-                            }
-                          }
-
-                          if (mounted) {
-                            setState(() => _loading = false);
-                          }
-                        },
-                        child: _loading
-                            ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
-                            : const Text('Update Item'),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          floatingActionButton: _enableBoxPricing &&
-              double.tryParse(_boxQtyController.text) != 1
+          floatingActionButton: _enableBoxPricing
               ? Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  mini: true,
-                  heroTag: 'add_pricing',
-                  backgroundColor: Colors.green,
-                  onPressed: () {
-                    setState(() {
-                      if (pricingStep < 3) pricingStep++;
-                    });
-                  },
-                  child: const Icon(Icons.add),
-                ),
-                const SizedBox(width: 12),
-                FloatingActionButton(
-                  mini: true,
-                  heroTag: 'toggle_pricing',
-                  backgroundColor: Colors.blue,
-                  onPressed: () {
-                    setState(() => _enableBoxPricing = false);
-                  },
-                  child: const Icon(Icons.close),
-                ),
-              ],
-            ),
-          )
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FloatingActionButton(
+                        mini: true,
+                        heroTag: 'add_pricing',
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
+                        onPressed: () {
+                          setState(() {
+                            if (pricingStep < 3) pricingStep++;
+                          });
+                        },
+                        child: const Icon(Icons.add),
+                      ),
+                      const SizedBox(width: 12),
+                      FloatingActionButton(
+                        mini: true,
+                        heroTag: 'toggle_pricing',
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.secondary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSecondary,
+                        onPressed: () {
+                          setState(() => _enableBoxPricing = false);
+                        },
+                        child: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                )
               : null,
         );
       },
@@ -1660,15 +1786,15 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
   }
 
   TextFormField _buildField(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool enabled = true,
-        bool isNumber = false,
-        Function(String)? onChanged,
-        String? Function(String?)? validator,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool enabled = true,
+    bool isNumber = false,
+    Function(String)? onChanged,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       enabled: enabled,
       controller: controller,
@@ -1676,7 +1802,7 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       validator: validator ?? (v) => v == null || v.isEmpty ? 'Required' : null,
       decoration: _inputDecoration(label, icon),
       onChanged: onChanged,
@@ -1685,22 +1811,22 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
   }
 
   TextFormField _buildFieldWithEnabled(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool isNumber = false,
-        bool enabled = true,
-        Function(String)? onChanged,
-        String? Function(String?)? validator,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool isNumber = false,
+    bool enabled = true,
+    Function(String)? onChanged,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       controller: controller,
       enabled: enabled,
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       validator: validator ?? (v) => v == null || v.isEmpty ? 'Required' : null,
       decoration: _inputDecoration(label, icon),
       inputFormatters: inputFormatters,
@@ -1709,19 +1835,26 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
   }
 
   InputDecoration _inputDecoration(String label, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      floatingLabelStyle: TextStyle(color: colorScheme.onSurface),
+      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      prefixIcon: Icon(icon, color: colorScheme.onSurfaceVariant),
       filled: true,
-      fillColor: const Color(0xFF22304A),
+      fillColor: colorScheme.surfaceContainerHighest,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: colorScheme.primary),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: colorScheme.outlineVariant),
       ),
     );
   }

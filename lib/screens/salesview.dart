@@ -1,9 +1,9 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/screens/salesviewdetails.dart';
+import 'package:kologsoft/screens/sales_today_views.dart';
 import 'package:provider/provider.dart';
 
 import '../models/appModuls.dart';
@@ -24,32 +24,43 @@ class _SalesViewPageState extends State<SalesViewPage> {
   final GlobalKey _branchKey = GlobalKey();
   int? _sortColumnIndex;
   bool _sortAscending = true;
-   double previousbal  = 0.0;
+  int _currentPage = 0;
+  int _rowsPerPage = 10;
+  double previousbal = 0.0;
+  bool _initialLoading = true;
   final now = DateTime.now();
 
   final ScrollController _verticalController = ScrollController();
-
 
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
-  static const Color _backgroundColor = Color(0xFF101624);
-  static const Color _cardColor = Color(0xFF1B263B);
-  static const Color _headerColor = Color(0xFF0D1B2A);
-  static const Color _borderColor = Colors.white12;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _backgroundColor =>
+      _isLightTheme ? Colors.white : Theme.of(context).scaffoldBackgroundColor;
+  Color get _cardColor => _isLightTheme
+      ? Colors.white
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _tableSurface => _isLightTheme ? Colors.white : _cardColor;
+  Color get _headerColor =>
+      _isLightTheme ? Colors.white : Theme.of(context).colorScheme.primary;
+  Color get _borderColor => _isLightTheme
+      ? Colors.grey.shade300
+      : Theme.of(context).colorScheme.outline;
 
-  static const Color _textColor = Colors.white;
-
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _rowDividerColor =>
+      _isLightTheme ? Colors.grey.shade300 : Colors.transparent;
 
   static final ScrollBehavior _smoothScrollBehavior = _SmoothScrollBehavior();
 
   void _sort<T>(
-      Comparable<T> Function(dynamic d) getField,
-      int columnIndex,
-      bool ascending,
-      List list,
-      ) {
+    Comparable<T> Function(dynamic d) getField,
+    int columnIndex,
+    bool ascending,
+    List list,
+  ) {
     list.sort((a, b) {
       final aValue = getField(a);
       final bValue = getField(b);
@@ -62,6 +73,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
     setState(() {
       _sortColumnIndex = columnIndex;
       _sortAscending = ascending;
+      _currentPage = 0;
     });
   }
 
@@ -80,15 +92,16 @@ class _SalesViewPageState extends State<SalesViewPage> {
     Future.microtask(() async {
       final provider = context.read<Datafeed>();
 
-      await provider.fetchBranches();
+      try {
+        await provider.fetchBranches();
+        final canSeeAll = provider.isAdminLevel || provider.canSelectBranch;
+        _selectedBranch = canSeeAll ? null : provider.branchid;
 
-      _selectedBranch = provider.branchid;
-
-      await provider.fetchsalesview(
-        selectedBranch: _selectedBranch,
-      );
-
-      await provider.computePreviousBalances(provider.salesview);
+        await provider.fetchsalesview(selectedBranch: _selectedBranch);
+        await provider.computePreviousBalances(provider.salesview);
+      } finally {
+        if (mounted) setState(() => _initialLoading = false);
+      }
     });
   }
 
@@ -100,12 +113,10 @@ class _SalesViewPageState extends State<SalesViewPage> {
     super.dispose();
   }
 
-
   void _openSearch() {
     setState(() {
       _isSearching = true;
     });
-
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -118,22 +129,23 @@ class _SalesViewPageState extends State<SalesViewPage> {
     setState(() {
       _isSearching = false;
       _searchController.clear();
+      _currentPage = 0;
     });
 
     value.updateSearch('');
   }
 
-  void _showBranchMenu( BuildContext context, Datafeed value, ) {
+  bool _isWarehouseType(String? t) =>
+      (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') == 'warehouse';
+
+  void _showBranchMenu(BuildContext context, Datafeed value) {
     final RenderBox button =
-    _branchKey.currentContext!.findRenderObject() as RenderBox;
+        _branchKey.currentContext!.findRenderObject() as RenderBox;
 
     final RenderBox overlay =
-    Overlay.of(context).context.findRenderObject() as RenderBox;
+        Overlay.of(context).context.findRenderObject() as RenderBox;
 
-    final buttonPosition = button.localToGlobal(
-      Offset.zero,
-      ancestor: overlay,
-    );
+    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
 
     final position = RelativeRect.fromRect(
       Rect.fromLTWH(
@@ -145,36 +157,29 @@ class _SalesViewPageState extends State<SalesViewPage> {
       Offset.zero & overlay.size,
     );
 
+    final visibleBranches = {
+      for (final b in value.branches)
+        if (!_isWarehouseType(b.branchtype)) b.id: b,
+    }.values.where((b) => b.id != null && b.id!.isNotEmpty).toList();
+
     showMenu<String?>(
       context: context,
       position: position,
       color: _cardColor,
       items: [
-        const PopupMenuItem<String?>(
+        PopupMenuItem<String?>(
           value: '__ALL__',
           child: Text(
             'All Branches',
-            style: TextStyle(
-              color: _textColor,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: _textColor, fontSize: 13),
           ),
         ),
-        ...{
-          for (final b in value.branches) b.id: b,
-        }.values
-            .where(
-              (b) => b.id != null && b.id!.isNotEmpty,
-        )
-            .map(
-              (b) => PopupMenuItem<String?>(
+        ...visibleBranches.map(
+          (b) => PopupMenuItem<String?>(
             value: b.id,
             child: Text(
               b.branchname,
-              style: const TextStyle(
-                color: _textColor,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: _textColor, fontSize: 13),
             ),
           ),
         ),
@@ -186,60 +191,54 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
       setState(() {
         _selectedBranch = branch;
+        _currentPage = 0;
       });
 
-      value.fetchsalesview(
-        selectedDate: selectedDate,
-        selectedBranch: branch,
-      ).then((_) {
-        value.computePreviousBalances(value.salesview);
-      });
+      value
+          .fetchsalesview(selectedDate: selectedDate, selectedBranch: branch)
+          .then((_) {
+            value.computePreviousBalances(value.salesview);
+          });
     });
   }
 
-  void _showViewModal(BuildContext context,dynamic salesview,) {
+  void _showViewModal(BuildContext context, dynamic salesview) {
     final provider = context.read<Datafeed>();
 
-    final canSelectDate = provider.accesslevel == 'super admin' ||
-        provider.accesslevel == 'systemadmin' ||
-        provider.accesslevel == 'admin';
+    final canSelectDate = provider.isAdminLevel;
+    // provider.accesslevel == 'super admin' ||
+    // provider.accesslevel == 'systemadmin' ||
+    // provider.accesslevel == 'admin';
 
     final receipt = salesview.receiptNumber;
 
     final customerName = (salesview.customerName?.toString().isNotEmpty == true)
         ? salesview.customerName.toString()
-        : '-';
+        : 'Cash customer';
 
-    final Map<String, dynamic> itemMap =
-    Map<String, dynamic>.from(salesview.items);
+    final Map<String, dynamic> itemMap = Map<String, dynamic>.from(
+      salesview.items,
+    );
 
     final numberFormat = NumberFormat('#,##0.00');
 
-    final totalAmount = itemMap.values.fold<double>( 0, (sum, item) {
+    final totalAmount = itemMap.values.fold<double>(0, (sum, item) {
       if (item is Map<String, dynamic>) {
         return sum +
-            (double.tryParse(
-              item['totalamount']?.toString() ?? '0',
-            ) ??
-                0);
+            (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
       }
 
       return sum;
-    },
-    );
+    });
 
     final totalQty = itemMap.values.fold<double>(0, (sum, item) {
       if (item is Map<String, dynamic>) {
         return sum +
-            (double.tryParse(
-              item['totalpieces']?.toString() ?? '0',
-            ) ??
-                0);
+            (double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0);
       }
 
       return sum;
-    },
-    );
+    });
 
     showDialog(
       context: context,
@@ -259,13 +258,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 14,
                   ),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _cardColor,
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(16),
@@ -273,16 +271,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.receipt_long,
-                        color: _textColor,
-                        size: 18,
-                      ),
+                      Icon(Icons.receipt_long, color: _textColor, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Receipt #$receipt',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _textColor,
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
@@ -290,11 +284,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
-                          Icons.close,
-                          color: _textColor,
-                          size: 20,
-                        ),
+                        icon: Icon(Icons.close, color: _textColor, size: 20),
                         onPressed: () {
                           Navigator.pop(ctx);
                         },
@@ -304,7 +294,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
                     ],
                   ),
                 ),
-
 
                 Flexible(
                   child: SingleChildScrollView(
@@ -320,10 +309,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                               children: [
                                 Column(
                                   children: [
-                                    _plainInfoLine(
-                                      'Customer',
-                                      customerName,
-                                    ),
+                                    _plainInfoLine('Customer', customerName),
                                     _plainInfoLine(
                                       'Staff    ',
                                       salesview.createdBy ?? '-',
@@ -331,12 +317,14 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                     _plainInfoLine(
                                       'Date',
                                       salesview.dateymd != null &&
-                                          salesview.dateymd!.isNotEmpty
-                                          ? DateFormat('dd MMM yyyy, hh:mm a').format(
-                                        DateTime.parse(
-                                          salesview.dateymd!,
-                                        ),
-                                      )
+                                              salesview.dateymd!.isNotEmpty
+                                          ? DateFormat(
+                                              'dd MMM yyyy, hh:mm a',
+                                            ).format(
+                                              DateTime.parse(
+                                                salesview.dateymd!,
+                                              ),
+                                            )
                                           : '-',
                                     ),
                                   ],
@@ -357,19 +345,11 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                     ),
                                   ],
                                 ),
-
-
                               ],
                             ),
                           ],
                         ),
-
-                        const SizedBox(height: 20),
-
                         _sectionLabel('ITEMS'),
-
-                        const SizedBox(height: 10),
-
                         _buildItemsTable(
                           itemMap.values
                               .whereType<Map<String, dynamic>>()
@@ -379,16 +359,14 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
                         const SizedBox(height: 8),
 
-                        const Divider(
-                          color: Colors.white12,
-                        ),
+                        Divider(color: _borderColor.withOpacity(0.45)),
 
                         const SizedBox(height: 8),
 
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Text(
                                 'TOTAL AMOUNT',
                                 style: TextStyle(
@@ -399,8 +377,8 @@ class _SalesViewPageState extends State<SalesViewPage> {
                               ),
                             ),
                             Text(
-                              'GHC ${numberFormat.format(totalAmount)}',
-                              style: const TextStyle(
+                              'GHS ${numberFormat.format(totalAmount)}',
+                              style: TextStyle(
                                 color: _textColor,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
@@ -413,13 +391,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   ),
                 ),
 
-
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,
                   ),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _cardColor,
                     borderRadius: BorderRadius.vertical(
                       bottom: Radius.circular(16),
@@ -432,11 +409,9 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         onPressed: () {
                           Navigator.pop(ctx);
                         },
-                        child: const Text(
+                        child: Text(
                           'Close',
-                          style: TextStyle(
-                            color: _textColor,
-                          ),
+                          style: TextStyle(color: _textColor),
                         ),
                       ),
                     ],
@@ -453,7 +428,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
   Widget _sectionLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         color: _textColor,
         fontSize: 11,
         fontWeight: FontWeight.w700,
@@ -462,30 +437,20 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _plainInfoLine(
-      String label,
-      String value,
-      ) {
+  Widget _plainInfoLine(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(
-            color: _textColor,
-            fontSize: 13,
-          ),
+          style: TextStyle(color: _textColor, fontSize: 13),
           children: [
             TextSpan(
               text: '$label: ',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             TextSpan(
               text: value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w400,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w400),
             ),
           ],
         ),
@@ -493,144 +458,104 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-
   Widget _buildItemsTable(
-      List<Map<String, dynamic>> items,
-      bool canSelectDate,
-      ) {
+    List<Map<String, dynamic>> items,
+    bool canSelectDate,
+  ) {
     final numberFormat = NumberFormat('#,##0.00');
 
     String money(dynamic v) {
       final parsed = double.tryParse(v?.toString() ?? '');
-      return parsed == null ? '-' : 'GHC ${numberFormat.format(parsed)}';
+      return parsed == null ? '-' : ' ${numberFormat.format(parsed)}';
     }
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columnSpacing: 20,
-        horizontalMargin: 0,
-        headingRowHeight: 36,
-        dataRowMinHeight: 40,
-        dataRowMaxHeight: 48,
-        dividerThickness: 0.5,
-        headingRowColor: const WidgetStatePropertyAll(_headerColor),
-        headingTextStyle: const TextStyle(
-          color: _textColor,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          letterSpacing: 0.4,
-        ),
-        dataTextStyle: const TextStyle(
-          color: _textColor,
-          fontSize: 12,
-        ),
-        columns: [
-          const DataColumn(label: Text('ITEM')),
-          const DataColumn(label: Text('BARCODE')),
-          const DataColumn(label: Text('QTY')),
-          const DataColumn(label: Text('PRICE'), numeric: true),
-          const DataColumn(label: Text('DISCOUNT'), numeric: true),
-          //   if (canSelectDate) const DataColumn(label: Text('PRICE MODE')),
-          if (canSelectDate)
-            const DataColumn(label: Text('COST PRICE'), numeric: true),
-          if (canSelectDate)
-            const DataColumn(label: Text('PROFIT'), numeric: true),
-          const DataColumn(label: Text('TOTAL'), numeric: true),
-        ],
-        rows: items.map((item) {
-          return DataRow(
-            cells: [
-              DataCell(
-                Text(
-                  (item['item'] ?? '-').toString().toUpperCase(),
-                ),
-              ),
-              DataCell(
-                Text('${item['barcode'] ?? '-'}'),
-              ),
-              DataCell(
-                Text(
-                  '${item['quantity'] ?? '-'} (${item['mode'] ?? '-'})',
-                ),
-              ),
-              DataCell(
-                Text(money(item['price'])),
-              ),
-              DataCell(
-                Text('${item['discount'] ?? '0'}'),
-              ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: _borderColor),
+        child: DataTable(
+          columnSpacing: 20,
+          horizontalMargin: 0,
+          headingRowHeight: 36,
+          dataRowMinHeight: 40,
+          dataRowMaxHeight: 48,
+          dividerThickness: 1,
+          headingRowColor: WidgetStatePropertyAll(_tableSurface),
+          dataRowColor: WidgetStatePropertyAll(_tableSurface),
+          headingTextStyle: TextStyle(
+            color: _textColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            letterSpacing: 0.4,
+          ),
+          dataTextStyle: TextStyle(color: _textColor, fontSize: 12),
+          columns: [
+            const DataColumn(label: Text('ITEM')),
+            const DataColumn(label: Text('BARCODE')),
+            const DataColumn(label: Text('QTY')),
+            const DataColumn(label: Text('PRICE'), numeric: true),
+            const DataColumn(label: Text('DISCOUNT'), numeric: true),
 
-
-
-              if (canSelectDate) DataCell(
-                Text(
-                  item['cp'] != null ? money(item['cp']) : '-',
-                ),
-              ),
-              if (canSelectDate)
+            if (canSelectDate)
+              const DataColumn(label: Text('COST PRICE'), numeric: true),
+            if (canSelectDate)
+              const DataColumn(label: Text('PROFIT'), numeric: true),
+            const DataColumn(label: Text('TOTAL'), numeric: true),
+          ],
+          rows: items.map((item) {
+            return DataRow(
+              cells: [
+                DataCell(Text((item['item'] ?? '-').toString().toUpperCase())),
+                DataCell(Text('${item['barcode'] ?? '-'}')),
                 DataCell(
-                  Text(
-                    item['profit'] != null ? money(item['profit']) : '-',
-                  ),
+                  Text('${item['quantity'] ?? '-'} (${item['mode'] ?? '-'})'),
                 ),
-              DataCell(
-                Text(money(item['totalamount'])),
-              ),
-            ],
-          );
-        }).toList(),
+                DataCell(Text(money(item['price']))),
+                DataCell(Text('${item['discount'] ?? '0'}')),
+
+                if (canSelectDate)
+                  DataCell(Text(item['cp'] != null ? money(item['cp']) : '-')),
+                if (canSelectDate)
+                  DataCell(
+                    Text(item['profit'] != null ? money(item['profit']) : '-'),
+                  ),
+                DataCell(Text(money(item['totalamount']))),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
   Future<void> _handleDelete(
-      BuildContext context,
-      String itemName,
-      String id,
-      String receipt,
-      ) async {
+    BuildContext context,
+    String itemName,
+    String id,
+    String receipt,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (innerContext) => AlertDialog(
         backgroundColor: _cardColor,
-        title: Text(
-          'Delete $itemName?',
-          style: const TextStyle(
-            color: _textColor,
-          ),
-        ),
-        content: const Text(
+        title: Text('Delete $itemName?', style: TextStyle(color: _textColor)),
+        content: Text(
           'This action cannot be undone. Are you sure?',
-          style: TextStyle(
-            color: _textColor,
-          ),
+          style: TextStyle(color: _textColor),
         ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(innerContext, false);
             },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                color: _textColor,
-              ),
-            ),
+            child: Text('Cancel', style: TextStyle(color: _textColor)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () {
               Navigator.pop(innerContext, true);
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(
-                color: _textColor,
-              ),
-            ),
+            child: Text('Delete', style: TextStyle(color: _textColor)),
           ),
         ],
       ),
@@ -641,10 +566,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
     }
 
     try {
-      await context.read<Datafeed>().deletesalesview(
-        id,
-        receipt,
-      );
+      await context.read<Datafeed>().deletesalesview(id, receipt);
 
       if (!context.mounted) {
         return;
@@ -654,9 +576,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
         SnackBar(
           content: Text(
             '$itemName deleted successfully',
-            style: const TextStyle(
-              color: _textColor,
-            ),
+            style: TextStyle(color: _textColor),
           ),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
@@ -668,12 +588,10 @@ class _SalesViewPageState extends State<SalesViewPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Failed to delete item',
-            style: TextStyle(
-              color: _textColor,
-            ),
+            style: TextStyle(color: _textColor),
           ),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
@@ -691,9 +609,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
       return 'All Branches';
     }
 
-    final matches = value.branches.where(
-          (b) => b.id == _selectedBranch,
-    );
+    final matches = value.branches.where((b) => b.id == _selectedBranch);
 
     if (matches.isEmpty) {
       return 'All Branches';
@@ -711,7 +627,8 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
         final filteredSalesview = value.filtersalesview();
 
-        final canSelectDate = value.accesslevel == 'super admin' ||
+        final canSelectDate =
+            value.accesslevel == 'super admin' ||
             value.accesslevel == 'systemadmin' ||
             value.accesslevel == 'admin';
 
@@ -722,9 +639,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
             child: AppBar(
               backgroundColor: _cardColor,
               elevation: 0,
-              iconTheme: const IconThemeData(
-                color: _textColor,
-              ),
+              iconTheme: IconThemeData(color: _textColor),
               title: LayoutBuilder(
                 builder: (context, constraints) {
                   final isMobile = constraints.maxWidth < 700;
@@ -736,13 +651,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
                   final branchLabel = _selectedBranchLabel(value);
 
-
                   if (_isSearching) {
                     return Row(
                       children: [
                         IconButton(
                           tooltip: 'Close search',
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.arrow_back,
                             color: _textColor,
                             size: 21,
@@ -758,9 +672,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         Expanded(
                           child: Container(
                             height: 60,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
                             decoration: BoxDecoration(
                               color: _backgroundColor,
                               borderRadius: BorderRadius.circular(10),
@@ -770,15 +682,17 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                 controller: _searchController,
                                 focusNode: _searchFocusNode,
                                 autofocus: true,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _textColor,
                                   fontSize: 15,
                                 ),
                                 cursorColor: _textColor,
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText: 'Search sales...',
                                   hintStyle: TextStyle(
-                                    color: Colors.white54,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                                   border: InputBorder.none,
                                   isCollapsed: true,
@@ -786,7 +700,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                 onChanged: (text) {
                                   // setState so the clear (x) button
                                   // appears/disappears as the user types.
-                                  setState(() {});
+                                  setState(() => _currentPage = 0);
                                   context.read<Datafeed>().updateSearch(text);
                                 },
                               ),
@@ -796,7 +710,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         if (_searchController.text.isNotEmpty)
                           IconButton(
                             tooltip: 'Clear',
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.clear,
                               color: _textColor,
                               size: 20,
@@ -820,13 +734,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
                   return Row(
                     children: [
-
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Sales View List',
                               style: TextStyle(
                                 color: _textColor,
@@ -841,7 +754,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                   : '$branchLabel • Sales View For The Period Of $periodText',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textColor,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w400,
@@ -851,39 +764,29 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         ),
                       ),
 
-
                       IconButton(
                         tooltip: 'Search',
-                        icon: const Icon(
-                          Icons.search,
-                          color: _textColor,
-                          size: 21,
-                        ),
+                        icon: Icon(Icons.search, color: _textColor, size: 21),
                         onPressed: _openSearch,
                       ),
-
 
                       if (!value.isSalesStaff)
                         IconButton(
                           key: _branchKey,
                           tooltip: 'Branch: $branchLabel',
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.store_outlined,
                             color: _textColor,
                             size: 21,
                           ),
                           onPressed: () {
-                            _showBranchMenu(
-                              context,
-                              value,
-                            );
+                            _showBranchMenu(context, value);
                           },
                         ),
 
-
                       if (canSelectDate)
                         ReusableDatePickerWidget(
-                          child: const Padding(
+                          child: Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 8,
@@ -897,17 +800,73 @@ class _SalesViewPageState extends State<SalesViewPage> {
                           onDateSelected: (selection) {
                             setState(() {
                               selectedDate = selection;
+                              _currentPage = 0;
                             });
 
                             final provider = context.read<Datafeed>();
 
-                            provider.fetchsalesview(
-                              selectedDate: selectedDate,
-                              selectedBranch: _selectedBranch,
-                            ).then((_) {
-                              provider.computePreviousBalances(provider.salesview);
-                            });
+                            provider
+                                .fetchsalesview(
+                                  selectedDate: selectedDate,
+                                  selectedBranch: _selectedBranch,
+                                )
+                                .then((_) {
+                                  provider.computePreviousBalances(
+                                    provider.salesview,
+                                  );
+                                });
                           },
+                        ),
+
+                      if (value.isAdminLevel)
+                        PopupMenuButton<SalesTodayView>(
+                          tooltip: 'Sales insights',
+                          icon: Icon(
+                            Icons.analytics_outlined,
+                            color: _textColor,
+                            size: 21,
+                          ),
+                          onSelected: (view) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SalesTodayPage(
+                                  sales: filteredSalesview.toList(
+                                    growable: false,
+                                  ),
+                                  view: view,
+                                  periodLabel: periodText,
+                                  branchLabel: branchLabel,
+                                ),
+                              ),
+                            );
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: SalesTodayView.overview,
+                              child: Text('Sales Overview'),
+                            ),
+                            PopupMenuItem(
+                              value: SalesTodayView.topProducts,
+                              child: Text('Top-selling Products'),
+                            ),
+                            PopupMenuItem(
+                              value: SalesTodayView.payments,
+                              child: Text('Payment Breakdown'),
+                            ),
+                            PopupMenuItem(
+                              value: SalesTodayView.dailySummary,
+                              child: Text('Sales Summary'),
+                            ),
+                            PopupMenuItem(
+                              value: SalesTodayView.staffCollections,
+                              child: Text('Staff Collections & Items'),
+                            ),
+                            PopupMenuItem(
+                              value: SalesTodayView.itemsSold,
+                              child: Text('Items Sold'),
+                            ),
+                          ],
                         ),
                     ],
                   );
@@ -918,9 +877,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
           body: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 1000,
-              ),
+              constraints: const BoxConstraints(maxWidth: 1000),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -930,43 +887,44 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      child: value.isloadingsalesview
-                          ? const Center(
-                        child: CircularProgressIndicator(
-                          color: _textColor,
-                        ),
-                      )
-                          : value.salesview.isEmpty
-                          ? const Center(
-                        child: Text(
-                          'No Sales Found',
-                          style: TextStyle(
-                            color: _textColor,
-                          ),
-                        ),
-                      )
+                      child: (_initialLoading || value.isloadingsalesview)
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: _textColor,
+                              ),
+                            )
+                          : filteredSalesview.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No Sales Found',
+                                style: TextStyle(color: _textColor),
+                              ),
+                            )
                           : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isDesktop =
-                              constraints.maxWidth > 700;
+                              builder: (context, constraints) {
+                                final isDesktop = constraints.maxWidth > 700;
 
-                          if (isDesktop) {
-                            return _buildDesktopLayout(
-                              context,
-                              filteredSalesview,
-                              value,
-                              canSelectDate,
-                            );
-                          }
+                                if (isDesktop) {
+                                  return _buildDesktopLayout(
+                                    context,
+                                    filteredSalesview,
+                                    value,
+                                    canSelectDate,
+                                  );
+                                }
 
-                          return _buildMobileList(
-                            context,
-                            filteredSalesview,
-                            canSelectDate,
-                          );
-                        },
-                      ),
+                                return _buildMobileList(
+                                  context,
+                                  filteredSalesview,
+                                  canSelectDate,
+                                );
+                              },
+                            ),
                     ),
+                    if (!_initialLoading &&
+                        !value.isloadingsalesview &&
+                        filteredSalesview.isNotEmpty)
+                      _buildPaginationFooter(filteredSalesview.length),
                   ],
                 ),
               ),
@@ -977,29 +935,29 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _buildDesktopRow( BuildContext context, dynamic sv, int index, Datafeed value,bool canSelectDate ) {
+  Widget _buildDesktopRow(
+    BuildContext context,
+    dynamic sv,
+    int index,
+    Datafeed value,
+    bool canSelectDate,
+  ) {
     final receipt = sv.receiptNumber;
 
     final customerName = (sv.customerName?.toString().isNotEmpty == true)
         ? sv.customerName.toString()
-        : '-';
+        : 'Cash Customer';
 
     final itemMap = Map<String, dynamic>.from(sv.items);
 
-    final total = itemMap.values.fold<double>(
-      0,
-          (sum, item) {
-        if (item is Map<String, dynamic>) {
-          return sum +
-              (double.tryParse(
-                item['totalamount']?.toString() ?? '0',
-              ) ??
-                  0);
-        }
+    final total = itemMap.values.fold<double>(0, (sum, item) {
+      if (item is Map<String, dynamic>) {
+        return sum +
+            (double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0);
+      }
 
-        return sum;
-      },
-    );
+      return sum;
+    });
 
     final nf = NumberFormat('#,##0.00');
 
@@ -1008,23 +966,24 @@ class _SalesViewPageState extends State<SalesViewPage> {
     return InkWell(
       onTap: () => _showViewModal(context, sv),
       child: Container(
-        color: index.isEven
-            ? const Color(0xFF0D1B2A)
-            : const Color(0xFF111E2F),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.light
+              ? _tableSurface
+              : (index.isEven
+                    ? const Color(0xFF0D1B2A)
+                    : const Color(0xFF111E2F)),
+          border: Border(
+            bottom: BorderSide(color: _rowDividerColor, width: 0.5),
+          ),
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Expanded(
               flex: _colFlexes[0],
               child: Text(
                 '${index + 1}',
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
             const SizedBox(width: 12),
@@ -1032,23 +991,17 @@ class _SalesViewPageState extends State<SalesViewPage> {
               flex: _colFlexes[1],
               child: GestureDetector(
                 onTap: () async {
-                  await Clipboard.setData(
-                    ClipboardData(
-                      text: '$receipt',
-                    ),
-                  );
+                  await Clipboard.setData(ClipboardData(text: '$receipt'));
 
                   if (!context.mounted) {
                     return;
                   }
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
                         'Receipt copied',
-                        style: TextStyle(
-                          color: _textColor,
-                        ),
+                        style: TextStyle(color: _textColor),
                       ),
                       backgroundColor: Colors.green,
                     ),
@@ -1056,10 +1009,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 },
                 child: Text(
                   '#$receipt',
-                  style: const TextStyle(
-                    color: _textColor,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: _textColor, fontSize: 13),
                 ),
               ),
             ),
@@ -1070,10 +1020,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 customerName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
             const SizedBox(width: 12),
@@ -1081,10 +1028,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
               flex: _colFlexes[3],
               child: Text(
                 dateStr,
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
             const SizedBox(width: 12),
@@ -1092,10 +1036,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
               flex: _colFlexes[4],
               child: Text(
                 sv.transMode ?? '-',
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
             const SizedBox(width: 12),
@@ -1103,9 +1044,9 @@ class _SalesViewPageState extends State<SalesViewPage> {
               Expanded(
                 flex: _colFlexes[5],
                 child: Text(
-                  'GHC ${nf.format(value.previousBalanceByReceipt[sv.id] ?? 0.0)}',
+                  ' ${nf.format(value.previousBalanceByReceipt[sv.id] ?? 0.0)}',
                   textAlign: TextAlign.right,
-                  style: const TextStyle(color: _textColor, fontSize: 13),
+                  style: TextStyle(color: _textColor, fontSize: 13),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1114,51 +1055,15 @@ class _SalesViewPageState extends State<SalesViewPage> {
             Expanded(
               flex: _colFlexes[6],
               child: Text(
-                'GHC ${nf.format(total)}',
+                '${nf.format(total)}',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
-                  color: _textColor,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               flex: _colFlexes[7],
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (value.canView(AppModules.sales))
-                    _actionIcon(
-                      Icons.visibility,
-                      'View',
-                          () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SalesDetailPage(
-                            salesview: sv,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (value.can_Print(AppModules.sales))
-                    _actionIcon(
-                      Icons.print,
-                      'Print',
-                          () => printSalesModelReceipt(context, sv),),
-                  if (value.canDelete(AppModules.sales))
-                    _actionIcon(
-                      Icons.delete_outline,
-                      'Delete',
-                          () => _handleDelete(
-                        context,
-                        customerName,
-                        sv.id,
-                        receipt,
-                      ),
-                    ),
-                ],
-              ),
+              child: _salesActionsMenu(context, sv, customerName),
             ),
           ],
         ),
@@ -1178,13 +1083,13 @@ class _SalesViewPageState extends State<SalesViewPage> {
   ];
 
   Widget _sortableHeaderCell(
-      String label,
-      int flex,
-      int columnIndex,
-      Comparable Function(dynamic d) getField,
-      List list, {
-        bool numeric = false,
-      }) {
+    String label,
+    int flex,
+    int columnIndex,
+    Comparable Function(dynamic d) getField,
+    List list, {
+    bool numeric = false,
+  }) {
     final isSorted = _sortColumnIndex == columnIndex;
 
     return Expanded(
@@ -1197,12 +1102,13 @@ class _SalesViewPageState extends State<SalesViewPage> {
           list,
         ),
         child: Row(
-          mainAxisAlignment:
-          numeric ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment: numeric
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _textColor,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
@@ -1222,16 +1128,22 @@ class _SalesViewPageState extends State<SalesViewPage> {
   }
 
   Widget _plainHeaderCell(
-      String label,
-      int flex, {
-        bool numeric = false,
-      }) {
+    String label,
+    int flex, {
+    bool numeric = false,
+    bool centered = false,
+  }) {
     return Expanded(
       flex: flex,
       child: Text(
         label,
-        textAlign: numeric ? TextAlign.right : TextAlign.left,
-        style: const TextStyle(
+        textAlign: centered
+            ? TextAlign.center
+            : numeric
+            ? TextAlign.right
+            : TextAlign.left,
+
+        style: TextStyle(
           color: _textColor,
           fontWeight: FontWeight.w700,
           fontSize: 13,
@@ -1241,170 +1153,386 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _buildDesktopLayout( BuildContext context, List filteredSalesview, Datafeed value, bool canSelectDate, ) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _backgroundColor,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              color: _cardColor,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 13,
-              ),
-              child: Row(
-                children: [
-                  _plainHeaderCell(
-                    '#',
-                    _colFlexes[0],
-                  ),
-                  const SizedBox(width: 12),
-                  _sortableHeaderCell(
-                    'Receipt',
-                    _colFlexes[1],
-                    1,
-                        (d) => d.receiptNumber ?? '',
-                    filteredSalesview,
-                  ),
-                  const SizedBox(width: 12),
-                  _sortableHeaderCell(
-                    'Customer',
-                    _colFlexes[2],
-                    2,
-                        (d) => (d.customerName?.toString() ?? '').toLowerCase(),
-                    filteredSalesview,
-                  ),
-                  const SizedBox(width: 12),
-                  _sortableHeaderCell(
-                    'Date',
-                    _colFlexes[3],
-                    4,
-                        (d) => d.dateymd ?? '',
-                    filteredSalesview,
-                  ),
-                  const SizedBox(width: 12),
-                  _sortableHeaderCell(
-                    'Mode',
-                    _colFlexes[4],
-                    5,
-                        (d) => d.transMode ?? '',
-                    filteredSalesview,
-                  ),
-                  const SizedBox(width: 12),
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    List filteredSalesview,
+    Datafeed value,
+    bool canSelectDate,
+  ) {
+    final pageCount = (filteredSalesview.length / _rowsPerPage).ceil().clamp(
+      1,
+      filteredSalesview.length == 0 ? 1 : filteredSalesview.length,
+    );
+    final page = _currentPage.clamp(0, pageCount - 1).toInt();
+    final startIndex = page * _rowsPerPage;
+    final pageItems = filteredSalesview
+        .skip(startIndex)
+        .take(_rowsPerPage)
+        .toList(growable: false);
 
-                  if (canSelectDate) ...[
-                    _sortableHeaderCell(
-                      'Previous Bal',
-                      _colFlexes[5],
-                      55,
-                          (d) => value.previousBalanceByReceipt[d.id] ?? 0.0,
-                      filteredSalesview,
-                      numeric: true,
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  const SizedBox(width: 12),
+    return DecoratedBox(
+      decoration: BoxDecoration(color: _tableSurface),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: _tableSurface,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(
+              children: [
+                _plainHeaderCell('#', _colFlexes[0]),
+                const SizedBox(width: 12),
+                _sortableHeaderCell(
+                  'Receipt',
+                  _colFlexes[1],
+                  1,
+                  (d) => d.receiptNumber ?? '',
+                  filteredSalesview,
+                ),
+                const SizedBox(width: 12),
+                _sortableHeaderCell(
+                  'Customer',
+                  _colFlexes[2],
+                  2,
+                  (d) => (d.customerName?.toString() ?? '').toLowerCase(),
+                  filteredSalesview,
+                ),
+                const SizedBox(width: 12),
+                _sortableHeaderCell(
+                  'Date',
+                  _colFlexes[3],
+                  4,
+                  (d) => d.dateymd ?? '',
+                  filteredSalesview,
+                ),
+                const SizedBox(width: 12),
+                _sortableHeaderCell(
+                  'Mode',
+                  _colFlexes[4],
+                  5,
+                  (d) => d.transMode ?? '',
+                  filteredSalesview,
+                ),
+                const SizedBox(width: 12),
+
+                if (canSelectDate) ...[
                   _sortableHeaderCell(
-                    'Total',
+                    'Previous Bal(GHS)',
                     _colFlexes[5],
-                    6,
-                        (d) {
-                      final itemMap = Map<String, dynamic>.from(
-                        d.items,
-                      );
-
-                      return itemMap.values.fold<double>(
-                        0,
-                            (sum, item) {
-                          if (item is Map<String, dynamic>) {
-                            return sum +
-                                (double.tryParse(
-                                  item['totalamount']?.toString() ?? '0',
-                                ) ??
-                                    0);
-                          }
-
-                          return sum;
-                        },
-                      );
-                    },
+                    55,
+                    (d) => value.previousBalanceByReceipt[d.id] ?? 0.0,
                     filteredSalesview,
                     numeric: true,
                   ),
                   const SizedBox(width: 12),
-                  _plainHeaderCell(
-                    'Actions',
-                    _colFlexes[6],
-                  ),
                 ],
-              ),
+                const SizedBox(width: 12),
+                _sortableHeaderCell(
+                  'Total (GHS)',
+                  _colFlexes[6],
+                  6,
+                  (d) {
+                    final itemMap = Map<String, dynamic>.from(d.items);
+
+                    return itemMap.values.fold<double>(0, (sum, item) {
+                      if (item is Map<String, dynamic>) {
+                        return sum +
+                            (double.tryParse(
+                                  item['totalamount']?.toString() ?? '0',
+                                ) ??
+                                0);
+                      }
+
+                      return sum;
+                    });
+                  },
+                  filteredSalesview,
+                  numeric: true,
+                ),
+                const SizedBox(width: 12),
+                _plainHeaderCell('Actions', _colFlexes[7], centered: true),
+              ],
             ),
-            Expanded(
-              child: ScrollConfiguration(
-                behavior: _smoothScrollBehavior,
-                child: Scrollbar(
+          ),
+          Expanded(
+            child: ScrollConfiguration(
+              behavior: _smoothScrollBehavior,
+              child: Scrollbar(
+                controller: _verticalController,
+                thumbVisibility: true,
+                trackVisibility: true,
+                child: ListView.builder(
                   controller: _verticalController,
-                  thumbVisibility: true,
-                  trackVisibility: true,
-                  child: ListView.builder(
-                    controller: _verticalController,
-                    padding: EdgeInsets.zero,
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
-
-                    cacheExtent: 600,
-                    itemCount: filteredSalesview.length,
-                    itemBuilder: (context, index) {
-                      return _buildDesktopRow(
-                        context,
-                        filteredSalesview[index],
-                        index,
-                        value,
-                        canSelectDate,
-
-                      );
-                    },
+                  padding: EdgeInsets.zero,
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
                   ),
+
+                  cacheExtent: 600,
+                  itemCount: pageItems.length,
+                  itemBuilder: (context, index) {
+                    return _buildDesktopRow(
+                      context,
+                      pageItems[index],
+                      startIndex + index,
+                      value,
+                      canSelectDate,
+                    );
+                  },
                 ),
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _goToPage(int page, int itemCount) {
+    final pageCount = itemCount == 0 ? 1 : (itemCount / _rowsPerPage).ceil();
+    setState(() {
+      _currentPage = page.clamp(0, pageCount - 1).toInt();
+    });
+    if (_verticalController.hasClients) {
+      _verticalController.jumpTo(0);
+    }
+  }
+
+  Widget _buildPaginationFooter(int itemCount) {
+    final pageCount = itemCount == 0 ? 1 : (itemCount / _rowsPerPage).ceil();
+    final page = _currentPage.clamp(0, pageCount - 1).toInt();
+    final start = itemCount == 0 ? 0 : page * _rowsPerPage + 1;
+    final end = (page + 1) * _rowsPerPage < itemCount
+        ? (page + 1) * _rowsPerPage
+        : itemCount;
+    final pages = <int>{
+      if (pageCount <= 7) ...List.generate(pageCount, (index) => index),
+      if (pageCount > 7)
+        ...{
+          0,
+          page - 1,
+          page,
+          page + 1,
+          pageCount - 1,
+        }.where((value) => value >= 0 && value < pageCount),
+    }.toList()..sort();
+    final scheme = Theme.of(context).colorScheme;
+
+    Widget pageButton(int pageIndex) {
+      final isSelected = pageIndex == page;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: OutlinedButton(
+          onPressed: () => _goToPage(pageIndex, itemCount),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(36, 36),
+            padding: EdgeInsets.zero,
+            foregroundColor: isSelected ? scheme.onSecondary : _textColor,
+            backgroundColor: isSelected ? scheme.secondary : _cardColor,
+            side: BorderSide(
+              color: isSelected ? scheme.secondary : _borderColor,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          child: Text('${pageIndex + 1}'),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _cardColor,
+        border: Border(top: BorderSide(color: _borderColor)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Rows per page',
+                  style: TextStyle(color: _textColor, fontSize: 12),
+                ),
+                const SizedBox(width: 8),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _rowsPerPage,
+                    dropdownColor: _cardColor,
+                    style: TextStyle(color: _textColor, fontSize: 12),
+                    iconEnabledColor: _textColor,
+                    items: const [10, 25, 50]
+                        .map(
+                          (count) => DropdownMenuItem(
+                            value: count,
+                            child: Text('$count'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (count) {
+                      if (count == null) return;
+                      setState(() {
+                        _rowsPerPage = count;
+                        _currentPage = 0;
+                      });
+                      if (_verticalController.hasClients) {
+                        _verticalController.jumpTo(0);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '$start–$end of $itemCount',
+                  style: TextStyle(color: _textColor, fontSize: 12),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Previous page',
+                  onPressed: page > 0
+                      ? () => _goToPage(page - 1, itemCount)
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                  color: _textColor,
+                  disabledColor: _textColor.withValues(alpha: 0.35),
+                  visualDensity: VisualDensity.compact,
+                ),
+                for (var index = 0; index < pages.length; index++) ...[
+                  if (index > 0 && pages[index] - pages[index - 1] > 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text('…', style: TextStyle(color: _textColor)),
+                    ),
+                  pageButton(pages[index]),
+                ],
+                IconButton(
+                  tooltip: 'Next page',
+                  onPressed: page < pageCount - 1
+                      ? () => _goToPage(page + 1, itemCount)
+                      : null,
+                  icon: const Icon(Icons.chevron_right),
+                  color: _textColor,
+                  disabledColor: _textColor.withValues(alpha: 0.35),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMobileList( BuildContext context,  List filteredSalesview,bool canSelectDate, ) {
+  Widget _salesActionsMenu(
+    BuildContext context,
+    dynamic salesview,
+    String customerName,
+  ) {
+    final value = context.read<Datafeed>();
+    final canView = value.canView(AppModules.sales);
+    final canPrint = value.can_Print(AppModules.sales);
+    final canDelete = value.canDelete(AppModules.sales);
+
+    Widget entry(IconData icon, String label) {
+      return Row(
+        children: [
+          Icon(icon, size: 18, color: _textColor),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(color: _textColor)),
+        ],
+      );
+    }
+
+    if (!canView && !canPrint && !canDelete) {
+      return const SizedBox.shrink();
+    }
+
+    return PopupMenuButton<String>(
+      tooltip: 'Actions',
+      color: _cardColor,
+      icon: Icon(Icons.more_vert, size: 20, color: _textColor),
+      onSelected: (action) {
+        switch (action) {
+          case 'view':
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SalesDetailPage(salesview: salesview),
+              ),
+            );
+            break;
+          case 'print':
+            printSalesModelReceipt(context, salesview);
+            break;
+          case 'delete':
+            _handleDelete(
+              context,
+              customerName,
+              salesview.id,
+              salesview.receiptNumber,
+            );
+            break;
+        }
+      },
+      itemBuilder: (_) => [
+        if (canView)
+          PopupMenuItem(
+            value: 'view',
+            child: entry(Icons.visibility_outlined, 'View'),
+          ),
+        if (canPrint)
+          PopupMenuItem(
+            value: 'print',
+            child: entry(Icons.print_outlined, 'Print'),
+          ),
+        if (canDelete)
+          PopupMenuItem(
+            value: 'delete',
+            child: entry(Icons.delete_outline, 'Delete'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMobileList(
+    BuildContext context,
+    List filteredSalesview,
+    bool canSelectDate,
+  ) {
+    final pageCount = filteredSalesview.isEmpty
+        ? 1
+        : (filteredSalesview.length / _rowsPerPage).ceil();
+    final page = _currentPage.clamp(0, pageCount - 1).toInt();
+    final startIndex = page * _rowsPerPage;
+    final pageItems = filteredSalesview
+        .skip(startIndex)
+        .take(_rowsPerPage)
+        .toList(growable: false);
+
     return Consumer<Datafeed>(
       builder: (context, value, _) {
         return ScrollConfiguration(
           behavior: _smoothScrollBehavior,
           child: ListView.separated(
-            padding: const EdgeInsets.only(
-              top: 4,
-              bottom: 16,
-            ),
+            padding: const EdgeInsets.only(top: 4, bottom: 16),
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
             cacheExtent: 600,
-            itemCount: filteredSalesview.length,
+            itemCount: pageItems.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
-              final sv = filteredSalesview[index];
+              final sv = pageItems[index];
 
-              final id = sv.id;
               final receipt = sv.receiptNumber;
 
               final customerName =
-              (sv.customerName?.toString().isNotEmpty == true)
+                  (sv.customerName?.toString().isNotEmpty == true)
                   ? sv.customerName.toString()
                   : '-';
 
@@ -1413,12 +1541,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   : '-';
 
               final transactionMode =
-              (sv.transMode?.toString().isNotEmpty == true)
+                  (sv.transMode?.toString().isNotEmpty == true)
                   ? sv.transMode.toString()
                   : '-';
 
               final paymentStatus =
-              (sv.paymentStatus?.toString().isNotEmpty == true)
+                  (sv.paymentStatus?.toString().isNotEmpty == true)
                   ? sv.paymentStatus.toString()
                   : '-';
 
@@ -1426,21 +1554,21 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   ? sv.dateymd.toString()
                   : '-';
 
-              final Map<String, dynamic> itemMap =
-              Map<String, dynamic>.from(sv.items);
+              final Map<String, dynamic> itemMap = Map<String, dynamic>.from(
+                sv.items,
+              );
 
-              final total = itemMap.values.fold<double>( 0, (sum, item) {
+              final total = itemMap.values.fold<double>(0, (sum, item) {
                 if (item is Map<String, dynamic>) {
                   return sum +
                       (double.tryParse(
-                        item['totalamount']?.toString() ?? '0',
-                      ) ??
+                            item['totalamount']?.toString() ?? '0',
+                          ) ??
                           0);
                 }
 
                 return sum;
-              },
-              );
+              });
 
               final nf = NumberFormat('#,##0.00');
 
@@ -1450,20 +1578,17 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   decoration: BoxDecoration(
                     color: _cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _borderColor,
-                    ),
+                    border: Border.all(color: _borderColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 12,
                         ),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: _headerColor,
                           borderRadius: BorderRadius.vertical(
                             top: Radius.circular(12),
@@ -1474,7 +1599,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                             Expanded(
                               child: Text(
                                 'Receipt #$receipt',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _textColor,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 14,
@@ -1482,8 +1607,8 @@ class _SalesViewPageState extends State<SalesViewPage> {
                               ),
                             ),
                             Text(
-                              'GHC ${nf.format(total)}',
-                              style: const TextStyle(
+                              ' ${nf.format(total)}',
+                              style: TextStyle(
                                 color: _textColor,
                                 fontWeight: FontWeight.w800,
                                 fontSize: 14,
@@ -1493,66 +1618,51 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         ),
                       ),
 
-
                       Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _mobileInfoRow(
-                              'Customer',
-                              customerName,
-                            ),
+                            _mobileInfoRow('Customer', customerName),
                             const SizedBox(height: 10),
-                            _mobileInfoRow(
-                              'Staff',
-                              staffName,
-                            ),
+                            _mobileInfoRow('Staff', staffName),
                             const SizedBox(height: 10),
-                            _mobileInfoRow(
-                              'Transaction Mode',
-                              transactionMode,
-                            ),
+                            _mobileInfoRow('Transaction Mode', transactionMode),
                             const SizedBox(height: 10),
-                            _mobileInfoRow(
-                              'Payment Status',
-                              paymentStatus,
-                            ),
+                            _mobileInfoRow('Payment Status', paymentStatus),
                             const SizedBox(height: 10),
-                            _mobileInfoRow(
-                              'Date',
-                              date,
-                            ),
+                            _mobileInfoRow('Date', date),
                             if (canSelectDate) ...[
                               const SizedBox(height: 10),
                               _mobileInfoRow(
-                                'Previous Balance',
-                                'GHC ${nf.format(value.previousBalanceByReceipt[sv.id] ?? 0.0)}',
+                                'Previous Balance (GHS)',
+                                nf.format(
+                                  value.previousBalanceByReceipt[sv.id] ?? 0.0,
+                                ),
                               ),
                             ],
 
                             const SizedBox(height: 14),
-                            const Divider(
-                              color: Colors.white12,
+                            Divider(
+                              color: _borderColor.withOpacity(0.45),
                               height: 1,
                             ),
                             const SizedBox(height: 12),
                             _mobileInfoRow(
                               'Total Amount',
-                              'GHC ${nf.format(total)}',
+                              'GHS ${nf.format(total)}',
                               valueBold: true,
                             ),
                           ],
                         ),
                       ),
 
-
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 6,
                         ),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: _headerColor,
                           borderRadius: BorderRadius.vertical(
                             bottom: Radius.circular(12),
@@ -1560,49 +1670,9 @@ class _SalesViewPageState extends State<SalesViewPage> {
                         ),
                         child: Row(
                           children: [
-                            if (value.canView(AppModules.sales))
-                              Expanded(
-                                child: _mobileActionButton(
-                                  icon: Icons.visibility_outlined,
-                                  label: 'View',
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => SalesDetailPage(
-                                          salesview: sv,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-
-                            if (value.can_Print(AppModules.sales))
-                              Expanded(
-                                child: _mobileActionButton(
-                                  icon: Icons.print_outlined,
-                                  label: 'Print',
-                                  onPressed: () {
-                                    printSalesModelReceipt(context,sv,);
-                                  },
-                                ),
-                              ),
-                            if (value.canDelete(AppModules.sales))
-                              Expanded(
-                                child: _mobileActionButton(
-                                  icon: Icons.delete_outline,
-                                  label: 'Delete',
-                                  onPressed: () {
-                                    _handleDelete(
-                                      context,
-                                      customerName,
-                                      id,
-                                      receipt,
-                                    );
-                                  },
-                                ),
-                              ),
+                            const Spacer(),
+                            _salesActionsMenu(context, sv, customerName),
+                            const SizedBox(width: 8),
                           ],
                         ),
                       ),
@@ -1617,11 +1687,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _mobileInfoRow(
-      String label,
-      String value, {
-        bool valueBold = false,
-      }) {
+  Widget _mobileInfoRow(String label, String value, {bool valueBold = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1629,7 +1695,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
           width: 125,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: _textColor,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1653,65 +1719,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
       ],
     );
   }
-
-  Widget _mobileActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: _textColor,
-        padding: const EdgeInsets.symmetric(
-          vertical: 8,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: _textColor,
-            size: 19,
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: _textColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionIcon(
-      IconData icon,
-      String tooltip,
-      VoidCallback onTap,
-      ) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(
-            icon,
-            color: _textColor,
-            size: 18,
-          ),
-        ),
-      ),
-    );
-  }
 }
-
 
 class _SmoothScrollBehavior extends MaterialScrollBehavior {
   @override

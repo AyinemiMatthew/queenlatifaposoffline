@@ -30,15 +30,14 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
   static const double _scrollThickness = 8.0;
 
   ScrollbarThemeData get _scrollbarTheme => ScrollbarThemeData(
-        thumbColor: WidgetStateProperty.all(_scrollColor),
-        trackColor: WidgetStateProperty.all(_scrollColor.withOpacity(0.15)),
-        trackBorderColor:
-            WidgetStateProperty.all(_scrollColor.withOpacity(0.30)),
-        thickness: WidgetStateProperty.all(_scrollThickness),
-        radius: const Radius.circular(6),
-        thumbVisibility: WidgetStateProperty.all(true),
-        trackVisibility: WidgetStateProperty.all(true),
-      );
+    thumbColor: WidgetStateProperty.all(_scrollColor),
+    trackColor: WidgetStateProperty.all(_scrollColor.withOpacity(0.15)),
+    trackBorderColor: WidgetStateProperty.all(_scrollColor.withOpacity(0.30)),
+    thickness: WidgetStateProperty.all(_scrollThickness),
+    radius: const Radius.circular(6),
+    thumbVisibility: WidgetStateProperty.all(true),
+    trackVisibility: WidgetStateProperty.all(true),
+  );
 
   @override
   void initState() {
@@ -106,19 +105,33 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
     double totalOther = 0.0;
 
     for (final sale in list) {
-      final momoAmount = _sumPayments(sale, ['momo']) +
-          _sumPayments(sale, ['mobile_money']);
+      final momoAmount =
+          _sumPayments(sale, ['momo']) + _sumPayments(sale, ['mobile_money']);
       final hubtelAmount = _sumPayments(sale, ['hubtel']);
       final cashAmount = _sumPayments(sale, ['cash']);
       final cardAmount = _sumPayments(sale, ['card']);
-      final bankAmount =
-          _sumPayments(sale, ['bank_transfer', 'bank']);
+      final bankAmount = _sumPayments(sale, ['bank_transfer', 'bank']);
       final chequeAmount = _sumPayments(sale, ['cheque', 'cheques']);
       final paidTotal = _parseAmount(sale.totalamount) != 0
-          ? _sumPayments(sale, ['cash', 'momo', 'hubtel', 'card', 'bank_transfer', 'bank', 'cheque', 'cheques'])
+          ? _sumPayments(sale, [
+              'cash',
+              'momo',
+              'hubtel',
+              'card',
+              'bank_transfer',
+              'bank',
+              'cheque',
+              'cheques',
+            ])
           : 0.0;
-      final otherAmount = paidTotal -
-          (cashAmount + momoAmount + hubtelAmount + cardAmount + bankAmount + chequeAmount);
+      final otherAmount =
+          paidTotal -
+          (cashAmount +
+              momoAmount +
+              hubtelAmount +
+              cardAmount +
+              bankAmount +
+              chequeAmount);
 
       totalPaid += paidTotal;
       totalMomo += momoAmount;
@@ -159,8 +172,9 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
         sale.approvedby,
         sale.branchId,
       ];
-      final topMatch = matchFields.any((field) =>
-          field?.toLowerCase().contains(q) == true);
+      final topMatch = matchFields.any(
+        (field) => field?.toLowerCase().contains(q) == true,
+      );
       if (topMatch) return true;
       final payments = sale.payments;
       if (payments is List) {
@@ -175,6 +189,7 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
       return false;
     }).toList();
   }
+
   Map<String, List<SalesModel>> _groupByStaff(List<SalesModel> list) {
     final Map<String, List<SalesModel>> grouped = {};
     for (final sale in list) {
@@ -185,6 +200,7 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
     }
     return grouped;
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
@@ -197,9 +213,11 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
         final nf = NumberFormat('#,##0.00');
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF1B263B),
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
             elevation: 0,
             title: const Text(
               'Payment Report',
@@ -220,18 +238,21 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                 onPressed: filteredSales.isEmpty
                     ? null
                     : () => _printReport(
-                          filteredSales,
-                          totals,
-                          value.company,
-                          _selectedBranch,
-                          selectedDate,
-                        ),
+                        filteredSales,
+                        totals,
+                        value.company,
+                        _selectedBranch,
+                        selectedDate,
+                      ),
               ),
               ReusableDatePickerWidget(
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(Icons.calendar_today,
-                      size: 20, color: Colors.white70),
+                  child: Icon(
+                    Icons.calendar_today,
+                    size: 20,
+                    color: Colors.white70,
+                  ),
                 ),
                 onDateSelected: (selection) {
                   setState(() => selectedDate = selection);
@@ -250,14 +271,16 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1200),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'All payment methods • ' +
-                          '${DateFormat('yyyy MMM dd').format(effectiveStart)} – ' +
+                      'All payment methods - ' +
+                          '${DateFormat('yyyy MMM dd').format(effectiveStart)} - ' +
                           '${DateFormat('yyyy MMM dd').format(effectiveEnd)}',
                       style: const TextStyle(
                         color: Colors.white38,
@@ -279,38 +302,51 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                           disabledHint: Text(
                             isBranchRestricted
                                 ? (value.branch.isNotEmpty
-                                    ? value.branch
-                                    : 'My Branch')
+                                      ? value.branch
+                                      : 'My Branch')
                                 : 'All Branches',
-                            style: const TextStyle(color: Colors.white70),
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                           ),
-                          dropdownColor: const Color(0xFF22304A),
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
+                          dropdownColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 13,
+                          ),
                           isDense: true,
                           decoration: InputDecoration(
                             labelText: 'Branch',
-                            labelStyle: const TextStyle(
-                                color: Colors.white54, fontSize: 12),
+                            labelStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: Colors.white12),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                  color: Color(0xFF415A77)),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Color(0xFF415A77),
+                              ),
                             ),
-                            fillColor: const Color(0xFF1B263B),
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             filled: true,
                           ),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                               value: null,
                               child: Text('All Branches'),
                             ),
@@ -339,30 +375,48 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                               searchQuery = val;
                             });
                           },
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 13,
+                          ),
                           decoration: InputDecoration(
                             hintText: 'Search receipt, customer, method...',
-                            hintStyle: const TextStyle(
-                                color: Colors.white38, fontSize: 12),
-                            prefixIcon: const Icon(Icons.search,
-                                color: Colors.white38, size: 18),
+                            hintStyle: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              size: 18,
+                            ),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             filled: true,
-                            fillColor: const Color(0xFF1B263B),
+                            fillColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide.none),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
                             enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                    color: Colors.white12)),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.outline,
+                              ),
+                            ),
                             focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                    color: Color(0xFF415A77))),
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: Color(0xFF415A77),
+                              ),
+                            ),
                           ),
                         );
 
@@ -391,22 +445,39 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _chip('Receipts', filteredSales.length.toString(),
-                              isCount: true),
-                          _chip('Total Paid',
-                              'GHC ${nf.format(totals['totalPaid'] ?? 0.0)}'),
-                          _chip('Hubtel',
-                              'GHC ${nf.format(totals['hubtel'] ?? 0.0)}'),
-                          _chip('MoMo',
-                              'GHC ${nf.format(totals['momo'] ?? 0.0)}'),
-                          _chip('Cash',
-                              'GHC ${nf.format(totals['cash'] ?? 0.0)}'),
-                          _chip('Card',
-                              'GHC ${nf.format(totals['card'] ?? 0.0)}'),
-                          _chip('Bank',
-                              'GHC ${nf.format(totals['bank'] ?? 0.0)}'),
-                          _chip('Cheque',
-                              'GHC ${nf.format(totals['cheque'] ?? 0.0)}'),
+                          _chip(
+                            'Receipts',
+                            filteredSales.length.toString(),
+                            isCount: true,
+                          ),
+                          _chip(
+                            'Total Paid',
+                            'GHS ${nf.format(totals['totalPaid'] ?? 0.0)}',
+                          ),
+                          _chip(
+                            'Hubtel',
+                            'GHS ${nf.format(totals['hubtel'] ?? 0.0)}',
+                          ),
+                          _chip(
+                            'MoMo',
+                            'GHS ${nf.format(totals['momo'] ?? 0.0)}',
+                          ),
+                          _chip(
+                            'Cash',
+                            'GHS ${nf.format(totals['cash'] ?? 0.0)}',
+                          ),
+                          _chip(
+                            'Card',
+                            'GHS ${nf.format(totals['card'] ?? 0.0)}',
+                          ),
+                          _chip(
+                            'Bank',
+                            'GHS ${nf.format(totals['bank'] ?? 0.0)}',
+                          ),
+                          _chip(
+                            'Cheque',
+                            'GHS ${nf.format(totals['cheque'] ?? 0.0)}',
+                          ),
                         ],
                       ),
                     ),
@@ -415,22 +486,23 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                       child: value.isloadingsalesview
                           ? const Center(
                               child: CircularProgressIndicator(
-                                  color: Colors.white),
+                                color: Colors.white,
+                              ),
                             )
                           : filteredSales.isEmpty
-                              ? const Center(
-                                  child: Text('No payment records found',
-                                      style: TextStyle(
-                                          color: Colors.white38)))
-                              : LayoutBuilder(
-                                  builder: (ctx, constraints) {
-                                    return constraints.maxWidth > 600
-                                        ? _buildDesktopTable(
-                                            filteredSales, nf)
-                                        : _buildMobileList(
-                                            filteredSales, nf);
-                                  },
-                                ),
+                          ? const Center(
+                              child: Text(
+                                'No payment records found',
+                                style: TextStyle(color: Colors.white38),
+                              ),
+                            )
+                          : LayoutBuilder(
+                              builder: (ctx, constraints) {
+                                return constraints.maxWidth > 600
+                                    ? _buildDesktopTable(filteredSales, nf)
+                                    : _buildMobileList(filteredSales, nf);
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -441,7 +513,6 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
       },
     );
   }
-
 
   // Widget _buildDesktopTable(List<SalesModel> list, NumberFormat nf) {
   //   final grouped = _groupByStaff(list);
@@ -547,11 +618,11 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
       builder: (context, constraints) {
         const widths = [32, 140, 80, 90, 90, 90, 90, 90, 90, 100];
         const gap = 20.0;
-        final double contentWidth = widths.reduce((a, b) => a + b) +
-            (widths.length - 1) * gap +
-            32;
-        final double tableWidth =
-        constraints.maxWidth > contentWidth ? constraints.maxWidth : contentWidth;
+        final double contentWidth =
+            widths.reduce((a, b) => a + b) + (widths.length - 1) * gap + 32;
+        final double tableWidth = constraints.maxWidth > contentWidth
+            ? constraints.maxWidth
+            : contentWidth;
 
         Widget rowOf(List<Widget> cells, {Color? color}) {
           return Container(
@@ -582,79 +653,118 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
               scrollDirection: Axis.horizontal,
               child: SizedBox(
                 width: tableWidth,
-                height: constraints.maxHeight.isFinite ? constraints.maxHeight : null,
+                height: constraints.maxHeight.isFinite
+                    ? constraints.maxHeight
+                    : null,
                 child: Theme(
-                  data: Theme.of(context)
-                      .copyWith(dividerColor: Colors.white.withOpacity(0.06)),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.white.withOpacity(0.06)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Container(
-                        color: const Color(0xFF1B263B),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         child: rowOf(const [
-                          Text('#',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('STAFF',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('RECEIPTS',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('MOMO',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('HUBTEL',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('CASH',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('CARD',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('BANK',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('CHEQUE',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
-                          Text('TOTAL',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4)),
+                          Text(
+                            '#',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'STAFF',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'RECEIPTS',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'MOMO',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'HUBTEL',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'CASH',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'CARD',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'BANK',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'CHEQUE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          Text(
+                            'TOTAL',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
                         ]),
                       ),
-                      Divider(height: 0.4, thickness: 0.4, color: Colors.white.withOpacity(0.06)),
+                      Divider(
+                        height: 0.4,
+                        thickness: 0.4,
+                        color: Colors.white.withOpacity(0.06),
+                      ),
                       Expanded(
                         child: Scrollbar(
                           controller: _verticalController,
@@ -667,35 +777,84 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                               final staffKey = staffKeys[index];
                               final staffSales = grouped[staffKey]!;
                               final staffTotals = _computeTotals(staffSales);
-                              final displayName = staffSales.first.createdBy?.isNotEmpty == true
+                              final displayName =
+                                  staffSales.first.createdBy?.isNotEmpty == true
                                   ? staffSales.first.createdBy!
                                   : staffKey;
 
-                              return rowOf(
-                                [
-                                  Text('${index + 1}',
-                                      style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                                  Text(displayName, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text('${staffSales.length}',
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['momo'] ?? 0.0),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['hubtel'] ?? 0.0),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['cash'] ?? 0.0),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['card'] ?? 0.0),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['bank'] ?? 0.0),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['cheque'] ?? 0.0),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  Text(nf.format(staffTotals['totalPaid'] ?? 0.0),
-                                      style: const TextStyle(
-                                          color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
-                                ],
-                                color: const Color(0xFF0D1B2A),
-                              );
+                              return rowOf([
+                                Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  '${staffSales.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['momo'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['hubtel'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['cash'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['card'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['bank'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['cheque'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  nf.format(staffTotals['totalPaid'] ?? 0.0),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ], color: const Color(0xFF0D1B2A));
                             },
                           ),
                         ),
@@ -710,6 +869,7 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
       },
     );
   }
+
   Widget _buildMobileList(List<SalesModel> list, NumberFormat nf) {
     final grouped = _groupByStaff(list);
     final staffKeys = grouped.keys.toList()..sort();
@@ -728,13 +888,16 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                 final staffKey = staffKeys[index];
                 final staffSales = grouped[staffKey]!;
                 final staffTotals = _computeTotals(staffSales);
-                final displayName = staffSales.first.createdBy?.isNotEmpty == true
+                final displayName =
+                    staffSales.first.createdBy?.isNotEmpty == true
                     ? staffSales.first.createdBy!
                     : staffKey;
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B263B),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
@@ -749,8 +912,11 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                       ),
                     ),
                     subtitle: Text(
-                      '${staffSales.length} receipt${staffSales.length == 1 ? '' : 's'} • GHC ${nf.format(staffTotals['totalPaid'] ?? 0.0)}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      '${staffSales.length} receipt${staffSales.length == 1 ? '' : 's'} - GHS ${nf.format(staffTotals['totalPaid'] ?? 0.0)}',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
                     ),
                     children: [
                       Padding(
@@ -759,13 +925,34 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                           spacing: 14,
                           runSpacing: 8,
                           children: [
-                            _mobilePair('MoMo', 'GHC ${nf.format(staffTotals['momo'] ?? 0.0)}'),
-                            _mobilePair('Hubtel', 'GHC ${nf.format(staffTotals['hubtel'] ?? 0.0)}'),
-                            _mobilePair('Cash', 'GHC ${nf.format(staffTotals['cash'] ?? 0.0)}'),
-                            _mobilePair('Card', 'GHC ${nf.format(staffTotals['card'] ?? 0.0)}'),
-                            _mobilePair('Bank', 'GHC ${nf.format(staffTotals['bank'] ?? 0.0)}'),
-                            _mobilePair('Cheque', 'GHC ${nf.format(staffTotals['cheque'] ?? 0.0)}'),
-                            _mobilePair('Total', 'GHC ${nf.format(staffTotals['totalPaid'] ?? 0.0)}'),
+                            _mobilePair(
+                              'MoMo',
+                              'GHS ${nf.format(staffTotals['momo'] ?? 0.0)}',
+                            ),
+                            _mobilePair(
+                              'Hubtel',
+                              'GHS ${nf.format(staffTotals['hubtel'] ?? 0.0)}',
+                            ),
+                            _mobilePair(
+                              'Cash',
+                              'GHS ${nf.format(staffTotals['cash'] ?? 0.0)}',
+                            ),
+                            _mobilePair(
+                              'Card',
+                              'GHS ${nf.format(staffTotals['card'] ?? 0.0)}',
+                            ),
+                            _mobilePair(
+                              'Bank',
+                              'GHS ${nf.format(staffTotals['bank'] ?? 0.0)}',
+                            ),
+                            _mobilePair(
+                              'Cheque',
+                              'GHS ${nf.format(staffTotals['cheque'] ?? 0.0)}',
+                            ),
+                            _mobilePair(
+                              'Total',
+                              'GHS ${nf.format(staffTotals['totalPaid'] ?? 0.0)}',
+                            ),
                           ],
                         ),
                       ),
@@ -779,6 +966,7 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
       ],
     );
   }
+
   Future<void> _printReport(
     List<SalesModel> list,
     Map<String, double> totals,
@@ -792,14 +980,21 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
     final nf = NumberFormat('#,##0.00');
 
     final sorted = [...list]
-      ..sort((a, b) =>
-          (b.createdAt?.toDate()?.compareTo(a.createdAt?.toDate() ?? DateTime(0))) ?? 0);
+      ..sort(
+        (a, b) =>
+            (b.createdAt?.toDate()?.compareTo(
+              a.createdAt?.toDate() ?? DateTime(0),
+            )) ??
+            0,
+      );
 
-    pw.Widget cell(String text,
-        {bool header = false,
-        bool bold = false,
-        bool right = false,
-        PdfColor? color}) {
+    pw.Widget cell(
+      String text, {
+      bool header = false,
+      bool bold = false,
+      bool right = false,
+      PdfColor? color,
+    }) {
       return pw.Padding(
         padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         child: pw.Text(
@@ -808,9 +1003,7 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
           style: pw.TextStyle(
             font: (header || bold) ? boldFont : baseFont,
             fontSize: 9,
-            color: header
-                ? PdfColors.white
-                : color ?? PdfColors.grey800,
+            color: header ? PdfColors.white : color ?? PdfColors.grey800,
           ),
         ),
       );
@@ -831,38 +1024,50 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text(company.toUpperCase(),
-                          style: pw.TextStyle(
-                              font: boldFont,
-                              fontSize: 18,
-                              color: PdfColor.fromInt(0xFF415A77))),
+                      pw.Text(
+                        company.toUpperCase(),
+                        style: pw.TextStyle(
+                          font: boldFont,
+                          fontSize: 18,
+                          color: PdfColor.fromInt(0xFF415A77),
+                        ),
+                      ),
                       pw.SizedBox(height: 4),
-                      pw.Text('Payment Report',
-                          style: pw.TextStyle(
-                              font: baseFont,
-                              fontSize: 11,
-                              color: PdfColors.grey700)),
+                      pw.Text(
+                        'Payment Report',
+                        style: pw.TextStyle(
+                          font: baseFont,
+                          fontSize: 11,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                       if (dateRange != null)
                         pw.Text(
-                            'Period: ${DateFormat('dd MMM yyyy').format(dateRange.start)} – ${DateFormat('dd MMM yyyy').format(dateRange.end)}',
-                            style: pw.TextStyle(
-                                font: baseFont,
-                                fontSize: 9,
-                                color: PdfColors.grey700)),
-                      pw.Text('Branch: ${branchFilter ?? 'All Branches'}',
+                          'Period: ${DateFormat('dd MMM yyyy').format(dateRange.start)} - ${DateFormat('dd MMM yyyy').format(dateRange.end)}',
                           style: pw.TextStyle(
-                              font: baseFont,
-                              fontSize: 9,
-                              color: PdfColors.grey700)),
+                            font: baseFont,
+                            fontSize: 9,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                      pw.Text(
+                        'Branch: ${branchFilter ?? 'All Branches'}',
+                        style: pw.TextStyle(
+                          font: baseFont,
+                          fontSize: 9,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
                     ],
                   ),
                   pw.Text(
-                      DateFormat('dd MMM yyyy, hh:mm a')
-                          .format(DateTime.now()),
-                      style: pw.TextStyle(
-                          font: baseFont,
-                          fontSize: 8,
-                          color: PdfColors.grey500)),
+                    DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now()),
+                    style: pw.TextStyle(
+                      font: baseFont,
+                      fontSize: 8,
+                      color: PdfColors.grey500,
+                    ),
+                  ),
                 ],
               ),
               pw.SizedBox(height: 12),
@@ -1017,7 +1222,8 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                   final staffKey = entry.value;
                   final staffSales = grouped[staffKey]!;
                   final staffTotals = _computeTotals(staffSales);
-                  final displayName = staffSales.first.createdBy?.isNotEmpty == true
+                  final displayName =
+                      staffSales.first.createdBy?.isNotEmpty == true
                       ? staffSales.first.createdBy!
                       : staffKey;
                   return pw.TableRow(
@@ -1027,37 +1233,69 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
                       cell(displayName, bold: true),
                       cell(staffSales.length.toString(), right: true),
                       cell(nf.format(staffTotals['momo'] ?? 0.0), right: true),
-                      cell(nf.format(staffTotals['hubtel'] ?? 0.0), right: true),
+                      cell(
+                        nf.format(staffTotals['hubtel'] ?? 0.0),
+                        right: true,
+                      ),
                       cell(nf.format(staffTotals['cash'] ?? 0.0), right: true),
                       cell(nf.format(staffTotals['card'] ?? 0.0), right: true),
                       cell(nf.format(staffTotals['bank'] ?? 0.0), right: true),
-                      cell(nf.format(staffTotals['cheque'] ?? 0.0), right: true),
-                      cell(nf.format(staffTotals['totalPaid'] ?? 0.0), right: true, bold: true),
+                      cell(
+                        nf.format(staffTotals['cheque'] ?? 0.0),
+                        right: true,
+                      ),
+                      cell(
+                        nf.format(staffTotals['totalPaid'] ?? 0.0),
+                        right: true,
+                        bold: true,
+                      ),
                     ],
                   );
                 }).toList();
               }(),
               pw.TableRow(
                 decoration: const pw.BoxDecoration(
-                    color: PdfColor.fromInt(0xFF0D1B2A)),
+                  color: PdfColor.fromInt(0xFF0D1B2A),
+                ),
                 children: [
                   cell('', header: true),
                   cell('GRAND TOTAL', header: true, bold: true),
                   cell(sorted.length.toString(), header: true, right: true),
-                  cell(nf.format(totals['momo'] ?? 0.0),
-                      header: true, right: true),
-                  cell(nf.format(totals['hubtel'] ?? 0.0),
-                      header: true, right: true),
-                  cell(nf.format(totals['cash'] ?? 0.0),
-                      header: true, right: true),
-                  cell(nf.format(totals['card'] ?? 0.0),
-                      header: true, right: true),
-                  cell(nf.format(totals['bank'] ?? 0.0),
-                      header: true, right: true),
-                  cell(nf.format(totals['cheque'] ?? 0.0),
-                      header: true, right: true),
-                  cell(nf.format(totals['totalPaid'] ?? 0.0),
-                      header: true, right: true),
+                  cell(
+                    nf.format(totals['momo'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
+                  cell(
+                    nf.format(totals['hubtel'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
+                  cell(
+                    nf.format(totals['cash'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
+                  cell(
+                    nf.format(totals['card'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
+                  cell(
+                    nf.format(totals['bank'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
+                  cell(
+                    nf.format(totals['cheque'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
+                  cell(
+                    nf.format(totals['totalPaid'] ?? 0.0),
+                    header: true,
+                    right: true,
+                  ),
                 ],
               ),
             ],
@@ -1076,39 +1314,44 @@ class _PaymentReportPageState extends State<PaymentReportPage> {
       margin: const EdgeInsets.only(right: 8, bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 9),
+          ),
           const SizedBox(height: 2),
-          Text(value,
-              style: TextStyle(
-                color: valueColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              )),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _mobilePair(String label, String value) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(color: Colors.white38, fontSize: 9)),
-          const SizedBox(height: 2),
-          Text(value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              )),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+      const SizedBox(height: 2),
+      Text(
+        value,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ],
+  );
 }

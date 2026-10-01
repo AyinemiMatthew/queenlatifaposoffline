@@ -12,8 +12,7 @@ class PaymentMethodsListScreen extends StatefulWidget {
       _PaymentMethodsListScreenState();
 }
 
-class _PaymentMethodsListScreenState
-    extends State<PaymentMethodsListScreen> {
+class _PaymentMethodsListScreenState extends State<PaymentMethodsListScreen> {
   Widget _buildShimmerLoader() {
     return ListView.builder(
       itemCount: 4,
@@ -28,8 +27,12 @@ class _PaymentMethodsListScreenState
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Shimmer.fromColors(
-                baseColor: const Color(0xFF182232),
-                highlightColor: const Color(0xFF223041),
+                baseColor: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF182232)
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                highlightColor: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF223041)
+                    : Theme.of(context).colorScheme.surfaceContainerLow,
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -43,6 +46,7 @@ class _PaymentMethodsListScreenState
       },
     );
   }
+
   final List<String> paymentMethods = [
     'Cash',
     'Bank Transfer',
@@ -77,13 +81,21 @@ class _PaymentMethodsListScreenState
     try {
       final datafeed = context.read<Datafeed>();
       final snapshot = await datafeed.db.collection('accounts').get();
-      assetAccounts = snapshot.docs.map((doc) => SubAccountModel.fromJson(doc.data())).toList();
+      assetAccounts = snapshot.docs
+          .map((doc) => SubAccountModel.fromJson(doc.data()))
+          .toList();
 
       // Restore selections from Firestore
       final companyId = datafeed.companyid;
       for (final method in paymentMethods) {
-        final docId = '${companyId}_$method'.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-        final doc = await datafeed.db.collection('paymentaccounts').doc(docId).get();
+        final docId = '${companyId}_$method'.toLowerCase().replaceAll(
+          RegExp(r'\s+'),
+          '_',
+        );
+        final doc = await datafeed.db
+            .collection('paymentaccounts')
+            .doc(docId)
+            .get();
         if (doc.exists) {
           final data = doc.data();
           final linkedNames = List<String>.from(data?['linkedAccounts'] ?? []);
@@ -108,224 +120,253 @@ class _PaymentMethodsListScreenState
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final pageColor = isDark ? const Color(0xFF101A23) : colorScheme.surface;
+    final appBarColor = isDark ? const Color(0xFF0D1A26) : colorScheme.surface;
+    final cardColor = isDark ? const Color(0xFF182232) : colorScheme.surface;
+    final foregroundColor = isDark ? Colors.white : colorScheme.onSurface;
+    final secondaryColor = isDark
+        ? Colors.white70
+        : colorScheme.onSurfaceVariant;
+    final subtleBorderColor = isDark
+        ? Colors.white12
+        : colorScheme.outlineVariant;
+    final buttonForegroundColor = isDark ? Colors.white : colorScheme.onPrimary;
     return Scaffold(
-      backgroundColor: const Color(0xFF101A23),
+      backgroundColor: pageColor,
       appBar: AppBar(
-        title: const Text('Payment Methods'),
-        backgroundColor: const Color(0xFF0D1A26),
-        foregroundColor: Colors.white,
+        title: Text('Payment Methods'),
+        backgroundColor: appBarColor,
+        foregroundColor: foregroundColor,
       ),
       body: isLoading
           ? _buildShimmerLoader()
           : ListView.builder(
-        itemCount: paymentMethods.length,
-        itemBuilder: (context, index) {
-          final method = paymentMethods[index];
-          final icon = iconData[index];
+              itemCount: paymentMethods.length,
+              itemBuilder: (context, index) {
+                final method = paymentMethods[index];
+                final icon = iconData[index];
 
-          if (!selectionsLoaded) selectedAssetsPerMethod.putIfAbsent(method, () => []);
+                if (!selectionsLoaded)
+                  selectedAssetsPerMethod.putIfAbsent(method, () => []);
 
-          final isExpanded = expandedMethod == method;
-          final selectedCount = selectedAssetsPerMethod[method]!.length;
+                final isExpanded = expandedMethod == method;
+                final selectedCount = selectedAssetsPerMethod[method]!.length;
 
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Container(
-                width: 800,
-                margin: const EdgeInsets.only(top: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF182232),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Column(
-                  children: [
-
-                    // HEADER
-                    InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () {
-                        setState(() {
-                          if (isExpanded) {
-                            expandedMethod = null;
-                          } else {
-                            expandedMethod = method;
-                          }
-                        });
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-
-                            // ICON
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.15),
-                                borderRadius:
-                                BorderRadius.circular(30),
-                              ),
-                              child: Icon(
-                                icon,
-                                color: Colors.white70,
-                                size: 18,
-                              ),
-                            ),
-
-                            const SizedBox(width: 12),
-
-                            // METHOD NAME
-                            Expanded(
-                              child: Text(
-                                method,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-
-                            // BADGE
-                            if (selectedCount > 0)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  borderRadius:
-                                  BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  selectedCount.toString(),
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12),
-                                ),
-                              ),
-
-                            const SizedBox(width: 8),
-
-                            // ANIMATED ARROW
-                            AnimatedRotation(
-                              turns: isExpanded ? 0.5 : 0,
-                              duration:
-                              const Duration(milliseconds: 300),
-                              child: const Icon(
-                                Icons.keyboard_arrow_down,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Container(
+                      width: 800,
+                      margin: const EdgeInsets.only(top: 12),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: subtleBorderColor),
                       ),
-                    ),
-
-                    // EXPANDABLE CONTENT
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 300),
-                      crossFadeState: isExpanded
-                          ? CrossFadeState.showFirst
-                          : CrossFadeState.showSecond,
-                      firstChild: Column(
+                      child: Column(
                         children: [
-
-                          ...assetAccounts.map((account) {
-                            return CheckboxListTile(
-                              title: Text(
-                                account.name,
-                                style: const TextStyle(
-                                    color: Colors.white),
-                              ),
-                              value:
-                              selectedAssetsPerMethod[method]!
-                                  .contains(account.id),
-                              activeColor: Colors.blue,
-                              side: const BorderSide(
-                                  color: Colors.white54),
-                              onChanged: (checked) {
-                                setState(() {
-                                  if (checked == true) {
-                                    selectedAssetsPerMethod[method]!
-                                        .add(account.id);
-                                  } else {
-                                    selectedAssetsPerMethod[method]!.remove(account.id);
-                                  }
-                                });
-                              },
-                            );
-
-                          }).toList(),
-
-                          // SAVE BUTTON
-                          Padding(
-                            padding:
-                            const EdgeInsets.all(16.0),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 35,
-                              child: ElevatedButton(
-                                style:
-                                ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                  Colors.blue,
-                                  shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius
-                                        .circular(20),
+                          // HEADER
+                          InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              setState(() {
+                                if (isExpanded) {
+                                  expandedMethod = null;
+                                } else {
+                                  expandedMethod = method;
+                                }
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  // ICON
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Icon(
+                                      icon,
+                                      color: secondaryColor,
+                                      size: 18,
+                                    ),
                                   ),
-                                ),
-                                onPressed: () async {
-                                  try {
-                                    final datafeed = context.read<Datafeed>();
-                                    final companyId = datafeed.companyid;
-                                    final staff = datafeed.staff;
-                                    final docId = '${companyId}_$method'.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-                                    // Map selected asset IDs to their names
-                                    final selectedNames = assetAccounts
-                                        .where((a) => selectedAssetsPerMethod[method]!.contains(a.id))
-                                        .map((a) => a.name)
-                                        .toList();
-                                    await datafeed.db.collection('paymentaccounts').doc(docId).set({
-                                      'paymentMethod': method,
-                                      'companyId': companyId,
-                                      'linkedAccounts': selectedNames,
-                                      'updatedAt': DateTime.now().toIso8601String(),
-                                      'staff': staff,
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Saved $selectedCount assets to $method'),
+
+                                  SizedBox(width: 12),
+
+                                  // METHOD NAME
+                                  Expanded(
+                                    child: Text(
+                                      method,
+                                      style: TextStyle(
+                                        color: foregroundColor,
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                    );
-                                    setState(() {
-                                      expandedMethod = null;
-                                    });
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Error saving: ' + e.toString()),
+                                    ),
+                                  ),
+
+                                  // BADGE
+                                  if (selectedCount > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
                                       ),
-                                    );
-                                  }
-                                },
-                                child: const Text('Save Links', style: TextStyle(color: Colors.white)),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        selectedCount.toString(),
+                                        style: TextStyle(
+                                          color: foregroundColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+
+                                  SizedBox(width: 8),
+
+                                  // ANIMATED ARROW
+                                  AnimatedRotation(
+                                    turns: isExpanded ? 0.5 : 0,
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down,
+                                      color: secondaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+
+                          // EXPANDABLE CONTENT
+                          AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 300),
+                            crossFadeState: isExpanded
+                                ? CrossFadeState.showFirst
+                                : CrossFadeState.showSecond,
+                            firstChild: Column(
+                              children: [
+                                ...assetAccounts.map((account) {
+                                  return CheckboxListTile(
+                                    title: Text(
+                                      account.name,
+                                      style: TextStyle(color: foregroundColor),
+                                    ),
+                                    value: selectedAssetsPerMethod[method]!
+                                        .contains(account.id),
+                                    activeColor: Colors.blue,
+                                    side: BorderSide(color: secondaryColor),
+                                    onChanged: (checked) {
+                                      setState(() {
+                                        if (checked == true) {
+                                          selectedAssetsPerMethod[method]!.add(
+                                            account.id,
+                                          );
+                                        } else {
+                                          selectedAssetsPerMethod[method]!
+                                              .remove(account.id);
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+
+                                // SAVE BUTTON
+                                Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 35,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () async {
+                                        try {
+                                          final datafeed = context
+                                              .read<Datafeed>();
+                                          final companyId = datafeed.companyid;
+                                          final staff = datafeed.staff;
+                                          final docId = '${companyId}_$method'
+                                              .toLowerCase()
+                                              .replaceAll(RegExp(r'\s+'), '_');
+                                          // Map selected asset IDs to their names
+                                          final selectedNames = assetAccounts
+                                              .where(
+                                                (a) =>
+                                                    selectedAssetsPerMethod[method]!
+                                                        .contains(a.id),
+                                              )
+                                              .map((a) => a.name)
+                                              .toList();
+                                          await datafeed.db
+                                              .collection('paymentaccounts')
+                                              .doc(docId)
+                                              .set({
+                                                'paymentMethod': method,
+                                                'companyId': companyId,
+                                                'linkedAccounts': selectedNames,
+                                                'updatedAt': DateTime.now()
+                                                    .toIso8601String(),
+                                                'staff': staff,
+                                              });
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Saved $selectedCount assets to $method',
+                                              ),
+                                            ),
+                                          );
+                                          setState(() {
+                                            expandedMethod = null;
+                                          });
+                                        } catch (e) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Error saving: ' + e.toString(),
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: Text(
+                                        'Save Links',
+                                        style: TextStyle(
+                                          color: buttonForegroundColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            secondChild: const SizedBox.shrink(),
+                          ),
                         ],
                       ),
-                      secondChild: const SizedBox.shrink(),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }

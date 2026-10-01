@@ -107,7 +107,8 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
       setState(() => _selectedItemOrphaned = false);
       return;
     }
-    final hasBranchBalance = _selectedItem!.branchbalance != null &&
+    final hasBranchBalance =
+        _selectedItem!.branchbalance != null &&
         _selectedItem!.branchbalance!.containsKey(_selectedBranchId);
     if (!hasBranchBalance) {
       setState(() => _selectedItemOrphaned = false);
@@ -126,25 +127,27 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
   // Single item sync
   Future<void> _syncBalance() async {
     if (_selectedItem == null || _selectedBranchId == null) return;
-    setState(() { _syncing = true; _resultMessage = null; });
+    setState(() {
+      _syncing = true;
+      _resultMessage = null;
+    });
     try {
       final provider = context.read<Datafeed>();
       num balance;
       if (_selectedItemOrphaned) {
         balance = 0;
       } else {
-        balance = await provider.fetchItemCurrentBalance(
-          itemId: _selectedItem!.id,
-          selectedBranch: _selectedBranchId,
-        ) ?? 0;
+        balance =
+            await provider.fetchItemCurrentBalance(
+              itemId: _selectedItem!.id,
+              selectedBranch: _selectedBranchId,
+            ) ??
+            0;
       }
-      await provider.db
-          .collection('itemsreg')
-          .doc(_selectedItem!.id)
-          .update({
+      await provider.db.collection('itemsreg').doc(_selectedItem!.id).update({
         'branchbalance.$_selectedBranchId.netpieces': balance,
         'branchbalance.$_selectedBranchId.lastupdate':
-        FieldValue.serverTimestamp(),
+            FieldValue.serverTimestamp(),
       });
       setState(() {
         _resultMessage = _selectedItemOrphaned
@@ -153,7 +156,10 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
         _resultSuccess = true;
       });
     } catch (e) {
-      setState(() { _resultMessage = 'Error: $e'; _resultSuccess = false; });
+      setState(() {
+        _resultMessage = 'Error: $e';
+        _resultSuccess = false;
+      });
     } finally {
       setState(() => _syncing = false);
     }
@@ -192,18 +198,22 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
 
       final stockItemIds = items.map((e) => e['itemid'].toString()).toSet();
 
-      final orphanedItems = provider.items.where((i) =>
-      i.isActive == true &&
-          i.branchbalance != null &&
-          i.branchbalance!.containsKey(_selectedBranchId) &&
-          !stockItemIds.contains(i.id)).toList();
+      final orphanedItems = provider.items
+          .where(
+            (i) =>
+                i.isActive == true &&
+                i.branchbalance != null &&
+                i.branchbalance!.containsKey(_selectedBranchId) &&
+                !stockItemIds.contains(i.id),
+          )
+          .toList();
 
       if (items.isEmpty && orphanedItems.isEmpty) {
         setState(() {
           _syncing = false;
           _resultSuccess = false;
           _resultMessage =
-          'No stock report items found for $_selectedBranchName.';
+              'No stock report items found for $_selectedBranchName.';
         });
         return;
       }
@@ -221,16 +231,13 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
         final balance = (row['balance_cd'] ?? 0);
 
         try {
-          await provider.db
-              .collection('itemsreg')
-              .doc(itemId)
-              .set({
+          await provider.db.collection('itemsreg').doc(itemId).set({
             'branchbalance': {
               _selectedBranchId: {
                 'netpieces': balance,
                 'lastupdate': FieldValue.serverTimestamp(),
-              }
-            }
+              },
+            },
           }, SetOptions(merge: true));
 
           _bulkLog.add('✓ $itemName → $balance pcs');
@@ -247,16 +254,13 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
 
       for (final item in orphanedItems) {
         try {
-          await provider.db
-              .collection('itemsreg')
-              .doc(item.id)
-              .set({
+          await provider.db.collection('itemsreg').doc(item.id).set({
             'branchbalance': {
               _selectedBranchId: {
                 'netpieces': 0,
                 'lastupdate': FieldValue.serverTimestamp(),
-              }
-            }
+              },
+            },
           }, SetOptions(merge: true));
 
           _bulkLog.add('⊘ ${item.name} → 0 pcs (not in stock report)');
@@ -275,7 +279,7 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
         _syncing = false;
         _resultSuccess = errorCount == 0;
         _resultMessage =
-        'Done: $successCount synced${errorCount > 0 ? ', $errorCount failed' : ''} — $_selectedBranchName';
+            'Done: $successCount synced${errorCount > 0 ? ', $errorCount failed' : ''} — $_selectedBranchName';
       });
     } catch (e) {
       setState(() {
@@ -285,55 +289,103 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
       });
     }
   }
+
   //UI helpers
-  static const _inputFill = Color(0xFF1B2A3E);
-  static const _cardBg    = Color(0xFF162032);
+  static const _cardBg = Color(0xFF162032);
+
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _surfaceColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF111E2E);
+  Color get _fieldFillColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _mutedTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white38;
+  Color get _descriptionTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white.withOpacity(0.55);
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white54;
+  Color get _faintTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white24;
+  Color get _quietTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white30;
+  Color get _prominentTextColor =>
+      _isLightTheme ? _textColor : Colors.white70;
+  Color get _subtleTextColor =>
+      _isLightTheme ? _textColor : Colors.white60;
+  Color get _cardColor => _isLightTheme ? _surfaceColor : _cardBg;
+  Color get _subtleBorderColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : Colors.white10;
+  Color get _suggestionBorderColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : const Color(0xFF3B8BEB).withOpacity(0.2);
 
   InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
     labelText: label,
-    labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+    labelStyle: TextStyle(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      fontSize: 12,
+    ),
     filled: true,
-    fillColor: _inputFill,
+    fillColor: _fieldFillColor,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     suffixIcon: suffix,
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Colors.white12),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color(0xFF3B8BEB), width: 1.5),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: Theme.of(context).colorScheme.primary,
+        width: 1.5,
+      ),
     ),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
   );
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
-    child: Text(text,
-        style: const TextStyle(
-          color: Colors.white38,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.2,
-        )),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: _mutedTextColor,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.2,
+      ),
+    ),
   );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1826),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF111E2E),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white70),
-        title: const Text('Sync Branch Balance',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600)),
+        iconTheme: IconThemeData(
+          color: _isLightTheme ? _textColor : Colors.white70,
+        ),
+        title: Text(
+          'Sync Branch Balance',
+          style: TextStyle(
+            color: _isLightTheme ? _textColor : Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: Colors.white12, height: 1),
+          child: Container(color: _subtleBorderColor, height: 1),
         ),
       ),
       body: Consumer<Datafeed>(
@@ -352,30 +404,44 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-
                         // ── Header
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A3A5C).withOpacity(0.5),
+                            color: _isLightTheme
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest
+                                : const Color(0xFF1A3A5C).withOpacity(0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: const Color(0xFF3B8BEB).withOpacity(0.2)),
-                          ),
-                          child: Row(children: [
-                            const Icon(Icons.sync_alt,
-                                color: Color(0xFF3B8BEB), size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Sync a single item or all items in a branch.',
-                                style: TextStyle(
-                                    color: Colors.white.withOpacity(0.55),
-                                    fontSize: 12),
-                              ),
+                              color: _isLightTheme
+                                  ? _subtleBorderColor
+                                  : const Color(0xFF3B8BEB).withOpacity(0.2),
                             ),
-                          ]),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.sync_alt,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Sync a single item or all items in a branch.',
+                                  style: TextStyle(
+                                    color: _descriptionTextColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
@@ -383,25 +449,27 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                         //Tab toggle
                         Container(
                           decoration: BoxDecoration(
-                            color: _cardBg,
+                            color: _cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white10),
+                            border: Border.all(color: _subtleBorderColor),
                           ),
                           padding: const EdgeInsets.all(6),
-                          child: Row(children: [
-                            _tabBtn('Single Item', 0),
-                            const SizedBox(width: 6),
-                            _tabBtn('All Items in Branch', 1),
-                          ]),
+                          child: Row(
+                            children: [
+                              _tabBtn('Single Item', 0),
+                              const SizedBox(width: 6),
+                              _tabBtn('All Items in Branch', 1),
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
 
                         Container(
                           decoration: BoxDecoration(
-                            color: _cardBg,
+                            color: _cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white10),
+                            border: Border.all(color: _subtleBorderColor),
                           ),
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -411,48 +479,61 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                               DropdownButtonFormField<String>(
                                 value: _selectedBranchId,
                                 isExpanded: true,
-                                dropdownColor: const Color(0xFF1B2A3E),
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 14),
-                                icon: const Icon(Icons.keyboard_arrow_down,
-                                    color: Colors.white38),
+                                dropdownColor: Theme.of(
+                                  context,
+                                ).colorScheme.surface,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontSize: 14,
+                                ),
+                                icon: Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: _mutedTextColor,
+                                ),
                                 decoration: _dec('Select branch…'),
                                 items: provider.branches
                                     .fold<Map<String, dynamic>>({}, (m, b) {
-                                  if (b.id != null &&
-                                      b.id!.isNotEmpty &&
-                                      !m.containsKey(b.id)) m[b.id!] = b;
-                                  return m;
-                                })
+                                      if (b.id != null &&
+                                          b.id!.isNotEmpty &&
+                                          !m.containsKey(b.id))
+                                        m[b.id!] = b;
+                                      return m;
+                                    })
                                     .values
-                                    .map((b) => DropdownMenuItem<String>(
-                                  value: b.id as String,
-                                  child: Text(b.branchname as String,
-                                      style: const TextStyle(
-                                          color: Colors.white)),
-                                ))
+                                    .map(
+                                      (b) => DropdownMenuItem<String>(
+                                        value: b.id as String,
+                                        child: Text(
+                                          b.branchname as String,
+                                          style: TextStyle(color: _textColor),
+                                        ),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: _syncing
                                     ? null
                                     : (val) {
-                                  final branch = provider.branches
-                                      .firstWhere((b) => b.id == val);
-                                  setState(() {
-                                    _selectedBranchId   = val;
-                                    _selectedBranchName = branch.branchname;
-                                    _resultMessage      = null;
-                                    _bulkLog.clear();
-                                    _bulkDone  = 0;
-                                    _bulkTotal = 0;
-                                  });
-                                  // Auto-trigger sync based on current tab
-                                  if (_tab == 0) {
-                                    _refreshOrphanStatus();
-                                  } else if (_tab == 1) {
-                                    // All items tab: auto-start sync
-                                    _syncAllItems();
-                                  }
-                                },
+                                        final branch = provider.branches
+                                            .firstWhere((b) => b.id == val);
+                                        setState(() {
+                                          _selectedBranchId = val;
+                                          _selectedBranchName =
+                                              branch.branchname;
+                                          _resultMessage = null;
+                                          _bulkLog.clear();
+                                          _bulkDone = 0;
+                                          _bulkTotal = 0;
+                                        });
+                                        // Auto-trigger sync based on current tab
+                                        if (_tab == 0) {
+                                          _refreshOrphanStatus();
+                                        } else if (_tab == 1) {
+                                          // All items tab: auto-start sync
+                                          _syncAllItems();
+                                        }
+                                      },
                               ),
                             ],
                           ),
@@ -474,32 +555,41 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                             onPressed: _canSync(provider) ? _onSync : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF3B8BEB),
-                              disabledBackgroundColor:
-                              const Color(0xFF3B8BEB).withOpacity(0.25),
+                              disabledBackgroundColor: const Color(
+                                0xFF3B8BEB,
+                              ).withOpacity(0.25),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               elevation: 0,
                             ),
                             icon: _syncing
                                 ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.sync,
-                                color: Colors.white, size: 18),
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.sync,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
                             label: Text(
                               _syncing
                                   ? (_tab == 1
-                                  ? 'Syncing $_bulkDone / $_bulkTotal…'
-                                  : 'Saving…')
+                                        ? 'Syncing $_bulkDone / $_bulkTotal…'
+                                        : 'Saving…')
                                   : (_tab == 1
-                                  ? 'Sync All Items in Branch'
-                                  : 'Save Balance Update'),
+                                        ? 'Sync All Items in Branch'
+                                        : 'Save Balance Update'),
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ),
@@ -511,9 +601,14 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                             child: LinearProgressIndicator(
                               value: _bulkDone / _bulkTotal,
                               minHeight: 6,
-                              backgroundColor: Colors.white12,
+                              backgroundColor: _isLightTheme
+                                  ? Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHighest
+                                  : Colors.white12,
                               valueColor: const AlwaysStoppedAnimation(
-                                  Color(0xFF3B8BEB)),
+                                Color(0xFF3B8BEB),
+                              ),
                             ),
                           ),
                         ],
@@ -523,7 +618,9 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: _resultSuccess
                                   ? Colors.green.withOpacity(0.08)
@@ -553,8 +650,12 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                                     _resultMessage!,
                                     style: TextStyle(
                                       color: _resultSuccess
-                                          ? Colors.green[300]
-                                          : Colors.red[300],
+                                          ? (_isLightTheme
+                                                ? Colors.green[800]
+                                                : Colors.green[300])
+                                          : (_isLightTheme
+                                                ? Colors.red[800]
+                                                : Colors.red[300]),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -569,25 +670,32 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                           Container(
                             constraints: const BoxConstraints(maxHeight: 240),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF111E2E),
+                              color: _surfaceColor,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white10),
+                              border: Border.all(color: _subtleBorderColor),
                             ),
                             child: ListView.builder(
                               padding: const EdgeInsets.all(10),
                               itemCount: _bulkLog.length,
                               itemBuilder: (_, i) => Padding(
-                                padding:
-                                const EdgeInsets.symmetric(vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
                                 child: Text(
                                   _bulkLog[i],
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: _bulkLog[i].startsWith('✓')
-                                        ? Colors.green[300]
+                                        ? (_isLightTheme
+                                              ? Colors.green[800]
+                                              : Colors.green[300])
                                         : _bulkLog[i].startsWith('⊘')
-                                        ? Colors.orange[300]
-                                        : Colors.red[300],
+                                        ? (_isLightTheme
+                                              ? Colors.orange[800]
+                                              : Colors.orange[300])
+                                        : (_isLightTheme
+                                              ? Colors.red[800]
+                                              : Colors.red[300]),
                                   ),
                                 ),
                               ),
@@ -613,18 +721,20 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
         onTap: _syncing
             ? null
             : () => setState(() {
-          _tab           = index;
-          _resultMessage = null;
-          _bulkLog.clear();
-          _bulkDone  = 0;
-          _bulkTotal = 0;
-        }),
+                _tab = index;
+                _resultMessage = null;
+                _bulkLog.clear();
+                _bulkDone = 0;
+                _bulkTotal = 0;
+              }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFF3B8BEB).withOpacity(0.18)
+                ? const Color(
+                    0xFF3B8BEB,
+                  ).withOpacity(_isLightTheme ? 0.1 : 0.18)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
@@ -637,10 +747,9 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: active ? const Color(0xFF3B8BEB) : Colors.white38,
+              color: active ? const Color(0xFF3B8BEB) : _mutedTextColor,
               fontSize: 12,
-              fontWeight:
-              active ? FontWeight.w700 : FontWeight.w500,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),
@@ -651,9 +760,9 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
   Widget _buildSingleItemCard(Datafeed provider) {
     return Container(
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: _subtleBorderColor),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -663,7 +772,10 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
           TextFormField(
             controller: _searchController,
             focusNode: _searchFocus,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 14,
+            ),
             onTap: () {
               if (_searchController.text.isNotEmpty) {
                 setState(() => _showSuggestions = true);
@@ -673,20 +785,18 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
               'Search by name or barcode',
               suffix: _searchController.text.isNotEmpty
                   ? IconButton(
-                icon: const Icon(Icons.close,
-                    color: Colors.white38, size: 16),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {
-                    _selectedItem  = null;
-                    _selectedItemOrphaned = false;
-                    _showSuggestions = false;
-                    _resultMessage = null;
-                  });
-                },
-              )
-                  : const Icon(Icons.search,
-                  color: Colors.white24, size: 18),
+                      icon: Icon(Icons.close, color: _mutedTextColor, size: 16),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _selectedItem = null;
+                          _selectedItemOrphaned = false;
+                          _showSuggestions = false;
+                          _resultMessage = null;
+                        });
+                      },
+                    )
+                  : Icon(Icons.search, color: _faintTextColor, size: 18),
             ),
           ),
 
@@ -694,71 +804,93 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
           if (_selectedItem != null && !_showSuggestions) ...[
             const SizedBox(height: 10),
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: const Color(0xFF3B8BEB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: const Color(0xFF3B8BEB).withOpacity(0.3)),
+                  color: const Color(0xFF3B8BEB).withOpacity(0.3),
+                ),
               ),
-              child: Row(children: [
-                const Icon(Icons.inventory_2_outlined,
-                    color: Color(0xFF3B8BEB), size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _selectedItem!.name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    color: Color(0xFF3B8BEB),
+                    size: 16,
                   ),
-                ),
-                Text(
-                  _selectedItem!.barcode,
-                  style:
-                  const TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedItem!.name,
+                      style: TextStyle(
+                        color: _textColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _selectedItem!.barcode,
+                    style: TextStyle(color: _mutedTextColor, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
             if (_checkingOrphan) ...[
               const SizedBox(height: 8),
-              Row(children: [
-                const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 1.5, color: Colors.white38),
-                ),
-                const SizedBox(width: 8),
-                Text('Checking stock report…',
-                    style: TextStyle(
-                        color: Colors.white.withOpacity(0.4), fontSize: 11)),
-              ]),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: _isLightTheme
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.white38,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Checking stock report…',
+                    style: TextStyle(color: _mutedTextColor, fontSize: 11),
+                  ),
+                ],
+              ),
             ] else if (_selectedItemOrphaned) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: Colors.orange.withOpacity(0.3)),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Not found in stock report for $_selectedBranchName. Balance will be reset to 0.',
-                      style: TextStyle(
-                          color: Colors.orange[300], fontSize: 11),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                      size: 16,
                     ),
-                  ),
-                ]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Not found in stock report for $_selectedBranchName. Balance will be reset to 0.',
+                        style: TextStyle(
+                          color: _isLightTheme
+                              ? Colors.orange[900]
+                              : Colors.orange[300],
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
@@ -778,13 +910,13 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: _cardBg,
+          color: _cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: _subtleBorderColor),
         ),
-        child: const Text(
+        child: Text(
           'Select a branch above to see how many items will be synced.',
-          style: TextStyle(color: Colors.white38, fontSize: 13),
+          style: TextStyle(color: _mutedTextColor, fontSize: 13),
           textAlign: TextAlign.center,
         ),
       );
@@ -792,57 +924,76 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
 
     final eligible = provider.items
         .where((i) => i.isActive == true)
-        .where((i) =>
-    i.branchbalance != null &&
-        i.branchbalance!.containsKey(_selectedBranchId))
+        .where(
+          (i) =>
+              i.branchbalance != null &&
+              i.branchbalance!.containsKey(_selectedBranchId),
+        )
         .toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: _subtleBorderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            const Icon(Icons.info_outline,
-                color: Color(0xFF3B8BEB), size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${eligible.length} item${eligible.length == 1 ? '' : 's'} will be synced for $_selectedBranchName.',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
+          Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: Color(0xFF3B8BEB),
+                size: 16,
               ),
-            ),
-          ]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${eligible.length} item${eligible.length == 1 ? '' : 's'} will be synced for $_selectedBranchName.',
+                  style: TextStyle(color: _prominentTextColor, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
           if (eligible.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: _subtleBorderColor, height: 1),
             const SizedBox(height: 10),
             // preview list (first 5)
-            ...eligible.take(5).map((i) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(children: [
-                const Icon(Icons.inventory_2_outlined,
-                    color: Colors.white24, size: 13),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(i.name,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12)),
+            ...eligible
+                .take(5)
+                .map(
+                  (i) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          color: _faintTextColor,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            i.name,
+                            style: TextStyle(
+                              color: _secondaryTextColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ]),
-            )),
             if (eligible.length > 5)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   '+ ${eligible.length - 5} more…',
-                  style: const TextStyle(
-                      color: Colors.white30, fontSize: 11),
+                  style: TextStyle(color: _quietTextColor, fontSize: 11),
                 ),
               ),
           ],
@@ -850,36 +1001,43 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
       ),
     );
   }
+
   Widget _buildSuggestions(Datafeed provider) {
-    final query    = _searchController.text.toLowerCase();
+    final query = _searchController.text.toLowerCase();
     final filtered = provider.items
         .where((i) => i.isActive == true)
-        .where((i) =>
-    i.name.toLowerCase().contains(query) ||
-        i.barcode.toLowerCase().contains(query) ||
-        i.pcategory.toLowerCase().contains(query))
+        .where(
+          (i) =>
+              i.name.toLowerCase().contains(query) ||
+              i.barcode.toLowerCase().contains(query) ||
+              i.pcategory.toLowerCase().contains(query),
+        )
         .take(10)
         .toList();
 
     if (filtered.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text('No items found for "$query"',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
-            textAlign: TextAlign.center),
+        child: Text(
+          'No items found for "$query"',
+          style: TextStyle(color: _mutedTextColor, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
       );
     }
 
     return Container(
       constraints: const BoxConstraints(maxHeight: 280),
       decoration: BoxDecoration(
-        color: const Color(0xFF111E2E),
+        color: _surfaceColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: const Color(0xFF3B8BEB).withOpacity(0.2)),
+        border: Border.all(color: _suggestionBorderColor),
         boxShadow: const [
           BoxShadow(
-              color: Colors.black38, blurRadius: 10, offset: Offset(0, 4))
+            color: Colors.black38,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: ListView.separated(
@@ -887,18 +1045,23 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         itemCount: filtered.length,
         separatorBuilder: (_, __) =>
-        const Divider(height: 1, color: Colors.white10),
+            Divider(height: 1, color: _subtleBorderColor),
         itemBuilder: (context, index) {
           final item = filtered[index];
-          final bb   = item.branchbalance;
+          final bb = item.branchbalance;
           final branchPieces = _selectedBranchId != null && bb != null
-              ? (bb[_selectedBranchId] as Map<String, dynamic>?) != null ? (bb[_selectedBranchId] as Map<String, dynamic>?)!['netpieces'] : null
+              ? (bb[_selectedBranchId] as Map<String, dynamic>?) != null
+                    ? (bb[_selectedBranchId]
+                          as Map<String, dynamic>?)!['netpieces']
+                    : null
               : null;
 
           return ListTile(
             dense: true,
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 2,
+            ),
             leading: Container(
               width: 32,
               height: 32,
@@ -906,32 +1069,48 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                 color: const Color(0xFF3B8BEB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.inventory_2_outlined,
-                  color: Color(0xFF3B8BEB), size: 16),
+              child: const Icon(
+                Icons.inventory_2_outlined,
+                color: Color(0xFF3B8BEB),
+                size: 16,
+              ),
             ),
-            title: Text(item.name,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
+            title: Text(
+              item.name,
+              style: TextStyle(
+                color: _textColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             subtitle: Text(
               '${item.pcategory}  ·  ${item.barcode}',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: TextStyle(color: _mutedTextColor, fontSize: 11),
             ),
             trailing: branchPieces != null
                 ? Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text('$branchPieces pcs',
-                  style: const TextStyle(
-                      color: Colors.white60, fontSize: 11)),
-            )
-                : const Icon(Icons.chevron_right,
-                color: Colors.white24, size: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isLightTheme
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest
+                          : Colors.white.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$branchPieces pcs',
+                      style: TextStyle(color: _subtleTextColor, fontSize: 11),
+                    ),
+                  )
+                : Icon(
+                    Icons.chevron_right,
+                    color: _faintTextColor,
+                    size: 16,
+                  ),
             onTap: () => _selectItem(item),
           );
         },
@@ -944,10 +1123,12 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
     if (_syncing || _selectedBranchId == null) return false;
     if (_tab == 0) return _selectedItem != null;
     // tab 1: need at least one eligible item
-    return provider.items.any((i) =>
-    i.isActive == true &&
-        i.branchbalance != null &&
-        i.branchbalance!.containsKey(_selectedBranchId));
+    return provider.items.any(
+      (i) =>
+          i.isActive == true &&
+          i.branchbalance != null &&
+          i.branchbalance!.containsKey(_selectedBranchId),
+    );
   }
 
   void _onSync() {

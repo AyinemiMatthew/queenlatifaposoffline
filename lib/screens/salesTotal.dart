@@ -1,10 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../models/dashboardStats.dart';
-import '../models/sales_summary.dart';
 import '../providers/Datafeed.dart';
 
 class WorkPlaceWidget extends StatefulWidget {
@@ -15,24 +12,35 @@ class WorkPlaceWidget extends StatefulWidget {
   State<WorkPlaceWidget> createState() => _WorkPlaceWidgetState();
 }
 
-
 class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
-
   @override
   Widget build(BuildContext context) {
     final datafeed = context.watch<Datafeed>();
-     double stotal=0.00;
-    datafeed.dashboardStatsStream().listen((DashboardStats stats) {
-
-      stotal = datafeed.accesslevel.toLowerCase() == 'super admin'? stats.companySalesValue : stats.branchSalesValue;
-    });
+    final colorScheme = Theme.of(context).colorScheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final salesColor = isLight
+        ? const Color(0xFF167D3D)
+        : Colors.greenAccent;
+    final creditColor = isLight
+        ? const Color(0xFFB42318)
+        : Colors.redAccent;
     return Container(
       width: widget.cwidth,
       height: 235,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF182232),
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.onSurface.withValues(alpha: 0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,45 +51,63 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
               Text(
                 "Total Sales",
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withOpacity(0.2),
+                  color: salesColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.all(Radius.circular(4)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(4.0),
-                  child: Icon(Icons.shopping_cart, color: Colors.greenAccent, size: 16,),
+                  child: Icon(
+                    Icons.shopping_cart,
+                    color: salesColor,
+                    size: 16,
+                  ),
                 ),
-              )
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          StreamBuilder<SalesSummary>(
-            stream: datafeed.StodayTotalsStream(),
+          StreamBuilder<PeriodDashboardSummary>(
+            stream: datafeed.periodDashboardSummaryStream(),
             builder: (context, snapshot) {
-              final cashTotal = snapshot.hasData ? snapshot.data!.cash!.toStringAsFixed(2) : '0.00';
-              final creditTotal = snapshot.hasData ? snapshot.data!.credit!.toStringAsFixed(2) : '0.00';
+              if (snapshot.hasError) {
+                return Text(
+                  'Unable to load ${datafeed.dashboardPeriodLabel} sales: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red),
+                );
+              }
+              final cashTotal = snapshot.hasData
+                  ? snapshot.data!.cash.toStringAsFixed(2)
+                  : '0.00';
+              final creditTotal = snapshot.hasData
+                  ? snapshot.data!.credit.toStringAsFixed(2)
+                  : '0.00';
+              final salesTotal = snapshot.data?.sales ?? 0;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FittedBox(
                     child: Text(
-                      "GHS ${NumberFormat('#,##0.00').format(stotal)}",
-                      style: const TextStyle(
-                        color: Colors.white,
+                      "GHS ${NumberFormat('#,##0.00').format(salesTotal)}",
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const Text(
-                    "Sales Today",
-                    style: TextStyle(color: Colors.white60, fontSize: 14),
+                  Text(
+                    "${datafeed.dashboardPeriodLabel} Sales",
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Stack(
@@ -91,25 +117,31 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.greenAccent.withOpacity(0.1),
+                          color: salesColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.greenAccent, width: 1),
+                          border: Border.all(
+                            color: salesColor,
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children:  [
+                          children: [
                             Text(
                               //"GHS ${NumberFormat('#,##0.00').format(cashTotal)}",
                               "GHS ${cashTotal}",
                               style: TextStyle(
-                                color: Colors.white,
+                                color: colorScheme.onSurface,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             Text(
                               "Cash Sales",
-                              style: TextStyle(color: Colors.white60, fontSize: 12),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
@@ -120,12 +152,16 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                         child: Container(
                           height: 20,
                           width: 20,
-                          decoration: const BoxDecoration(
-                            color: Colors.greenAccent,
+                          decoration: BoxDecoration(
+                            color: salesColor,
                             shape: BoxShape.circle,
                           ),
                           child: const Center(
-                            child: Icon(Icons.bookmark_added_outlined, color: Colors.white, size: 12,),
+                            child: Icon(
+                              Icons.bookmark_added_outlined,
+                              color: Colors.white,
+                              size: 12,
+                            ),
                           ),
                         ),
                       ),
@@ -139,22 +175,25 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color:  Colors.redAccent.withOpacity(0.1),
+                          color: creditColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.redAccent, width: 1),
+                          border: Border.all(color: creditColor, width: 1),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children:  [
+                          children: [
                             Text(
                               "Credit Sales",
-                              style: TextStyle(color: Colors.white60, fontSize: 12),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
                             ),
                             Text(
-                             // "GHS ${NumberFormat('#,##0.00').format(creditTotal)}",
+                              // "GHS ${NumberFormat('#,##0.00').format(creditTotal)}",
                               "GHS $creditTotal",
                               style: TextStyle(
-                                color: Colors.white,
+                                color: colorScheme.onSurface,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -168,8 +207,8 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                         child: Container(
                           height: 20,
                           width: 20,
-                          decoration: const BoxDecoration(
-                            color: Colors.redAccent,
+                          decoration: BoxDecoration(
+                            color: creditColor,
                             shape: BoxShape.circle,
                           ),
                           child: const Center(

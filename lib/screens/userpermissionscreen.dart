@@ -44,10 +44,7 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
 
   void _initializePermissions() {
     _permissions = {
-      AppModules.dashboard: {
-        'view': true,
-        'settings': false,
-      },
+      AppModules.dashboard: {'view': true, 'settings': false},
       AppModules.userManagement: {
         'view': false,
         'create': false,
@@ -85,11 +82,7 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
         'edit': false,
         'delete': false,
       },
-      AppModules.reports: {
-        'view': false,
-        'print': false,
-        'export': false,
-      },
+      AppModules.reports: {'view': false, 'print': false, 'export': false},
     };
   }
 
@@ -119,7 +112,10 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading permissions: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error loading permissions: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     setState(() => _isLoading = false);
@@ -143,10 +139,7 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    LoadingDialog.show(
-      context,
-      message: "Please wait...",
-    );
+    LoadingDialog.show(context, message: "Please wait...");
 
     try {
       final userData = {
@@ -156,28 +149,43 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
 
       if (widget.isEditing && widget.userId != null) {
         // Update existing user
-        await _firestore.collection('staff').doc(widget.userId).set(userData, SetOptions(merge: true));
+        await _firestore
+            .collection('staff')
+            .doc(widget.userId)
+            .set(userData, SetOptions(merge: true));
         // print("permissions $_permissions");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Permissions updated successfully'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text('Permissions updated successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         // Create new user with permissions
-        final userID=_emailController.text.toString();
+        final userID = _emailController.text.toString();
         userData['createdAt'] = FieldValue.serverTimestamp();
         userData['isActive'] = true;
-        await _firestore.collection('staff').doc(userID).set(userData, SetOptions(merge: true));
+        await _firestore
+            .collection('staff')
+            .doc(userID)
+            .set(userData, SetOptions(merge: true));
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User permissions created successfully'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('User permissions created successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
 
       Navigator.pop(context, true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving permissions: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error saving permissions: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
-    }finally {
+    } finally {
       LoadingDialog.hide();
     }
 
@@ -186,17 +194,13 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
 
   Widget _buildPermissionCard(String module, List<String> permissions) {
     final isDashboard = module == 'Dashboard';
-    final modulePermissions =  _permissions[module] ??
-        {
-          'view': false,
-          'create': false,
-          'edit': false,
-          'delete': false,
-        };
+    final modulePermissions =
+        _permissions[module] ??
+        {'view': false, 'create': false, 'edit': false, 'delete': false};
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      color: const Color(0xFF1B263B),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -220,7 +224,9 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                 if (!isDashboard)
                   TextButton(
                     onPressed: () {
-                      final allSelected = modulePermissions.values.every((v) => v);
+                      final allSelected = modulePermissions.values.every(
+                        (v) => v,
+                      );
                       _selectAll(module, !allSelected);
                     },
                     child: Text(
@@ -255,7 +261,8 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                     children: [
                       Checkbox(
                         value: isEnabled,
-                        onChanged: (value) => _togglePermission(module, permission),
+                        onChanged: (value) =>
+                            _togglePermission(module, permission),
                         activeColor: Colors.blue,
                         checkColor: Colors.white,
                         side: const BorderSide(color: Colors.white54),
@@ -266,7 +273,9 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                           style: TextStyle(
                             color: isEnabled ? Colors.white : Colors.white54,
                             fontSize: 12,
-                            fontWeight: isEnabled ? FontWeight.w600 : FontWeight.normal,
+                            fontWeight: isEnabled
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -288,10 +297,12 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
     final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit Permissions' : 'New User Permissions'),
-        backgroundColor: const Color(0xFF1B263B),
+        title: Text(
+          widget.isEditing ? 'Edit Permissions' : 'New User Permissions',
+        ),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         elevation: 0,
         actions: [
           if (widget.isEditing)
@@ -304,225 +315,375 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: isMobile ? 500 : isTablet ? 800 : 1200,
-                minWidth: 300,
-              ),
-              child: Column(
-                children: [
-                  // User Information Card
-                  Card(
-                    color: const Color(0xFF1B263B),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: 600,
-                            ),
-                            child: TextFormField(
-                              controller: _userNameController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Full Name',
-                                labelStyle: TextStyle(color: Colors.white54),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white24),
-                                ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.blue),
-                                ),
-                                filled: true,
-                                fillColor: Color(0xFF22304A),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter user name';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: 600,
-                            ),
-                            child: TextFormField(
-                              controller: _emailController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Email Address',
-                                labelStyle: TextStyle(color: Colors.white54),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white24),
-                                ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.blue),
-                                ),
-                                filled: true,
-                                fillColor: Color(0xFF22304A),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter email';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Please enter a valid email';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: 600,
-                            ),
-                            child: TextFormField(
-                              controller: _roleController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
-                                labelText: 'Access Level',
-                                labelStyle: TextStyle(color: Colors.white54),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white24),
-                                ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.blue),
-                                ),
-                                filled: true,
-                                fillColor: Color(0xFF22304A),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter user name';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Permissions Section
-                  const Text(
-                    'PERMISSIONS',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Permission Cards with constraints
-                  if (isMobile)
-                    Column(
-                      children: [
-                        _buildPermissionCard(AppModules.dashboard, ['view', 'settings']),
-                        _buildPermissionCard(AppModules.userManagement, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.settings, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.accounts, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.stock, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.sales, ['view', 'create', 'edit','delete','print']),
-                        _buildPermissionCard(AppModules.FarmerManagement, ['view', 'create','edit', 'delete']),
-                        _buildPermissionCard(AppModules.reports, ['view', 'print', 'export']),
-                      ],
-                    )
-                  else if (isTablet)
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 1.8,
-                      children: [
-                        _buildPermissionCard(AppModules.dashboard, ['view', 'settings']),
-                        _buildPermissionCard(AppModules.userManagement, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.settings, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.accounts, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.stock, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.sales, ['view', 'create', 'edit','delete','print']),
-                        _buildPermissionCard(AppModules.FarmerManagement, ['view', 'create','edit', 'delete']),
-                        _buildPermissionCard(AppModules.reports, ['view', 'print', 'export']),
-                      ],
-                    )
-                  else
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.6,
-                      children: [
-                        _buildPermissionCard(AppModules.dashboard, ['view', 'settings']),
-                        _buildPermissionCard(AppModules.userManagement, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.settings, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.accounts, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.stock, ['view', 'create', 'edit', 'delete']),
-                        _buildPermissionCard(AppModules.sales, ['view', 'create', 'edit','delete','print']),
-                        _buildPermissionCard(AppModules.FarmerManagement, ['view', 'create','edit', 'delete']),
-                        _buildPermissionCard(AppModules.reports, ['view', 'print', 'export']),
-                      ],
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  // Save Button with constraints
-                  ConstrainedBox(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: isMobile ? double.infinity : 500,
-                      minWidth: 200,
+                      maxWidth: isMobile
+                          ? 500
+                          : isTablet
+                          ? 800
+                          : 1200,
+                      minWidth: 300,
                     ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _savePermissions,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF415A77),
+                    child: Column(
+                      children: [
+                        // User Information Card
+                        Card(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 600,
+                                  ),
+                                  child: TextFormField(
+                                    controller: _userNameController,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: 'Full Name',
+                                      labelStyle: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                      enabledBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.outline,
+                                        ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                      ),
+                                      filled: true,
+                                      fillColor: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter user name';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 600,
+                                  ),
+                                  child: TextFormField(
+                                    controller: _emailController,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: 'Email Address',
+                                      labelStyle: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                      enabledBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.outline,
+                                        ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                      ),
+                                      filled: true,
+                                      fillColor: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter email';
+                                      }
+                                      if (!value.contains('@')) {
+                                        return 'Please enter a valid email';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 600,
+                                  ),
+                                  child: TextFormField(
+                                    controller: _roleController,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                    decoration: InputDecoration(
+                                      labelText: 'Access Level',
+                                      labelStyle: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                      enabledBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.outline,
+                                        ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.primary,
+                                        ),
+                                      ),
+                                      filled: true,
+                                      fillColor: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Please enter user name';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        child: Text(
-                          _isLoading
-                              ? 'Saving...'
-                              : widget.isEditing
-                              ? 'Update Permissions'
-                              : 'Create User',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
+
+                        const SizedBox(height: 20),
+
+                        // Permissions Section
+                        const Text(
+                          'PERMISSIONS',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+
+                        // Permission Cards with constraints
+                        if (isMobile)
+                          Column(
+                            children: [
+                              _buildPermissionCard(AppModules.dashboard, [
+                                'view',
+                                'settings',
+                              ]),
+                              _buildPermissionCard(AppModules.userManagement, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.settings, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.accounts, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.stock, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.sales, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                                'print',
+                              ]),
+                              _buildPermissionCard(
+                                AppModules.FarmerManagement,
+                                ['view', 'create', 'edit', 'delete'],
+                              ),
+                              _buildPermissionCard(AppModules.reports, [
+                                'view',
+                                'print',
+                                'export',
+                              ]),
+                            ],
+                          )
+                        else if (isTablet)
+                          GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 8,
+                            childAspectRatio: 1.8,
+                            children: [
+                              _buildPermissionCard(AppModules.dashboard, [
+                                'view',
+                                'settings',
+                              ]),
+                              _buildPermissionCard(AppModules.userManagement, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.settings, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.accounts, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.stock, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.sales, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                                'print',
+                              ]),
+                              _buildPermissionCard(
+                                AppModules.FarmerManagement,
+                                ['view', 'create', 'edit', 'delete'],
+                              ),
+                              _buildPermissionCard(AppModules.reports, [
+                                'view',
+                                'print',
+                                'export',
+                              ]),
+                            ],
+                          )
+                        else
+                          GridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.6,
+                            children: [
+                              _buildPermissionCard(AppModules.dashboard, [
+                                'view',
+                                'settings',
+                              ]),
+                              _buildPermissionCard(AppModules.userManagement, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.settings, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.accounts, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.stock, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                              ]),
+                              _buildPermissionCard(AppModules.sales, [
+                                'view',
+                                'create',
+                                'edit',
+                                'delete',
+                                'print',
+                              ]),
+                              _buildPermissionCard(
+                                AppModules.FarmerManagement,
+                                ['view', 'create', 'edit', 'delete'],
+                              ),
+                              _buildPermissionCard(AppModules.reports, [
+                                'view',
+                                'print',
+                                'export',
+                              ]),
+                            ],
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        // Save Button with constraints
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: isMobile ? double.infinity : 500,
+                            minWidth: 200,
+                          ),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _savePermissions,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF415A77),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                _isLoading
+                                    ? 'Saving...'
+                                    : widget.isEditing
+                                    ? 'Update Permissions'
+                                    : 'Create User',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -549,10 +710,7 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
 
   void _setManagerPermissions() {
     _permissions = {
-      AppModules.dashboard: {
-        'view': true,
-        'settings': false,
-      },
+      AppModules.dashboard: {'view': true, 'settings': false},
       AppModules.userManagement: {
         'view': true,
         'create': false,
@@ -590,20 +748,13 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
         'edit': true,
         'delete': false,
       },
-      AppModules.reports: {
-        'view': true,
-        'print': true,
-        'export': false,
-      },
+      AppModules.reports: {'view': true, 'print': true, 'export': false},
     };
   }
 
   void _setStaffPermissions() {
     _permissions = {
-      AppModules.dashboard: {
-        'view': true,
-        'settings': false,
-      },
+      AppModules.dashboard: {'view': true, 'settings': false},
       AppModules.userManagement: {
         'view': false,
         'create': false,
@@ -629,20 +780,13 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
         'delete': false,
         'print': false,
       },
-      AppModules.reports: {
-        'view': true,
-        'print': false,
-        'export': false,
-      },
+      AppModules.reports: {'view': true, 'print': false, 'export': false},
     };
   }
 
   void _setViewerPermissions() {
     _permissions = {
-      AppModules.dashboard: {
-        'view': true,
-        'settings': false,
-      },
+      AppModules.dashboard: {'view': true, 'settings': false},
       AppModules.userManagement: {
         'view': false,
         'create': false,
@@ -680,11 +824,7 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
         'delete': false,
         'print': true,
       },
-      AppModules.reports: {
-        'view': true,
-        'print': false,
-        'export': false,
-      },
+      AppModules.reports: {'view': true, 'print': false, 'export': false},
     };
   }
 
@@ -692,11 +832,8 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
-        title: const Text(
-          'Delete User',
-          style: TextStyle(color: Colors.white),
-        ),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        title: const Text('Delete User', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to delete this user and their permissions?',
           style: TextStyle(color: Colors.white70),
@@ -704,13 +841,14 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Delete'),
           ),
         ],
@@ -723,13 +861,19 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
         await _firestore.collection('staff').doc(widget.userId).delete();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User deleted successfully'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('User deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
           );
           Navigator.pop(context, true);
         }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting user: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error deleting user: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
       setState(() => _isLoading = false);

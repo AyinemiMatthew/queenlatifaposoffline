@@ -26,19 +26,16 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_)async{
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = Provider.of<Datafeed>(context, listen: false);
       await provider.getdata();
     });
   }
+
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
 
-  final List<String> _filterOptions = [
-    'All',
-    'Credit',
-    'Cash',
-  ];
+  final List<String> _filterOptions = ['All', 'Credit', 'Cash'];
   double _toDouble(dynamic value) {
     if (value == null) {
       return 0;
@@ -48,11 +45,9 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       return value.toDouble();
     }
 
-    return double.tryParse(
-      value.toString(),
-    ) ??
-        0;
+    return double.tryParse(value.toString()) ?? 0;
   }
+
   @override
   void dispose() {
     _verticalController.dispose();
@@ -69,11 +64,11 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
               primary: Colors.blue,
               onPrimary: Colors.white,
-              surface: Color(0xFF22304A),
-              onSurface: Colors.white,
+              surface: Theme.of(context).colorScheme.surface,
+              onSurface: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           child: child!,
@@ -90,11 +85,11 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
         builder: (context, child) {
           return Theme(
             data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
+              colorScheme: Theme.of(context).colorScheme.copyWith(
                 primary: Colors.blue,
                 onPrimary: Colors.white,
-                surface: Color(0xFF22304A),
-                onSurface: Colors.white,
+                surface: Theme.of(context).colorScheme.surface,
+                onSurface: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             child: child!,
@@ -172,10 +167,12 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       final filterLower = _selectedFilter.toLowerCase();
       final purchaseType = data['purchasetype']?.toString().toLowerCase() ?? '';
       final supplier = data['suppliername']?.toString().toLowerCase() ?? '';
-      final paymentAccount = data['paymentaccount']?.toString().toLowerCase() ?? '';
+      final paymentAccount =
+          data['paymentaccount']?.toString().toLowerCase() ?? '';
 
       // Check if filter matches any main field
-      bool fieldMatches = purchaseType.contains(filterLower) ||
+      bool fieldMatches =
+          purchaseType.contains(filterLower) ||
           supplier.contains(filterLower) ||
           paymentAccount.contains(filterLower);
 
@@ -222,7 +219,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
 
   String _formatCurrency(double amount) {
     return NumberFormat.currency(
-      symbol: 'GHC ',
+      symbol: 'GHS ',
       decimalDigits: 2,
     ).format(amount);
   }
@@ -233,9 +230,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       decoration: BoxDecoration(
         color: Colors.red.shade900.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.red.shade300.withOpacity(0.5),
-        ),
+        border: Border.all(color: Colors.red.shade300.withOpacity(0.5)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
@@ -272,9 +267,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       decoration: BoxDecoration(
         color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.5),
-        ),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Text(
         type.toUpperCase(),
@@ -302,16 +295,10 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
         final value = entry.value;
 
         if (value is Map) {
-          return {
-            'itemid': entry.key,
-            ...Map<String, dynamic>.from(value),
-          };
+          return {'itemid': entry.key, ...Map<String, dynamic>.from(value)};
         }
 
-        return <String, dynamic>{
-          'itemid': entry.key,
-          'item': value,
-        };
+        return <String, dynamic>{'itemid': entry.key, 'item': value};
       }).toList();
     }
 
@@ -319,18 +306,11 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
     final gross = (data['gross'] ?? 0).toDouble();
 
     return Card(
-      margin: const EdgeInsets.symmetric(
-        vertical: 6,
-        horizontal: 12,
-      ),
-      color: index.isEven
-          ? const Color(0xFF0D1B2A)
-          : const Color(0xFF1B263B),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      color: index.isEven ? const Color(0xFF0D1B2A) : const Color(0xFF1B263B),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: Colors.red.withOpacity(0.1),
-        ),
+        side: BorderSide(color: Colors.red.withOpacity(0.1)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -342,14 +322,10 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor:
-                  Colors.red.shade900.withOpacity(0.3),
+                  backgroundColor: Colors.red.shade900.withOpacity(0.3),
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
 
@@ -357,8 +333,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
 
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'INV-${data['invoice'] ?? 'N/A'}',
@@ -381,74 +356,36 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                   ),
                 ),
 
-                _buildPurchaseTypeChip(
-                  data['purchasetype'] ?? 'N/A',
-                ),
+                _buildPurchaseTypeChip(data['purchasetype'] ?? 'N/A'),
               ],
             ),
 
-            const Divider(
-              color: Colors.white24,
-              height: 20,
-            ),
+            const Divider(color: Colors.white24, height: 20),
 
             // Details
             Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoRow(
-                  'Invoice',
-                  data['invoice'] ?? 'N/A',
-                ),
-                _buildInfoRow(
-                  'Waybill',
-                  data['waybill'] ?? 'N/A',
-                ),
-                _buildInfoRow(
-                  'Date',
-                  _formatDateOnly(data['invoicedate']),
-                ),
+                _buildInfoRow('Invoice', data['invoice'] ?? 'N/A'),
+                _buildInfoRow('Waybill', data['waybill'] ?? 'N/A'),
+                _buildInfoRow('Date', _formatDateOnly(data['invoicedate'])),
                 _buildInfoRow(
                   'Branch',
-                  data['branchname'] ??
-                      data['recievebranchname'] ??
-                      'N/A',
+                  data['branchname'] ?? data['recievebranchname'] ?? 'N/A',
                 ),
-                _buildInfoRow(
-                  'Staff',
-                  data['createdby'] ?? 'N/A',
-                ),
-                _buildInfoRow(
-                  'Items',
-                  '$totalItems',
-                ),
-                _buildInfoRow(
-                  'Gross Value',
-                  _formatCurrency(gross),
-                ),
-                _buildInfoRow(
-                  'Payment',
-                  data['paymentaccount'] ?? 'N/A',
-                ),
+                _buildInfoRow('Staff', data['createdby'] ?? 'N/A'),
+                _buildInfoRow('Items', '$totalItems'),
+                _buildInfoRow('Gross Value', _formatCurrency(gross)),
+                _buildInfoRow('Payment', data['paymentaccount'] ?? 'N/A'),
 
                 if (data['deletedat'] != null)
-                  _buildInfoRow(
-                    'Deleted At',
-                    _formatDate(data['deletedat']),
-                  ),
+                  _buildInfoRow('Deleted At', _formatDate(data['deletedat'])),
 
                 if (data['deletedby'] != null)
-                  _buildInfoRow(
-                    'Deleted By',
-                    data['deletedby'] ?? 'N/A',
-                  ),
+                  _buildInfoRow('Deleted By', data['deletedby'] ?? 'N/A'),
 
                 if (data['reason'] != null)
-                  _buildInfoRow(
-                    'Reason',
-                    data['reason'] ?? 'N/A',
-                  ),
+                  _buildInfoRow('Reason', data['reason'] ?? 'N/A'),
               ],
             ),
 
@@ -472,20 +409,17 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                 runSpacing: 4,
                 children: items.take(3).map((item) {
                   return Container(
-                    padding:
-                    const EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade900
-                          .withOpacity(0.2),
-                      borderRadius:
-                      BorderRadius.circular(12),
+                      color: Colors.blue.shade900.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${item['item'] ?? item['itemname'] ?? 'Unknown'} '
-                          'x${item['quantity'] ?? item['newBalance'] ?? 0}',
+                      'x${item['quantity'] ?? item['newBalance'] ?? 0}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 11,
@@ -506,21 +440,17 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                 ),
             ],
 
-            const Divider(
-              color: Colors.white24,
-              height: 20,
-            ),
+            const Divider(color: Colors.white24, height: 20),
 
             // Actions
             Row(
-              mainAxisAlignment:
-              MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildActionButton(
                   Icons.visibility,
                   Colors.tealAccent,
                   'View',
-                      () {
+                  () {
                     _showStockDetails(data);
                   },
                 ),
@@ -531,6 +461,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       ),
     );
   }
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -551,10 +482,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ),
         ],
@@ -562,7 +490,12 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
     );
   }
 
-  Widget _buildActionButton(IconData icon, Color color, String label, VoidCallback onPressed) {
+  Widget _buildActionButton(
+    IconData icon,
+    Color color,
+    String label,
+    VoidCallback onPressed,
+  ) {
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(8),
@@ -574,10 +507,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
             const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(
-                color: color.withOpacity(0.7),
-                fontSize: 10,
-              ),
+              style: TextStyle(color: color.withOpacity(0.7), fontSize: 10),
             ),
           ],
         ),
@@ -588,12 +518,10 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
   void _showStockDetails(Map<String, dynamic> data) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1B263B),
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.9,
@@ -641,8 +569,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                     height: 4,
                     decoration: BoxDecoration(
                       color: Colors.white30,
-                      borderRadius:
-                      BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
@@ -652,7 +579,6 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                 // ==========================================================
                 // HEADER
                 // ==========================================================
-
                 Row(
                   children: [
                     Expanded(
@@ -667,12 +593,9 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                     ),
 
                     //_buildDeletedBadge(),
-
                     const SizedBox(width: 8),
 
-                    _buildPurchaseTypeChip(
-                      data['purchasetype'] ?? 'N/A',
-                    ),
+                    _buildPurchaseTypeChip(data['purchasetype'] ?? 'N/A'),
                   ],
                 ),
 
@@ -681,20 +604,13 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                 // ==========================================================
                 // DETAILS
                 // ==========================================================
-
                 Expanded(
                   child: ListView(
                     controller: scrollController,
                     children: [
-                      _buildDetailRow(
-                        'Invoice',
-                        data['invoice'] ?? 'N/A',
-                      ),
+                      _buildDetailRow('Invoice', data['invoice'] ?? 'N/A'),
 
-                      _buildDetailRow(
-                        'Waybill',
-                        data['waybill'] ?? 'N/A',
-                      ),
+                      _buildDetailRow('Waybill', data['waybill'] ?? 'N/A'),
 
                       _buildDetailRow(
                         'Supplier',
@@ -712,15 +628,10 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
 
                       _buildDetailRow(
                         'Date',
-                        _formatDateOnly(
-                          data['invoicedate'],
-                        ),
+                        _formatDateOnly(data['invoicedate']),
                       ),
 
-                      _buildDetailRow(
-                        'Staff',
-                        data['createdby'] ?? 'N/A',
-                      ),
+                      _buildDetailRow('Staff', data['createdby'] ?? 'N/A'),
 
                       _buildDetailRow(
                         'Purchase Type',
@@ -734,41 +645,28 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
 
                       _buildDetailRow(
                         'Gross Value',
-                        _formatCurrency(
-                          _toDouble(data['gross']),
-                        ),
+                        _formatCurrency(_toDouble(data['gross'])),
                       ),
 
                       _buildDetailRow(
                         'Net Value',
-                        _formatCurrency(
-                          _toDouble(data['netval']),
-                        ),
+                        _formatCurrency(_toDouble(data['netval'])),
                       ),
 
                       _buildDetailRow(
                         'Deleted At',
-                        _formatDate(
-                          data['deletedat'],
-                        ),
+                        _formatDate(data['deletedat']),
                       ),
 
-                      _buildDetailRow(
-                        'Deleted By',
-                        data['deletedby'] ?? 'N/A',
-                      ),
+                      _buildDetailRow('Deleted By', data['deletedby'] ?? 'N/A'),
 
-                      _buildDetailRow(
-                        'Reason',
-                        data['reason'] ?? 'N/A',
-                      ),
+                      _buildDetailRow('Reason', data['reason'] ?? 'N/A'),
 
                       const SizedBox(height: 16),
 
                       // ======================================================
                       // ITEMS TITLE
                       // ======================================================
-
                       const Text(
                         'Items',
                         style: TextStyle(
@@ -783,31 +681,22 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                       // ======================================================
                       // ITEMS
                       // ======================================================
-
                       ...items.map((item) {
                         if (item is! Map) {
                           return const SizedBox.shrink();
                         }
 
                         return Container(
-                          padding:
-                          const EdgeInsets.all(12),
-                          margin:
-                          const EdgeInsets.only(
-                            bottom: 8,
-                          ),
-                          decoration:
-                          BoxDecoration(
-                            color:
-                            const Color(0xFF22304A),
-                            borderRadius:
-                            BorderRadius.circular(
-                              8,
-                            ),
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // ============================================
                               // ITEM NAME / QUANTITY
@@ -815,21 +704,14 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
 
                               Row(
                                 mainAxisAlignment:
-                                MainAxisAlignment
-                                    .spaceBetween,
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      item['item']
-                                          ?.toString() ??
-                                          'Unknown',
-                                      style:
-                                      const TextStyle(
-                                        color:
-                                        Colors.white,
-                                        fontWeight:
-                                        FontWeight
-                                            .bold,
+                                      item['item']?.toString() ?? 'Unknown',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -837,10 +719,8 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
 
                                   Text(
                                     'x${item['quantity'] ?? item['pieces'] ?? 0}',
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -852,61 +732,48 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
                               // ============================================
                               // ITEM INFORMATION
                               // ============================================
-
                               Wrap(
                                 spacing: 16,
                                 runSpacing: 4,
                                 children: [
                                   Text(
                                     'Barcode: ${item['barcode'] ?? 'N/A'}',
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
                                       fontSize: 12,
                                     ),
                                   ),
 
                                   Text(
                                     'Price: ${_formatCurrency(_toDouble(item['price'] ?? item['cp']))}',
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
                                       fontSize: 12,
                                     ),
                                   ),
 
                                   Text(
                                     'Total: ${_formatCurrency(_toDouble(item['total'] ?? item['stock_value']))}',
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
                                       fontSize: 12,
                                     ),
                                   ),
 
                                   Text(
                                     'Mode: ${item['stockingmode'] ?? item['mode'] ?? 'N/A'}',
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
                                       fontSize: 12,
                                     ),
                                   ),
 
-                                  if (item['boxpieces'] !=
-                                      null ||
-                                      item['boxpiece'] !=
-                                          null)
+                                  if (item['boxpieces'] != null ||
+                                      item['boxpiece'] != null)
                                     Text(
                                       'Box Pieces: ${item['boxpieces'] ?? item['boxpiece']}',
-                                      style:
-                                      const TextStyle(
-                                        color:
-                                        Colors.white70,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -928,6 +795,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       ),
     );
   }
+
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -962,7 +830,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: const Text(
           'Restore Stock',
           style: TextStyle(color: Colors.white),
@@ -974,13 +842,14 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('Restore'),
           ),
         ],
@@ -997,7 +866,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
         // restoredData.remove('reason');
 
         // Save to stock_transactions collection
-       // await _firestore.collection('stock_transactions').doc(data['docid']).set(restoredData);
+        // await _firestore.collection('stock_transactions').doc(data['docid']).set(restoredData);
 
         // Delete from deletedstock collection
         //await _firestore.collection('deletedstock').doc(data['docid']).delete();
@@ -1028,7 +897,7 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: const Text(
           'Permanent Delete',
           style: TextStyle(color: Colors.white),
@@ -1040,13 +909,14 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Delete Permanently'),
           ),
         ],
@@ -1083,10 +953,10 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
     final provider = Provider.of<Datafeed>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Deleted Stock'),
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         elevation: 0,
         centerTitle: true,
         actions: [
@@ -1101,7 +971,9 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
               ),
               child: Icon(
                 Icons.calendar_month,
-                color: _isDateRangeActive ? Colors.blue.shade300 : Colors.white70,
+                color: _isDateRangeActive
+                    ? Colors.blue.shade300
+                    : Colors.white70,
               ),
             ),
             onPressed: _showDateRangePicker,
@@ -1123,724 +995,655 @@ class _DeletedStockScreenState extends State<DeletedStockScreen> {
       ),
       body: _isLoading
           ? const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-        ),
-      )
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            )
           : Column(
-        children: [
-          // Search and Filter Section
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
               children: [
-                // Search Bar
-                TextFormField(
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    fillColor: const Color(0xFF22304A),
-                    hintText: 'Search by invoice, supplier, item, barcode...',
-                    hintStyle: const TextStyle(color: Colors.white54),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_searchQuery.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear, color: Colors.white54),
-                            onPressed: () {
-                              setState(() {
-                                _searchQuery = "";
-                              });
-                            },
-                          ),
-                        Tooltip(
-                          message: _searchInItems ? 'Search in items enabled' : 'Search in items disabled',
-                          child: IconButton(
-                            icon: Icon(
-                              _searchInItems ? Icons.list_alt : Icons.list_alt_outlined,
-                              color: _searchInItems ? Colors.blue.shade300 : Colors.white54,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _searchInItems = !_searchInItems;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.white10),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.white24),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.blue),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+                // Search and Filter Section
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      ..._filterOptions.map((filter) {
-                        final isSelected = _selectedFilter == filter;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(
-                              filter,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.white70,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedFilter = selected ? filter : 'All';
-                              });
-                            },
-                            backgroundColor: const Color(0xFF22304A),
-                            selectedColor: Colors.blue.shade800,
-                            side: BorderSide(
-                              color: isSelected
-                                  ? Colors.blue.shade300
-                                  : Colors.white24,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                      // Search Bar
+                      TextFormField(
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        decoration: InputDecoration(
+                          fillColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          hintText:
+                              'Search by invoice, supplier, item, barcode...',
+                          hintStyle: TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
-                        );
-                      }),
-                      if (_isDateRangeActive)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade900.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.blue.shade700.withOpacity(0.3)),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
-                          child: Row(
+                          suffixIcon: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.date_range, size: 14, color: Colors.blue),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                              ),
-                              const SizedBox(width: 6),
-                              GestureDetector(
-                                onTap: _clearDateRange,
-                                child: const Icon(Icons.close, size: 14, color: Colors.blue),
+                              if (_searchQuery.isNotEmpty)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchQuery = "";
+                                    });
+                                  },
+                                ),
+                              Tooltip(
+                                message: _searchInItems
+                                    ? 'Search in items enabled'
+                                    : 'Search in items disabled',
+                                child: IconButton(
+                                  icon: Icon(
+                                    _searchInItems
+                                        ? Icons.list_alt
+                                        : Icons.list_alt_outlined,
+                                    color: _searchInItems
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchInItems = !_searchInItems;
+                                    });
+                                  },
+                                ),
                               ),
                             ],
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Filter Chips
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ..._filterOptions.map((filter) {
+                              final isSelected = _selectedFilter == filter;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: FilterChip(
+                                  label: Text(
+                                    filter,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.white70,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _selectedFilter = selected
+                                          ? filter
+                                          : 'All';
+                                    });
+                                  },
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  selectedColor: Colors.blue.shade800,
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? Colors.blue.shade300
+                                        : Colors.white24,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                              );
+                            }),
+                            if (_isDateRangeActive)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade900.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.blue.shade700.withOpacity(
+                                      0.3,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.date_range,
+                                      size: 14,
+                                      color: Colors.blue,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: _clearDateRange,
+                                      child: const Icon(
+                                        Icons.close,
+                                        size: 14,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Search info
+                      if (_searchQuery.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Searching: "$_searchQuery" ${_searchInItems ? '(including items)' : '(main fields only)'}',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Search info
-                if (_searchQuery.isNotEmpty)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Searching: "$_searchQuery" ${_searchInItems ? '(including items)' : '(main fields only)'}',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
 
-          // Data Table / List
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('deletedstock')
-                  .where(
-                'companyid',
-                isEqualTo: provider.companyid,
-              )
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor:
-                      AlwaysStoppedAnimation<Color>(
-                        Colors.blue,
-                      ),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: const TextStyle(
-                        color: Colors.red,
-                      ),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData ||
-                    snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment:
-                      MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.delete_forever,
-                          color: Colors.white38,
-                          size: 64,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No deleted stock found',
-                          style: TextStyle(
-                            color: Colors.white70,
+                // Data Table / List
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: _firestore
+                        .collection('deletedstock')
+                        .where('companyid', isEqualTo: provider.companyid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                        );
+                      }
 
-                // ============================================================
-                // Convert documents to map and filter
-                // ============================================================
-
-                final stocks = snapshot.data!.docs
-                    .map((doc) {
-                  final data =
-                  doc.data() as Map<String, dynamic>;
-
-                  data['docid'] = doc.id;
-
-                  return data;
-                })
-                    .where((data) => _filterStock(data))
-                    .toList();
-
-                if (stocks.isEmpty) {
-                  return Center(
-                    child: Text(
-                      _searchQuery.isNotEmpty
-                          ? 'No deleted stock matching "$_searchQuery"'
-                          : 'No deleted stock found',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                      ),
-                    ),
-                  );
-                }
-
-                // ============================================================
-                // Mobile Card View
-                // ============================================================
-
-                if (isMobile) {
-                  return ListView.builder(
-                    controller: _verticalController,
-                    itemCount: stocks.length,
-                    itemBuilder: (context, index) {
-                      return _buildMobileCard(
-                        stocks[index],
-                        index,
-                      );
-                    },
-                  );
-                }
-
-                // ============================================================
-                // Desktop Table View
-                // ============================================================
-
-                return Scrollbar(
-                  controller: _verticalController,
-                  thumbVisibility: true,
-                  trackVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _verticalController,
-                    scrollDirection: Axis.vertical,
-                    child: Scrollbar(
-                      controller: _horizontalController,
-                      thumbVisibility: true,
-                      trackVisibility: true,
-                      child: SingleChildScrollView(
-                        controller: _horizontalController,
-                        scrollDirection: Axis.horizontal,
-                        child: Container(
-                          padding:
-                          const EdgeInsets.symmetric(
-                            horizontal: 16,
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'Error: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
                           ),
-                          child: DataTable(
-                            headingRowColor:
-                            WidgetStateProperty.all(
-                              const Color(0xFF1B263B),
-                            ),
-                            columnSpacing: 12,
-                            headingTextStyle:
-                            const TextStyle(
-                              color: Colors.white,
-                              fontWeight:
-                              FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                            dataTextStyle:
-                            const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
+                        );
+                      }
 
-                            // ==================================================
-                            // TABLE COLUMNS
-                            // ==================================================
-
-                            columns: const [
-                              DataColumn(
-                                label: Text('#'),
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.delete_forever,
+                                color: Colors.white38,
+                                size: 64,
                               ),
-                              DataColumn(
-                                label: Text('Invoice'),
-                              ),
-                              DataColumn(
-                                label: Text('Waybill'),
-                              ),
-                              DataColumn(
-                                label: Text('Supplier'),
-                              ),
-                              DataColumn(
-                                label: Text('Branch'),
-                              ),
-                              DataColumn(
-                                label: Text('Date'),
-                              ),
-                              DataColumn(
-                                label: Text('Items'),
-                              ),
-                              DataColumn(
-                                label: Text('Gross'),
-                              ),
-                              DataColumn(
-                                label: Text('Mode'),
-                              ),
-                              DataColumn(
-                                label: Text('Type'),
-                              ),
-                              DataColumn(
-                                label: Text('Deleted'),
-                              ),
-                              DataColumn(
-                                label: Text('Actions'),
+                              SizedBox(height: 16),
+                              Text(
+                                'No deleted stock found',
+                                style: TextStyle(color: Colors.white70),
                               ),
                             ],
+                          ),
+                        );
+                      }
 
-                            // ==================================================
-                            // TABLE ROWS
-                            // ==================================================
+                      // ============================================================
+                      // Convert documents to map and filter
+                      // ============================================================
 
-                            rows: List.generate(
-                              stocks.length,
-                                  (index) {
-                                final data =
-                                stocks[index];
+                      final stocks = snapshot.data!.docs
+                          .map((doc) {
+                            final data = doc.data() as Map<String, dynamic>;
 
-                                // =================================================
-                                // ITEMS
-                                //
-                                // Your current documents may have:
-                                //
-                                // items: {
-                                //   item_0: {...},
-                                //   item_1: {...}
-                                // }
-                                //
-                                // Older documents may have:
-                                //
-                                // items: [
-                                //   {...},
-                                //   {...}
-                                // ]
-                                //
-                                // Handle both without changing your logic.
-                                // =================================================
+                            data['docid'] = doc.id;
 
-                                final dynamic rawItems =
-                                data['items'];
+                            return data;
+                          })
+                          .where((data) => _filterStock(data))
+                          .toList();
 
-                                final int itemCount =
-                                rawItems is Map
-                                    ? rawItems.length
-                                    : rawItems is List
-                                    ? rawItems.length
-                                    : 0;
+                      if (stocks.isEmpty) {
+                        return Center(
+                          child: Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No deleted stock matching "$_searchQuery"'
+                                : 'No deleted stock found',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      }
 
-                                // =================================================
-                                // GROSS
-                                // =================================================
+                      // ============================================================
+                      // Mobile Card View
+                      // ============================================================
 
-                                final double gross =
-                                (data['gross'] ?? 0)
-                                is num
-                                    ? (data['gross'] ?? 0)
-                                    .toDouble()
-                                    : double.tryParse(
-                                  data['gross']
-                                      ?.toString() ??
-                                      '0',
-                                ) ??
-                                    0;
+                      if (isMobile) {
+                        return ListView.builder(
+                          controller: _verticalController,
+                          itemCount: stocks.length,
+                          itemBuilder: (context, index) {
+                            return _buildMobileCard(stocks[index], index);
+                          },
+                        );
+                      }
 
-                                // =================================================
-                                // ROW
-                                // =================================================
+                      // ============================================================
+                      // Desktop Table View
+                      // ============================================================
 
-                                return DataRow(
-                                  color: WidgetStateProperty
-                                      .resolveWith<Color?>(
-                                        (
-                                        Set<WidgetState>
-                                        states,
-                                        ) {
-                                      return index.isEven
-                                          ? const Color(
-                                        0xFF0D1B2A,
-                                      )
-                                          : const Color(
-                                        0xFF1B263B,
-                                      );
-                                    },
+                      return Scrollbar(
+                        controller: _verticalController,
+                        thumbVisibility: true,
+                        trackVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _verticalController,
+                          scrollDirection: Axis.vertical,
+                          child: Scrollbar(
+                            controller: _horizontalController,
+                            thumbVisibility: true,
+                            trackVisibility: true,
+                            child: SingleChildScrollView(
+                              controller: _horizontalController,
+                              scrollDirection: Axis.horizontal,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: DataTable(
+                                  headingRowColor: WidgetStateProperty.all(
+                                    const Color(0xFF1B263B),
+                                  ),
+                                  columnSpacing: 12,
+                                  headingTextStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  dataTextStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
                                   ),
 
-                                  cells: [
-                                    // =================================================
-                                    // #
-                                    // =================================================
+                                  // ==================================================
+                                  // TABLE COLUMNS
+                                  // ==================================================
+                                  columns: const [
+                                    DataColumn(label: Text('#')),
+                                    DataColumn(label: Text('Invoice')),
+                                    DataColumn(label: Text('Waybill')),
+                                    DataColumn(label: Text('Supplier')),
+                                    DataColumn(label: Text('Branch')),
+                                    DataColumn(label: Text('Date')),
+                                    DataColumn(label: Text('Items')),
+                                    DataColumn(label: Text('Gross')),
+                                    DataColumn(label: Text('Mode')),
+                                    DataColumn(label: Text('Type')),
+                                    DataColumn(label: Text('Deleted')),
+                                    DataColumn(label: Text('Actions')),
+                                  ],
 
-                                    DataCell(
-                                      Text(
-                                        '${index + 1}',
-                                      ),
-                                    ),
-
-                                    // =================================================
-                                    // INVOICE
-                                    // =================================================
-
-                                    DataCell(
-                                      Row(
-                                        children: [
-                                          Text(
-                                            data['invoice']
-                                                ?.toString() ??
-                                                'N/A',
-                                            style:
-                                            const TextStyle(
-                                              color:
-                                              Colors.blueAccent,
-                                              fontWeight:
-                                              FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(
-                                            width: 4,
-                                          ),
-
-                                          // _buildDeletedBadge(),
-                                        ],
-                                      ),
-                                    ),
-
-                                    // =================================================
-                                    // WAYBILL
-                                    // =================================================
-
-                                    DataCell(
-                                      Text(
-                                        data['waybill']
-                                            ?.toString() ??
-                                            'N/A',
-                                      ),
-                                    ),
-
-                                    // =================================================
-                                    // SUPPLIER
-                                    // =================================================
-
-                                    DataCell(
-                                      Text(
-                                        data['suppliername']
-                                            ?.toString() ??
-                                            data[
-                                            'supplywarehousename']
-                                                ?.toString() ??
-                                            'N/A',
-                                      ),
-                                    ),
-
-                                    // =================================================
-                                    // BRANCH
-                                    // =================================================
-
-                                    DataCell(
-                                      Text(
-                                        data['branchname']
-                                            ?.toString() ??
-                                            data[
-                                            'recievebranchname']
-                                                ?.toString() ??
-                                            'N/A',
-                                      ),
-                                    ),
-
-                                    // =================================================
-                                    // DATE
-                                    // =================================================
-
-                                    DataCell(
-                                      Text(
-                                        _formatDateOnly(
-                                          data['invoicedate'] ??
-                                              data[
-                                              'transferdate'],
-                                        ),
-                                      ),
-                                    ),
+                                  // ==================================================
+                                  // TABLE ROWS
+                                  // ==================================================
+                                  rows: List.generate(stocks.length, (index) {
+                                    final data = stocks[index];
 
                                     // =================================================
                                     // ITEMS
+                                    //
+                                    // Your current documents may have:
+                                    //
+                                    // items: {
+                                    //   item_0: {...},
+                                    //   item_1: {...}
+                                    // }
+                                    //
+                                    // Older documents may have:
+                                    //
+                                    // items: [
+                                    //   {...},
+                                    //   {...}
+                                    // ]
+                                    //
+                                    // Handle both without changing your logic.
                                     // =================================================
 
-                                    DataCell(
-                                      Text(
-                                        '$itemCount',
-                                      ),
-                                    ),
+                                    final dynamic rawItems = data['items'];
+
+                                    final int itemCount = rawItems is Map
+                                        ? rawItems.length
+                                        : rawItems is List
+                                        ? rawItems.length
+                                        : 0;
 
                                     // =================================================
                                     // GROSS
                                     // =================================================
 
-                                    DataCell(
-                                      Text(
-                                        _formatCurrency(
-                                          gross,
-                                        ),
-                                        style:
-                                        const TextStyle(
-                                          color:
-                                          Colors.greenAccent,
-                                          fontWeight:
-                                          FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
+                                    final double gross =
+                                        (data['gross'] ?? 0) is num
+                                        ? (data['gross'] ?? 0).toDouble()
+                                        : double.tryParse(
+                                                data['gross']?.toString() ??
+                                                    '0',
+                                              ) ??
+                                              0;
 
                                     // =================================================
-                                    // MODE
+                                    // ROW
                                     // =================================================
 
-                                    DataCell(
-                                      _buildPurchaseTypeChip(
-                                        data['purchasetype'] ??
-                                            'N/A',
-                                      ),
-                                    ),
+                                    return DataRow(
+                                      color:
+                                          WidgetStateProperty.resolveWith<
+                                            Color?
+                                          >((Set<WidgetState> states) {
+                                            return index.isEven
+                                                ? const Color(0xFF0D1B2A)
+                                                : const Color(0xFF1B263B);
+                                          }),
 
-                                    // =================================================
-                                    // TYPE
-                                    // =================================================
+                                      cells: [
+                                        // =================================================
+                                        // #
+                                        // =================================================
 
-                                    DataCell(
-                                      _buildPurchaseTypeChip(
-                                        data['deletetype'] ??
-                                            'N/A',
-                                      ),
-                                    ),
+                                        DataCell(Text('${index + 1}')),
 
-                                    // =================================================
-                                    // DELETED
-                                    // =================================================
-
-                                    DataCell(
-                                      Text(
-                                        _formatDate(
-                                          data['deletedat'],
-                                        ),
-                                      ),
-                                    ),
-
-                                    // =================================================
-                                    // ACTIONS
-                                    // =================================================
-
-                                    DataCell(
-                                      Row(
-                                        children: [
-                                          // =========================================
-                                          // VIEW
-                                          // =========================================
-
-                                          IconButton(
-                                            icon:
-                                            const Icon(
-                                              Icons.visibility,
-                                              color: Colors
-                                                  .tealAccent,
-                                              size: 20,
-                                            ),
-                                            onPressed: () =>
-                                                _showStockDetails(
-                                                  data,
+                                        // =================================================
+                                        // INVOICE
+                                        // =================================================
+                                        DataCell(
+                                          Row(
+                                            children: [
+                                              Text(
+                                                data['invoice']?.toString() ??
+                                                    'N/A',
+                                                style: const TextStyle(
+                                                  color: Colors.blueAccent,
+                                                  fontWeight: FontWeight.w500,
                                                 ),
-                                            tooltip:
-                                            'View',
-                                            padding:
-                                            const EdgeInsets
-                                                .all(4),
-                                            constraints:
-                                            const BoxConstraints(),
+                                              ),
+                                              const SizedBox(width: 4),
+
+                                              // _buildDeletedBadge(),
+                                            ],
                                           ),
+                                        ),
 
-                                          // =========================================
-                                          // RESTORE
-                                          // =========================================
+                                        // =================================================
+                                        // WAYBILL
+                                        // =================================================
+                                        DataCell(
+                                          Text(
+                                            data['waybill']?.toString() ??
+                                                'N/A',
+                                          ),
+                                        ),
 
-                                          // IconButton(
-                                          //   icon: const Icon(
-                                          //     Icons.restore,
-                                          //     color: Colors.green,
-                                          //     size: 20,
-                                          //   ),
-                                          //   onPressed: () =>
-                                          //       _restoreStock(data),
-                                          //   tooltip: 'Restore',
-                                          //   padding:
-                                          //       const EdgeInsets.all(4),
-                                          //   constraints:
-                                          //       const BoxConstraints(),
-                                          // ),
+                                        // =================================================
+                                        // SUPPLIER
+                                        // =================================================
+                                        DataCell(
+                                          Text(
+                                            data['suppliername']?.toString() ??
+                                                data['supplywarehousename']
+                                                    ?.toString() ??
+                                                'N/A',
+                                          ),
+                                        ),
 
-                                          // =========================================
-                                          // PERMANENT DELETE
-                                          // =========================================
+                                        // =================================================
+                                        // BRANCH
+                                        // =================================================
+                                        DataCell(
+                                          Text(
+                                            data['branchname']?.toString() ??
+                                                data['recievebranchname']
+                                                    ?.toString() ??
+                                                'N/A',
+                                          ),
+                                        ),
 
-                                          IconButton(
-                                            icon:
-                                            const Icon(
-                                              Icons
-                                                  .delete_forever,
-                                              color: Colors
-                                                  .redAccent,
-                                              size: 20,
+                                        // =================================================
+                                        // DATE
+                                        // =================================================
+                                        DataCell(
+                                          Text(
+                                            _formatDateOnly(
+                                              data['invoicedate'] ??
+                                                  data['transferdate'],
                                             ),
-                                            onPressed: () =>
-                                                _permanentDelete(
-                                                  data['docid'],
-                                                ),
-                                            tooltip:
-                                            'Permanent Delete',
-                                            padding:
-                                            const EdgeInsets
-                                                .all(4),
-                                            constraints:
-                                            const BoxConstraints(),
                                           ),
+                                        ),
 
-                                          // =========================================
-                                          // SYNC
-                                          // =========================================
+                                        // =================================================
+                                        // ITEMS
+                                        // =================================================
+                                        DataCell(Text('$itemCount')),
 
-                                          // IconButton(
-                                          //   icon: const Icon(
-                                          //     Icons.sync,
-                                          //     color: Colors.blue,
-                                          //     size: 20,
-                                          //   ),
-                                          //   onPressed: () async {
-                                          //     print(
-                                          //       "Syncing stock transfer reports for docid: ${data['docid']}",
-                                          //     );
-                                          //
-                                          //     bool loading = false;
-                                          //
-                                          //     setState(
-                                          //       () => loading = true,
-                                          //     );
-                                          //
-                                          //     LoadingDialog.show(
-                                          //       context,
-                                          //       message:
-                                          //           "Please wait...",
-                                          //     );
-                                          //
-                                          //     await context
-                                          //         .read<StockProvider>()
-                                          //         .syncStockTransfers(
-                                          //           data['docid'],
-                                          //         );
-                                          //
-                                          //     setState(
-                                          //       () => loading = false,
-                                          //     );
-                                          //
-                                          //     LoadingDialog.hide();
-                                          //
-                                          //     ScaffoldMessenger.of(
-                                          //       context,
-                                          //     ).showSnackBar(
-                                          //       const SnackBar(
-                                          //         content: Text(
-                                          //           "Stock transfer reports updated.",
-                                          //         ),
-                                          //       ),
-                                          //     );
-                                          //   },
-                                          // ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
+                                        // =================================================
+                                        // GROSS
+                                        // =================================================
+                                        DataCell(
+                                          Text(
+                                            _formatCurrency(gross),
+                                            style: const TextStyle(
+                                              color: Colors.greenAccent,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+
+                                        // =================================================
+                                        // MODE
+                                        // =================================================
+                                        DataCell(
+                                          _buildPurchaseTypeChip(
+                                            data['purchasetype'] ?? 'N/A',
+                                          ),
+                                        ),
+
+                                        // =================================================
+                                        // TYPE
+                                        // =================================================
+                                        DataCell(
+                                          _buildPurchaseTypeChip(
+                                            data['deletetype'] ?? 'N/A',
+                                          ),
+                                        ),
+
+                                        // =================================================
+                                        // DELETED
+                                        // =================================================
+                                        DataCell(
+                                          Text(_formatDate(data['deletedat'])),
+                                        ),
+
+                                        // =================================================
+                                        // ACTIONS
+                                        // =================================================
+                                        DataCell(
+                                          Row(
+                                            children: [
+                                              // =========================================
+                                              // VIEW
+                                              // =========================================
+
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.visibility,
+                                                  color: Colors.tealAccent,
+                                                  size: 20,
+                                                ),
+                                                onPressed: () =>
+                                                    _showStockDetails(data),
+                                                tooltip: 'View',
+                                                padding: const EdgeInsets.all(
+                                                  4,
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+
+                                              // =========================================
+                                              // RESTORE
+                                              // =========================================
+
+                                              // IconButton(
+                                              //   icon: const Icon(
+                                              //     Icons.restore,
+                                              //     color: Colors.green,
+                                              //     size: 20,
+                                              //   ),
+                                              //   onPressed: () =>
+                                              //       _restoreStock(data),
+                                              //   tooltip: 'Restore',
+                                              //   padding:
+                                              //       const EdgeInsets.all(4),
+                                              //   constraints:
+                                              //       const BoxConstraints(),
+                                              // ),
+
+                                              // =========================================
+                                              // PERMANENT DELETE
+                                              // =========================================
+                                              IconButton(
+                                                icon: const Icon(
+                                                  Icons.delete_forever,
+                                                  color: Colors.redAccent,
+                                                  size: 20,
+                                                ),
+                                                onPressed: () =>
+                                                    _permanentDelete(
+                                                      data['docid'],
+                                                    ),
+                                                tooltip: 'Permanent Delete',
+                                                padding: const EdgeInsets.all(
+                                                  4,
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
+
+                                              // =========================================
+                                              // SYNC
+                                              // =========================================
+
+                                              // IconButton(
+                                              //   icon: const Icon(
+                                              //     Icons.sync,
+                                              //     color: Colors.blue,
+                                              //     size: 20,
+                                              //   ),
+                                              //   onPressed: () async {
+                                              //     print(
+                                              //       "Syncing stock transfer reports for docid: ${data['docid']}",
+                                              //     );
+                                              //
+                                              //     bool loading = false;
+                                              //
+                                              //     setState(
+                                              //       () => loading = true,
+                                              //     );
+                                              //
+                                              //     LoadingDialog.show(
+                                              //       context,
+                                              //       message:
+                                              //           "Please wait...",
+                                              //     );
+                                              //
+                                              //     await context
+                                              //         .read<StockProvider>()
+                                              //         .syncStockTransfers(
+                                              //           data['docid'],
+                                              //         );
+                                              //
+                                              //     setState(
+                                              //       () => loading = false,
+                                              //     );
+                                              //
+                                              //     LoadingDialog.hide();
+                                              //
+                                              //     ScaffoldMessenger.of(
+                                              //       context,
+                                              //     ).showSnackBar(
+                                              //       const SnackBar(
+                                              //         content: Text(
+                                              //           "Stock transfer reports updated.",
+                                              //         ),
+                                              //       ),
+                                              //     );
+                                              //   },
+                                              // ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

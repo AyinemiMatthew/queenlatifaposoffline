@@ -20,6 +20,7 @@ class MobileSalesPreview extends StatelessWidget {
     this.saveDirectLabel = 'SAVE DIRECT',
     required this.onRemoveItem,
     required this.posPrint,
+    required this.cashAllowed,
   });
 
   final List<Map<String, dynamic>> cartItems;
@@ -38,6 +39,7 @@ class MobileSalesPreview extends StatelessWidget {
   final String saveDirectLabel;
   final Function(int index) onRemoveItem;
   final bool posPrint;
+  final bool cashAllowed;
   @override
   Widget build(BuildContext context) {
     Widget actionTile({
@@ -201,11 +203,11 @@ class MobileSalesPreview extends StatelessWidget {
           const SizedBox(height: 30),
           const Divider(color: Colors.white24, height: 30),
 
-          _row("Taxable Amount", "GHC ${taxableTotal.toStringAsFixed(2)}"),
+          _row("Taxable Amount", "GHS ${taxableTotal.toStringAsFixed(2)}"),
 
           const SizedBox(height: 6),
 
-          _rowBold("Payable Amount", "GHC ${payableTotal.toStringAsFixed(2)}"),
+          _rowBold("Payable Amount", "GHS ${payableTotal.toStringAsFixed(2)}"),
 
           const SizedBox(height: 18),
           Wrap(
@@ -213,15 +215,15 @@ class MobileSalesPreview extends StatelessWidget {
             runSpacing: 10,
             children: [
 
-              if(posPrint) ...[
+
+              if (cashAllowed)
                 actionTile(
-                  label: 'POS PRINT',
-                  icon: Icons.print,
-                  color: Colors.teal,
+                  label: posPrint ? 'POS PRINT' : 'CASH SALE',
+                  icon: posPrint ? Icons.print : Icons.save,
+                  color: posPrint ? Colors.teal : Colors.green,
                   onTap: onPrintReceipt,
                   onRemoveItem: null,
                 ),
-              ],
               if (onSaveDirect != null)
                 actionTile(
                   label: saveDirectLabel,
@@ -304,7 +306,7 @@ class MobileSalesPreview extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      "GHC ${price.toStringAsFixed(2)}",
+                      "GHS ${price.toStringAsFixed(2)}",
                       style: TextStyle(color: primaryColor),
                     ),
                   ],
@@ -336,7 +338,7 @@ class MobileSalesPreview extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      "GHC ${computedTotal.toStringAsFixed(2)}",
+                      "GHS ${computedTotal.toStringAsFixed(2)}",
                       style: TextStyle(color: primaryColor),
                     ),
                   ],
@@ -353,7 +355,7 @@ class MobileSalesPreview extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        "- GHC ${discount.toStringAsFixed(2)}",
+                        "- GHS ${discount.toStringAsFixed(2)}",
                         style: TextStyle(color: primaryColor),
                       ),
                     ],

@@ -52,25 +52,47 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
       _selectedClass = widget.account!.accountClass;
       _selectedSubclass = widget.account!.accountClassType;
       _selectedSubtype = widget.account!.subAccount;
-
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final colorScheme = Theme.of(context).colorScheme;
+        final pageColor = isDark
+            ? const Color(0xFF101A23)
+            : colorScheme.surface;
+        final appBarColor = isDark
+            ? const Color(0xFF0D1A26)
+            : colorScheme.surface;
+        final cardColor = isDark
+            ? const Color(0xFF182232)
+            : colorScheme.surface;
+        final fieldColor = isDark
+            ? const Color(0xFF22304A)
+            : colorScheme.surfaceContainerHighest;
+        final foregroundColor = isDark ? Colors.white : colorScheme.onSurface;
+        final secondaryColor = isDark
+            ? Colors.white70
+            : colorScheme.onSurfaceVariant;
+        final borderColor = isDark
+            ? Colors.white24
+            : colorScheme.outlineVariant;
+        final buttonForegroundColor = isDark
+            ? Colors.white
+            : colorScheme.onPrimary;
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: pageColor,
           appBar: AppBar(
             title: Text(
               widget.account != null
                   ? 'EDIT CHART OF ACCOUNTS'
                   : 'CHART OF ACCOUNTS',
             ),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
+            backgroundColor: appBarColor,
+            foregroundColor: foregroundColor,
             elevation: 2,
           ),
           body: Center(
@@ -82,10 +104,9 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                   key: _formKey,
                   child: ListView(
                     children: [
-
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Card(
-                        color: const Color(0xFF182232),
+                        color: cardColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -95,28 +116,22 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                             children: [
                               TextFormField(
                                 controller: _nameController,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'Account Name',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
-                                  ),
+                                  labelStyle: TextStyle(color: secondaryColor),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.blue,
-                                    ),
+                                    borderSide: BorderSide(color: Colors.blue),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldColor,
                                   filled: true,
                                 ),
                                 validator: (value) =>
@@ -124,32 +139,26 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                     ? 'Enter account name'
                                     : null,
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: 14),
                               DropdownButtonFormField<String>(
                                 value: _selectedClass,
-                                dropdownColor: const Color(0xFF22304A),
-                                style: const TextStyle(color: Colors.white),
+                                dropdownColor: fieldColor,
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'Class',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
-                                  ),
+                                  labelStyle: TextStyle(color: secondaryColor),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.blue,
-                                    ),
+                                    borderSide: BorderSide(color: Colors.blue),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldColor,
                                   filled: true,
                                 ),
                                 items: _accountClasses.map((type) {
@@ -170,32 +179,26 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                     ? 'Please select class'
                                     : null,
                               ),
-                              const SizedBox(height: 14),
+                              SizedBox(height: 14),
                               DropdownButtonFormField<String>(
                                 value: _selectedSubclass,
-                                dropdownColor: const Color(0xFF22304A),
-                                style: const TextStyle(color: Colors.white),
+                                dropdownColor: fieldColor,
+                                style: TextStyle(color: foregroundColor),
                                 decoration: InputDecoration(
                                   labelText: 'Subclass',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
-                                  ),
+                                  labelStyle: TextStyle(color: secondaryColor),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
-                                    ),
+                                    borderSide: BorderSide(color: borderColor),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.blue,
-                                    ),
+                                    borderSide: BorderSide(color: Colors.blue),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: fieldColor,
                                   filled: true,
                                 ),
                                 items: (_selectedClass == null)
@@ -223,18 +226,18 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                     ? 'Please select subclass'
                                     : null,
                               ),
-                              // const SizedBox(height: 14),
+                              // SizedBox(height: 14),
                               // DropdownButtonFormField<String>(
                               //   value: _selectedSubtype,
-                              //   dropdownColor: const Color(0xFF22304A),
-                              //   style: const TextStyle(color: Colors.white),
+                              //   dropdownColor: fieldColor,
+                              //   style: TextStyle(color: buttonForegroundColor),
                               //   decoration: InputDecoration(
                               //     labelText: 'Subtype',
-                              //     labelStyle: const TextStyle(
-                              //       color: Colors.white70,
+                              //     labelStyle: TextStyle(
+                              //       color: secondaryColor,
                               //     ),
                               //     suffixIcon: _loadingSubtypes
-                              //         ? const Padding(
+                              //         ? Padding(
                               //             padding: EdgeInsets.all(12.0),
                               //             child: SizedBox(
                               //               width: 20,
@@ -254,17 +257,17 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                               //     ),
                               //     enabledBorder: OutlineInputBorder(
                               //       borderRadius: BorderRadius.circular(12),
-                              //       borderSide: const BorderSide(
-                              //         color: Colors.white24,
+                              //       borderSide: BorderSide(
+                              //         color: borderColor,
                               //       ),
                               //     ),
                               //     focusedBorder: OutlineInputBorder(
                               //       borderRadius: BorderRadius.circular(12),
-                              //       borderSide: const BorderSide(
+                              //       borderSide: BorderSide(
                               //         color: Colors.blue,
                               //       ),
                               //     ),
-                              //     fillColor: const Color(0xFF22304A),
+                              //     fillColor: fieldColor,
                               //     filled: true,
                               //   ),
                               //   items: _availableSubtypes.isEmpty
@@ -292,7 +295,7 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                               //     return null;
                               //   },
                               // ),
-                              const SizedBox(height: 30),
+                              SizedBox(height: 30),
                               Wrap(
                                 spacing: 15,
                                 runSpacing: 15,
@@ -306,11 +309,14 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () async {
-                                        if (!_formKey.currentState!.validate()) {
+                                        if (!_formKey.currentState!
+                                            .validate()) {
                                           return;
                                         }
 
@@ -319,13 +325,14 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                             id: widget.account?.id ?? '',
                                             name: _nameController.text.trim(),
                                             accountClass: _selectedClass!,
-                                            accountClassType: _selectedSubclass!,
+                                            accountClassType:
+                                                _selectedSubclass!,
                                             subAccount: _selectedSubtype ?? '',
                                             staff: value.staff,
                                             companyid: value.companyid,
                                             companyemail: value.companyemail,
                                             date:
-                                            widget.account?.date ??
+                                                widget.account?.date ??
                                                 DateTime.now(),
                                             updatedat: DateTime.now(),
                                             deletedat: DateTime.now(),
@@ -366,15 +373,21 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                             context,
                                           ).showSnackBar(
                                             SnackBar(
-                                              content: Text('Operation failed: $e'),
+                                              content: Text(
+                                                'Operation failed: $e',
+                                              ),
                                               backgroundColor: Colors.red,
                                             ),
                                           );
                                         }
                                       },
                                       child: Text(
-                                        widget.account != null ? 'Update' : 'Add',
-                                        style: const TextStyle(color: Colors.white),
+                                        widget.account != null
+                                            ? 'Update'
+                                            : 'Add',
+                                        style: TextStyle(
+                                          color: buttonForegroundColor,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -387,21 +400,30 @@ class _AccountTypeRegState extends State<AccountTypeReg> {
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                          side: BorderSide(color: Colors.white70)
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          side: BorderSide(
+                                            color: secondaryColor,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () {
-                                        Navigator.pushNamed(context, Routes.accountTypeView);
+                                        Navigator.pushNamed(
+                                          context,
+                                          Routes.accountTypeView,
+                                        );
                                       },
                                       child: Text(
                                         "View Accounts",
-                                        style: const TextStyle(color: Colors.white),
+                                        style: TextStyle(
+                                          color: foregroundColor,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         ),

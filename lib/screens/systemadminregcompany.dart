@@ -19,7 +19,8 @@ class CompanyRegPageAdmin extends StatefulWidget {
   final String? docId;
   final Map<String, dynamic>? data;
 
-  const CompanyRegPageAdmin({Key? key, this.docId, this.data}) : super(key: key);
+  const CompanyRegPageAdmin({Key? key, this.docId, this.data})
+    : super(key: key);
 
   @override
   State<CompanyRegPageAdmin> createState() => _CompanyRegPageAdminState();
@@ -60,9 +61,10 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
       _addressController.text = d['address'] ?? '';
       final rawDomains = d['customDomains'];
       if (rawDomains is List) {
-        _domainsController.text = rawDomains.map((e) => e.toString()).join(', ');
-      }
-      else {
+        _domainsController.text = rawDomains
+            .map((e) => e.toString())
+            .join(', ');
+      } else {
         _domainsController.text = (rawDomains ?? '').toString();
       }
 
@@ -100,7 +102,9 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
   }
 
   String normalizeKey(String input) {
-    return input.trim().toLowerCase()
+    return input
+        .trim()
+        .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
         .replaceAll(RegExp(r'\s+'), '_');
   }
@@ -159,7 +163,7 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
     return Consumer<Datafeed>(
       builder: (context, datafeed, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(
               widget.docId == null ? "Register Company" : "Edit Company",
@@ -177,7 +181,9 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                     width: formWidth,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B263B),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Form(
@@ -198,7 +204,9 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                             onTap: pickLogo,
                             child: CircleAvatar(
                               radius: 45,
-                              backgroundColor: const Color(0xFF22304A),
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                               backgroundImage: _logoBytes != null
                                   ? MemoryImage(_logoBytes!)
                                   : _logoFile != null
@@ -244,38 +252,46 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                   keyboardType: TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
-                                  style: const TextStyle(color: Colors.white70),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                                   decoration: InputDecoration(
                                     labelText: 'VAT Rate (decimal)',
                                     hintText: 'e.g. 0.15 for 15%',
-                                    labelStyle: const TextStyle(
-                                      color: Colors.white70,
+                                    labelStyle: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
-                                    hintStyle: const TextStyle(
-                                      color: Colors.white38,
+                                    hintStyle: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
-                                    prefixIcon: const Icon(
+                                    prefixIcon: Icon(
                                       Icons.percent,
-                                      color: Colors.white70,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                     helperText:
                                         'Enter as decimal (e.g. 0.15 for 15%)',
-                                    helperStyle: const TextStyle(
-                                      color: Colors.white54,
+                                    helperStyle: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Colors.white24,
+                                      borderSide: BorderSide(
+                                        color: Theme.of(context).colorScheme.outline,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      borderSide: const BorderSide(
-                                        color: Colors.blue,
+                                      borderSide: BorderSide(
+                                        color: Theme.of(context).colorScheme.primary,
                                       ),
                                     ),
-                                    fillColor: const Color(0xFF22304A),
+                                    fillColor: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHighest,
                                     filled: true,
                                   ),
                                 ),
@@ -302,29 +318,35 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _domainsController,
-                            style: const TextStyle(color: Colors.white70),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                             decoration: InputDecoration(
                               labelText: 'Custom Domains (comma separated)',
-                              labelStyle: const TextStyle(
-                                color: Colors.white70,
+                              labelStyle: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.public,
-                                color: Colors.white70,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.white24,
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.outline,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.blue,
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
-                              fillColor: const Color(0xFF22304A),
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                               filled: true,
                             ),
                           ),
@@ -338,29 +360,33 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
 
                           /// DROPDOWN: Branch mode
                           DropdownButtonFormField<String>(
-                            dropdownColor: const Color(0xFF22304A),
-                            style: const TextStyle(color: Colors.white70),
+                            dropdownColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                             decoration: InputDecoration(
                               labelText: "Branch",
-                              labelStyle: const TextStyle(
-                                color: Colors.white70,
+                              labelStyle: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.white24,
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.outline,
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Colors.blue,
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
-                              fillColor: const Color(0xFF22304A),
+                              fillColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                               filled: true,
                             ),
                             value: _mode,
@@ -442,23 +468,34 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
 
                                       setState(() => _loading = true);
                                       final staff = datafeed.staff;
-                                      final companyName = _companyController.text.trim();
-                                      final customDomains = _parseDomains(_domainsController.text,);
+                                      final companyName = _companyController
+                                          .text
+                                          .trim();
+                                      final customDomains = _parseDomains(
+                                        _domainsController.text,
+                                      );
 
-                                      _address =_addressController.text.trim();
+                                      _address = _addressController.text.trim();
                                       try {
                                         /// ================= EDIT MODE =================
                                         if (widget.docId != null) {
                                           final id = widget.docId!;
                                           final logoUrl = await uploadLogo(id);
 
-                                          await _db.collection('companies').doc(id)
+                                          await _db
+                                              .collection('companies')
+                                              .doc(id)
                                               .update({
                                                 'company': companyName,
-                                                'name': _nameController.text.trim(),
-                                                'phone': _phoneController.text.trim(),
-                                                'email': _emailController.text.trim(),
-                                                'address': _addressController.text.trim(),
+                                                'name': _nameController.text
+                                                    .trim(),
+                                                'phone': _phoneController.text
+                                                    .trim(),
+                                                'email': _emailController.text
+                                                    .trim(),
+                                                'address': _addressController
+                                                    .text
+                                                    .trim(),
                                                 'customDomains': customDomains,
                                                 'branchType': _branchType,
                                                 'branch': _mode,
@@ -475,8 +512,14 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                         }
                                         /// ================= NEW REGISTRATION =================
                                         else {
-                                          final existing = await _db.collection('companies')
-                                              .where('company',isEqualTo: companyName,).limit(1).get();
+                                          final existing = await _db
+                                              .collection('companies')
+                                              .where(
+                                                'company',
+                                                isEqualTo: companyName,
+                                              )
+                                              .limit(1)
+                                              .get();
 
                                           if (existing.docs.isNotEmpty) {
                                             throw Exception(
@@ -490,7 +533,9 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                                 .collection('counters')
                                                 .doc('company_ids');
 
-                                            final counterSnap = await tx.get(counterRef,);
+                                            final counterSnap = await tx.get(
+                                              counterRef,
+                                            );
 
                                             int last = counterSnap.exists
                                                 ? (counterSnap['last'] ?? 0)
@@ -501,6 +546,7 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
 
                                             final newId = "KS00$next";
                                             idd = newId;
+
                                             /// Upload logo using final ID
                                             final logoUrl = await uploadLogo(
                                               newId,
@@ -511,9 +557,12 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                               company: companyName,
                                               companyid: newId,
                                               name: _nameController.text.trim(),
-                                              phone: _phoneController.text.trim(),
-                                              email: _emailController.text.trim(),
-                                              address: _addressController.text.trim(),
+                                              phone: _phoneController.text
+                                                  .trim(),
+                                              email: _emailController.text
+                                                  .trim(),
+                                              address: _addressController.text
+                                                  .trim(),
                                               branch: _mode!,
                                               type: _branchType,
                                               logo: logoUrl ?? "",
@@ -525,22 +574,37 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                             );
 
                                             final companyMap = model.toMap();
-                                            companyMap['vat'] = double.tryParse(_vatRateController.text, ) ?? 0.0;
-                                            companyMap['vatEnabled'] = _vatEnabled;
+                                            companyMap['vat'] =
+                                                double.tryParse(
+                                                  _vatRateController.text,
+                                                ) ??
+                                                0.0;
+                                            companyMap['vatEnabled'] =
+                                                _vatEnabled;
 
-                                            tx.set(_db.collection('companies').doc(newId), companyMap,
+                                            tx.set(
+                                              _db
+                                                  .collection('companies')
+                                                  .doc(newId),
+                                              companyMap,
                                             );
 
                                             /// Create staff record from company contact person
                                             final mainBranchId = '${newId}main';
-                                            final staffId = _db.collection('staff').doc().id;
+                                            final staffId = _db
+                                                .collection('staff')
+                                                .doc()
+                                                .id;
                                             final staffModel = StaffModel(
                                               company: companyName,
                                               id: staffId,
                                               name: _nameController.text.trim(),
-                                              email: _emailController.text.trim(),
-                                              phone: _phoneController.text.trim(),
-                                              accesslevel: 'admin', // Default to admin for company owner
+                                              email: _emailController.text
+                                                  .trim(),
+                                              phone: _phoneController.text
+                                                  .trim(),
+                                              accesslevel:
+                                                  'admin', // Default to admin for company owner
                                               allowedPaymentMethods: const [
                                                 'cash',
                                                 'credit',
@@ -558,12 +622,18 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                               createdat: Timestamp.now(),
                                               createdby: staff,
                                               companyid: newId,
-                                              branchid: mainBranchId.toLowerCase(),
+                                              branchid: mainBranchId
+                                                  .toLowerCase(),
                                             );
 
                                             tx.set(
-                                              _db.collection('staff').doc(
-                                              _emailController.text.toString().toLowerCase(),                                                  ),
+                                              _db
+                                                  .collection('staff')
+                                                  .doc(
+                                                    _emailController.text
+                                                        .toString()
+                                                        .toLowerCase(),
+                                                  ),
                                               staffModel.toMap(),
                                             );
                                           });
@@ -574,17 +644,22 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                             branchname: 'Main',
                                             branchtype: 'Sales Point',
                                             address: _address,
-                                            branchcontact: _phoneController.text.trim(),
+                                            branchcontact: _phoneController.text
+                                                .trim(),
                                             staff: _nameController.text.trim(),
                                             companyid: idd,
-                                            companyemail: _emailController.text.toString().toLowerCase(),
+                                            companyemail: _emailController.text
+                                                .toString()
+                                                .toLowerCase(),
                                             date: DateTime.now(),
                                             updatedat: DateTime.now(),
                                             deletedat: DateTime.now(),
                                             updatedby: '',
                                             deletedby: '',
                                           );
-                                          await datafeed.addOrUpdateBranch(branch);
+                                          await datafeed.addOrUpdateBranch(
+                                            branch,
+                                          );
                                         }
 
                                         ScaffoldMessenger.of(
@@ -628,10 +703,15 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                     ),
                             ),
                           ),
-                          const SizedBox(height: 10,),
+                          const SizedBox(height: 10),
                           TextButton(
                             onPressed: () async {
-                              Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
                             },
                             child: const Text(
                               'login?',
@@ -658,21 +738,21 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
   ) {
     return TextFormField(
       controller: controller,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       validator: (v) => v == null || v.isEmpty ? "Required" : null,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: Colors.white70),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white24),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.blue),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
         ),
-        fillColor: const Color(0xFF22304A),
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         filled: true,
       ),
     );

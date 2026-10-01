@@ -62,12 +62,15 @@ class CartScreen extends StatelessWidget {
                   Icon(
                     Icons.shopping_cart_outlined,
                     size: 100,
-                    color: Colors.grey[400],
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Your cart is empty',
-                    style: TextStyle(fontSize: 20, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 20,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
@@ -119,7 +122,7 @@ class CartScreen extends StatelessWidget {
               height: 80,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[200],
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
               ),
               child: cartItem.product.imageurl.isNotEmpty
                   ? ClipRRect(
@@ -152,7 +155,10 @@ class CartScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${cartItem.priceMode.toUpperCase()} - GHS ${cartItem.price.toStringAsFixed(2)}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -160,7 +166,9 @@ class CartScreen extends StatelessWidget {
                       // Quantity Controls
                       Container(
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -247,7 +255,7 @@ class CartScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.3),

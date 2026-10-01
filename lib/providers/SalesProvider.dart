@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,8 +9,7 @@ import '../models/branch.dart';
 import '../models/itemregmodel.dart';
 import 'Datafeed.dart';
 
-class SalesProvider extends  Datafeed {
-
+class SalesProvider extends Datafeed {
   final FirebaseFirestore db = FirebaseFirestore.instance;
 
   bool loading = false;
@@ -28,9 +26,7 @@ class SalesProvider extends  Datafeed {
       _saleDate ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
 
   void setSaleDate(DateTime? date) {
-    _saleDate = DateFormat('yyyy-MM-dd').format(
-      date ?? DateTime.now(),
-    );
+    _saleDate = DateFormat('yyyy-MM-dd').format(date ?? DateTime.now());
     notifyListeners();
   }
 
@@ -38,6 +34,7 @@ class SalesProvider extends  Datafeed {
     _saleDate = null;
     notifyListeners();
   }
+
   Map<String, List<Map<String, dynamic>>> _customerCarts = {};
   String _currentCartId = 'cart_1';
   int _cartCounter = 1;
@@ -48,14 +45,17 @@ class SalesProvider extends  Datafeed {
   bool isServiceOnlySale(List items) {
     if (items.isEmpty) return false;
     return items.every(
-          (item) => (item['producttype']?.toString().toLowerCase().trim() ?? '') == 'service',
+      (item) =>
+          (item['producttype']?.toString().toLowerCase().trim() ?? '') ==
+          'service',
     );
   }
+
   List<Map<String, dynamic>> get salesItems {
     return _customerCarts[_currentCartId] ?? [];
   }
 
-  Map<String, List<Map<String, dynamic>>> get customerCarts =>  _customerCarts;
+  Map<String, List<Map<String, dynamic>>> get customerCarts => _customerCarts;
 
   String get currentCartId => _currentCartId;
 
@@ -80,27 +80,23 @@ class SalesProvider extends  Datafeed {
 
     final isBundle =
         targetItem['pcategory']?.toString() == 'bundle' &&
-            targetItem['producttype']?.toString() == 'bundle';
+        targetItem['producttype']?.toString() == 'bundle';
 
     if (isBundle) {
-      final bundleName =
-          targetItem['bundleName']?.toString() ?? '';
+      final bundleName = targetItem['bundleName']?.toString() ?? '';
 
-      final branchId =
-          targetItem['branchid']?.toString() ?? '';
+      final branchId = targetItem['branchid']?.toString() ?? '';
 
       currentList.removeWhere((item) {
         final sameBundle =
             item['pcategory']?.toString() == 'bundle' &&
-                item['producttype']?.toString() == 'bundle' &&
-                item['bundleName']?.toString() == bundleName &&
-                item['branchid']?.toString() == branchId;
+            item['producttype']?.toString() == 'bundle' &&
+            item['bundleName']?.toString() == bundleName &&
+            item['branchid']?.toString() == branchId;
 
         return sameBundle;
       });
-    }
-
-    else {
+    } else {
       currentList.removeAt(index);
     }
 
@@ -108,6 +104,7 @@ class SalesProvider extends  Datafeed {
 
     notifyListeners();
   }
+
   void createNewCart() {
     _cartCounter++;
     _currentCartId = 'cart_$_cartCounter';
@@ -120,8 +117,6 @@ class SalesProvider extends  Datafeed {
     notifyListeners();
   }
 
-
-
   void switchCart(String cartId) {
     if (_customerCarts.containsKey(cartId)) {
       _currentCartId = cartId;
@@ -130,7 +125,6 @@ class SalesProvider extends  Datafeed {
   }
 
   bool deleteCart(String cartId) {
-
     if (_customerCarts.length == 1) return false;
 
     if (!_customerCarts.containsKey(cartId)) return false;
@@ -158,6 +152,7 @@ class SalesProvider extends  Datafeed {
     cart.removeAt(index);
     notifyListeners();
   }
+
   void addToSalesPreview(Map<String, dynamic> salesItem) {
     final items = List<Map<String, dynamic>>.from(salesItems);
     items.add(salesItem);
@@ -166,7 +161,6 @@ class SalesProvider extends  Datafeed {
 
     notifyListeners();
   }
-
 
   // Load VAT from shared preferences
   Future<void> loadVatFromPrefs() async {
@@ -177,6 +171,7 @@ class SalesProvider extends  Datafeed {
     vatEnabled = vatEnabledValue ?? false;
     notifyListeners();
   }
+
   void showMessage(BuildContext context, String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -194,17 +189,16 @@ class SalesProvider extends  Datafeed {
 
     messenger?.showSnackBar(
       SnackBar(
-        content: Text(msg,style: TextStyle(color: Colors.white),),
+        content: Text(msg, style: TextStyle(color: Colors.white)),
         backgroundColor: color,
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
-
-
-
-  Future<bool> ensureSaleApproved(BuildContext context, String saleId,{
+  Future<bool> ensureSaleApproved(
+    BuildContext context,
+    String saleId, {
     bool skipStockCheck = false,
   }) async {
     if (skipStockCheck) {
@@ -214,7 +208,9 @@ class SalesProvider extends  Datafeed {
           'stockCheckedAt': Timestamp.now(),
         });
       } catch (e) {
-        debugPrint('Failed to set approved status for service-only sale $saleId: $e');
+        debugPrint(
+          'Failed to set approved status for service-only sale $saleId: $e',
+        );
       }
       return true;
     }
@@ -222,14 +218,18 @@ class SalesProvider extends  Datafeed {
 
     try {
       for (int attempt = 0; attempt < maxAttempts; attempt++) {
-        final doc = await db.collection('sales').doc(saleId).get(
-          const GetOptions(source: Source.server),
-        );
+        final doc = await db
+            .collection('sales')
+            .doc(saleId)
+            .get(const GetOptions(source: Source.server));
 
         if (!doc.exists) return false;
 
         final data = doc.data() ?? <String, dynamic>{};
-        final status = data['stockCheckStatus']?.toString().trim().toLowerCase();
+        final status = data['stockCheckStatus']
+            ?.toString()
+            .trim()
+            .toLowerCase();
 
         // Approved — proceed
         if (status == 'approved') return true;
@@ -281,9 +281,10 @@ class SalesProvider extends  Datafeed {
         'Stock check timed out. Please try again.',
         Colors.orange,
       );
-      debugPrint('Stock check still pending after $maxAttempts attempts for $saleId');
+      debugPrint(
+        'Stock check still pending after $maxAttempts attempts for $saleId',
+      );
       return false;
-
     } catch (e) {
       debugPrint('ensureSaleApproved error: $e');
       showMessage(
@@ -295,8 +296,11 @@ class SalesProvider extends  Datafeed {
     }
   }
 
-  Future<bool> validateCartStockOnSave( BuildContext context, List salesItems, Datafeed datafeed,) async {
-
+  Future<bool> validateCartStockOnSave(
+    BuildContext context,
+    List salesItems,
+    Datafeed datafeed,
+  ) async {
     try {
       final requestedByItem = <String, double>{};
       final itemNameById = <String, String>{};
@@ -304,16 +308,18 @@ class SalesProvider extends  Datafeed {
 
       /// BUILD REQUEST MAP
 
-
       for (final item in salesItems) {
         try {
-          final isBundle =    item['producttype']?.toString().toLowerCase() == 'bundle';
+          final isBundle =
+              item['producttype']?.toString().toLowerCase() == 'bundle';
           final isService =
               item['producttype']?.toString().toLowerCase().trim() == 'service';
           if (isService) continue;
+
           /// BUNDLE
           if (isBundle) {
-            final bundleQty = double.tryParse(item['quantity']?.toString() ?? '1') ?? 1;
+            final bundleQty =
+                double.tryParse(item['quantity']?.toString() ?? '1') ?? 1;
 
             final bundleItems = (item['items'] as List?) ?? [];
 
@@ -324,24 +330,26 @@ class SalesProvider extends  Datafeed {
               if (itemId.isEmpty) continue;
 
               /// QTY ×  totalpieces
-              final unitPieces =   double.tryParse(sub['totalpieces']?.toString() ?? '0') ?? 0;
+              final unitPieces =
+                  double.tryParse(sub['totalpieces']?.toString() ?? '0') ?? 0;
 
               final requestedPieces = unitPieces * bundleQty;
 
               if (requestedPieces <= 0) continue;
 
               ///  ACCUMULATE
-              requestedByItem[itemId] =   (requestedByItem[itemId] ?? 0) + requestedPieces;
+              requestedByItem[itemId] =
+                  (requestedByItem[itemId] ?? 0) + requestedPieces;
 
-              itemNameById[itemId] =    sub['item']?.toString() ?? 'item';
+              itemNameById[itemId] = sub['item']?.toString() ?? 'item';
 
-              branchByItem[itemId] =    item['branchid']?.toString() ?? datafeed.branchid;
-
+              branchByItem[itemId] =
+                  item['branchid']?.toString() ?? datafeed.branchid;
             }
-          }
-          else {
+          } else {
             final isService =
-                item['producttype']?.toString().toLowerCase().trim() == 'service';
+                item['producttype']?.toString().toLowerCase().trim() ==
+                'service';
             if (isService) continue;
             final itemId = item['itemid']?.toString() ?? '';
             if (itemId.isEmpty) continue;
@@ -354,8 +362,7 @@ class SalesProvider extends  Datafeed {
             requestedByItem[itemId] =
                 (requestedByItem[itemId] ?? 0) + requestedPieces;
 
-            itemNameById[itemId] =
-                item['item']?.toString() ?? 'item';
+            itemNameById[itemId] = item['item']?.toString() ?? 'item';
 
             branchByItem[itemId] =
                 item['branchid']?.toString() ?? datafeed.branchid;
@@ -368,16 +375,18 @@ class SalesProvider extends  Datafeed {
 
       /// FETCH ITEMS FROM FIRESTORE
       final futures = requestedByItem.keys.map((id) {
-        return db.collection('itemsreg').doc(id).get(const GetOptions(source: Source.server));
+        return db
+            .collection('itemsreg')
+            .doc(id)
+            .get(const GetOptions(source: Source.server));
       });
 
       final docs = await Future.wait(futures);
       if (!context.mounted) return false;
+
       /// VALIDATE STOCK
       for (final doc in docs) {
-
         try {
-
           if (!doc.exists) {
             debugPrint('Item document missing: ${doc.id}');
             continue;
@@ -385,15 +394,20 @@ class SalesProvider extends  Datafeed {
 
           final data = doc.data() ?? <String, dynamic>{};
 
-          final branchId =   branchByItem[doc.id] ?? datafeed.branchid;
+          final branchId = branchByItem[doc.id] ?? datafeed.branchid;
 
-          final branchBalance =    data['branchbalance'] as Map<String, dynamic>? ?? {};
+          final branchBalance =
+              data['branchbalance'] as Map<String, dynamic>? ?? {};
 
-          final branchData =     resolveBranchBalance(branchBalance, branchId, datafeed);
+          final branchData = resolveBranchBalance(
+            branchBalance,
+            branchId,
+            datafeed,
+          );
 
-          final availableNetPieces =    parseNetPieces(branchData);
+          final availableNetPieces = parseNetPieces(branchData);
 
-          final requestedPieces =      requestedByItem[doc.id] ?? 0;
+          final requestedPieces = requestedByItem[doc.id] ?? 0;
 
           final boxQty =
               double.tryParse(
@@ -403,30 +417,34 @@ class SalesProvider extends  Datafeed {
                     data['modes']?['single']?['qty']?.toString() ??
                     '1',
               ) ??
-                  1.0;
+              1.0;
 
-          final availableBoxes =   boxQty > 0 ? (availableNetPieces / boxQty) : null;
+          final availableBoxes = boxQty > 0
+              ? (availableNetPieces / boxQty)
+              : null;
 
-          final requestedBoxes =    boxQty > 0 ? (requestedPieces / boxQty) : null;
+          final requestedBoxes = boxQty > 0 ? (requestedPieces / boxQty) : null;
 
           /// INSUFFICIENT STOCK
-          if (requestedBoxes != null &&  availableBoxes != null &&  requestedBoxes > availableBoxes) {
+          if (requestedBoxes != null &&
+              availableBoxes != null &&
+              requestedBoxes > availableBoxes) {
             if (!context.mounted) return false;
-            showMessage( context,
+            showMessage(
+              context,
               'Insufficient stock for ${itemNameById[doc.id] ?? 'item'}: '
-                  '${availableBoxes.toStringAsFixed(2)} boxes '
-                  '(${availableNetPieces.toStringAsFixed(0)} pieces) available',
+              '${availableBoxes.toStringAsFixed(2)} boxes '
+              '(${availableNetPieces.toStringAsFixed(0)} pieces) available',
               Colors.red,
             );
 
             return false;
           }
-
         } catch (e) {
-
           debugPrint('Stock validation error for ${doc.id}: $e');
           if (!context.mounted) return false;
-          showMessage( context,
+          showMessage(
+            context,
             'Error checking stock for ${itemNameById[doc.id] ?? 'item'}',
             Colors.red,
           );
@@ -436,12 +454,14 @@ class SalesProvider extends  Datafeed {
       }
 
       return true;
-
     } catch (e) {
-
       debugPrint('validateCartStockOnSave error: $e');
 
-      showMessage(  context,'Unable to verify stock. Please check connection.', Colors.red, );
+      showMessage(
+        context,
+        'Unable to verify stock. Please check connection.',
+        Colors.red,
+      );
 
       return false;
     }
@@ -449,13 +469,12 @@ class SalesProvider extends  Datafeed {
 
   double parseNetPieces(Map<String, dynamic>? branchData) {
     try {
-
       if (branchData == null) return 0;
 
       final raw =
           branchData['netpieces'] ??
-              branchData['netPieces'] ??
-              branchData['net_piece'];
+          branchData['netPieces'] ??
+          branchData['net_piece'];
 
       if (raw == null) return 0;
 
@@ -469,9 +488,7 @@ class SalesProvider extends  Datafeed {
 
       debugPrint('Unknown netpieces type: ${raw.runtimeType}');
       return 0;
-
     } catch (e, stack) {
-
       debugPrint('parseNetPieces error: $e');
       debugPrintStack(stackTrace: stack);
 
@@ -479,9 +496,12 @@ class SalesProvider extends  Datafeed {
     }
   }
 
-  Map<String, dynamic> resolveBranchBalance( Map<String, dynamic>? balances, String branchId,  Datafeed datafeed, ) {
+  Map<String, dynamic> resolveBranchBalance(
+    Map<String, dynamic>? balances,
+    String branchId,
+    Datafeed datafeed,
+  ) {
     try {
-
       if (balances == null || balances.isEmpty) {
         return {};
       }
@@ -496,7 +516,6 @@ class SalesProvider extends  Datafeed {
 
       /// SALES POINT FALLBACK
       if (datafeed.isSalesPoint && datafeed.branchid.isNotEmpty) {
-
         final rawFallback = balances[datafeed.branchid];
 
         if (rawFallback is Map) {
@@ -506,16 +525,15 @@ class SalesProvider extends  Datafeed {
       }
 
       return {};
-
     } catch (e, stack) {
-
       debugPrint('resolveBranchBalance error: $e');
       debugPrintStack(stackTrace: stack);
 
       return {};
     }
   }
-  bool isPreviewItemInsufficient( Map<String, dynamic> item, Datafeed datafeed,  ) {
+
+  bool isPreviewItemInsufficient(Map<String, dynamic> item, Datafeed datafeed) {
     try {
       final isService =
           item['producttype']?.toString().toLowerCase().trim() == 'service';
@@ -529,12 +547,11 @@ class SalesProvider extends  Datafeed {
 
       if (requestedPieces <= 0) return false;
 
-      final branchId =
-          item['branchid']?.toString() ?? datafeed.activeBranchId;
+      final branchId = item['branchid']?.toString() ?? datafeed.activeBranchId;
 
       /// FIND ITEM MODEL
       final itemModel = datafeed.items.firstWhere(
-            (i) => i.id == itemId,
+        (i) => i.id == itemId,
         orElse: () => ItemModel.fromMap({'id': itemId}),
       );
 
@@ -549,26 +566,37 @@ class SalesProvider extends  Datafeed {
       final availableNetPieces = parseNetPieces(branchBalance);
 
       return requestedPieces > availableNetPieces;
-
     } catch (e, stack) {
-
       debugPrint('isPreviewItemInsufficient error: $e');
       debugPrintStack(stackTrace: stack);
-
-      /// If error occurs, allow preview instead of blocking POS
       return false;
     }
   }
-  bool ensureSalesWarehouseSelected( BuildContext context, Datafeed datafeed,  ItemModel? selectedItem, { bool requireItemSelection = false,  }) {
-    try {
 
+  bool ensureSalesWarehouseSelected(
+    BuildContext context,
+    Datafeed datafeed,
+    ItemModel? selectedItem, {
+    bool requireItemSelection = false,
+  }) {
+    try {
       if (!datafeed.isSalesPoint) return true;
       if ((selectedItem?.producttype ?? '').toLowerCase().trim() == 'service') {
         return true;
       }
-      /// ITEM NOT SELECTED
+      if (!datafeed.stockCheckEnabled) {
+        if (datafeed.salesWarehouseId == null ||
+            datafeed.salesWarehouseId!.isEmpty) {
+          showMessage(
+            context,
+            'Select a warehouse to sell from.',
+            Colors.orange,
+          );
+          return false;
+        }
+        return true;
+      }
       if (selectedItem == null) {
-
         if (requireItemSelection) {
           showMessage(context, 'Select an item first', Colors.orange);
           return false;
@@ -578,11 +606,9 @@ class SalesProvider extends  Datafeed {
       }
 
       /// GET AVAILABLE WAREHOUSES
-      final available =
-      availableSalesWarehousesForItem(datafeed, selectedItem);
+      final available = availableSalesWarehousesForItem(datafeed, selectedItem);
 
       if (available.isEmpty) {
-
         showMessage(
           context,
           'No warehouse balance for this item.',
@@ -595,19 +621,13 @@ class SalesProvider extends  Datafeed {
       /// NO WAREHOUSE SELECTED
       if (datafeed.salesWarehouseId == null ||
           datafeed.salesWarehouseId!.isEmpty) {
-
-        showMessage(
-          context,
-          'Select a warehouse to sell from.',
-          Colors.orange,
-        );
+        showMessage(context, 'Select a warehouse to sell from.', Colors.orange);
 
         return false;
       }
 
       /// INVALID WAREHOUSE
       if (!available.contains(datafeed.salesWarehouseId)) {
-
         showMessage(
           context,
           'Selected warehouse has no balance for this item.',
@@ -618,17 +638,11 @@ class SalesProvider extends  Datafeed {
       }
 
       return true;
-
     } catch (e, stack) {
-
       debugPrint('ensureSalesWarehouseSelected error: $e');
       debugPrintStack(stackTrace: stack);
 
-      showMessage(
-        context,
-        'Unable to verify warehouse selection.',
-        Colors.red,
-      );
+      showMessage(context, 'Unable to verify warehouse selection.', Colors.red);
 
       return false;
     }
@@ -638,15 +652,12 @@ class SalesProvider extends  Datafeed {
     double total = 0;
 
     try {
-
       for (var item in salesItems) {
-
         try {
-
-          final value = double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0;
+          final value =
+              double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0;
 
           total += value;
-
         } catch (e) {
           debugPrint('Item tax calculation error: $e');
         }
@@ -656,14 +667,13 @@ class SalesProvider extends  Datafeed {
       }
       return total;
     } catch (e, stack) {
-
       debugPrint('calculateTaxableTotal error: $e');
       debugPrintStack(stackTrace: stack);
 
       return 0;
     }
-
   }
+
   double calculateVatFromInclusive(double total) {
     try {
       if (!vatEnabled || vatRate == null) return 0;
@@ -673,34 +683,28 @@ class SalesProvider extends  Datafeed {
 
       if (rate <= 0) return 0;
 
-      return rate  * total;
-
+      return rate * total;
     } catch (e) {
-     print(e);
+      print(e);
       return 0;
     }
   }
+
   double calculateDiscountTotal() {
     double total = 0;
 
     try {
-
       for (final item in salesItems) {
-
         try {
-
           final discount =
               double.tryParse(item['discount']?.toString().trim() ?? '0') ?? 0;
 
           total += discount;
-
         } catch (e) {
           debugPrint('Discount parse error: $e');
         }
       }
-
     } catch (e, stack) {
-
       debugPrint('calculateDiscountTotal error: $e');
       debugPrintStack(stackTrace: stack);
 
@@ -709,27 +713,25 @@ class SalesProvider extends  Datafeed {
 
     return total;
   }
+
   double calculateGrossTotal() {
     double total = 0;
 
     try {
-
       for (final item in salesItems) {
-
         try {
-
           final grosstotalamount =
-              double.tryParse(item['grosstotalamount']?.toString().trim() ?? '0') ?? 0;
+              double.tryParse(
+                item['grosstotalamount']?.toString().trim() ?? '0',
+              ) ??
+              0;
 
           total += grosstotalamount;
-
         } catch (e) {
           debugPrint('grosstotal parse error: $e');
         }
       }
-
     } catch (e, stack) {
-
       debugPrint('calculateDiscountTotal error: $e');
       debugPrintStack(stackTrace: stack);
 
@@ -738,30 +740,30 @@ class SalesProvider extends  Datafeed {
 
     return total;
   }
-   double amountPayable(){
-  double total = 0;
-  for (var item in salesItems) {
-  total += double.tryParse(item['totalamount'] ?? '0') ?? 0;
-  }
-  if (vatEnabled && vatRate != null) {
-  total += total * vatRate!;
-  }
-  return total;
-}
 
-   List<String> availableSalesWarehousesForItem( Datafeed datafeed, ItemModel item, ) {
+  double amountPayable() {
+    double total = 0;
+    for (var item in salesItems) {
+      total += double.tryParse(item['totalamount'] ?? '0') ?? 0;
+    }
+    if (vatEnabled && vatRate != null) {
+      total += total * vatRate!;
+    }
+    return total;
+  }
+
+  List<String> availableSalesWarehousesForItem(
+    Datafeed datafeed,
+    ItemModel item,
+  ) {
     try {
-
       final allowedIds = (datafeed.salesWarehouseIds).toSet();
-       print(allowedIds);
-      final balanceKeys =
-      (item.branchbalance ?? {})
-          .keys
+      print(allowedIds);
+      final balanceKeys = (item.branchbalance ?? {}).keys
           .map((e) => e.toString())
           .toSet();
 
       if (allowedIds.isEmpty) {
-
         debugPrint(
           'Empty salesWarehouseIds - no warehouses assigned to this staff member',
         );
@@ -774,9 +776,7 @@ class SalesProvider extends  Datafeed {
       final normalizedAllowedIds = <String>{};
 
       for (final id in allowedIds) {
-
         try {
-
           final safeId = id.toString();
 
           normalizedAllowedIds.add(safeId);
@@ -786,24 +786,19 @@ class SalesProvider extends  Datafeed {
           }
 
           if (safeId.startsWith(companyPrefix)) {
-            normalizedAllowedIds.add(
-              safeId.substring(companyPrefix.length),
-            );
+            normalizedAllowedIds.add(safeId.substring(companyPrefix.length));
           }
-
         } catch (e) {
           debugPrint('Warehouse ID normalization error: $e');
         }
       }
 
-      final available =   normalizedAllowedIds.intersection(balanceKeys).toList();
+      final available = normalizedAllowedIds.intersection(balanceKeys).toList();
 
       available.sort();
 
       return available;
-
     } catch (e, stack) {
-
       debugPrint('availableSalesWarehousesForItem error: $e');
       debugPrintStack(stackTrace: stack);
 
@@ -811,21 +806,26 @@ class SalesProvider extends  Datafeed {
     }
   }
 
-
-   Map<String, String> calculateTotals({required String quantityText,required String priceText, required String discountText,  required Map<String, dynamic>? modeData, }) {
+  Map<String, String> calculateTotals({
+    required String quantityText,
+    required String priceText,
+    required String discountText,
+    required Map<String, dynamic>? modeData,
+  }) {
     if (modeData == null || quantityText.isEmpty) {
-      return {
-        'pieces': '0',
-        'amount': '0',
-      };
+      return {'pieces': '0', 'amount': '0'};
     }
 
     try {
       final userQuantity = double.tryParse(quantityText) ?? 0;
 
-      final modeQty =   double.tryParse((modeData['qty'] ?? '1').toString()) ?? 1;
+      final modeQty = double.tryParse((modeData['qty'] ?? '1').toString()) ?? 1;
 
-      final discountAmount =  double.tryParse(discountText.trim().isEmpty ? '0' : discountText.trim()) ?? 0;
+      final discountAmount =
+          double.tryParse(
+            discountText.trim().isEmpty ? '0' : discountText.trim(),
+          ) ??
+          0;
 
       final price = double.tryParse(priceText) ?? 0;
 
@@ -833,7 +833,7 @@ class SalesProvider extends  Datafeed {
 
       final subTotal = price * userQuantity;
 
-      final totalAmount =  (subTotal - discountAmount).clamp(0, double.infinity);
+      final totalAmount = (subTotal - discountAmount).clamp(0, double.infinity);
 
       return {
         'pieces': totalPieces.toStringAsFixed(2),
@@ -843,13 +843,9 @@ class SalesProvider extends  Datafeed {
       debugPrint('Error calculating totals: $e');
       debugPrint(stackTrace.toString());
 
-      return {
-        'pieces': '0',
-        'amount': '0',
-      };
+      return {'pieces': '0', 'amount': '0'};
     }
   }
-
 
   List<ItemModel> searchItems(String query, List<ItemModel> items) {
     try {
@@ -889,6 +885,7 @@ class SalesProvider extends  Datafeed {
       return [];
     }
   }
+
   Map<String, dynamic> resolvePricing(ItemModel item, Datafeed datafeed) {
     try {
       Map<String, dynamic> effectivePricing = {};
@@ -900,13 +897,10 @@ class SalesProvider extends  Datafeed {
       if (branchPrices != null &&
           branchPrices.containsKey(branchId) &&
           branchPrices[branchId]['pricing'] != null) {
-
         effectivePricing = Map<String, dynamic>.from(
           branchPrices[branchId]['pricing'],
         );
-
       } else if (modes != null) {
-
         for (var mode in modes) {
           effectivePricing[mode.name] = {
             'id': mode.id,
@@ -921,7 +915,6 @@ class SalesProvider extends  Datafeed {
       }
 
       return effectivePricing;
-
     } catch (e, stackTrace) {
       debugPrint('Error resolving pricing: $e');
       debugPrint(stackTrace.toString());
@@ -933,11 +926,10 @@ class SalesProvider extends  Datafeed {
     try {
       if (!datafeed.isSalesPoint) return;
 
-      final available = availableSalesWarehousesForItem(datafeed,item);
+      final available = availableSalesWarehousesForItem(datafeed, item);
 
       if (available.isNotEmpty &&
           !available.contains(datafeed.salesWarehouseId)) {
-
         final selectedId = available.first;
 
         String selectedName = '';
@@ -950,7 +942,7 @@ class SalesProvider extends  Datafeed {
 
         if (selectedName.isEmpty) {
           final branch = datafeed.branches.firstWhere(
-                (b) => b.id == selectedId,
+            (b) => b.id == selectedId,
             orElse: () => BranchModel(),
           );
           selectedName = branch.branchname;
@@ -963,9 +955,13 @@ class SalesProvider extends  Datafeed {
       debugPrint(stackTrace.toString());
     }
   }
+
   Future<String?> getReceiptNumber(String saleId) async {
     try {
-      final doc = await db.collection('sales').doc(saleId).get(const GetOptions(source: Source.server));
+      final doc = await db
+          .collection('sales')
+          .doc(saleId)
+          .get(const GetOptions(source: Source.server));
 
       if (!doc.exists) {
         debugPrint('Sale document not found: $saleId');
@@ -974,16 +970,13 @@ class SalesProvider extends  Datafeed {
 
       final data = doc.data();
       return data?['receiptNumber']?.toString();
-
     } catch (e) {
       debugPrint('getReceiptNumber error: $e');
       return null;
     }
   }
 
-
-  Future<bool> validateCartStockOnSaves(String branchId,) async {
-
+  Future<bool> validateCartStockOnSaves(String branchId) async {
     final requestedByItem = <String, double>{};
     final itemNameById = <String, String>{};
     final branchByItem = <String, String>{};
@@ -1005,7 +998,7 @@ class SalesProvider extends  Datafeed {
     if (requestedByItem.isEmpty) return true;
     try {
       final futures = requestedByItem.keys.map(
-            (id) => FirebaseFirestore.instance
+        (id) => FirebaseFirestore.instance
             .collection('itemsreg')
             .doc(id)
             .get(const GetOptions(source: Source.server)),
@@ -1029,7 +1022,7 @@ class SalesProvider extends  Datafeed {
                   data['modes']?['single']?['qty']?.toString() ??
                   '1',
             ) ??
-                1.0;
+            1.0;
         final availableBoxes = boxQty > 0
             ? (availableNetPieces / boxQty)
             : null;
@@ -1045,16 +1038,14 @@ class SalesProvider extends  Datafeed {
       return false;
     }
   }
+
   double _parseNetPieces(Map<String, dynamic> branchData) {
     final raw =
         branchData['netpieces'] ??
-            branchData['netPieces'] ??
-            branchData['net_piece'];
+        branchData['netPieces'] ??
+        branchData['net_piece'];
     if (raw is num) return raw.toDouble();
     if (raw is String) return double.tryParse(raw) ?? 0;
     return 0;
   }
-
 }
-
-

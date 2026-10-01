@@ -1,832 +1,3 @@
-// import 'dart:async';
-//
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
-// import 'package:provider/provider.dart';
-//
-// import '../models/itemregmodel.dart';
-// import '../providers/Datafeed.dart';
-//
-// import 'branchpriceedit.dart';
-//
-// class BranchPricePage extends StatefulWidget {
-//   const BranchPricePage({super.key});
-//
-//   @override
-//   State<BranchPricePage> createState() => _BranchPricePageState();
-// }
-//
-// class _BranchPricePageState extends State<BranchPricePage> {
-//   final FirebaseFirestore db = FirebaseFirestore.instance;
-//   String searchQuery = '';
-//   String? userbranchid;
-//   String? userrole;
-//   String? staff;
-//   String? companyid;
-//   String? selectedBranchId;
-//   String? selectedBranchName;
-//   bool showSearch = false;
-//   int _rowsPerPage = 10;
-//   int? _sortColumnIndex;
-//   bool _sortAscending = true;
-//   final ScrollController _verticalController = ScrollController();
-//   final ScrollController _horizontalController = ScrollController();
-//   @override
-//   void initState() {
-//     super.initState();
-//     Future.microtask(() async {
-//       if (!mounted) return;
-//       context.read<Datafeed>().fetchItems();
-//       await context.read<Datafeed>().initUserAndBranches();
-//       if (!mounted) return;
-//       final vvalue = Provider.of<Datafeed>(context, listen: false);
-//       companyid = vvalue.companyid;
-//       userbranchid = vvalue.branchid;
-//       userrole = vvalue.accesslevel;
-//       staff = vvalue.staff;
-//     });
-//   }
-//
-//   @override
-//   void dispose() {
-//     _verticalController.dispose();
-//     _horizontalController.dispose();
-//     super.dispose();
-//   }
-//   List<ItemModel> filteredItems(Datafeed value) {
-//     final query = searchQuery.toLowerCase();
-//
-//     if (query.isEmpty) return value.items;
-//
-//     return value.items.where((item) {
-//       final name = (item.name ?? '').toLowerCase();
-//       final barcode = (item.barcode ?? '').toLowerCase();
-//       final company = (item.company ?? '').toLowerCase();
-//       final category = (item.pcategory ?? '').toLowerCase();
-//
-//       return name.contains(query) || barcode.contains(query) ||
-//           company.contains(query) ||  category.contains(query); }).toList();
-//   }
-//   @override
-//   Widget build(BuildContext context) {
-//     final width = MediaQuery.sizeOf(context) .width;
-//
-//     final isDesktop = width > 700;
-//     return Consumer<Datafeed>(
-//       builder: (BuildContext context, Datafeed value, Widget? child) {
-//
-//         return Scaffold(
-//           backgroundColor: const Color(0xFF101624),
-//           appBar: AppBar(title: Text(value.company),
-//
-//           ),
-//           body: Align(
-//             alignment: Alignment.topCenter,
-//             child: Column(
-//               children: [
-//
-//                 Padding(
-//                   padding: const EdgeInsets.all(12),
-//                   child: Column(
-//
-//                     children: [
-//                       Text('Tap a branch to view and update item prices.',
-//                         style: TextStyle(
-//                             color: Colors.white70, fontSize: 18),
-//                       ),
-//                       SizedBox(height: 5,),
-//                       if (value.canSelectBranch)
-//                        ListView.builder(
-//                          itemCount: value.branches.length,
-//                            itemBuilder: (context, index) {
-//                              final b = value.branches[index];
-//                              return ListTile(
-//                                title: Text(b.branchname),
-//                                onTap: () {
-//                                  setState(() {
-//                                    selectedBranchId = b.id;
-//                                    selectedBranchName = b.branchname;
-//                                  });
-//                                },
-//                              );
-//                            }
-//
-//                        ),
-//
-//                         ConstrainedBox(
-//                           constraints: BoxConstraints(
-//                             maxWidth: isDesktop ? 700 : double.infinity,
-//                             maxHeight: 400,
-//                           ),
-//                           child: LayoutBuilder (
-//                             builder: (context, constraints) {
-//                               int crossAxisCount = isDesktop ? 4 : 2;
-//
-//                               return GridView.builder(
-//
-//                                 itemCount: value.branches.length,
-//                                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-//                                   crossAxisCount: crossAxisCount,
-//                                   mainAxisSpacing: 12,
-//                                   crossAxisSpacing: 12,
-//                                   childAspectRatio: 3.5, // controls height
-//                                 ),
-//                                 itemBuilder: (context, index) {
-//                                   final b = value.branches[index];
-//                                   final selected = selectedBranchId == b.id;
-//
-//                                   return InkWell(
-//                                     borderRadius: BorderRadius.circular(10),
-//                                     onTap: () {
-//                                       setState(() {
-//                                         selectedBranchId = b.id;
-//                                         selectedBranchName = b.branchname;
-//                                       });
-//                                     },
-//                                     child: AnimatedContainer(
-//                                       duration: const Duration(milliseconds: 200),
-//                                       decoration: BoxDecoration(
-//                                         color: selected
-//                                             ? Colors.amber
-//                                             : const Color(0xFF22304A),
-//                                         borderRadius: BorderRadius.circular(10),
-//                                         border: Border.all(
-//                                           color: selected
-//                                               ? Colors.amber
-//                                               : Colors.white10,
-//                                         ),
-//                                       ),
-//                                       padding: const EdgeInsets.symmetric(horizontal: 12),
-//                                       alignment: Alignment.center,
-//                                       child: Row(
-//                                         mainAxisAlignment: MainAxisAlignment.center,
-//                                         children: [
-//                                           Flexible(
-//                                             child: Text(
-//                                               b.branchname,
-//                                               overflow: TextOverflow.ellipsis,
-//                                               style: TextStyle(
-//                                                 color: selected
-//                                                     ? Colors.black
-//                                                     : Colors.white,
-//                                                 fontWeight: FontWeight.w600,
-//                                               ),
-//                                             ),
-//                                           ),
-//                                           if (selected) ...[
-//                                             const SizedBox(width: 6),
-//                                             const Icon(Icons.lock,
-//                                                 size: 16, color: Colors.black),
-//                                           ]
-//                                         ],
-//                                       ),
-//                                     ),
-//                                   );
-//                                 },
-//                               );
-//                             },
-//                           ),
-//                         ),
-//
-//                       const SizedBox(height: 8),
-//                     ],
-//                   ),
-//                 ),
-//
-//                 //content
-//                 AnimatedContainer(
-//                   duration: const Duration(milliseconds: 250),
-//                   width: showSearch ? 350 : 48,
-//                   height: 48,
-//                   decoration: BoxDecoration(
-//                     color: const Color(0xFF22304A),
-//                     borderRadius: BorderRadius.circular(10),
-//                   ),
-//                   child: Row(
-//                     children: [
-//                       if (showSearch)
-//                         Expanded(
-//                           child: TextFormField(
-//                             onChanged: (v) => setState(() => searchQuery = v.toLowerCase()),
-//                             style: const TextStyle(color: Colors.white),
-//                             decoration: InputDecoration(
-//                               filled: true,
-//                               fillColor: const Color(0xFF22304A),
-//                               hintText: 'Search items...',
-//                               hintStyle: const TextStyle(color: Colors.white54),
-//                               prefixIcon: const Icon(
-//                                   Icons.search, color: Colors.white54),
-//
-//                               border: OutlineInputBorder(
-//                                 borderRadius: BorderRadius.circular(10),
-//                                 borderSide: BorderSide.none,
-//                               ),
-//                               enabledBorder: OutlineInputBorder(
-//                                 borderRadius: BorderRadius.circular(10),
-//                                 borderSide: BorderSide.none,
-//                               ),
-//                               focusedBorder: OutlineInputBorder(
-//                                 borderRadius: BorderRadius.circular(10),
-//                                 borderSide: const BorderSide(color: Colors.amber),
-//                               ),
-//                             ),
-//                           ),
-//                         ),
-//
-//                       IconButton(
-//                         icon: Icon(
-//                           showSearch ? Icons.close : Icons.search,
-//                           color: Colors.white70,
-//                         ),
-//                         onPressed: () {
-//                           setState(() {
-//                             showSearch = !showSearch;
-//                             if (!showSearch) searchQuery = '';
-//                           });
-//                         },
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//                 SizedBox(height: 5,),
-//
-//                 Expanded(
-//                   child: Builder(builder: (_) {
-//                     if (selectedBranchId == null) {
-//                       return const Center(
-//                         child: Text(
-//                           'Tap a branch to view items',
-//                           style: TextStyle(color: Colors.white70),
-//                         ),
-//                       );
-//                     }
-//
-//                     if (value.loading) {
-//                       return const Center(child: CircularProgressIndicator());
-//                     }
-//
-//                     if (value.items.isEmpty) {
-//                       return const Center(
-//                         child: Text(
-//                           "No items registered yet",
-//                           style: TextStyle(color: Colors.white70),
-//                         ),
-//                       );
-//                     }
-//
-//
-//                     final filtered = filteredItems(value);
-//
-//                     return isDesktop
-//                         ? _desktopTable(filtered)
-//                         : _mobileCards(filtered);
-//                   }),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         );
-//       },
-//
-//     );
-//   }
-//
-//   Widget _mobileCards(List<ItemModel> items) {
-//     return ListView.builder(
-//       padding: const EdgeInsets.all(12),
-//       itemCount: items.length,
-//       itemBuilder: (context, i) {
-//         try {
-//           final item = items[i];
-//
-//           final branchPrices = item.branchprices;
-//           final modes = item.modes;
-//
-//           final hasBranchPricing = branchPrices != null && branchPrices.isNotEmpty;
-//
-//           final hasModes =  modes != null && modes is Map && modes.isNotEmpty;
-//
-//           return Card(
-//             color: const Color(0xFF1B263B),
-//             margin: const EdgeInsets.only(bottom: 12),
-//             child: InkWell(
-//               onTap: () {
-//                 if (selectedBranchId == null) return;
-//
-//                 Navigator.push(
-//                   context,
-//                   MaterialPageRoute(
-//                     builder: (_) => Branchitempriceupdate(
-//                       item: item,
-//                       branchId: selectedBranchId!,
-//                       staff: staff!,
-//                       branchname: selectedBranchName!,
-//                     ),
-//                   ),
-//                 ).then((_) {
-//                   if (mounted) setState(() {});
-//                 });
-//               },
-//               child: Padding(
-//                 padding: const EdgeInsets.all(12),
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     /// HEADER
-//                     Row(
-//                       children: [
-//                         CircleAvatar(
-//                           backgroundColor: const Color(0xFF415A77),
-//                           child: Text('${i + 1}'),
-//                         ),
-//                         const SizedBox(width: 12),
-//                         Expanded(
-//                           child: Column(
-//                             crossAxisAlignment: CrossAxisAlignment.start,
-//                             children: [
-//                               Text(
-//                                 item.name,
-//                                 style: const TextStyle(
-//                                   color: Colors.white,
-//                                   fontSize: 16,
-//                                   fontWeight: FontWeight.bold,
-//                                 ),
-//                               ),
-//                               if (item.barcode != null &&
-//                                   item.barcode!.isNotEmpty)
-//                                 Text(
-//                                   'Barcode: ${item.barcode}',
-//                                   style: const TextStyle(color: Colors.white70),
-//                                 ),
-//                             ],
-//                           ),
-//                         ),
-//                         const Icon(Icons.chevron_right,
-//                             color: Colors.white54),
-//                       ],
-//                     ),
-//
-//                     const SizedBox(height: 12),
-//
-//                     /// PRICING
-//                     if (!hasBranchPricing && !hasModes)
-//                       const Text(
-//                         'No pricing',
-//                         style: TextStyle(color: Colors.white38),
-//                       ),
-//
-//                     if (hasBranchPricing)
-//                       ...branchPrices!.entries.map((branchEntry) {
-//                         final branch = Map<String, dynamic>.from(
-//                             branchEntry.value as Map);
-//
-//                         final branchName = branch['name'] ?? '';
-//                         final pricing =
-//                         Map<String, dynamic>.from(branch['pricing'] ?? {});
-//
-//                         if (pricing.isEmpty) return const SizedBox.shrink();
-//
-//                         return Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             if (branchName.toString().isNotEmpty)
-//                               Padding(
-//                                 padding:
-//                                 const EdgeInsets.only(bottom: 6),
-//                                 child: Text(
-//                                   branchName,
-//                                   style: const TextStyle(
-//                                     color: Colors.white70,
-//                                     fontWeight: FontWeight.bold,
-//                                   ),
-//                                 ),
-//                               ),
-//                             ...pricing.entries.map((e) {
-//                               final p =
-//                               Map<String, dynamic>.from(e.value);
-//                               return _pricingCard(
-//                                 name: p['name'] ?? e.key,
-//                                 qty: p['qty'] ?? '',
-//                                 rp: p['rp'] ?? '',
-//                                 wp: p['wp'] ?? '',
-//                                 sp: p['sp'] ?? '',
-//                               );
-//                             }).toList(),
-//                           ],
-//                         );
-//                       }).toList(),
-//
-//                     /// FALLBACK → MODES
-//                     if (!hasBranchPricing && hasModes)
-//                       Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           const Padding(
-//                             padding: EdgeInsets.only(bottom: 6),
-//                             child: Text(
-//                               'Default Pricing',
-//                               style: TextStyle(
-//                                 color: Colors.white70,
-//                                 fontWeight: FontWeight.bold,
-//                               ),
-//                             ),
-//                           ),
-//                           ...modes.map((e) {
-//                             return _pricingCard(
-//                               name: e.name,
-//                               qty: e.qty,
-//                               rp: e.rp,
-//                               wp: e.wp,
-//                               sp: e.sp,
-//                             );
-//                           }),
-//                         ],
-//                       ),
-//                   ],
-//                 ),
-//               ),
-//             ),
-//           );
-//         } catch (e) {
-//           print('Error building item card: $e');
-//           return Card(
-//             color: const Color(0xFF1B263B),
-//             child: const ListTile(
-//               leading: Icon(Icons.error, color: Colors.redAccent),
-//               title: Text('Error loading item',
-//                   style: TextStyle(color: Colors.redAccent)),
-//             ),
-//           );
-//         }
-//       },
-//     );
-//   }
-//
-//
-//   Widget _desktopTable(List<ItemModel> items) {
-//    // final verticalController = ScrollController();
-//   //  final horizontalController = ScrollController();
-//     final source = ItemDataSource(
-//       items: List.from(items),
-//       context: context,
-//       selectedBranchId: selectedBranchId,
-//       selectedBranchName: selectedBranchName,
-//       staff: staff,
-//     );
-//
-//     return ScrollbarTheme(
-//       data: ScrollbarThemeData(
-//         thumbColor: MaterialStateProperty.all(
-//           const Color(0xFF415A77),
-//         ),
-//         trackColor: MaterialStateProperty.all(
-//           const Color(0xFF22304A),
-//         ),
-//         trackBorderColor: MaterialStateProperty.all(
-//           const Color(0xFF1B263B),
-//         ),
-//         thickness: MaterialStateProperty.all(10),
-//         radius: const Radius.circular(8),
-//       ),
-//       child: Scrollbar(
-//         controller: _verticalController,
-//         thumbVisibility: true,
-//         trackVisibility: true,
-//         child: Scrollbar(
-//           controller: _horizontalController,
-//           thumbVisibility: true,
-//           trackVisibility: true,
-//           notificationPredicate: (notif) => notif.depth == 1,
-//           child: SingleChildScrollView(
-//             controller: _verticalController,
-//             scrollDirection: Axis.vertical,
-//             child: SingleChildScrollView(
-//               controller: _horizontalController,
-//               scrollDirection: Axis.horizontal,
-//               child: SizedBox(
-//                 width: 950,
-//                 child: Theme(
-//                   data: Theme.of(context).copyWith(
-//                     textTheme: Theme.of(context).textTheme.apply(
-//
-//                     ),
-//                   ),
-//                   child: DataTableTheme(
-//                     data: DataTableThemeData(
-//                       columnSpacing: 25,
-//                       headingRowColor: MaterialStateProperty.all(const Color(0xFF22304A)),
-//                       headingTextStyle: const TextStyle(
-//                         color: Colors.white70,
-//                         fontWeight: FontWeight.w600,
-//                         fontSize: 12,
-//                         letterSpacing: 0.5,
-//                       ),
-//                       dataTextStyle: const TextStyle(color: Colors.white, fontSize: 13),
-//                       dataRowColor: MaterialStateProperty.resolveWith((states) =>
-//                       states.contains(MaterialState.selected)
-//                           ? Colors.blueAccent.withOpacity(0.08)
-//                           : const Color(0xFF1B263B),
-//                       ),
-//                       dividerThickness: 0,
-//                     ),
-//                     child: PaginatedDataTable(
-//                       header: null,
-//                       rowsPerPage: 15,
-//                       availableRowsPerPage: const [15, 25, 50, 100],
-//                       sortColumnIndex: _sortColumnIndex,
-//                       sortAscending: _sortAscending,
-//                       headingRowHeight: 44,
-//                       dataRowMinHeight: 52,
-//                       dataRowMaxHeight: 52,
-//                       horizontalMargin: 20,
-//                       showCheckboxColumn: false,
-//                       columns: [
-//                         const DataColumn(label: Text('#')),
-//                         DataColumn(
-//                           label: const Text('Name'),
-//                           onSort: (i, a) => setState(() {
-//                             _sortColumnIndex = i;
-//                             _sortAscending = a;
-//                           }),
-//                         ),
-//                          DataColumn(label: Text('Barcode'),
-//                           onSort: (i, a) => setState(() {
-//                             _sortColumnIndex = i;
-//                             _sortAscending = a;
-//                           }),
-//                         ),
-//                         DataColumn(
-//                           label:  Text('Category'),
-//                           onSort: (i, a) => setState(() {
-//                             _sortColumnIndex = i;
-//                             _sortAscending = a;
-//                           }),
-//                         ),
-//                         const DataColumn(label: Text('Pricing')),
-//                         const DataColumn(label: Text('Has Price')),
-//                         const DataColumn(label: Text('Actions')),
-//                       ],
-//                       source: source,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _pricingCard({required String name, required dynamic qty,required dynamic rp,required dynamic wp, required dynamic sp,}) {
-//     return Container(
-//       margin: const EdgeInsets.only(bottom: 8),
-//       padding: const EdgeInsets.all(10),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFF1F2A3A),
-//         borderRadius: BorderRadius.circular(10),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Text(
-//             name,
-//             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-//           ),
-//           const SizedBox(height: 4),
-//           Wrap(
-//             spacing: 12,
-//             runSpacing: 12,
-//             alignment: WrapAlignment.start,
-//             children: [
-//               _priceBox("Quantity", qty),
-//               _priceBox("Retail Price", rp),
-//               _priceBox("Wholesale Price", wp),
-//               _priceBox("Supplier Price", sp),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _priceBox(String label, dynamic value) {
-//     return Container(
-//       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFF22304A),
-//         borderRadius: BorderRadius.circular(6),
-//       ),
-//       child: Column(
-//         children: [
-//           Text(
-//             label,
-//             style: const TextStyle(color: Colors.white54, fontSize: 11),
-//           ),
-//           Text(
-//             (value?.toString().isEmpty ?? true) ? "-" : value.toString(),
-//             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-// }
-// class ItemDataSource extends DataTableSource {
-//   List<ItemModel> items;
-//   final BuildContext context;
-//   final String? selectedBranchId;
-//   final String? selectedBranchName;
-//   final String? staff;
-//
-//   ItemDataSource({
-//     required this.items,
-//     required this.context,
-//     required this.selectedBranchId,
-//     required this.selectedBranchName,
-//     required this.staff,
-//     int sortColumnIndex = 0,
-//     bool sortAscending = true,
-//   }) {
-//     _sort(sortColumnIndex, sortAscending);
-//   }
-//
-//   void _sort(int columnIndex, bool ascending) {
-//     items.sort((a, b) {
-//       int result = 0;
-//       switch (columnIndex) {
-//         case 1: // Name
-//           result = a.name.compareTo(b.name);
-//           break;
-//         case 3: // Category
-//           result = (a.pcategory).compareTo(b.pcategory ?? '');
-//           break;
-//         default:
-//           return 0;
-//       }
-//       return ascending ? result : -result;
-//     });
-//   }
-//
-//   @override
-//   DataRow? getRow(int index) {
-//     if (index >= items.length) return null;
-//     final item = items[index];
-//
-//     try {
-//       return DataRow(
-//         onSelectChanged: (_) {
-//           if (selectedBranchId == null) return;
-//           Navigator.push(
-//             context,
-//             MaterialPageRoute(
-//               builder: (_) => Branchitempriceupdate(
-//                 item: item,
-//                 branchId: selectedBranchId!,
-//                 staff: staff!,
-//                 branchname: selectedBranchName!,
-//               ),
-//             ),
-//           );
-//         },
-//         cells: [
-//           DataCell(Text('${index + 1}', style: const TextStyle(color: Colors.white))),
-//           DataCell(Text(item.name, style: const TextStyle(color: Colors.white))),
-//           DataCell(Text(item.barcode, style: const TextStyle(color: Colors.white70))),
-//           DataCell(Text(item.pcategory, style: const TextStyle(color: Colors.white70))),
-//
-//           // Pricing
-//           DataCell(Builder(builder: (_) {
-//             final branchPrices = item.branchprices;
-//             final modes = item.modes;
-//
-//             final hasBranchPricing = branchPrices != null && branchPrices.isNotEmpty;
-//             final hasModes = modes != null && modes.isNotEmpty;
-//
-//             if (!hasBranchPricing && !hasModes) {
-//               return const Text('No pricing', style: TextStyle(color: Colors.white38));
-//             }
-//
-//             String tooltipText = '';
-//
-//             if (hasBranchPricing && selectedBranchId != null) {
-//               final branchData = branchPrices![selectedBranchId];
-//               if (branchData != null && branchData['pricing'] != null) {
-//                 final pricingMap = Map<String, dynamic>.from(branchData['pricing']);
-//                 tooltipText = pricingMap.entries.map((entry) {
-//                   final p = Map<String, dynamic>.from(entry.value);
-//                   final name = p['name'] ?? entry.key;
-//                   final qty = p['qty'] ?? '';
-//                   final rp = p['rp'] ?? '';
-//                   final wp = p['wp'] ?? '';
-//                   final sp = p['sp'] ?? '';
-//                   return '$name: Retail=$rp, Box=$wp, Supplier=$sp, Qty=$qty';
-//                 }).join('\n');
-//               }
-//             }
-//
-//             if (tooltipText.isEmpty && hasModes) {
-//               tooltipText = modes.map((m) {
-//                 final name = m.name ?? m.id ?? '';
-//                 return '$name: Retail=${m.rp}, Box=${m.wp}, Supplier=${m.sp}, Qty=${m.qty}';
-//               }).join('\n');
-//             }
-//
-//             return Tooltip(
-//               message: tooltipText,
-//               waitDuration: const Duration(milliseconds: 300),
-//               showDuration: const Duration(seconds: 5),
-//               child: const Text(
-//                 'View Pricing',
-//                 style: TextStyle(
-//                   color: Colors.blueAccent,
-//                   decoration: TextDecoration.underline,
-//                 ),
-//               ),
-//             );
-//           })),
-//
-//           // Has Price
-//           DataCell(Builder(builder: (_) {
-//             final branches = item.branchprices;
-//             bool hasPricing = false;
-//
-//             if (selectedBranchId != null &&
-//                 branches != null &&
-//                 branches.containsKey(selectedBranchId)) {
-//               final branch = Map<String, dynamic>.from(branches[selectedBranchId]);
-//               final pricing = branch['pricing'];
-//               hasPricing = pricing is Map && pricing.isNotEmpty;
-//             }
-//
-//             return Text(
-//               hasPricing ? 'Yes' : 'Default',
-//               style: TextStyle(
-//                 color: hasPricing ? Colors.greenAccent : Colors.white38,
-//                 fontWeight: FontWeight.bold,
-//               ),
-//             );
-//           })),
-//
-//           // Action
-//           // DataCell(IconButton(
-//           //   icon: const Icon(Icons.edit, color: Colors.amber),
-//           //   onPressed: () {
-//           //     if (selectedBranchId == null) return;
-//           //     Navigator.push(
-//           //       context,
-//           //       MaterialPageRoute(
-//           //         builder: (_) => Branchitempriceupdate(
-//           //           item: item,
-//           //           branchId: selectedBranchId!,
-//           //           staff: staff!,
-//           //           branchname: selectedBranchName!,
-//           //         ),
-//           //       ),
-//           //     ).then((_) {
-//           //       if (mounted) setState(() {});
-//           //     });
-//           //   },
-//           // )),
-//           // AFTER
-//           DataCell(IconButton(
-//             icon: const Icon(Icons.edit, color: Colors.amber),
-//             onPressed: () {
-//               if (selectedBranchId == null) return;
-//               Navigator.push(
-//                 context,
-//                 MaterialPageRoute(
-//                   builder: (_) => Branchitempriceupdate(
-//                     item: item,
-//                     branchId: selectedBranchId!,
-//                     staff: staff!,
-//                     branchname: selectedBranchName!,
-//                   ),
-//                 ),
-//               ).then((_) {
-//                 notifyListeners();
-//               });
-//             },
-//           )),
-//         ],
-//       );
-//     } catch (e) {
-//       print('Error row $index: $e');
-//       return null;
-//     }
-//   }
-//
-//   @override
-//   int get rowCount => items.length;
-//
-//   @override
-//   bool get isRowCountApproximate => false;
-//
-//   @override
-//   int get selectedRowCount => 0;
-// }
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -855,26 +26,39 @@ class _BranchPricePageState extends State<BranchPricePage> {
   String? selectedBranchId;
   String? selectedBranchName;
   bool showSearch = false;
+  final TextEditingController _searchController = TextEditingController();
   int _rowsPerPage = 10;
   int? _sortColumnIndex;
   bool _sortAscending = true;
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
-  final ScrollController _branchScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() async {
       if (!mounted) return;
-      context.read<Datafeed>().fetchItems();
-      await context.read<Datafeed>().initUserAndBranches();
+      final provider = context.read<Datafeed>();
+      await provider.initUserAndBranches();
+      await provider.fetchBranches();
+      provider.fetchItems();
       if (!mounted) return;
-      final vvalue = Provider.of<Datafeed>(context, listen: false);
-      companyid = vvalue.companyid;
-      userbranchid = vvalue.branchid;
-      userrole = vvalue.accesslevel;
-      staff = vvalue.staff;
+      final vvalue = provider;
+      final branchId = vvalue.branchid;
+      final assignedBranches = vvalue.branches
+          .where((branch) => branch.id == branchId)
+          .toList();
+      final branch = assignedBranches.isEmpty ? null : assignedBranches.first;
+      setState(() {
+        companyid = vvalue.companyid;
+        userbranchid = branchId;
+        userrole = vvalue.accesslevel;
+        staff = vvalue.staff;
+        if (!vvalue.canSelectBranch && branch != null) {
+          selectedBranchId = branch.id;
+          selectedBranchName = branch.branchname;
+        }
+      });
     });
   }
 
@@ -882,10 +66,9 @@ class _BranchPricePageState extends State<BranchPricePage> {
   void dispose() {
     _verticalController.dispose();
     _horizontalController.dispose();
-    _branchScrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
-
 
   List<ItemModel> filteredItems(Datafeed value) {
     final query = searchQuery.toLowerCase();
@@ -904,7 +87,6 @@ class _BranchPricePageState extends State<BranchPricePage> {
           category.contains(query);
     }).toList();
   }
-
 
   List<ItemModel> _sortedItems(List<ItemModel> items) {
     final sorted = List<ItemModel>.from(items);
@@ -946,92 +128,94 @@ class _BranchPricePageState extends State<BranchPricePage> {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
-          appBar: AppBar(title: Text(value.company)),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppBar(
+            leading: IconButton(
+              tooltip: 'Back',
+              icon: Icon(
+                Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            centerTitle: false,
+            title: isDesktop
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          value.company,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (showSearch)
+                        SizedBox(
+                          width: width > 1000 ? 260 : 180,
+                          child: _searchField(),
+                        ),
+                      const Expanded(child: SizedBox()),
+                    ],
+                  )
+                : showSearch
+                ? _searchField()
+                : Text(value.company, overflow: TextOverflow.ellipsis),
+            actions: [
+              if (value.canSelectBranch) _branchSelector(value),
+              IconButton(
+                tooltip: showSearch ? 'Close search' : 'Search items',
+                icon: Icon(showSearch ? Icons.close : Icons.search),
+                onPressed: () {
+                  setState(() {
+                    showSearch = !showSearch;
+                    if (!showSearch) {
+                      _searchController.clear();
+                      searchQuery = '';
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
           body: Align(
             alignment: Alignment.topCenter,
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Tap a branch to view and update item prices.',
-                        style: TextStyle(color: Colors.white70, fontSize: 18),
-                      ),
-                      const SizedBox(height: 5),
-                      if (value.canSelectBranch)
-                        _branchSelector(value, isDesktop),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
-                ),
-
-
-                if (selectedBranchId != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    width: isDesktop ? _tableWidth : double.infinity,
-                    child: TextFormField(
-                      onChanged: (v) =>
-                          setState(() => searchQuery = v.toLowerCase()),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFF22304A),
-                        hintText: 'Search items...',
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        prefixIcon: const Icon(Icons.search,
-                            color: Colors.white54),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                          const BorderSide(color: Colors.blue),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                ],
-
                 Expanded(
-                  child: Builder(builder: (_) {
-                    if (selectedBranchId == null) {
-                      return const Center(
-                        child: Text('',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      );
-                    }
+                  child: Builder(
+                    builder: (_) {
+                      if (value.loading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                    if (value.loading) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+                      if (selectedBranchId == null) {
+                        return Center(
+                          child: Text(
+                            'Please select a branch',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }
 
-                    if (value.items.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          "No items registered yet",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      );
-                    }
+                      if (value.items.isEmpty) {
+                        return Center(
+                          child: Text(
+                            "No items registered yet",
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        );
+                      }
 
-                    final filtered = filteredItems(value);
+                      final filtered = filteredItems(value);
 
-                    return isDesktop
-                        ? _desktopTable(filtered)
-                        : _mobileCards(filtered);
-                  }),
+                      return isDesktop
+                          ? _desktopTable(filtered)
+                          : _mobileCards(filtered);
+                    },
+                  ),
                 ),
               ],
             ),
@@ -1041,151 +225,91 @@ class _BranchPricePageState extends State<BranchPricePage> {
     );
   }
 
-
-  Widget _branchSelector(Datafeed value, bool isDesktop) {
-    if (selectedBranchId != null) {
-      return InkWell(
-        onTap: () {
-          setState(() {
-            selectedBranchId = null;
-            selectedBranchName = null;
-            showSearch = false;
-            searchQuery = '';
-          });
-        },
-        child: Container(
-          width: isDesktop? _tableWidth:double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF22304A),
+  Widget _searchField() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 44,
+      child: TextField(
+        controller: _searchController,
+        autofocus: showSearch,
+        onChanged: (value) => setState(() => searchQuery = value.toLowerCase()),
+        style: TextStyle(color: colorScheme.onSurface, fontSize: 14),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHighest,
+          hintText: 'Search items...',
+          hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+          border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.blue),
+            borderSide: BorderSide.none,
           ),
-          child: Wrap(
-            children: [
-              const Icon(Icons.store, color: Colors.blue, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  selectedBranchName ?? '',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    selectedBranchId = null;
-                    selectedBranchName = null;
-                    showSearch = false;
-                    searchQuery = '';
-                  });
-                },
-                icon: const Icon(Icons.swap_horiz, color: Colors.blue, size: 18),
-                label: const Text(
-                  'Change Branch',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: colorScheme.primary),
           ),
         ),
-      );
-    }
-
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final chooserMaxHeight =screenHeight * (isDesktop ? 0.82 : 0.7);
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: isDesktop ? 700 : double.infinity,
-
-        maxHeight: chooserMaxHeight,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-
-          const spacing = 8.0;
-          final columns = isDesktop ? 5 : 1;
-          final availableWidth = constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : MediaQuery.sizeOf(context).width - 24;
-          final chipWidth =
-              (availableWidth - spacing * (columns - 1)) / columns;
-
-          return Scrollbar(
-            controller: _branchScrollController,
-            thumbVisibility: value.branches.length > columns * 2,
-            child: SingleChildScrollView(
-              controller: _branchScrollController,
-              padding: const EdgeInsets.only(right: 4),
-              child: Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: value.branches.map((b) {
-                  final selected = selectedBranchId == b.id;
-                  return SizedBox(
-                    width: chipWidth,
-                    height: 46,
-                    child: Material(
-                      color: selected ? Colors.amber : const Color(0xFF22304A),
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () {
-                          setState(() {
-                            selectedBranchId = b.id;
-                            selectedBranchName = b.branchname;
-                          });
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: selected ? Colors.amber : Colors.white10,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  b.branchname,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color:
-                                    selected ? Colors.black : Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                              if (selected) ...[
-                                const SizedBox(width: 4),
-                                const Icon(Icons.check_circle,
-                                    size: 14, color: Colors.black),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          );
-        },
       ),
     );
+  }
+
+  Widget _branchSelector(Datafeed value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentBranch = selectedBranchId == null
+        ? 'Please select a branch'
+        : selectedBranchName ?? 'Selected Branch';
+
+    return PopupMenuButton<String>(
+      tooltip: 'Branch: $currentBranch',
+      icon: Icon(Icons.store_outlined, color: colorScheme.onSurface),
+      onSelected: (branchId) {
+        final branch = value.branches.firstWhere((b) => b.id == branchId);
+        setState(() {
+          selectedBranchId = branchId;
+          selectedBranchName = branch.branchname;
+
+          showSearch = false;
+          _searchController.clear();
+          searchQuery = '';
+        });
+      },
+      itemBuilder: (context) => [
+        for (final branch in value.branches)
+          PopupMenuItem<String>(
+            value: branch.id,
+            child: Row(
+              children: [
+                Icon(Icons.store_outlined, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    branch.branchname,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (selectedBranchId == branch.id)
+                  Icon(Icons.check, color: colorScheme.primary, size: 18),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  bool _itemHasBranchPrice(ItemModel item) {
+    final branchPrices = item.branchprices;
+    if (branchPrices == null || branchPrices.isEmpty) return false;
+    if (selectedBranchId == null) return false;
+    final branch = branchPrices[selectedBranchId];
+    if (branch is! Map) return false;
+    final pricing = branch['pricing'];
+    return pricing is Map && pricing.isNotEmpty;
   }
 
   Widget _mobileCards(List<ItemModel> items) {
@@ -1199,13 +323,22 @@ class _BranchPricePageState extends State<BranchPricePage> {
           final branchPrices = item.branchprices;
           final modes = item.modes;
 
-          final hasBranchPricing =
-              branchPrices != null && branchPrices.isNotEmpty;
+          final selectedBranch = selectedBranchId == null
+              ? null
+              : branchPrices?[selectedBranchId];
+          final hasBranchPricing = _itemHasBranchPrice(item);
+          final selectedBranchMap = selectedBranch is Map
+              ? Map<String, dynamic>.from(selectedBranch)
+              : <String, dynamic>{};
+          final selectedPricingValue = selectedBranchMap['pricing'];
+          final selectedPricing = selectedPricingValue is Map
+              ? Map<String, dynamic>.from(selectedPricingValue)
+              : <String, dynamic>{};
 
           final hasModes = modes != null && modes is Map && modes.isNotEmpty;
 
           return Card(
-            color: const Color(0xFF1B263B),
+            color: Theme.of(context).colorScheme.surface,
             margin: const EdgeInsets.only(bottom: 12),
             child: InkWell(
               onTap: () {
@@ -1234,7 +367,12 @@ class _BranchPricePageState extends State<BranchPricePage> {
                     Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: const Color(0xFF415A77),
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onPrimary,
                           child: Text('${i + 1}'),
                         ),
                         const SizedBox(width: 12),
@@ -1244,8 +382,10 @@ class _BranchPricePageState extends State<BranchPricePage> {
                             children: [
                               Text(
                                 item.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1254,12 +394,19 @@ class _BranchPricePageState extends State<BranchPricePage> {
                                   item.barcode!.isNotEmpty)
                                 Text(
                                   'Barcode: ${item.barcode}',
-                                  style: const TextStyle(color: Colors.white70),
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
                                 ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: Colors.white54),
+                        Icon(
+                          Icons.chevron_right,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ],
                     ),
 
@@ -1267,61 +414,56 @@ class _BranchPricePageState extends State<BranchPricePage> {
 
                     /// PRICING
                     if (!hasBranchPricing && !hasModes)
-                      const Text(
+                      Text(
                         'No pricing',
-                        style: TextStyle(color: Colors.white38),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
 
                     if (hasBranchPricing)
-                      ...branchPrices!.entries.map((branchEntry) {
-                        final branch =
-                        Map<String, dynamic>.from(branchEntry.value as Map);
-
-                        final branchName = branch['name'] ?? '';
-                        final pricing =
-                        Map<String, dynamic>.from(branch['pricing'] ?? {});
-
-                        if (pricing.isEmpty) return const SizedBox.shrink();
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (branchName.toString().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Text(
-                                  branchName,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if ((selectedBranchMap['name'] ?? '')
+                              .toString()
+                              .isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Text(
+                                selectedBranchMap['name'].toString(),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ...pricing.entries.map((e) {
-                              final p = Map<String, dynamic>.from(e.value);
-                              return _pricingCard(
-                                name: p['name'] ?? e.key,
-                                qty: p['qty'] ?? '',
-                                rp: p['rp'] ?? '',
-                                wp: p['wp'] ?? '',
-                                sp: p['sp'] ?? '',
-                              );
-                            }).toList(),
-                          ],
-                        );
-                      }).toList(),
+                            ),
+                          ...selectedPricing.entries.map((e) {
+                            final p = Map<String, dynamic>.from(e.value);
+                            return _pricingCard(
+                              name: p['name'] ?? e.key,
+                              qty: p['qty'] ?? '',
+                              rp: p['rp'] ?? '',
+                              wp: p['wp'] ?? '',
+                              sp: p['sp'] ?? '',
+                            );
+                          }),
+                        ],
+                      ),
 
                     /// FALLBACK → MODES
                     if (!hasBranchPricing && hasModes)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(bottom: 6),
                             child: Text(
                               'Default Pricing',
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1345,11 +487,16 @@ class _BranchPricePageState extends State<BranchPricePage> {
         } catch (e) {
           print('Error building item card: $e');
           return Card(
-            color: const Color(0xFF1B263B),
-            child: const ListTile(
-              leading: Icon(Icons.error, color: Colors.redAccent),
-              title: Text('Error loading item',
-                  style: TextStyle(color: Colors.redAccent)),
+            color: Theme.of(context).colorScheme.surface,
+            child: ListTile(
+              leading: Icon(
+                Icons.error,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Error loading item',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           );
         }
@@ -1364,7 +511,8 @@ class _BranchPricePageState extends State<BranchPricePage> {
   static const double _colPricingW = 90;
   static const double _colHasPriceW = 90;
   static const double _colActionsW = 90;
-  static const double _tableWidth = _colIndexW +
+  static const double _tableWidth =
+      _colIndexW +
       _colNameW +
       _colBarcodeW +
       _colCategoryW +
@@ -1380,8 +528,8 @@ class _BranchPricePageState extends State<BranchPricePage> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w600,
             fontSize: 12,
             letterSpacing: 0.5,
@@ -1396,17 +544,11 @@ class _BranchPricePageState extends State<BranchPricePage> {
       ],
     );
 
-    final cell = SizedBox(
-      width: width,
-      child: child,
-    );
+    final cell = SizedBox(width: width, child: child);
 
     if (sortIndex == null) return cell;
 
-    return InkWell(
-      onTap: () => _onSort(sortIndex),
-      child: cell,
-    );
+    return InkWell(onTap: () => _onSort(sortIndex), child: cell);
   }
 
   Widget _dataCell(Widget child, double width) {
@@ -1438,9 +580,11 @@ class _BranchPricePageState extends State<BranchPricePage> {
               children: [
                 // Header row
                 Container(
-                  color: const Color(0xFF22304A),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       _headerCell('#', width: _colIndexW),
@@ -1449,8 +593,11 @@ class _BranchPricePageState extends State<BranchPricePage> {
                       const SizedBox(width: 25),
                       _headerCell('Barcode', width: _colBarcodeW),
                       const SizedBox(width: 25),
-                      _headerCell('Category',
-                          width: _colCategoryW, sortIndex: 3),
+                      _headerCell(
+                        'Category',
+                        width: _colCategoryW,
+                        sortIndex: 3,
+                      ),
                       const SizedBox(width: 25),
                       _headerCell('Pricing', width: _colPricingW),
                       const SizedBox(width: 25),
@@ -1463,11 +610,7 @@ class _BranchPricePageState extends State<BranchPricePage> {
                 // Body
                 Expanded(
                   child: Scrollbar(
-                   // controller: _verticalController,
-                   // thumbVisibility: true,
-                  //  trackVisibility: true,
                     child: ListView.builder(
-                    //  controller: _verticalController,
                       itemCount: sorted.length,
                       itemBuilder: (context, index) {
                         return _desktopRow(sorted, index);
@@ -1490,7 +633,7 @@ class _BranchPricePageState extends State<BranchPricePage> {
       final branchPrices = item.branchprices;
       final modes = item.modes;
 
-      final hasBranchPricing = branchPrices != null && branchPrices.isNotEmpty;
+      final hasBranchPricing = _itemHasBranchPrice(item);
       final hasModes = modes != null && modes.isNotEmpty;
 
       String tooltipText = '';
@@ -1499,33 +642,30 @@ class _BranchPricePageState extends State<BranchPricePage> {
         final branchData = branchPrices![selectedBranchId];
         if (branchData != null && branchData['pricing'] != null) {
           final pricingMap = Map<String, dynamic>.from(branchData['pricing']);
-          tooltipText = pricingMap.entries.map((entry) {
-            final p = Map<String, dynamic>.from(entry.value);
-            final name = p['name'] ?? entry.key;
-            final qty = p['qty'] ?? '';
-            final rp = p['rp'] ?? '';
-            final wp = p['wp'] ?? '';
-            final sp = p['sp'] ?? '';
-            return '$name: Retail=$rp, Box=$wp, Supplier=$sp, Qty=$qty';
-          }).join('\n');
+          tooltipText = pricingMap.entries
+              .map((entry) {
+                final p = Map<String, dynamic>.from(entry.value);
+                final name = p['name'] ?? entry.key;
+                final qty = p['qty'] ?? '';
+                final rp = p['rp'] ?? '';
+                final wp = p['wp'] ?? '';
+                final sp = p['sp'] ?? '';
+                return '$name: Retail=$rp, Box=$wp, Supplier=$sp, Qty=$qty';
+              })
+              .join('\n');
         }
       }
 
       if (tooltipText.isEmpty && hasModes) {
-        tooltipText = modes.map((m) {
-          final name = m.name ?? m.id ?? '';
-          return '$name: Retail=${m.rp}, Box=${m.wp}, Supplier=${m.sp}, Qty=${m.qty}';
-        }).join('\n');
+        tooltipText = modes
+            .map((m) {
+              final name = m.name ?? '';
+              return '$name: Retail=${m.rp}, Box=${m.wp}, Supplier=${m.sp}, Qty=${m.qty}';
+            })
+            .join('\n');
       }
 
-      bool hasPricing = false;
-      if (selectedBranchId != null &&
-          branchPrices != null &&
-          branchPrices.containsKey(selectedBranchId)) {
-        final branch = Map<String, dynamic>.from(branchPrices[selectedBranchId]);
-        final pricing = branch['pricing'];
-        hasPricing = pricing is Map && pricing.isNotEmpty;
-      }
+      final hasPricing = _itemHasBranchPrice(item);
 
       return InkWell(
         onTap: () {
@@ -1545,47 +685,78 @@ class _BranchPricePageState extends State<BranchPricePage> {
           });
         },
         child: Container(
-          color: const Color(0xFF1B263B),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              bottom: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+                width: 0.7,
+              ),
+            ),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          margin: const EdgeInsets.only(bottom: 1),
           child: Row(
             children: [
               _dataCell(
-                Text('${index + 1}', style: const TextStyle(color: Colors.white)),
+                Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 _colIndexW,
               ),
               const SizedBox(width: 25),
               _dataCell(
-                Text(item.name, style: const TextStyle(color: Colors.white)),
+                Text(
+                  item.name,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 _colNameW,
               ),
               const SizedBox(width: 25),
               _dataCell(
-                Text(item.barcode, style: const TextStyle(color: Colors.white70)),
+                Text(
+                  item.barcode,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 _colBarcodeW,
               ),
               const SizedBox(width: 25),
               _dataCell(
-                Text(item.pcategory, style: const TextStyle(color: Colors.white70)),
+                Text(
+                  item.pcategory,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 _colCategoryW,
               ),
               const SizedBox(width: 25),
               _dataCell(
                 (!hasBranchPricing && !hasModes)
-                    ? const Text('No pricing',
-                    style: TextStyle(color: Colors.white38))
+                    ? Text(
+                        'No pricing',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      )
                     : Tooltip(
-                  message: tooltipText,
-                  waitDuration: const Duration(milliseconds: 300),
-                  showDuration: const Duration(seconds: 5),
-                  child: const Text(
-                    'View Pricing',
-                    style: TextStyle(
-                      color: Colors.blueAccent,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
+                        message: tooltipText,
+                        waitDuration: const Duration(milliseconds: 300),
+                        showDuration: const Duration(seconds: 5),
+                        child: Text(
+                          'View Pricing',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                 _colPricingW,
               ),
               const SizedBox(width: 25),
@@ -1593,7 +764,9 @@ class _BranchPricePageState extends State<BranchPricePage> {
                 Text(
                   hasPricing ? 'Yes' : 'Default',
                   style: TextStyle(
-                    color: hasPricing ? Colors.greenAccent : Colors.white38,
+                    color: hasPricing
+                        ? Theme.of(context).colorScheme.tertiary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1602,23 +775,34 @@ class _BranchPricePageState extends State<BranchPricePage> {
               const SizedBox(width: 25),
               _dataCell(
                 IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.amber),
-                  onPressed: () {
-                    if (selectedBranchId == null) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => Branchitempriceupdate(
-                          item: item,
-                          branchId: selectedBranchId!,
-                          staff: staff!,
-                          branchname: selectedBranchName!,
-                        ),
-                      ),
-                    ).then((_) {
-                      if (mounted) setState(() {});
-                    });
-                  },
+                  tooltip: selectedBranchId == null
+                      ? 'Select a branch to edit pricing'
+                      : 'Edit branch pricing',
+                  icon: Icon(
+                    Icons.edit,
+                    color: selectedBranchId == null
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                  onPressed: selectedBranchId == null
+                      ? null
+                      : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => Branchitempriceupdate(
+                                item: item,
+                                branchId: selectedBranchId!,
+                                staff: staff!,
+                                branchname: selectedBranchName!,
+                              ),
+                            ),
+                          ).then((_) {
+                            if (mounted) setState(() {});
+                          });
+                        },
                 ),
                 _colActionsW,
               ),
@@ -1629,10 +813,12 @@ class _BranchPricePageState extends State<BranchPricePage> {
     } catch (e) {
       print('Error row $index: $e');
       return Container(
-        color: const Color(0xFF1B263B),
+        color: Theme.of(context).colorScheme.surface,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: const Text('Error loading row',
-            style: TextStyle(color: Colors.redAccent)),
+        child: Text(
+          'Error loading row',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
       );
     }
   }
@@ -1648,7 +834,7 @@ class _BranchPricePageState extends State<BranchPricePage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2A3A),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -1656,7 +842,10 @@ class _BranchPricePageState extends State<BranchPricePage> {
         children: [
           Text(
             name,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Wrap(
@@ -1679,18 +868,24 @@ class _BranchPricePageState extends State<BranchPricePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF22304A),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 11,
+            ),
           ),
           Text(
             (value?.toString().isEmpty ?? true) ? "-" : value.toString(),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

@@ -51,8 +51,8 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
       final docId = isUpdate
           ? widget.vat!.id
           : "${value.companyid}_${_selectedVatType}_${_selectedProductType}"
-          .toLowerCase()
-          .replaceAll(RegExp(r'\s+'), '_');
+                .toLowerCase()
+                .replaceAll(RegExp(r'\s+'), '_');
 
       final vat = ConfigureVatModel(
         id: docId,
@@ -69,7 +69,9 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
         computationalmethod: _selectedComputationType!,
       );
 
-      await value.db.collection('vat').doc(docId)
+      await value.db
+          .collection('vat')
+          .doc(docId)
           .set(vat.toMap(), SetOptions(merge: true));
 
       if (isUpdate) {
@@ -116,15 +118,15 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
     return Consumer<Datafeed>(
       builder: (context, value, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(
               widget.vat != null
                   ? "Edit Vat Configuration"
                   : "Vat Configuration",
             ),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: const Color(0xFF415A77),
@@ -146,7 +148,9 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
                   child: ListView(
                     children: [
                       Card(
-                        color: const Color(0xFF182232),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -174,8 +178,9 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
                                 label: 'Computation Type',
                                 value: _selectedComputationType,
                                 items: _computationtype,
-                                onChanged: (v) =>
-                                    setState(() => _selectedComputationType = v),
+                                onChanged: (v) => setState(
+                                  () => _selectedComputationType = v,
+                                ),
                               ),
                               const SizedBox(height: 20),
 
@@ -188,9 +193,13 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue,
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
                                       onPressed: _isSaving
@@ -198,36 +207,56 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
                                           : () => _saveVat(value),
                                       child: _isSaving
                                           ? const SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
+                                              height: 22,
+                                              width: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
                                           : Text(
-                                        widget.vat != null ? "Update" : "Add",
-                                        style: const TextStyle(color: Colors.white),
-                                      ),
+                                              widget.vat != null
+                                                  ? "Update"
+                                                  : "Add",
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   SizedBox(
                                     width: 200,
                                     child: OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Colors.white70),
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        side: const BorderSide(
+                                          color: Colors.white70,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
-                                      icon: const Icon(Icons.view_list, color: Colors.white70),
-                                      label: const Text(
+                                      icon: const Icon(
+                                        Icons.view_list,
+                                        color: Colors.white70,
+                                      ),
+                                      label: Text(
                                         "View",
-                                        style: TextStyle(color: Colors.white70),
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
                                       ),
                                       onPressed: () {
-                                        Navigator.pushNamed( context,
+                                        Navigator.pushNamed(
+                                          context,
                                           Routes.configurevatview,
                                         );
                                       },
@@ -258,13 +287,13 @@ class _ConfigureVatregState extends State<ConfigureVatreg> {
   }) {
     return DropdownButtonFormField<String>(
       value: items.contains(value) ? value : null,
-      dropdownColor: const Color(0xFF22304A),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface),
         filled: true,
-        fillColor: const Color(0xFF22304A),
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       items: items

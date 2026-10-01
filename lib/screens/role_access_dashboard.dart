@@ -1,9 +1,10 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
 import '../providers/routes.dart';
+import '../paymentwidgets/showlogout.dart';
+import '../providers/theme_provider.dart';
 import 'role_access_config.dart';
 
 class RoleAccessDashboard extends StatefulWidget {
@@ -17,10 +18,11 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedCategory = 'All';
-
+  late Future<Map<String, double>> _todayTotals;
   @override
   void initState() {
     super.initState();
+    _todayTotals = context.read<Datafeed>().fetchStaffTotalSalesToday();
     Future.microtask(() {
       if (!mounted) return;
       final datafeed = context.read<Datafeed>();
@@ -38,10 +40,10 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
     super.dispose();
   }
 
-  Map<String, List<RoleAccessAction>> _groupActions(List<RoleAccessAction> actions) {
-    final Map<String, List<RoleAccessAction>> groups = {
-      'All': actions,
-    };
+  Map<String, List<RoleAccessAction>> _groupActions(
+    List<RoleAccessAction> actions,
+  ) {
+    final Map<String, List<RoleAccessAction>> groups = {'All': actions};
 
     for (final action in actions) {
       final category = action.badge.isNotEmpty ? action.badge : 'General';
@@ -53,7 +55,6 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
 
     return groups;
   }
-
 
   void _showChangePasswordDialog(BuildContext context, Datafeed datafeed) {
     final currentPasswordController = TextEditingController();
@@ -77,7 +78,10 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Padding(
@@ -93,12 +97,14 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                color: colorScheme.primary.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 Icons.lock_reset,
-                                color: colorScheme.onPrimary,
+                                color: colorScheme.primary,
                                 size: 28,
                               ),
                             ),
@@ -133,7 +139,7 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                             labelText: 'Current Password',
                             prefixIcon: Icon(
                               Icons.lock_outline,
-                              color: colorScheme.onPrimary,
+                              color: colorScheme.primary,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -186,7 +192,7 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                             labelText: 'New Password',
                             prefixIcon: Icon(
                               Icons.lock,
-                              color: colorScheme.onPrimary,
+                              color: colorScheme.primary,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -243,7 +249,7 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                             labelText: 'Confirm New Password',
                             prefixIcon: Icon(
                               Icons.lock,
-                              color: colorScheme.onPrimary,
+                              color: colorScheme.primary,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -308,48 +314,50 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              child: const Text('Cancel',style: TextStyle(color: Colors.white),),
+                              child: const Text('Cancel'),
                             ),
                             const SizedBox(width: 12),
                             FilledButton(
                               onPressed: isLoading
                                   ? null
                                   : () async {
-                                if (formKey.currentState!.validate()) {
-                                  setState(() => isLoading = true);
-                                  try {
-                                    await datafeed.changePassword(
-                                      currentPasswordController.text,
-                                      newPasswordController.text,
-                                    );
-                                    if (context.mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                         SnackBar(
-                                          content: Text(
-                                            'Password changed successfully',style: TextStyle(color: ColorScheme.of(context).onPrimary),
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    setState(() => isLoading = false);
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Error: $e',style: TextStyle(color: ColorScheme.of(context).onPrimary),),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                }
-                              },
+                                      if (formKey.currentState!.validate()) {
+                                        setState(() => isLoading = true);
+                                        try {
+                                          await datafeed.changePassword(
+                                            currentPasswordController.text,
+                                            newPasswordController.text,
+                                          );
+                                          if (context.mounted) {
+                                            Navigator.pop(context);
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Password changed successfully',
+                                                ),
+                                                backgroundColor:
+                                                    colorScheme.primary,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          setState(() => isLoading = false);
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error: $e'),
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      }
+                                    },
                               style: FilledButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20,
@@ -360,12 +368,12 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                                 ),
                               ),
                               child: isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 20,
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Colors.white,
+                                        color: colorScheme.onPrimary,
                                       ),
                                     )
                                   : const Text('Update Password'),
@@ -384,36 +392,8 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
     );
   }
 
-  void _showLogoutDialog(BuildContext parentcontext, Datafeed datafeed) {
-    showDialog(
-      context: parentcontext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                datafeed.logout(parentcontext);
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
+  void _showLogoutDialog(BuildContext parentcontext) {
+    LogoutDialog.show(parentcontext);
   }
 
   @override
@@ -425,11 +405,16 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1024;
 
-    final isLoading = datafeed.roleAccessLoading && datafeed.roleAccessSelections == null;
-    final hasError = datafeed.roleAccessError && datafeed.roleAccessSelections == null;
+    final isLoading =
+        datafeed.roleAccessLoading && datafeed.roleAccessSelections == null;
+    final hasError =
+        datafeed.roleAccessError && datafeed.roleAccessSelections == null;
 
-    final selections = datafeed.roleAccessSelections ??
-        (isLoading ? const <String, List<String>>{} : getDefaultRoleAccessSelections());
+    final selections =
+        datafeed.roleAccessSelections ??
+        (isLoading
+            ? const <String, List<String>>{}
+            : getDefaultRoleAccessSelections());
 
     final allActions = isLoading
         ? const <RoleAccessAction>[]
@@ -439,13 +424,15 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
           );
 
     final groupedActions = _groupActions(allActions);
-    final categories = groupedActions.keys.toList()..sort((a, b) {
-      if (a == 'All') return -1;
-      if (b == 'All') return 1;
-      return a.compareTo(b);
-    });
+    final categories = groupedActions.keys.toList()
+      ..sort((a, b) {
+        if (a == 'All') return -1;
+        if (b == 'All') return 1;
+        return a.compareTo(b);
+      });
 
-    if (!_selectedCategory.contains('All') && !categories.contains(_selectedCategory)) {
+    if (!_selectedCategory.contains('All') &&
+        !categories.contains(_selectedCategory)) {
       _selectedCategory = 'All';
     }
 
@@ -456,11 +443,14 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      drawer: !isDesktop ? _buildSidebar(context, categories, datafeed, roleLabel) : null,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      drawer: !isDesktop
+          ? _buildSidebar(context, categories, datafeed, roleLabel)
+          : null,
       body: Row(
         children: [
-          if (isDesktop) _buildSidebar(context, categories, datafeed, roleLabel),
+          if (isDesktop)
+            _buildSidebar(context, categories, datafeed, roleLabel),
           Expanded(
             child: Column(
               children: [
@@ -469,10 +459,15 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                   child: isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : hasError
-                          ? _buildErrorState(datafeed, colorScheme)
-                          : allActions.isEmpty
-                              ? _buildEmptyState(theme)
-                              : _buildContentArea(context, filteredActions, theme, isDesktop),
+                      ? _buildErrorState(datafeed, colorScheme)
+                      : allActions.isEmpty
+                      ? _buildEmptyState(theme)
+                      : _buildContentArea(
+                          context,
+                          filteredActions,
+                          theme,
+                          isDesktop,
+                        ),
                 ),
               ],
             ),
@@ -482,108 +477,134 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
     );
   }
 
-  Widget _buildSidebar(BuildContext context, List<String> categories, Datafeed datafeed, String roleLabel) {
+  Widget _buildSidebar(
+    BuildContext context,
+    List<String> categories,
+    Datafeed datafeed,
+    String roleLabel,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDesktop = MediaQuery.of(context).size.width >= 1024;
 
-    return Container(
+    return SizedBox(
       width: 260,
-      color: const Color(0xFF1E293B),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            alignment: Alignment.centerLeft,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary,
-                    borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: colorScheme.surfaceContainerHighest,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.dashboard_rounded,
+                      color: colorScheme.onPrimary,
+                      size: 28,
+                    ),
                   ),
-                  child: const Icon(Icons.dashboard_rounded, color: Colors.white, size: 28),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  datafeed.company.isEmpty ? 'KOLOG POS' : datafeed.company.toUpperCase(),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+                  const SizedBox(height: 16),
+                  Text(
+                    datafeed.company.isEmpty
+                        ? 'KOLOG POS'
+                        : datafeed.company.toUpperCase(),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'Command Center',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: Colors.white54,
-                    letterSpacing: 0.5,
+                  Text(
+                    'Command Center',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              'CATEGORIES',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: Colors.white38,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+                ],
               ),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: categories.length,
-              itemBuilder: (context, index) {
-                final cat = categories[index];
-                final isSelected = _selectedCategory == cat;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: ListTile(
-                    dense: true,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    selected: isSelected,
-                    selectedTileColor: Colors.white.withOpacity(0.08),
-                    leading: Icon(
-                      _getCategoryIcon(cat),
-                      color: isSelected ? Colors.white : Colors.white54,
-                      size: 20,
-                    ),
-                    title: Text(
-                      cat,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                    onTap: () {
-                      setState(() => _selectedCategory = cat);
-                      if (!isDesktop) Navigator.pop(context);
-                    },
-                  ),
-                );
-              },
+            Divider(color: colorScheme.outlineVariant, height: 1),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'CATEGORIES',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
             ),
-          ),
-          const Divider(color: Colors.white10, height: 1),
-          _buildSidebarProfile(context, datafeed, theme),
-        ],
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final cat = categories[index];
+                  final isSelected = _selectedCategory == cat;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: ListTile(
+                      dense: true,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      selected: isSelected,
+                      selectedTileColor: colorScheme.primary.withOpacity(0.1),
+                      leading: Icon(
+                        _getCategoryIcon(cat),
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      title: Text(
+                        cat,
+                        style: TextStyle(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.onSurface,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      onTap: () {
+                        setState(() => _selectedCategory = cat);
+                        if (!isDesktop) Navigator.pop(context);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+            Divider(color: colorScheme.outlineVariant, height: 1),
+            _buildSidebarProfile(context, datafeed, theme),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSidebarProfile(BuildContext context, Datafeed datafeed, ThemeData theme) {
+  Widget _buildSidebarProfile(
+    BuildContext context,
+    Datafeed datafeed,
+    ThemeData theme,
+  ) {
+    final colorScheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: InkWell(
@@ -592,17 +613,22 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: colorScheme.primary.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: Colors.blueAccent,
+                backgroundColor: colorScheme.secondary,
                 child: Text(
-                  datafeed.staff.isNotEmpty ? datafeed.staff[0].toUpperCase() : 'U',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  datafeed.staff.isNotEmpty
+                      ? datafeed.staff[0].toUpperCase()
+                      : 'U',
+                  style: TextStyle(
+                    color: colorScheme.onSecondary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -613,20 +639,31 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                   children: [
                     Text(
                       datafeed.staff.isEmpty ? 'User' : datafeed.staff,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       _formatRoleName(datafeed.accesslevel),
-                      style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white24, size: 16),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurfaceVariant,
+                size: 16,
+              ),
             ],
           ),
         ),
@@ -635,47 +672,86 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
   }
 
   Widget _buildTopBar(BuildContext context, Datafeed datafeed, bool isDesktop) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final themeProvider = context.watch<ThemeProvider>();
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Row(
         children: [
           if (!isDesktop)
             IconButton(
-              icon: const Icon(Icons.menu_rounded, color: Color(0xFF64748B)),
+              icon: Icon(
+                Icons.menu_rounded,
+                color: colorScheme.onSurfaceVariant,
+              ),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           const SizedBox(width: 8),
+          // Expanded(child: _buildTopBarTotals()),
           Expanded(
             child: Container(
               height: 44,
               constraints: const BoxConstraints(maxWidth: 400),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: TextField(
                 controller: _searchController,
                 onChanged: (val) => setState(() => _searchQuery = val),
-                decoration: const InputDecoration(
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                decoration: InputDecoration(
                   hintText: 'Search modules...',
-                  hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                  prefixIcon: Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 20),
+                  hintStyle: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
               ),
             ),
           ),
-          const Spacer(),
+          //  const Spacer(),
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            tooltip: themeProvider.isLightTheme
+                ? 'Switch to dark theme'
+                : 'Switch to white theme',
+            icon: Icon(
+              themeProvider.isLightTheme
+                  ? Icons.dark_mode_outlined
+                  : Icons.light_mode_outlined,
+              color: colorScheme.onSurface,
+            ),
+            onPressed: () async {
+              try {
+                await context.read<ThemeProvider>().toggleTheme();
+              } catch (error) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Could not save theme preference: $error'),
+                  ),
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.logout_rounded, color: colorScheme.error),
             tooltip: 'Logout',
-            onPressed: () => _showLogoutDialog(context, datafeed),
+            onPressed: () => _showLogoutDialog(context),
           ),
           const SizedBox(width: 8),
           _buildTopBarProfile(context, datafeed),
@@ -685,48 +761,73 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
   }
 
   Widget _buildTopBarProfile(BuildContext context, Datafeed datafeed) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return PopupMenuButton<String>(
       offset: const Offset(0, 52),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          const VerticalDivider(width: 32, indent: 20, endIndent: 20, color: Color(0xFFE2E8F0)),
+          VerticalDivider(
+            width: 32,
+            indent: 20,
+            endIndent: 20,
+            color: colorScheme.outlineVariant,
+          ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 datafeed.staff.isEmpty ? 'User' : datafeed.staff,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: colorScheme.onSurface,
+                ),
               ),
               Text(
                 datafeed.company.isEmpty ? 'Kolog POS' : datafeed.company,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
           const SizedBox(width: 12),
-          const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF94A3B8)),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: colorScheme.onSurfaceVariant,
+          ),
         ],
       ),
       itemBuilder: (context) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'password',
           child: Row(
             children: [
-              Icon(Icons.lock_reset_rounded, size: 20, color: Colors.blueGrey),
-              SizedBox(width: 12),
-              Text('Change Password'),
+              Icon(
+                Icons.lock_reset_rounded,
+                size: 20,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 12),
+              const Text('Change Password'),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'profile',
           child: Row(
             children: [
-              Icon(Icons.person_outline_rounded, size: 20, color: Colors.blueGrey),
-              SizedBox(width: 12),
-              Text('My Profile'),
+              Icon(
+                Icons.person_outline_rounded,
+                size: 20,
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(width: 12),
+              const Text('My Profile'),
             ],
           ),
         ),
@@ -738,7 +839,67 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
     );
   }
 
-  Widget _buildContentArea(BuildContext context, List<RoleAccessAction> actions, ThemeData theme, bool isDesktop) {
+  Widget _buildTopBarTotals() {
+    return FutureBuilder<Map<String, double>>(
+      future: _todayTotals,
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+        final t = snap.data!;
+
+        Widget chip(String label, String key, Color color) {
+          return Container(
+            margin: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  (t[key] ?? 0).toStringAsFixed(2),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              chip('Cash', 'cash', Colors.green),
+              chip('MoMo', 'momo', Colors.orange),
+              chip('Credit', 'creditSales', Colors.red),
+              chip('Debt', 'debtPayment', Colors.blue),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildContentArea(
+    BuildContext context,
+    List<RoleAccessAction> actions,
+    ThemeData theme,
+    bool isDesktop,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       physics: const BouncingScrollPhysics(),
@@ -751,19 +912,23 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                 _selectedCategory,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1E293B),
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: theme.colorScheme.secondary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '${actions.length}',
-                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: TextStyle(
+                    color: theme.colorScheme.secondary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -790,15 +955,16 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
 
   Widget _buildModernTile(BuildContext context, RoleAccessAction action) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withOpacity(0.03),
+            color: colorScheme.shadow.withOpacity(0.08),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -836,7 +1002,7 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                         action.title,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF1E293B),
+                          color: colorScheme.onSurface,
                           height: 1.1,
                         ),
                         maxLines: 1,
@@ -846,7 +1012,7 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                       Text(
                         action.description,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF64748B),
+                          color: colorScheme.onSurfaceVariant,
                           height: 1.2,
                         ),
                         maxLines: 2,
@@ -855,7 +1021,11 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFCBD5E1), size: 14),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 14,
+                ),
               ],
             ),
           ),
@@ -866,15 +1036,24 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
 
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
-      case 'all': return Icons.grid_view_rounded;
-      case 'entry': return Icons.add_circle_outline_rounded;
-      case 'report': return Icons.bar_chart_rounded;
-      case 'view': return Icons.visibility_outlined;
-      case 'account': return Icons.account_balance_wallet_outlined;
-      case 'branch': return Icons.storefront_rounded;
-      case 'read/write': return Icons.edit_note_rounded;
-      case 'home': return Icons.home_repair_service_outlined;
-      default: return Icons.category_outlined;
+      case 'all':
+        return Icons.grid_view_rounded;
+      case 'entry':
+        return Icons.add_circle_outline_rounded;
+      case 'report':
+        return Icons.bar_chart_rounded;
+      case 'view':
+        return Icons.visibility_outlined;
+      case 'account':
+        return Icons.account_balance_wallet_outlined;
+      case 'branch':
+        return Icons.storefront_rounded;
+      case 'read/write':
+        return Icons.edit_note_rounded;
+      case 'home':
+        return Icons.home_repair_service_outlined;
+      default:
+        return Icons.category_outlined;
     }
   }
 
@@ -883,9 +1062,15 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.redAccent),
+          Icon(Icons.cloud_off_rounded, size: 64, color: colorScheme.error),
           const SizedBox(height: 16),
-          const Text('Connection lost or data error', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            'Connection lost or data error',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
           TextButton(
             onPressed: () => datafeed.loadRoleAccessSelections(force: true),
             child: const Text('Try Again'),
@@ -900,9 +1085,18 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_clock_rounded, size: 64, color: Colors.blueGrey.withOpacity(0.2)),
+          Icon(
+            Icons.lock_clock_rounded,
+            size: 64,
+            color: theme.colorScheme.onSurfaceVariant.withOpacity(0.2),
+          ),
           const SizedBox(height: 16),
-          Text('No modules assigned to your role', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.blueGrey)),
+          Text(
+            'No modules assigned to your role',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );

@@ -318,7 +318,7 @@ class _StockTransferDetailsListState extends State<StockTransferDetailsList> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              "Total Amount: GHC ${data['gross'].toStringAsFixed(2) ?? 0}",
+                              "Total Amount: GHS ${data['gross'].toStringAsFixed(2) ?? 0}",
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,

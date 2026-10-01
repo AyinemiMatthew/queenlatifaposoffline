@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -9,2243 +10,24 @@ import '../utils/damagepdf.dart';
 import '../widgets/datepicker.dart';
 import 'damages.dart';
 
-class DamagesListPage extends StatefulWidget {
-  const DamagesListPage({super.key});
-
-  @override
-  State<DamagesListPage> createState() => _DamagesListPageState();
+class _DamageSummaryBucket {
+  double amount = 0;
+  double units = 0;
+  final Set<String> recordIds = {};
+  int get records => recordIds.length;
 }
 
-class _DamagesListPageState extends State<DamagesListPage> {
-  final TextEditingController _searchController =
-  TextEditingController();
-
-  final FocusNode _searchFocusNode = FocusNode();
-
-
-  final GlobalKey _branchButtonKey = GlobalKey();
-
-  String searchQuery = '';
-  DateTimeRange? selectedDate;
-  String? _selectedBranchId;
-
-  bool _isSearching = false;
-
-  int _sortColumnIndex = 0;
-  bool _sortAscending = true;
-
-  final ScrollController verticalController = ScrollController();
-  final ScrollController horizontalController = ScrollController();
-
-  bool _canManagePage(Datafeed value) => value.isAdminLevel;
-
-  @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-
-      final value = context.read<Datafeed>();
-
-      await value.fetchBranches();
-
-      if (!mounted) return;
-
-      final branchId = _canManagePage(value)
-          ? null
-          : value.branchid;
-
-      await value.fetchdamages(
-        selectedDate: selectedDate,
-        selectedBranch: branchId,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    verticalController.dispose();
-    horizontalController.dispose();
-    super.dispose();
-  }
-
-
-  List<damageitemmodel> filterdamages(Datafeed value) {
-    if (searchQuery.trim().isEmpty) {
-      return List.of(value.damages);
-    }
-
-    final q = searchQuery.trim().toLowerCase();
-
-    return value.damages.where((s) {
-      final itemMap = Map<String, dynamic>.from(s.item ?? {});
-
-      final headerValues = <dynamic>[
-        s.id,
-        s.company,
-        s.branchname,
-        s.createdby,
-        s.createdat,
-        s.dateymd,
-      ];
-
-      final headerMatch = headerValues.any(
-            (v) => v?.toString().toLowerCase().contains(q) ?? false,
-      );
-
-      if (headerMatch) return true;
-
-      return itemMap.values.any((item) {
-        if (item is! Map) return false;
-
-        return <dynamic>[
-          item['item'],
-          item['itemid'],
-          item['mode'],
-          item['reason'],
-          item['cp'],
-          item['barcode'],
-          item['modeqty'],
-          item['quantity'],
-          item['totalpieces'],
-        ].any(
-              (v) => v?.toString().toLowerCase().contains(q) ?? false,
-        );
-      });
-    }).toList();
-  }
-
-  void _openSearch() {
-    setState(() {
-      _isSearching = true;
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      _searchFocusNode.requestFocus();
-    });
-  }
-
-  void _closeSearch() {
-    _searchController.clear();
-    _searchFocusNode.unfocus();
-
-    setState(() {
-      searchQuery = '';
-      _isSearching = false;
-    });
-  }
-
-
-  double _calcTotal(Map<String, dynamic> itemMap) {
-    return itemMap.values.fold<double>(
-      0,
-          (sum, item) {
-        if (item is Map) {
-          final cp =
-              double.tryParse(
-                item['cp']?.toString() ?? '0',
-              ) ??
-                  0;
-
-          final qty =
-              double.tryParse(
-                item['totalpieces']?.toString() ?? '0',
-              ) ??
-                  0;
-
-          return sum + (cp * qty);
-        }
-
-        return sum;
-      },
-    );
-  }
-
-
-
-  Future<void> _reloadDamages(Datafeed value) async {
-    final branchId = _canManagePage(value)
-        ? _selectedBranchId
-        : value.branchid;
-
-    await value.fetchdamages(
-      selectedDate: selectedDate,
-      selectedBranch: branchId,
-    );
-  }
-
-
-
-  Future<void> _showBranchDropdown(
-      BuildContext context,
-      Datafeed value,
-      ) async {
-    if (!_canManagePage(value)) return;
-
-    if (value.branches.isEmpty) {
-      await value.fetchBranches();
-    }
-
-    if (!mounted) return;
-
-    final renderObject =
-    _branchButtonKey.currentContext?.findRenderObject();
-
-    if (renderObject is! RenderBox) return;
-
-    final renderBox = renderObject;
-
-    final position = renderBox.localToGlobal(
-      Offset.zero,
-    );
-
-    final size = renderBox.size;
-
-    final screenWidth = MediaQuery.sizeOf(context).width;
-
-    final selected = await showMenu<String>(
-      context: context,
-      color: const Color(0xFF1B263B),
-      elevation: 8,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy + size.height + 4,
-        screenWidth - position.dx - size.width,
-        0,
-      ),
-      items: [
-        // ALL BRANCHES
-        PopupMenuItem<String>(
-          value: '',
-          height: 44,
-          child: Row(
-            children: [
-              const Icon(
-                Icons.apartment,
-                color: Colors.white70,
-                size: 18,
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'All Branches',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              if (_selectedBranchId == null)
-                const Icon(
-                  Icons.check,
-                  color: Colors.greenAccent,
-                  size: 18,
-                ),
-            ],
-          ),
-        ),
-
-        // BRANCHES
-        ...value.branches.map(
-              (branch) {
-            final id = branch.id;
-
-            final name = branch.branchname.isNotEmpty
-                ? branch.branchname
-                : id;
-
-            return PopupMenuItem<String>(
-              value: id,
-              height: 44,
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.store_outlined,
-                    color: Colors.white70,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  if (_selectedBranchId == id)
-                    const Icon(
-                      Icons.check,
-                      color: Colors.greenAccent,
-                      size: 18,
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-
-    if (!mounted || selected == null) return;
-
-    setState(() {
-      _selectedBranchId =
-      selected.isEmpty ? null : selected;
-    });
-
-    await _reloadDamages(value);
-  }
-
-  String _selectedBranchLabel(Datafeed value) {
-    if (_selectedBranchId == null) {
-      return 'All Branches';
-    }
-
-    for (final branch in value.branches) {
-      if (branch.id == _selectedBranchId) {
-        return branch.branchname.isNotEmpty
-            ? branch.branchname
-            : 'Branch';
-      }
-    }
-
-    return 'Branch';
-  }
-
-  void _showItemsDialog(
-      BuildContext context,
-      damageitemmodel damage,
-      ) {
-    final itemMap = Map<String, dynamic>.from(
-      damage.item ?? {},
-    );
-
-    final entries = itemMap.entries.where((entry) {
-      return entry.value is Map;
-    }).toList();
-
-    if (entries.isEmpty) {
-      return;
-    }
-
-    double grandTotal = 0;
-
-    for (final entry in entries) {
-      final item = Map<String, dynamic>.from(
-        entry.value as Map,
-      );
-
-      final cp =
-          double.tryParse(
-            item['cp']?.toString() ?? '0',
-          ) ??
-              0;
-
-      final totalPieces =
-          double.tryParse(
-            item['totalpieces']?.toString() ?? '0',
-          ) ??
-              0;
-
-      grandTotal += cp * totalPieces;
-    }
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: const Color(0xFF101624),
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 30,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 900,
-              maxHeight: 650,
-            ),
-            child: Column(
-              children: [
-                // HEADER
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF22304A),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.amberAccent,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'Damage Items',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '${entries.length} item${entries.length == 1 ? '' : 's'}',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: 'Close',
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                        },
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ITEMS
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: entries.length,
-                    separatorBuilder: (_, __) =>
-                    const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item =
-                      Map<String, dynamic>.from(
-                        entries[index].value as Map,
-                      );
-
-                      final cp =
-                          double.tryParse(
-                            item['cp']?.toString() ?? '0',
-                          ) ??
-                              0;
-
-                      final totalPieces =
-                          double.tryParse(
-                            item['totalpieces']?.toString() ?? '0',
-                          ) ??
-                              0;
-
-                      final itemTotal =
-                          cp * totalPieces;
-
-                      final itemName =
-                          item['item']?.toString() ?? 'Unknown Item';
-
-                      return Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B263B),
-                          borderRadius:
-                          BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.06),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-                            // ITEM NAME + TOTAL
-                            Row(
-                              crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${index + 1}. ${itemName.toUpperCase()}',
-                                    maxLines: 2,
-                                    overflow:
-                                    TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight:
-                                      FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'GHC ${itemTotal.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    color: Colors.amberAccent,
-                                    fontSize: 14,
-                                    fontWeight:
-                                    FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 10),
-
-                            // DETAILS
-                            Wrap(
-                              spacing: 20,
-                              runSpacing: 8,
-                              children: [
-                                _dialogDetail(
-                                  'Qty',
-                                  '${item['quantity'] ?? '-'}',
-                                ),
-
-                                _dialogDetail(
-                                  'Mode',
-                                  '${item['mode'] ?? '-'}',
-                                ),
-
-                                _dialogDetail(
-                                  'Mode Qty',
-                                  '${item['modeqty'] ?? '-'}',
-                                ),
-
-                                _dialogDetail(
-                                  'Total Pieces',
-                                  '${item['totalpieces'] ?? '-'}',
-                                ),
-
-                                _dialogDetail(
-                                  'CP',
-                                  'GHC ${cp.toStringAsFixed(2)}',
-                                ),
-
-                                if (item['barcode'] != null)
-                                  _dialogDetail(
-                                    'Barcode',
-                                    '${item['barcode']}',
-                                  ),
-                              ],
-                            ),
-
-                            if (item['reason'] != null &&
-                                item['reason']
-                                    .toString()
-                                    .trim()
-                                    .isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              Container(
-                                width: double.infinity,
-                                padding:
-                                const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent
-                                      .withOpacity(0.08),
-                                  borderRadius:
-                                  BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Description: ${item['reason']}',
-                                  style: const TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // TOTAL
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF22304A),
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(16),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'GRAND TOTAL',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        'GHC ${grandTotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _dialogDetail(
-      String label,
-      String value,
-      ) {
-    return SizedBox(
-      width: 150,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white38,
-              fontSize: 10,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _appBarIcon({
-    required IconData icon,
-    required VoidCallback onPressed,
-    String? tooltip,
-    Color? color,
-    double size = 19,
-  }) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(
-        minWidth: 34,
-        minHeight: 40,
-      ),
-      visualDensity: const VisualDensity(
-        horizontal: -3,
-        vertical: -3,
-      ),
-      icon: Icon(
-        icon,
-        size: size,
-        color: color ?? Colors.white,
-      ),
-    );
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-
-    final isDesktop = width >= 1050;
-    final isSmall = width < 700;
-
-    return Consumer<Datafeed>(
-      builder: (context, value, child) {
-        final filteredDamages = filterdamages(value);
-
-        final canManage = _canManagePage(value);
-
-        return Scaffold(
-          backgroundColor: const Color(0xFF101624),
-
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF101624),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            automaticallyImplyLeading: false,
-            titleSpacing: isSmall ? 2 : 8,
-            leading: _appBarIcon(
-              icon: Icons.arrow_back,
-              size: 21,
-              tooltip: 'Back',
-              onPressed: () {
-                Navigator.of(context).maybePop();
-              },
-            ),
-
-            title: _isSearching
-                ? Container(
-              height: 44,
-              width: double.infinity,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFF22304A),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                autofocus: true,
-
-                textAlignVertical:
-                TextAlignVertical.center,
-
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-
-                cursorColor: Colors.white,
-                cursorWidth: 2,
-
-                decoration: const InputDecoration(
-                  hintText: 'Search damages...',
-                  hintStyle: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w400,
-                  ),
-
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.white54,
-                    size: 22,
-                  ),
-
-                  prefixIconConstraints:
-                  BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
-                  ),
-
-                  border: InputBorder.none,
-
-                  isDense: true,
-
-                  contentPadding:
-                  EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 4,
-                  ),
-                ),
-
-                onChanged: (text) {
-                  setState(() {
-                    searchQuery = text;
-                  });
-                },
-              ),
-            )
-                : const Text(
-              'Damages List',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-
-
-
-            actions: _isSearching
-                ? [
-              _appBarIcon(
-                icon: Icons.clear,
-                size: 18,
-                tooltip: 'Close search',
-                onPressed: _closeSearch,
-              ),
-            ]
-                : [
-              // SEARCH
-              _appBarIcon(
-                icon: Icons.search,
-                size: 19,
-                tooltip: 'Search damages',
-                onPressed: _openSearch,
-              ),
-
-              // BRANCH DROPDOWN
-              if (canManage)
-                KeyedSubtree(
-                  key: _branchButtonKey,
-                  child: _appBarIcon(
-                    icon: Icons.store_outlined,
-                    size: 19,
-                    tooltip: _selectedBranchId == null
-                        ? 'All Branches'
-                        : _selectedBranchLabel(value),
-                    color:
-                    _selectedBranchId != null
-                        ? Colors.amberAccent
-                        : Colors.white,
-                    onPressed: () {
-                      _showBranchDropdown(
-                        context,
-                        value,
-                      );
-                    },
-                  ),
-                ),
-
-              // DATE
-              if (!isSmall)
-                ReusableDatePickerWidget(
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 4,
-                    ),
-                    child: Icon(
-                      Icons.calendar_today,
-                      size: 19,
-                    ),
-                  ),
-                  onDateSelected:
-                      (selection) async {
-                    setState(() {
-                      selectedDate = selection;
-                    });
-
-                    await _reloadDamages(value);
-                  },
-                )
-              else
-                _appBarIcon(
-                  icon: Icons.calendar_today,
-                  size: 18,
-                  tooltip: 'Date filter',
-                  onPressed: () async {
-                    final selection =
-                    await showDateRangePicker(
-                      context: context,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      initialDateRange: selectedDate,
-                      builder:
-                          (context, child) {
-                        return Theme(
-                          data: Theme.of(context)
-                              .copyWith(
-                            colorScheme:
-                            const ColorScheme.dark(
-                              primary: Colors.blue,
-                              onPrimary:
-                              Colors.white,
-                              surface:
-                              Color(0xFF22304A),
-                              onSurface:
-                              Colors.white,
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-
-                    if (selection == null) {
-                      return;
-                    }
-
-                    setState(() {
-                      selectedDate = selection;
-                    });
-
-                    await _reloadDamages(value);
-                  },
-                ),
-            ],
-          ),
-
-
-          floatingActionButton:
-          FloatingActionButton(
-            backgroundColor:
-            const Color(0xFF415A77),
-            tooltip: 'Register Damage',
-            child: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const Damages(),
-                ),
-              );
-            },
-          ),
-
-
-          body: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: isSmall ? 8 : 20,
-              vertical: isSmall ? 8 : 20,
-            ),
-            child: Column(
-              children: [
-                if (canManage &&
-                    _selectedBranchId != null)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding:
-                      const EdgeInsets.only(
-                        bottom: 8,
-                      ),
-                      child: Text(
-                        'Branch: ${_selectedBranchLabel(value)}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                Expanded(
-                  child: value.isloadingdamages
-                      ? const Center(
-                    child:
-                    CircularProgressIndicator(
-                      color: Colors.white70,
-                    ),
-                  )
-                      : filteredDamages.isEmpty
-                      ? Center(
-                    child: Column(
-                      mainAxisSize:
-                      MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons
-                              .warning_amber_outlined,
-                          color:
-                          Colors.white30,
-                          size: 42,
-                        ),
-                        const SizedBox(
-                          height: 10,
-                        ),
-                        Text(
-                          searchQuery
-                              .isEmpty
-                              ? 'No damages found'
-                              : 'No matching damages found',
-                          style:
-                          const TextStyle(
-                            color:
-                            Colors.white70,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                      : Align(
-                    alignment:
-                    Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints:
-                      const BoxConstraints(
-                        maxWidth: 1200,
-                      ),
-                      child: isDesktop
-                          ? _desktopTable(
-                        filteredDamages,
-                        value,
-
-                      )
-                          : _mobileList(
-                        filteredDamages,
-                        value,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-
-  Widget _desktopTable(
-      List<damageitemmodel> items,
-      Datafeed value,
-      ) {
-    final source = _DamageDataSource(
-      items: items,
-      context: context,
-      calcTotal: _calcTotal,
-
-      onEdit: (d) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => Damages(
-              damageitem: d,
-            ),
-          ),
-        );
-      },
-
-      onDelete: (d) {
-        final itemMap =
-        Map<String, dynamic>.from(
-          d.item ?? {},
-        );
-
-        final firstItem =
-        itemMap.values.isNotEmpty &&
-            itemMap.values.first is Map
-            ? itemMap.values.first
-        as Map<String, dynamic>
-            : <String, dynamic>{};
-
-        _handleDelete(
-          context,
-          firstItem['item']?.toString() ?? '',
-          d.id,
-        );
-      },
-
-      onPrint: (d) async {
-        final itemsMap =
-        Map<String, dynamic>.from(
-          d.item ?? {},
-        );
-
-        await DamageReportPdf.generate(
-          header: {
-            'company': d.company,
-            'branchname': d.branchname,
-            'createdby': d.createdby,
-            'createdat': d.createdat,
-          },
-          itemsMap: itemsMap,
-        );
-      },
-
-      sortColumnIndex: _sortColumnIndex,
-      sortAscending: _sortAscending,
-      value: value,
-    );
-
-    const columnWidths = <double>[
-      30,
-      250,
-      140,
-      90,
-      90,
-      250,
-    ];
-
-    const columnLabels = <String>[
-      '#',
-      'Item',
-      'Total (GHS)',
-      'Date',
-      'Trx Date',
-      'Actions',
-    ];
-
-    Widget buildHeaderLabel(int index) {
-      final sortable = index == 1 || index == 2;
-
-      final isActive =
-          _sortColumnIndex == index;
-
-      final label = Text(
-        columnLabels[index],
-        style: const TextStyle(
-          color: Colors.white70,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-          letterSpacing: 0.5,
-        ),
-      );
-
-      Widget content = label;
-
-      if (sortable) {
-        content = Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: index == 2
-              ? MainAxisAlignment.end
-              : MainAxisAlignment.start,
-          children: [
-            if (index == 2 && isActive) ...[
-              Icon(
-                _sortAscending
-                    ? Icons.arrow_upward
-                    : Icons.arrow_downward,
-                color: Colors.white70,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-            ],
-            label,
-            if (index != 2 && isActive) ...[
-              const SizedBox(width: 4),
-              Icon(
-                _sortAscending
-                    ? Icons.arrow_upward
-                    : Icons.arrow_downward,
-                color: Colors.white70,
-                size: 14,
-              ),
-            ],
-          ],
-        );
-      }
-
-      final aligned = Align(
-        alignment: index == 2
-            ? Alignment.centerRight
-            : Alignment.centerLeft,
-        child: content,
-      );
-
-      return SizedBox(
-        width: columnWidths[index],
-        child: sortable
-            ? InkWell(
-          onTap: () {
-            setState(() {
-              if (_sortColumnIndex ==
-                  index) {
-                _sortAscending =
-                !_sortAscending;
-              } else {
-                _sortColumnIndex = index;
-                _sortAscending = true;
-              }
-            });
-          },
-          child: aligned,
-        )
-            : aligned,
-      );
-    }
-
-    List<Widget> withSpacing(
-        List<Widget> cells,
-        ) {
-      final spaced = <Widget>[];
-
-      for (var i = 0;
-      i < cells.length;
-      i++) {
-        spaced.add(cells[i]);
-
-        if (i != cells.length - 1) {
-          spaced.add(
-            const SizedBox(width: 10),
-          );
-        }
-      }
-
-      return spaced;
-    }
-
-    return ScrollbarTheme(
-      data: ScrollbarThemeData(
-        thumbColor:
-        MaterialStateProperty.all(
-          const Color(0xFF415A77),
-        ),
-        trackColor:
-        MaterialStateProperty.all(
-          const Color(0xFF22304A),
-        ),
-        trackBorderColor:
-        MaterialStateProperty.all(
-          const Color(0xFF1B263B),
-        ),
-        thickness:
-        MaterialStateProperty.all(10),
-        radius: const Radius.circular(8),
-      ),
-      child: Scrollbar(
-        controller: horizontalController,
-        thumbVisibility: true,
-        trackVisibility: true,
-        interactive: true,
-        notificationPredicate:
-            (notif) => notif.depth == 1,
-        child: SingleChildScrollView(
-          controller: horizontalController,
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 1050,
-            child: Column(
-              children: [
-                Container(
-                  height: 44,
-                  padding:
-                  const EdgeInsets.symmetric(
-                    horizontal: 15,
-                  ),
-                  color:
-                  const Color(0xFF22304A),
-                  child: Row(
-                    children:
-                    withSpacing(
-                      List.generate(
-                        columnLabels.length,
-                        buildHeaderLabel,
-                      ),
-                    ),
-                  ),
-                ),
-
-                Expanded(
-                  child: Scrollbar(
-                    controller:
-                    verticalController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    interactive: true,
-                    child: ListView.builder(
-                      controller:
-                      verticalController,
-                      itemCount:
-                      source.rowCount,
-                      itemBuilder:
-                          (context, index) {
-                        final cells =
-                        source.getRow(
-                          index,
-                        );
-
-                        if (cells == null) {
-                          return const SizedBox();
-                        }
-
-                        return Container(
-                          height: 52,
-                          padding:
-                          const EdgeInsets
-                              .symmetric(
-                            horizontal: 15,
-                          ),
-                          color:
-                          const Color(
-                              0xFF1B263B),
-                          child: Row(
-                            children:
-                            withSpacing(
-                              List.generate(
-                                columnWidths
-                                    .length,
-                                    (i) {
-                                  return SizedBox(
-                                    width:
-                                    columnWidths[
-                                    i],
-                                    child: Align(
-                                      alignment:
-                                      i == 2
-                                          ? Alignment
-                                          .centerRight
-                                          : Alignment
-                                          .centerLeft,
-                                      child:
-                                      cells[i],
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-
-
-  Widget _mobileList(
-      List<damageitemmodel> filteredDamages,
-      Datafeed value,
-      ) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints:
-        const BoxConstraints(maxWidth: 700),
-        child: ListView.separated(
-          itemCount: filteredDamages.length,
-          separatorBuilder: (_, __) =>
-          const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final damages =
-            filteredDamages[index];
-
-            final id = damages.id;
-
-            final Map<String, dynamic>
-            itemMap =
-            Map<String, dynamic>.from(
-              damages.item ?? {},
-            );
-
-            final firstItem =
-            itemMap.values.isNotEmpty &&
-                itemMap.values.first is Map
-                ? itemMap.values.first
-            as Map<String, dynamic>
-                : <String, dynamic>{};
-
-            final itemName =
-                firstItem['item']
-                    ?.toString() ??
-                    '';
-
-            final totalamountt =
-            _calcTotal(itemMap);
-
-            return Container(
-              margin:
-              const EdgeInsets.symmetric(
-                vertical: 8,
-                horizontal: 4,
-              ),
-              decoration: BoxDecoration(
-                color:
-                const Color(0xFF1B263B),
-                borderRadius:
-                BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white
-                      .withOpacity(0.05),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black
-                        .withOpacity(0.2),
-                    blurRadius: 12,
-                    offset:
-                    const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius:
-                BorderRadius.circular(20),
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    // HEADER
-                    Container(
-                      padding:
-                      const EdgeInsets.all(
-                        16,
-                      ),
-                      color: Colors.white
-                          .withOpacity(0.03),
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Container(
-                              padding:
-                              const EdgeInsets
-                                  .symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration:
-                              BoxDecoration(
-                                color: Colors
-                                    .amberAccent
-                                    .withOpacity(
-                                    0.1),
-                                borderRadius:
-                                BorderRadius
-                                    .circular(8),
-                              ),
-                              child: Text(
-                                "ITEM #$itemName",
-                                maxLines: 1,
-                                overflow:
-                                TextOverflow
-                                    .ellipsis,
-                                style:
-                                const TextStyle(
-                                  color: Colors
-                                      .amberAccent,
-                                  fontSize: 14,
-                                  fontWeight:
-                                  FontWeight
-                                      .bold,
-                                  letterSpacing:
-                                  1.1,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(width: 10),
-
-                          Text(
-                            "#: ${index + 1}",
-                            style: TextStyle(
-                              color: Colors.white70
-                                  .withOpacity(
-                                  0.5),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ITEMS
-                    Padding(
-                      padding:
-                      const EdgeInsets.all(
-                        16,
-                      ),
-                      child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-                        children: [
-                          ...itemMap.values
-                              .map((item) {
-                            if (item
-                            is! Map<
-                                String,
-                                dynamic>) {
-                              return const SizedBox();
-                            }
-
-                            final cp =
-                                double.tryParse(
-                                  item['cp']
-                                      ?.toString() ??
-                                      '0',
-                                ) ??
-                                    0;
-
-                            final qty =
-                                double.tryParse(
-                                  item['totalpieces']
-                                      ?.toString() ??
-                                      '0',
-                                ) ??
-                                    0;
-
-                            final itemCost =
-                                cp * qty;
-
-                            return Container(
-                              margin:
-                              const EdgeInsets
-                                  .only(
-                                bottom: 16,
-                              ),
-                              padding:
-                              const EdgeInsets
-                                  .all(12),
-                              decoration:
-                              BoxDecoration(
-                                color:
-                                Colors.black12,
-                                borderRadius:
-                                BorderRadius
-                                    .circular(
-                                    12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child:
-                                        Text(
-                                          item['item']
-                                              ?.toString()
-                                              .toUpperCase() ??
-                                              '',
-                                          style:
-                                          const TextStyle(
-                                            color:
-                                            Colors.white,
-                                            fontWeight:
-                                            FontWeight
-                                                .w800,
-                                            fontSize:
-                                            16,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(
-                                          width: 8),
-                                      Text(
-                                        "GHC ${itemCost.toStringAsFixed(2)}",
-                                        style:
-                                        const TextStyle(
-                                          color:
-                                          Colors.white,
-                                          fontWeight:
-                                          FontWeight
-                                              .bold,
-                                          fontSize:
-                                          16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const Divider(
-                                    color:
-                                    Colors.white10,
-                                    height: 20,
-                                  ),
-
-                                  Table(
-                                    columnWidths: const {
-                                      0: FlexColumnWidth(
-                                          1),
-                                      1: FlexColumnWidth(
-                                          1),
-                                    },
-                                    children: [
-                                      _buildTableRow(
-                                        "Qty",
-                                        "${item['quantity']} (${item['mode']})",
-                                      ),
-
-                                      if (item['cp'] !=
-                                          null) ...[
-                                        _buildTableRow(
-                                          "CP",
-                                          "GHC ${cp.toStringAsFixed(2)}",
-                                        ),
-                                        _buildTableRow(
-                                          "Mode qty",
-                                          "${item['modeqty']}",
-                                        ),
-                                      ],
-
-                                      if (item[
-                                      'barcode'] !=
-                                          null)
-                                        _buildTableRow(
-                                          "Barcode",
-                                          "${item['barcode']}",
-                                        ),
-                                    ],
-                                  ),
-
-                                  if (item[
-                                  'reason'] !=
-                                      null) ...[
-                                    const SizedBox(
-                                        height: 8),
-                                    Container(
-                                      width: double
-                                          .infinity,
-                                      padding:
-                                      const EdgeInsets
-                                          .all(8),
-                                      decoration:
-                                      BoxDecoration(
-                                        color: Colors
-                                            .redAccent
-                                            .withOpacity(
-                                            0.1),
-                                        borderRadius:
-                                        BorderRadius
-                                            .circular(
-                                            6),
-                                      ),
-                                      child: Text(
-                                        "Description: ${item['reason']}",
-                                        style:
-                                        const TextStyle(
-                                          color: Colors
-                                              .redAccent,
-                                          fontSize:
-                                          12,
-                                          fontWeight:
-                                          FontWeight
-                                              .w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          }),
-
-                          const Divider(
-                            color: Colors.white24,
-                          ),
-
-                          Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment
-                                .spaceBetween,
-                            crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
-                                  children: [
-                                    _buildFooterLabel(
-                                      Icons
-                                          .person_outline,
-                                      "Staff: ${damages.createdby}",
-                                    ),
-
-                                    const SizedBox(
-                                        height: 4),
-
-                                    _buildFooterLabel(
-                                      Icons
-                                          .calendar_today_outlined,
-                                      "Date: ${damages.createdat.toString().substring(0, 10)}",
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(
-                                  width: 10),
-
-                              Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .end,
-                                children: [
-                                  const Text(
-                                    "TOTAL AMOUNT",
-                                    style:
-                                    TextStyle(
-                                      color: Colors
-                                          .white54,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                  Text(
-                                    "GHC ${totalamountt.toStringAsFixed(2)}",
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white,
-                                      fontSize: 20,
-                                      fontWeight:
-                                      FontWeight
-                                          .w900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ACTIONS
-                    Container(
-                      color: Colors.black26,
-                      padding:
-                      const EdgeInsets.symmetric(
-                        horizontal: 8,
-                      ),
-                      child: Wrap(
-                        children: [
-                          _buildActionButton(
-                            Icons.print,
-                            "Print",
-                            Colors.tealAccent,
-                                () async {
-                              final itemsMap =
-                              Map<String,
-                                  dynamic>.from(
-                                damages.item ?? {},
-                              );
-
-                              await DamageReportPdf
-                                  .generate(
-                                header: {
-                                  'company':
-                                  damages.company,
-                                  'branchname':
-                                  damages
-                                      .branchname,
-                                  'createdby':
-                                  damages
-                                      .createdby,
-                                  'createdat':
-                                  damages
-                                      .createdat,
-                                },
-                                itemsMap: itemsMap,
-                              );
-                            },
-                          ),
-
-                          Visibility(
-                            visible: value.canEdit(
-                              AppModules.stock,
-                            ),
-                            child:
-                            _buildActionButton(
-                              Icons
-                                  .edit_outlined,
-                              "",
-                              Colors.amber,
-                                  () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        Damages(
-                                          damageitem:
-                                          damages,
-                                        ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-
-                          Visibility(
-                            visible: value.canDelete(
-                              AppModules.stock,
-                            ),
-                            child:
-                            _buildActionButton(
-                              Icons
-                                  .delete_outline,
-                              "",
-                              Colors.redAccent,
-                                  () => _handleDelete(
-                                context,
-                                itemName,
-                                id,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-
-  TableRow _buildTableRow(
-      String label,
-      String value,
-      ) {
-    return TableRow(
-      children: [
-        Padding(
-          padding:
-          const EdgeInsets.symmetric(
-            vertical: 2,
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        Padding(
-          padding:
-          const EdgeInsets.symmetric(
-            vertical: 2,
-          ),
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFooterLabel(
-      IconData icon,
-      String text,
-      ) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: Colors.white54,
-          size: 14,
-        ),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            text,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(
-      IconData icon,
-      String label,
-      Color color,
-      VoidCallback onTap,
-      ) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
-      label: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 13,
-        ),
-      ),
-    );
-  }
-
-
-
-  Future<void> _handleDelete(
-      BuildContext context,
-      String itemName,
-      String id,
-      ) async {
-    final confirm =
-    await showDialog<bool>(
-      context: context,
-      builder: (innerContext) {
-        return AlertDialog(
-          backgroundColor:
-          const Color(0xFF1B263B),
-          title: Text(
-            "Delete $itemName?",
-            style: const TextStyle(
-              color: Colors.white,
-            ),
-          ),
-          content: Text(
-            "This action cannot be undone. Are you sure?",
-            style: TextStyle(
-              color:
-              Colors.white.withOpacity(0.7),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  innerContext,
-                  false,
-                );
-              },
-              child: const Text(
-                "Cancel",
-                style: TextStyle(
-                  color: Colors.white54,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                Colors.redAccent,
-              ),
-              onPressed: () {
-                Navigator.pop(
-                  innerContext,
-                  true,
-                );
-              },
-              child: const Text(
-                "Delete",
-                style: TextStyle(
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await context
-          .read<Datafeed>()
-          .deletedamage(id);
-
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-          content: Text(
-            "$itemName deleted successfully",
-            style: const TextStyle(
-              color: Colors.white,
-            ),
-          ),
-          backgroundColor: Colors.green,
-          behavior:
-          SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Failed to delete item",
-            style: TextStyle(
-              color: Colors.white,
-            ),
-          ),
-          backgroundColor:
-          Colors.redAccent,
-          behavior:
-          SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
+enum _DamageInsightView {
+  overview,
+  reasons,
+  branches,
+  suppliers,
+  items,
+  quantities,
+  costs,
 }
 
-
-class _DamageDataSource {
-  List<damageitemmodel> items;
-
-  final BuildContext context;
-
-  final double Function(
-      Map<String, dynamic>,
-      ) calcTotal;
-
-  final void Function(
-      damageitemmodel,
-      ) onEdit;
-
-  final void Function(
-      damageitemmodel,
-      ) onDelete;
-
-  final Future<void> Function(
-      damageitemmodel,
-      ) onPrint;
-
-  final Datafeed value;
-
-  _DamageDataSource({
-    required this.items,
-    required this.context,
-    required this.calcTotal,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onPrint,
-    required this.value,
-    int sortColumnIndex = 0,
-    bool sortAscending = true,
-  }) {
-    _sort(
-      sortColumnIndex,
-      sortAscending,
-    );
-  }
-
-  void _sort(
-      int columnIndex,
-      bool ascending,
-      ) {
-    items.sort(
-          (a, b) {
-        int result = 0;
-
-        final aMap =
-        Map<String, dynamic>.from(
-          a.item ?? {},
-        );
-
-        final bMap =
-        Map<String, dynamic>.from(
-          b.item ?? {},
-        );
-
-        final aFirst =
-        aMap.values.isNotEmpty &&
-            aMap.values.first is Map
-            ? aMap.values.first
-        as Map<String, dynamic>
-            : <String, dynamic>{};
-
-        final bFirst =
-        bMap.values.isNotEmpty &&
-            bMap.values.first is Map
-            ? bMap.values.first
-        as Map<String, dynamic>
-            : <String, dynamic>{};
-
-        switch (columnIndex) {
-          case 1:
-            result = (aFirst['item']
-                ?.toString() ??
-                '')
-                .compareTo(
-              bFirst['item']
-                  ?.toString() ??
-                  '',
-            );
-            break;
-
-          case 2:
-            result = calcTotal(aMap)
-                .compareTo(
-              calcTotal(bMap),
-            );
-            break;
-        }
-
-        return ascending
-            ? result
-            : -result;
-      },
-    );
-  }
-
-  List<Widget>? getRow(int index) {
-    if (index >= items.length) {
-      return null;
-    }
-
-    final d = items[index];
-
-    final itemMap =
-    Map<String, dynamic>.from(
-      d.item ?? {},
-    );
-
-    final firstItem =
-    itemMap.values.isNotEmpty &&
-        itemMap.values.first is Map
-        ? itemMap.values.first
-    as Map<String, dynamic>
-        : <String, dynamic>{};
-
-    final itemName =
-        firstItem['item']?.toString() ?? '';
-
-    final total = calcTotal(itemMap);
-
-    final itemCount = itemMap.length;
-
-    return [
-      Text(
-        '${index + 1}',
-        style: const TextStyle(
-          color: Colors.white70,
-        ),
-      ),
-
-      Column(
-        mainAxisAlignment:
-        MainAxisAlignment.center,
-        crossAxisAlignment:
-        CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            itemName.toUpperCase(),
-            maxLines: 1,
-            overflow:
-            TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            '$itemCount item(s)',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-
-      Text(
-        'GHC ${NumberFormat('#,##0.00').format(total)}',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-
-      Text(
-        d.createdat
-            .toString()
-            .substring(0, 10),
-        style: const TextStyle(
-          color: Colors.white70,
-        ),
-      ),
-
-      Text(
-        d.dateymd
-            .toString()
-            .substring(0, 10),
-        style: const TextStyle(
-          color: Colors.white70,
-        ),
-      ),
-
-      Row(
-        children: [
-          IconButton(
-            icon: const Icon(
-              Icons.print,
-              color: Colors.tealAccent,
-              size: 18,
-            ),
-            onPressed: () => onPrint(d),
-            tooltip: 'Print',
-          ),
-
-          Visibility(
-            visible: value.canEdit(
-              AppModules.stock,
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.edit_outlined,
-                color: Colors.amber,
-                size: 18,
-              ),
-              onPressed: () => onEdit(d),
-              tooltip: 'Edit',
-            ),
-          ),
-
-          Visibility(
-            visible: value.canDelete(
-              AppModules.stock,
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.delete_outline,
-                color: Colors.redAccent,
-                size: 18,
-              ),
-              onPressed: () => onDelete(d),
-              tooltip: 'Delete',
-            ),
-          ),
-        ],
-      ),
-    ];
-  }
-
-  int get rowCount => items.length;
-}
-
-
-
-/*
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-
-import '../models/appModuls.dart';
-import '../models/damageitem.dart';
-import '../providers/Datafeed.dart';
-import '../utils/damagepdf.dart';
-import '../widgets/datepicker.dart';
-import 'damages.dart';
+enum _DamageSortMode { cost, quantity, name }
 
 class DamagesListPage extends StatefulWidget {
   const DamagesListPage({super.key});
@@ -2257,7 +39,7 @@ class DamagesListPage extends StatefulWidget {
 class _DamagesListPageState extends State<DamagesListPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  final GlobalKey _branchKey = GlobalKey();
+  final GlobalKey _branchButtonKey = GlobalKey();
 
   String searchQuery = '';
   DateTimeRange? selectedDate;
@@ -2267,11 +49,18 @@ class _DamagesListPageState extends State<DamagesListPage> {
   int _sortColumnIndex = 0;
   bool _sortAscending = true;
 
-  final verticalController = ScrollController();
-  final horizontalController = ScrollController();
+  final ScrollController verticalController = ScrollController();
+  final ScrollController horizontalController = ScrollController();
 
-  static const Color _cardColor = Color(0xFF1B263B);
-  static const Color _textColor = Colors.white;
+  Color get _textColor => Theme.of(context).colorScheme.onSurface;
+  Color get _secondaryTextColor =>
+      Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _mutedTextColor =>
+      Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8);
+  Color get _cardColor => Theme.of(context).colorScheme.surfaceContainerLow;
+  Color get _cardHeaderColor => Theme.of(context).colorScheme.surfaceContainer;
+  Color get _cardBorderColor => Theme.of(context).colorScheme.outlineVariant;
+  Color get _rowColor => Theme.of(context).colorScheme.surface;
 
   bool _canManagePage(Datafeed value) => value.isAdminLevel;
 
@@ -2286,6 +75,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
       await value.fetchBranches();
 
       if (!mounted) return;
+
       final branchId = _canManagePage(value) ? null : value.branchid;
 
       await value.fetchdamages(
@@ -2304,74 +94,25 @@ class _DamagesListPageState extends State<DamagesListPage> {
     super.dispose();
   }
 
-  String _branchLabel(Datafeed value) {
-    if (!_canManagePage(value)) return value.branch;
-    if (_selectedBranchId == null) return 'All Branches';
-
-    final matches = value.branches.where((b) => b.id == _selectedBranchId);
-    if (matches.isEmpty) return 'All Branches';
-    return matches.first.branchname;
+  Map<String, dynamic> _itemsOf(damageitemmodel damage) {
+    return Map<String, dynamic>.from(damage.item);
   }
 
-  void _showBranchMenu(BuildContext context, Datafeed value) {
-    final buttonObject = _branchKey.currentContext?.findRenderObject();
-    final overlayObject = Overlay.of(context).context.findRenderObject();
-    if (buttonObject is! RenderBox || overlayObject is! RenderBox) return;
-    final RenderBox button = buttonObject;
-    final RenderBox overlay = overlayObject;
-
-    final buttonPosition = button.localToGlobal(Offset.zero, ancestor: overlay);
-
-    final position = RelativeRect.fromRect(
-      Rect.fromLTWH(
-        buttonPosition.dx,
-        buttonPosition.dy + button.size.height,
-        button.size.width,
-        0,
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    showMenu<String?>(
-      context: context,
-      position: position,
-      color: _cardColor,
-      items: [
-        const PopupMenuItem<String?>(
-          value: '__ALL__',
-          child: Text(
-            'All Branches',
-            style: TextStyle(color: _textColor, fontSize: 13),
-          ),
-        ),
-        ...{
-          for (final b in value.branches) b.id: b,
-        }.values.where((b) => b.id != null && b.id!.isNotEmpty).map(
-              (b) => PopupMenuItem<String?>(
-            value: b.id,
-            child: Text(
-              b.branchname,
-              style: const TextStyle(color: _textColor, fontSize: 13),
-            ),
-          ),
-        ),
-      ],
-    ).then((picked) {
-      if (picked == null) return;
-      final branch = picked == '__ALL__' ? null : picked;
-      setState(() => _selectedBranchId = branch);
-      _reloadDamages(value);
-    });
+  String _firstItemName(damageitemmodel damage) {
+    for (final item in damage.item.values) {
+      if (item is Map) return item['item']?.toString() ?? '';
+    }
+    return '';
   }
+
   List<damageitemmodel> filterdamages(Datafeed value) {
-    if (searchQuery.trim().isEmpty) return List.of(value.damages);
+    if (searchQuery.trim().isEmpty) {
+      return List.of(value.damages);
+    }
 
     final q = searchQuery.trim().toLowerCase();
 
     return value.damages.where((s) {
-      final itemMap = Map<String, dynamic>.from(s.item ?? {});
-
-
       final headerValues = <dynamic>[
         s.id,
         s.company,
@@ -2387,7 +128,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
 
       if (headerMatch) return true;
 
-      return itemMap.values.any((item) {
+      return s.item.values.any((item) {
         if (item is! Map) return false;
 
         return <dynamic>[
@@ -2400,29 +141,97 @@ class _DamagesListPageState extends State<DamagesListPage> {
           item['modeqty'],
           item['quantity'],
           item['totalpieces'],
-        ].any(
-              (v) => v?.toString().toLowerCase().contains(q) ?? false,
-        );
+        ].any((v) => v?.toString().toLowerCase().contains(q) ?? false);
       });
     }).toList();
   }
 
-  double _calcTotal(Map<String, dynamic> itemMap) {
-    return itemMap.values.fold<double>(0, (sum, item) {
-      if (item is Map) {
-        final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-        final qty =
-            double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0;
-        return sum + (cp * qty);
-      }
-      return sum;
+  void _openSearch() {
+    setState(() {
+      _isSearching = true;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _searchFocusNode.requestFocus();
     });
   }
 
+  void _closeSearch() {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+
+    setState(() {
+      searchQuery = '';
+      _isSearching = false;
+    });
+  }
+
+  double _calcTotal(Map<String, dynamic> itemMap) {
+    return itemMap.values.fold<double>(0, (sum, item) {
+      if (item is! Map) return sum;
+      final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
+      final qty = double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0;
+      return sum + (cp * qty);
+    });
+  }
+
+  String _formatCurrency(double amount) =>
+      NumberFormat.currency(symbol: 'GHS ', decimalDigits: 2).format(amount);
+
+  String _damageReason(damageitemmodel damage) {
+    final reasons = <String>{};
+    for (final value in damage.item.values) {
+      if (value is! Map) continue;
+      final reason = value['reason']?.toString().trim() ?? '';
+      if (reason.isNotEmpty) reasons.add(reason);
+    }
+
+    if (reasons.isNotEmpty) return reasons.join(', ');
+    final description = damage.description.trim();
+    return description.isEmpty ? 'Unspecified' : description;
+  }
+
+  void _openDamageInsight(
+      List<damageitemmodel> damages,
+      _DamageInsightView view,
+      ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _DamageInsightsPage(damages: damages, view: view),
+      ),
+    );
+  }
+
+  void _openDamageRecord(damageitemmodel damage) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _DamageRecordDetailsPage(damage: damage),
+      ),
+    );
+  }
+
+  void _editDamage(damageitemmodel damage) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => Damages(damageitem: damage)),
+    );
+  }
+
+  Future<void> _printDamage(damageitemmodel damage) async {
+    await DamageReportPdf.generate(
+      header: {
+        'company': damage.company,
+        'branchname': damage.branchname,
+        'createdby': damage.createdby,
+        'createdat': damage.createdat,
+      },
+      itemsMap: _itemsOf(damage),
+    );
+  }
+
   Future<void> _reloadDamages(Datafeed value) async {
-    final branchId = _canManagePage(value)
-        ? _selectedBranchId
-        : value.branchid;
+    final branchId = _canManagePage(value) ? _selectedBranchId : value.branchid;
 
     await value.fetchdamages(
       selectedDate: selectedDate,
@@ -2430,20 +239,98 @@ class _DamagesListPageState extends State<DamagesListPage> {
     );
   }
 
-  void _openSearch() {
-    setState(() => _isSearching = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _searchFocusNode.requestFocus();
-    });
-  }
+  Future<void> _showBranchDropdown(BuildContext context, Datafeed value) async {
+    if (!_canManagePage(value)) return;
 
-  void _closeSearch() {
-    _searchController.clear();
-    _searchFocusNode.unfocus();
+    if (value.branches.isEmpty) {
+      await value.fetchBranches();
+    }
+
+    if (!mounted) return;
+
+    final renderObject = _branchButtonKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox) return;
+
+    final position = renderObject.localToGlobal(Offset.zero);
+    final size = renderObject.size;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+
+    final selected = await showMenu<String>(
+      context: context,
+      color: _cardColor,
+      elevation: 8,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy + size.height + 4,
+        screenWidth - position.dx - size.width,
+        0,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: '',
+          height: 44,
+          child: Row(
+            children: [
+              Icon(Icons.apartment, color: _secondaryTextColor, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'All Branches',
+                  style: TextStyle(color: _textColor, fontSize: 14),
+                ),
+              ),
+              if (_selectedBranchId == null)
+                Icon(
+                  Icons.check,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 18,
+                ),
+            ],
+          ),
+        ),
+        ...value.branches.map((branch) {
+          final id = branch.id;
+          final name = branch.branchname.isNotEmpty ? branch.branchname : id;
+
+          return PopupMenuItem<String>(
+            value: id,
+            height: 44,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.store_outlined,
+                  color: _secondaryTextColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _textColor, fontSize: 14),
+                  ),
+                ),
+                if (_selectedBranchId == id)
+                  Icon(
+                    Icons.check,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 18,
+                  ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+
+    if (!mounted || selected == null) return;
+
     setState(() {
-      searchQuery = '';
-      _isSearching = false;
+      _selectedBranchId = selected.isEmpty ? null : selected;
     });
+
+    await _reloadDamages(value);
   }
 
   String _selectedBranchLabel(Datafeed value) {
@@ -2454,157 +341,8 @@ class _DamagesListPageState extends State<DamagesListPage> {
         return branch.branchname.isNotEmpty ? branch.branchname : 'Branch';
       }
     }
+
     return 'Branch';
-  }
-
-  void _showItemsDialog(BuildContext context, damageitemmodel damage) {
-    final itemMap = Map<String, dynamic>.from(damage.item ?? {});
-    final entries = itemMap.entries.where((e) => e.value is Map).toList();
-
-    if (entries.isEmpty) return;
-
-    double grandTotal = 0;
-    for (final entry in entries) {
-      final item = Map<String, dynamic>.from(entry.value as Map);
-      final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-      final pieces = double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0;
-      grandTotal += cp * pieces;
-    }
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: const Color(0xFF101624),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 650),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF22304A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.inventory_2_outlined, color: Colors.amberAccent, size: 22),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Damage Items',
-                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    Text(
-                      '${entries.length} item${entries.length == 1 ? '' : 's'}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 13),
-                    ),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.pop(dialogContext),
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, index) {
-                    final item = Map<String, dynamic>.from(entries[index].value as Map);
-                    final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-                    final pieces = double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0;
-                    final itemTotal = cp * pieces;
-                    final itemName = item['item']?.toString() ?? 'Unknown Item';
-
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B263B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.06)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${index + 1}. ${itemName.toUpperCase()}',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'GHC ${itemTotal.toStringAsFixed(2)}',
-                                style: const TextStyle(color: Colors.amberAccent, fontSize: 14, fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 20,
-                            runSpacing: 8,
-                            children: [
-                              _dialogDetail('Qty', '${item['quantity'] ?? '-'}'),
-                              _dialogDetail('Mode', '${item['mode'] ?? '-'}'),
-                              _dialogDetail('Mode Qty', '${item['modeqty'] ?? '-'}'),
-                              _dialogDetail('Total Pieces', '${item['totalpieces'] ?? '-'}'),
-                              _dialogDetail('CP', 'GHC ${cp.toStringAsFixed(2)}'),
-                              if (item['barcode'] != null) _dialogDetail('Barcode', '${item['barcode']}'),
-                            ],
-                          ),
-                          if (item['reason'] != null && item['reason'].toString().trim().isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Description: ${item['reason']}',
-                                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF22304A),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('GRAND TOTAL', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600)),
-                    Text(
-                      'GHC ${grandTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _dialogDetail(String label, String value) {
@@ -2613,13 +351,17 @@ class _DamagesListPageState extends State<DamagesListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+          Text(label, style: TextStyle(color: _mutedTextColor, fontSize: 10)),
           const SizedBox(height: 2),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: _secondaryTextColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -2637,16 +379,63 @@ class _DamagesListPageState extends State<DamagesListPage> {
       tooltip: tooltip,
       onPressed: onPressed,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(
-        minWidth: 34,
-        minHeight: 40,
-      ),
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 40),
       visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-      icon: Icon(
-        icon,
-        size: size,
-        color: color ?? Colors.white,
-      ),
+      icon: Icon(icon, size: size, color: color ?? _textColor),
+    );
+  }
+
+  Widget _actionsMenu(damageitemmodel damage, Datafeed value) {
+    final canEdit = value.canEdit(AppModules.stock);
+    final canDelete = value.canDelete(AppModules.stock);
+
+    Widget entry(IconData icon, String label) {
+      return Row(
+        children: [
+          Icon(icon, size: 18, color: _textColor),
+          const SizedBox(width: 12),
+          Text(label, style: TextStyle(color: _textColor)),
+        ],
+      );
+    }
+
+    return PopupMenuButton<String>(
+      tooltip: 'Actions',
+      color: _cardColor,
+      icon: Icon(Icons.more_vert, size: 20, color: _textColor),
+      onSelected: (action) {
+        switch (action) {
+          case 'details':
+            _openDamageRecord(damage);
+            break;
+          case 'print':
+            _printDamage(damage);
+            break;
+          case 'edit':
+            _editDamage(damage);
+            break;
+          case 'delete':
+            _handleDelete(context, _firstItemName(damage), damage.id);
+            break;
+        }
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'details',
+          child: entry(Icons.info_outline, 'View details'),
+        ),
+        PopupMenuItem(value: 'print', child: entry(Icons.print, 'Print')),
+        if (canEdit)
+          PopupMenuItem(
+            value: 'edit',
+            child: entry(Icons.edit_outlined, 'Edit'),
+          ),
+        if (canDelete)
+          PopupMenuItem(
+            value: 'delete',
+            child: entry(Icons.delete_outline, 'Delete'),
+          ),
+      ],
     );
   }
 
@@ -2662,111 +451,200 @@ class _DamagesListPageState extends State<DamagesListPage> {
         final canManage = _canManagePage(value);
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF101624),
-            foregroundColor: Colors.white,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            foregroundColor: _textColor,
             elevation: 0,
-            titleSpacing: isSmall ? 2 : 8,
             automaticallyImplyLeading: false,
-
-
-            leading: canManage
-                ? _appBarIcon(
-              icon: Icons.close,
-              size: 20,
-              tooltip: 'Close',
-              onPressed: () => Navigator.of(context).maybePop(),
-            )
-                : null,
-
+            titleSpacing: isSmall ? 2 : 8,
+            leading: _appBarIcon(
+              icon: Icons.arrow_back,
+              size: 21,
+              tooltip: 'Back',
+              onPressed: () {
+                Navigator.of(context).maybePop();
+              },
+            ),
             title: _isSearching
                 ? Container(
-              height: 38,
+              height: 44,
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0xFF22304A),
+                color: _cardColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 autofocus: true,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
+                textAlignVertical: TextAlignVertical.center,
+                style: TextStyle(
+                  color: _textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
                 ),
-                cursorColor: Colors.white,
-                decoration: const InputDecoration(
+                cursorColor: Theme.of(context).colorScheme.secondary,
+                cursorWidth: 2,
+                decoration: InputDecoration(
                   hintText: 'Search damages...',
-                  hintStyle: TextStyle(color: Colors.white54),
+                  hintStyle: TextStyle(
+                    color: _secondaryTextColor,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w400,
+                  ),
                   prefixIcon: Icon(
                     Icons.search,
-                    color: Colors.white54,
-                    size: 19,
+                    color: _secondaryTextColor,
+                    size: 22,
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
                   ),
                   border: InputBorder.none,
-                  isCollapsed: true,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 4,
+                  ),
                 ),
                 onChanged: (text) {
-                  setState(() => searchQuery = text);
+                  setState(() {
+                    searchQuery = text;
+                  });
                 },
               ),
             )
                 : const Text(
               'Damages List',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
-
             actions: _isSearching
                 ? [
               _appBarIcon(
                 icon: Icons.clear,
                 size: 18,
-                tooltip: 'Clear search',
-                onPressed: _searchController.text.isEmpty
-                    ? _closeSearch
-                    : () {
-                  _searchController.clear();
-                  setState(() => searchQuery = '');
-                  _searchFocusNode.requestFocus();
-                },
+                tooltip: 'Close search',
+                onPressed: _closeSearch,
               ),
             ]
                 : [
-// Search is available to everyone.
               _appBarIcon(
                 icon: Icons.search,
                 size: 19,
                 tooltip: 'Search damages',
                 onPressed: _openSearch,
               ),
-
-// Branch filter is only available to the three admin roles.
-              if (canManage)
-                IconButton(
-                  key: _branchKey,
-                  tooltip: 'Branch: ${_branchLabel(value)}',
-                  icon: const Icon(
-                    Icons.store_outlined,
-                    color: _textColor,
-                    size: 21,
-                  ),
-                  onPressed: () => _showBranchMenu(context, value),
+              if (canManage && !value.isloadingdamages)
+                PopupMenuButton<_DamageInsightView>(
+                  tooltip: 'Damage reports',
+                  icon: Icon(Icons.analytics_outlined, color: _textColor),
+                  onSelected: (view) => _openDamageInsight(filteredDamages, view),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _DamageInsightView.overview,
+                      child: Row(
+                        children: [
+                          Icon(Icons.dashboard_outlined),
+                          SizedBox(width: 12),
+                          Text('Damage overview'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _DamageInsightView.reasons,
+                      child: Row(
+                        children: [
+                          Icon(Icons.report_problem_outlined),
+                          SizedBox(width: 12),
+                          Text('Damage by reason'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _DamageInsightView.branches,
+                      child: Row(
+                        children: [
+                          Icon(Icons.store_outlined),
+                          SizedBox(width: 12),
+                          Text('Damage by branch'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _DamageInsightView.suppliers,
+                      child: Row(
+                        children: [
+                          Icon(Icons.local_shipping_outlined),
+                          SizedBox(width: 12),
+                          Text('Damage by supplier'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _DamageInsightView.items,
+                      child: Row(
+                        children: [
+                          Icon(Icons.inventory_2_outlined),
+                          SizedBox(width: 12),
+                          Text('Damage by item'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _DamageInsightView.quantities,
+                      child: Row(
+                        children: [
+                          Icon(Icons.numbers_outlined),
+                          SizedBox(width: 12),
+                          Text('Damaged quantity'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _DamageInsightView.costs,
+                      child: Row(
+                        children: [
+                          Icon(Icons.account_balance_wallet_outlined),
+                          SizedBox(width: 12),
+                          Text('Inventory cost by item'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-
+              if (canManage)
+                KeyedSubtree(
+                  key: _branchButtonKey,
+                  child: _appBarIcon(
+                    icon: Icons.store_outlined,
+                    size: 19,
+                    tooltip: _selectedBranchLabel(value),
+                    color: _selectedBranchId != null
+                        ? Theme.of(context).colorScheme.primary
+                        : _textColor,
+                    onPressed: () {
+                      _showBranchDropdown(context, value);
+                    },
+                  ),
+                ),
               if (!isSmall)
                 ReusableDatePickerWidget(
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(Icons.calendar_today, size: 19),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      Icons.calendar_today,
+                      size: 19,
+                      color: _textColor,
+                    ),
                   ),
                   onDateSelected: (selection) async {
-                    setState(() => selectedDate = selection);
+                    setState(() {
+                      selectedDate = selection;
+                    });
+
                     await _reloadDamages(value);
                   },
                 )
@@ -2781,105 +659,68 @@ class _DamagesListPageState extends State<DamagesListPage> {
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                       initialDateRange: selectedDate,
-                      builder: (context, child) => Theme(
-                        data: Theme.of(context).copyWith(
-                          colorScheme: const ColorScheme.dark(
-                            primary: Colors.blue,
-                            onPrimary: Colors.white,
-                            surface: Color(0xFF22304A),
-                            onSurface: Colors.white,
-                          ),
-                        ),
-                        child: child!,
-                      ),
                     );
 
                     if (selection == null) return;
-                    setState(() => selectedDate = selection);
+
+                    setState(() {
+                      selectedDate = selection;
+                    });
+
                     await _reloadDamages(value);
                   },
                 ),
             ],
           ),
-
           floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
             tooltip: 'Register Damage',
             child: const Icon(Icons.add),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const Damages()),
-            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const Damages()),
+              );
+            },
           ),
-
           body: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: isSmall ? 8 : 20,
-              vertical: isSmall ? 8 : 20,
+              horizontal: isSmall ? 12 : 20,
+              vertical: isSmall ? 12 : 16,
             ),
-            child: Column(
-              children: [
-                if (canManage && _selectedBranchId != null)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        'Branch: ${_selectedBranchLabel(value)}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
+            child: value.isloadingdamages
+                ? const Center(child: CircularProgressIndicator())
+                : filteredDamages.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_outlined,
+                    color: _mutedTextColor,
+                    size: 42,
                   ),
-
-                Expanded(
-                  child: value.isloadingdamages
-                      ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white70,
-                    ),
-                  )
-                      : filteredDamages.isEmpty
-                      ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_outlined,
-                          color: Colors.white30,
-                          size: 42,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          searchQuery.isEmpty
-                              ? 'No damages found'
-                              : 'No matching damages found',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                      : Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: 1200,
-                      ),
-                      child: isDesktop
-                          ? _desktopTable(
-                        filteredDamages,
-                        value,
-                        onViewItems: (d) => _showItemsDialog(context, d),
-                      )
-                          : _mobileList(filteredDamages, value),
-                    ),
+                  const SizedBox(height: 10),
+                  Text(
+                    searchQuery.isEmpty
+                        ? 'No damages found'
+                        : 'No matching damages found',
+                    style: TextStyle(color: _secondaryTextColor),
                   ),
+                ],
+              ),
+            )
+                : Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: isDesktop ? 1200 : 700,
                 ),
-              ],
+                child: isDesktop
+                    ? _desktopTable(filteredDamages, value)
+                    : _mobileList(filteredDamages, value),
+              ),
             ),
           ),
         );
@@ -2887,572 +728,1166 @@ class _DamagesListPageState extends State<DamagesListPage> {
     );
   }
 
-// DESKTOP TABLE
+  List<damageitemmodel> _sortedDamages(List<damageitemmodel> items) {
+    final sorted = List<damageitemmodel>.of(items);
 
-  Widget _desktopTable(
-      List<damageitemmodel> items,
-      Datafeed value,
-      {required void Function(damageitemmodel) onViewItems}
-      ) {
-    final source = _DamageDataSource(
-      items: items,
-      context: context,
-      calcTotal: _calcTotal,
-      onEdit: (d) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => Damages(damageitem: d)),
+    sorted.sort((a, b) {
+      int result = 0;
+
+      if (_sortColumnIndex == 3) {
+        result = _firstItemName(a).compareTo(_firstItemName(b));
+      } else if (_sortColumnIndex == 6) {
+        result = _calcTotal(_itemsOf(a)).compareTo(_calcTotal(_itemsOf(b)));
+      }
+
+      return _sortAscending ? result : -result;
+    });
+
+    return sorted;
+  }
+
+  List<Widget> _desktopCells(int index, damageitemmodel d, Datafeed value) {
+    final itemMap = _itemsOf(d);
+    final itemName = _firstItemName(d);
+    final total = _calcTotal(itemMap);
+    final colors = Theme.of(context).colorScheme;
+
+    return [
+      Text('${index + 1}', style: TextStyle(color: colors.onSurfaceVariant)),
+      Text(
+        DateFormat('dd MMM yyyy').format(d.createdat),
+        style: TextStyle(color: colors.onSurface),
       ),
-      onDelete: (d) {
-        final itemMap = Map<String, dynamic>.from(d.item ?? {});
-        final firstItem = itemMap.values.isNotEmpty && itemMap.values.first is Map
-            ? Map<String, dynamic>.from(itemMap.values.first as Map)
-            : {};
+      Text(
+        d.dateymd?.isNotEmpty == true ? d.dateymd! : '-',
+        style: TextStyle(color: colors.onSurface),
+      ),
+      Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            itemName.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            '${itemMap.length} item(s)',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
+          ),
+        ],
+      ),
+      Text(
+        d.branchname.isEmpty ? 'Unassigned' : d.branchname,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: colors.onSurface),
+      ),
+      Text(
+        _damageReason(d),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: colors.onSurfaceVariant),
+      ),
+      Text(
+        'GHS ${NumberFormat('#,##0.00').format(total)}',
+        style: TextStyle(
+          color: colors.onSurface,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      _actionsMenu(d, value),
+    ];
+  }
 
-        final name = firstItem['item']?.toString() ?? '';
-        _handleDelete(context, name.isEmpty ? 'this damage' : name, d.id);
-      },
-      onViewItems: onViewItems,
-      onPrint: (d) async {
-        final itemsMap = Map<String, dynamic>.from(d.item ?? {});
-        await DamageReportPdf.generate(
-          header: {
-            'company': d.company,
-            'branchname': d.branchname,
-            'createdby': d.createdby,
-            'createdat': d.createdat,
-          },
-          itemsMap: itemsMap,
-        );
-      },
-      sortColumnIndex: _sortColumnIndex,
-      sortAscending: _sortAscending,
-      value: value,
-    );
+  Widget _desktopTable(List<damageitemmodel> items, Datafeed value) {
+    const cols = <_DamageCol>[
+      _DamageCol('#', 1),
+      _DamageCol('Date', 3),
+      _DamageCol('Trx Date', 3),
+      _DamageCol('Item', 5, sortable: true),
+      _DamageCol('Branch / Warehouse', 4),
+      _DamageCol('Reason', 4),
+      _DamageCol('Total (GHS)', 3, sortable: true, alignment: Alignment.centerRight),
+      _DamageCol('Actions', 2, alignment: Alignment.center),
+    ];
 
-    const columnWidths = <double>[30, 250, 140, 90, 90, 250];
-    const columnLabels = <String>['#', 'Item', 'Total (GHS)', 'Date', 'Trx Date', 'Actions'];
+    final rows = _sortedDamages(items);
 
-    Widget buildHeaderLabel(int index) {
-      final sortable = index == 1 || index == 2;
-      final isActive = _sortColumnIndex == index;
+    Widget tableRow(List<Widget> cells, double height, Color color) {
+      return Container(
+        height: height,
+        color: color,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            for (var i = 0; i < cols.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(
+                flex: cols[i].flex,
+                child: Align(alignment: cols[i].alignment, child: cells[i]),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    Widget headerCell(int i) {
+      final col = cols[i];
+      final active = _sortColumnIndex == i;
+
       final label = Text(
-        columnLabels[index],
-        style: const TextStyle(
-          color: Colors.white70,
+        col.label,
+        style: TextStyle(
+          color: _secondaryTextColor,
           fontWeight: FontWeight.w600,
           fontSize: 12,
           letterSpacing: 0.5,
         ),
       );
 
-      Widget content = label;
-      if (sortable) {
-        content = Row(
+      if (!col.sortable) return label;
+
+      return InkWell(
+        onTap: () {
+          setState(() {
+            if (active) {
+              _sortAscending = !_sortAscending;
+            } else {
+              _sortColumnIndex = i;
+              _sortAscending = true;
+            }
+          });
+        },
+        child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment:
-          index == 2 ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
-            if (index == 2 && isActive) ...[
-              Icon(
-                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                color: Colors.white70,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-            ],
             label,
-            if (index != 2 && isActive) ...[
+            if (active) ...[
               const SizedBox(width: 4),
               Icon(
                 _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                color: Colors.white70,
+                color: _secondaryTextColor,
                 size: 14,
               ),
             ],
           ],
-        );
-      }
-
-      final aligned = Align(
-        alignment: index == 2 ? Alignment.centerRight : Alignment.centerLeft,
-        child: content,
-      );
-
-      return SizedBox(
-        width: columnWidths[index],
-        child: sortable
-            ? InkWell(
-          onTap: () => setState(() {
-            if (_sortColumnIndex == index) {
-              _sortAscending = !_sortAscending;
-            } else {
-              _sortColumnIndex = index;
-              _sortAscending = true;
-            }
-          }),
-          child: aligned,
-        )
-            : aligned,
+        ),
       );
     }
 
-    List<Widget> withSpacing(List<Widget> cells) {
-      final spaced = <Widget>[];
-      for (var i = 0; i < cells.length; i++) {
-        spaced.add(cells[i]);
-        if (i != cells.length - 1) spaced.add(const SizedBox(width: 10));
-      }
-      return spaced;
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth =
+        constraints.maxWidth < 900 ? 900.0 : constraints.maxWidth;
 
-    return ScrollbarTheme(
-      data: ScrollbarThemeData(
-        thumbColor: MaterialStateProperty.all(
-          const Color(0xFF415A77),
-        ),
-        trackColor: MaterialStateProperty.all(
-          const Color(0xFF22304A),
-        ),
-        trackBorderColor: MaterialStateProperty.all(
-          const Color(0xFF1B263B),
-        ),
-        thickness: MaterialStateProperty.all(10),
-        radius: const Radius.circular(8),
-      ),
-      child: Scrollbar(
-        controller: horizontalController,
-        thumbVisibility: true,
-        trackVisibility: true,
-        interactive: true,
-        child: SingleChildScrollView(
+        return Scrollbar(
           controller: horizontalController,
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 1050,
-            child: Column(
-              children: [
-                Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  color: const Color(0xFF22304A),
-                  child: Row(
-                    children: withSpacing(
-                      List.generate(columnLabels.length, buildHeaderLabel),
+          thumbVisibility: true,
+          notificationPredicate: (notif) => notif.depth == 1,
+          child: SingleChildScrollView(
+            controller: horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              child: Column(
+                children: [
+                  tableRow(
+                    List.generate(cols.length, headerCell),
+                    44,
+                    _cardColor,
+                  ),
+                  Expanded(
+                    child: Scrollbar(
+                      controller: verticalController,
+                      thumbVisibility: true,
+                      child: ListView.builder(
+                        controller: verticalController,
+                        itemCount: rows.length,
+                        itemBuilder: (context, index) => tableRow(
+                          _desktopCells(index, rows[index], value),
+                          52,
+                          _rowColor,
+                        ),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _mobileList(List<damageitemmodel> filteredDamages, Datafeed value) {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+      itemCount: filteredDamages.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final damage = filteredDamages[index];
+        final itemMap = _itemsOf(damage);
+        final itemName = _firstItemName(damage);
+        final totalAmount = _calcTotal(itemMap);
+
+        return Container(
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _cardBorderColor),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 4,
+                    top: 6,
+                    bottom: 6,
+                  ),
+                  color: _cardHeaderColor,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          itemName.isEmpty ? 'Damage record' : itemName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      _actionsMenu(damage, value),
+                    ],
+                  ),
                 ),
-                Expanded(
-                  child: Scrollbar(
-                    controller: verticalController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    interactive: true,
-                    child: ListView.builder(
-                      controller: verticalController,
-                      itemCount: source.rowCount,
-                      itemBuilder: (context, index) {
-                        final cells = source.getRow(index);
-                        if (cells == null) return const SizedBox();
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reason: ${_damageReason(damage)}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _secondaryTextColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ...itemMap.values.map((rawItem) {
+                        if (rawItem is! Map) return const SizedBox();
+
+                        final item = Map<String, dynamic>.from(rawItem);
+                        final cp =
+                            double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
+                        final qty =
+                            double.tryParse(
+                              item['totalpieces']?.toString() ?? '0',
+                            ) ??
+                                0;
+
                         return Container(
-                          height: 52,
-                          padding: const EdgeInsets.symmetric(horizontal: 15),
-                          color: const Color(0xFF1B263B),
-                          child: Row(
-                            children: withSpacing(
-                              List.generate(columnWidths.length, (i) {
-                                return SizedBox(
-                                  width: columnWidths[i],
-                                  child: Align(
-                                    alignment: i == 2
-                                        ? Alignment.centerRight
-                                        : Alignment.centerLeft,
-                                    child: cells[i],
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: _cardBorderColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item['item']?.toString().toUpperCase() ??
+                                          '',
+                                      style: TextStyle(
+                                        color: _textColor,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                                   ),
-                                );
-                              }),
-                            ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _formatCurrency(cp * qty),
+                                    style: TextStyle(
+                                      color: _textColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 16,
+                                runSpacing: 8,
+                                children: [
+                                  _dialogDetail(
+                                    'Quantity',
+                                    '${item['quantity'] ?? '-'} ${item['mode'] ?? ''}',
+                                  ),
+                                  _dialogDetail(
+                                    'Pieces',
+                                    '${item['totalpieces'] ?? '-'}',
+                                  ),
+                                ],
+                              ),
+                              if (item['reason'] != null &&
+                                  item['reason']
+                                      .toString()
+                                      .trim()
+                                      .isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Reason: ${item['reason']}',
+                                  style: TextStyle(
+                                    color: _secondaryTextColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         );
-                      },
-                    ),
+                      }),
+                      Divider(color: _cardBorderColor),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final details = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildFooterLabel(
+                                Icons.person_outline,
+                                'Staff: ${damage.createdby}',
+                              ),
+                              const SizedBox(height: 6),
+                              _buildFooterLabel(
+                                Icons.calendar_today_outlined,
+                                'Date: ${DateFormat('dd MMM yyyy').format(damage.createdat)}',
+                              ),
+                              const SizedBox(height: 6),
+                              _buildFooterLabel(
+                                Icons.store_outlined,
+                                'Branch: ${damage.branchname.isEmpty ? 'Unassigned' : damage.branchname}',
+                              ),
+                            ],
+                          );
+
+                          final amount = Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'INVENTORY COST',
+                                style: TextStyle(
+                                  color: _mutedTextColor,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              Text(
+                                _formatCurrency(totalAmount),
+                                style: TextStyle(
+                                  color: _textColor,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          );
+
+                          if (constraints.maxWidth < 420) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                details,
+                                const SizedBox(height: 12),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: amount,
+                                ),
+                              ],
+                            );
+                          }
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: details),
+                              const SizedBox(width: 12),
+                              amount,
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
-  }
-
-//  MOBILE LIST
-
-  Widget _mobileList(List<damageitemmodel> filteredDamages,Datafeed value) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 700),
-        child: ListView.separated(
-          itemCount: filteredDamages.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final damages = filteredDamages[index];
-            final id = damages.id;
-
-            final Map<String, dynamic> itemMap =
-            Map<String, dynamic>.from(damages.item ?? {});
-            final firstItem = itemMap.values.isNotEmpty &&
-                itemMap.values.first is Map
-                ? Map<String, dynamic>.from(itemMap.values.first as Map)
-                : {};
-            final itemName = firstItem['item']?.toString() ?? '';
-            final totalamountt = _calcTotal(itemMap);
-
-            return Container(
-              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B263B),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.05)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-// ── header ──
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.white.withOpacity(0.03),
-                      child: Wrap(
-                        spacing: 4,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.amberAccent.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              "ITEM #$itemName",
-                              style: const TextStyle(
-                                color: Colors.amberAccent,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.1,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            "#: ${index + 1}",
-                            softWrap: true,
-                            maxLines: 2,
-                            style: TextStyle(
-                                color: Colors.white70.withOpacity(0.5),
-                                fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-
-// ── items ──
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ...itemMap.values.map((item) {
-                            if (item is! Map) return const SizedBox();
-                            final itemData = Map<String, dynamic>.from(item);
-                            final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-                            final qty = double.tryParse(item['totalpieces']?.toString() ?? '0') ?? 0;
-                            final itemCost = cp * qty;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.black12,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          itemData['item']?.toString().toUpperCase() ?? '',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        "GHC ${itemCost.toStringAsFixed(2)}",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Divider(color: Colors.white10, height: 20),
-                                  Table(
-                                    columnWidths: const {
-                                      0: FlexColumnWidth(1),
-                                      1: FlexColumnWidth(1),
-                                    },
-                                    children: [
-                                      _buildTableRow("Qty", "${item['quantity']} (${item['mode']})"),
-                                      if (item['cp'] != null) ...[
-                                        _buildTableRow("CP", "GHC ${cp.toStringAsFixed(2)}"),
-                                        _buildTableRow("Mode qty", "${item['modeqty']}"),
-                                      ],
-                                      if (item['barcode'] != null)
-                                        _buildTableRow("Barcode", "${item['barcode']}"),
-                                    ],
-                                  ),
-                                  if (itemData['reason'] != null &&
-                                      itemData['reason'].toString().trim().isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.redAccent.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        "Description: ${item['reason']}",
-                                        style: const TextStyle(
-                                          color: Colors.redAccent,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            );
-                          }),
-                          const Divider(color: Colors.white24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildFooterLabel(Icons.person_outline,
-                                      "Staff: ${damages.createdby}"),
-                                  const SizedBox(height: 4),
-                                  _buildFooterLabel(
-                                      Icons.calendar_today_outlined,
-                                      "Date: ${(damages.createdat.toString().length >= 10 ? damages.createdat.toString().substring(0, 10) : damages.createdat.toString())}"),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  const Text("TOTAL AMOUNT",
-                                      style: TextStyle(
-                                          color: Colors.white54, fontSize: 10)),
-                                  Text(
-                                    "GHC ${totalamountt.toStringAsFixed(2)}",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-// ── actions ──
-                    Container(
-                      color: Colors.black26,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Wrap(
-//  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildActionButton(Icons.print, "Print",
-                              Colors.tealAccent, () async {
-                                final itemsMap =
-                                Map<String, dynamic>.from(damages.item ?? {});
-                                await DamageReportPdf.generate(
-                                  header: {
-                                    'company': damages.company,
-                                    'branchname': damages.branchname,
-                                    'createdby': damages.createdby,
-                                    'createdat': damages.createdat,
-                                  },
-                                  itemsMap: itemsMap,
-                                );
-                              }),
-                          Visibility(
-                            visible: value.canEdit(AppModules.stock),
-                            child: _buildActionButton(Icons.edit_outlined, "",   Colors.amber, () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => Damages(damageitem: damages)),
-                              );
-                            }),
-                          ),
-                          Visibility(
-                              visible: value.canDelete(AppModules.stock),
-                              child: _buildActionButton(Icons.delete_outline, "",   Colors.redAccent,
-                                      () => _handleDelete(
-                                      context,
-                                      itemName.isEmpty ? 'this damage' : itemName,
-                                      id))),
-
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-// HELPERS
-
-  TableRow _buildTableRow(String label, String value) {
-    return TableRow(children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 12)),
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Text(value,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500)),
-      ),
-    ]);
   }
 
   Widget _buildFooterLabel(IconData icon, String text) {
-    return Row(children: [
-      Icon(icon, color: Colors.white54, size: 14),
-      const SizedBox(width: 4),
-      Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
-    ]);
-  }
-
-  Widget _buildActionButton(
-      IconData icon, String label, Color color, VoidCallback onTap) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: color, size: 20),
-      label: Text(label, style: TextStyle(color: color, fontSize: 13)),
+    return Row(
+      children: [
+        Icon(icon, color: _secondaryTextColor, size: 14),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _textColor, fontSize: 12),
+          ),
+        ),
+      ],
     );
   }
 
   Future<void> _handleDelete(
-      BuildContext context, String itemName, String id) async {
+      BuildContext context,
+      String itemName,
+      String id,
+      ) async {
+    final name = itemName.isEmpty ? 'this damage' : itemName;
+
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (innerContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B263B),
-        title: Text("Delete $itemName?",
-            style: const TextStyle(color: Colors.white)),
-        content: Text("This action cannot be undone. Are you sure?",
-            style: TextStyle(color: Colors.white.withOpacity(0.7))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(innerContext, false),
-            child:
-            const Text("Cancel", style: TextStyle(color: Colors.white54)),
+      builder: (innerContext) {
+        return AlertDialog(
+          backgroundColor: _cardColor,
+          title: Text('Delete $name?', style: TextStyle(color: _textColor)),
+          content: Text(
+            'This action cannot be undone. Are you sure?',
+            style: TextStyle(color: _secondaryTextColor),
           ),
-          ElevatedButton(
-            style:
-            ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.pop(innerContext, true),
-            child:
-            const Text("Delete", style: TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(innerContext, false),
+              child: Text('Cancel', style: TextStyle(color: _mutedTextColor)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(innerContext, true),
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.onError),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+    if (!context.mounted) return;
+
+    try {
+      await context.read<Datafeed>().deletedamage(id);
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$name deleted successfully',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+          ),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Failed to delete item',
+            style: TextStyle(color: Theme.of(context).colorScheme.onError),
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+}
+
+class _DamageInsightsPage extends StatefulWidget {
+  const _DamageInsightsPage({required this.damages, required this.view});
+
+  final List<damageitemmodel> damages;
+  final _DamageInsightView view;
+
+  @override
+  State<_DamageInsightsPage> createState() => _DamageInsightsPageState();
+}
+
+class _DamageInsightsPageState extends State<_DamageInsightsPage> {
+  List<damageitemmodel> get damages => widget.damages;
+  _DamageInsightView get view => widget.view;
+
+  late _DamageSortMode _sortMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _sortMode = switch (view) {
+      _DamageInsightView.quantities => _DamageSortMode.quantity,
+      _DamageInsightView.items => _DamageSortMode.name,
+      _ => _DamageSortMode.cost,
+    };
+  }
+
+  double _number(dynamic value) =>
+      double.tryParse(value?.toString().replaceAll(',', '') ?? '') ?? 0;
+
+  double _units(damageitemmodel damage) {
+    return damage.item.values.fold<double>(0, (sum, rawItem) {
+      if (rawItem is! Map) return sum;
+      return sum + _number(rawItem['totalpieces']);
+    });
+  }
+
+  double _cost(damageitemmodel damage) {
+    return damage.item.values.fold<double>(0, (sum, rawItem) {
+      if (rawItem is! Map) return sum;
+      return sum + _number(rawItem['cp']) * _number(rawItem['totalpieces']);
+    });
+  }
+
+  String _groupKey(damageitemmodel damage, Map item) {
+    String value(String key, {String fallback = 'Unspecified'}) {
+      final text = item[key]?.toString().trim() ?? '';
+      return text.isEmpty ? fallback : text;
+    }
+
+    return switch (view) {
+      _DamageInsightView.reasons => value(
+        'reason',
+        fallback: damage.description.trim().isEmpty
+            ? 'Unspecified'
+            : damage.description.trim(),
+      ),
+      _DamageInsightView.suppliers => value('supplier'),
+      _DamageInsightView.items ||
+      _DamageInsightView.quantities ||
+      _DamageInsightView.costs => value('item', fallback: 'Unknown item'),
+      _ => '',
+    };
+  }
+
+  Map<String, _DamageSummaryBucket> _groupByItemField() {
+    final groups = <String, _DamageSummaryBucket>{};
+    for (final damage in damages) {
+      for (final rawItem in damage.item.values.whereType<Map>()) {
+        final key = _groupKey(damage, rawItem);
+        final bucket = groups.putIfAbsent(key, _DamageSummaryBucket.new);
+        final units = _number(rawItem['totalpieces']);
+        bucket
+          ..amount += _number(rawItem['cp']) * units
+          ..units += units
+          ..recordIds.add(damage.id);
+      }
+    }
+    return groups;
+  }
+
+  Map<String, _DamageSummaryBucket> _groupByBranch() {
+    final groups = <String, _DamageSummaryBucket>{};
+    for (final damage in damages) {
+      final key = damage.branchname.trim().isEmpty
+          ? 'Unassigned'
+          : damage.branchname.trim();
+      final bucket = groups.putIfAbsent(key, _DamageSummaryBucket.new);
+      bucket
+        ..amount += _cost(damage)
+        ..units += _units(damage)
+        ..recordIds.add(damage.id);
+    }
+    return groups;
+  }
+
+  bool _matchesGroup(damageitemmodel damage, String key) {
+    if (view == _DamageInsightView.branches) {
+      final branch = damage.branchname.trim().isEmpty
+          ? 'Unassigned'
+          : damage.branchname.trim();
+      return branch == key;
+    }
+    return damage.item.values.whereType<Map>().any(
+          (item) => _groupKey(damage, item) == key,
+    );
+  }
+
+  void _openGroup(BuildContext context, String key) {
+    final records = damages
+        .where((damage) => _matchesGroup(damage, key))
+        .toList();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _DamageGroupItemsPage(
+          damages: records,
+          view: view,
+          groupLabel: key,
+        ),
+      ),
+    );
+  }
+
+  String get _title => switch (view) {
+    _DamageInsightView.overview => 'Damage overview',
+    _DamageInsightView.reasons => 'Damage by reason',
+    _DamageInsightView.branches => 'Damage by branch',
+    _DamageInsightView.suppliers => 'Damage by supplier',
+    _DamageInsightView.items => 'Damage by item',
+    _DamageInsightView.quantities => 'Damaged quantity',
+    _DamageInsightView.costs => 'Inventory cost by item',
+  };
+
+  IconData get _iconForView => switch (view) {
+    _DamageInsightView.reasons => Icons.report_problem_outlined,
+    _DamageInsightView.branches => Icons.store_outlined,
+    _DamageInsightView.suppliers => Icons.local_shipping_outlined,
+    _DamageInsightView.items => Icons.inventory_2_outlined,
+    _DamageInsightView.quantities => Icons.numbers_outlined,
+    _DamageInsightView.costs => Icons.account_balance_wallet_outlined,
+    _DamageInsightView.overview => Icons.dashboard_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final currency = NumberFormat.currency(symbol: 'GHS ', decimalDigits: 2);
+    final totalUnits = damages.fold<double>(0, (sum, d) => sum + _units(d));
+    final totalCost = damages.fold<double>(0, (sum, d) => sum + _cost(d));
+    final groups = view == _DamageInsightView.branches
+        ? _groupByBranch()
+        : _groupByItemField();
+    final orderedGroups = groups.entries.toList()
+      ..sort((a, b) {
+        if (_sortMode == _DamageSortMode.quantity) {
+          return b.value.units.compareTo(a.value.units);
+        }
+        if (_sortMode == _DamageSortMode.name) {
+          return a.key.toLowerCase().compareTo(b.key.toLowerCase());
+        }
+        return b.value.amount.compareTo(a.value.amount);
+      });
+
+    Widget metric(IconData icon, String label, String value) => Container(
+      constraints: const BoxConstraints(minWidth: 190),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: theme.textTheme.bodySmall),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
-      try {
-        await context.read<Datafeed>().deletedamage(id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text("$itemName deleted successfully",style: TextStyle(color: Colors.white),),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Failed to delete item",style: TextStyle(color: Colors.white),),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
-      }
-    }
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_title),
+        actions: [
+          if (view != _DamageInsightView.overview)
+            PopupMenuButton<_DamageSortMode>(
+              tooltip: 'Sort results',
+              initialValue: _sortMode,
+              onSelected: (mode) => setState(() => _sortMode = mode),
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: _DamageSortMode.cost,
+                  child: Text('Highest inventory cost'),
+                ),
+                PopupMenuItem(
+                  value: _DamageSortMode.quantity,
+                  child: Text('Highest quantity'),
+                ),
+                PopupMenuItem(
+                  value: _DamageSortMode.name,
+                  child: Text('Name A - Z'),
+                ),
+              ],
+              icon: const Icon(Icons.sort),
+            ),
+        ],
+      ),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (view == _DamageInsightView.overview) ...[
+                Text(
+                  'Based on the damage records currently loaded for this date and branch selection.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth >= 680
+                        ? 3
+                        : constraints.maxWidth >= 420
+                        ? 2
+                        : 1;
+                    const gap = 10.0;
+                    final width =
+                        (constraints.maxWidth - (columns - 1) * gap) / columns;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        SizedBox(
+                          width: width,
+                          child: metric(
+                            Icons.receipt_long_outlined,
+                            'Damage records',
+                            '${damages.length}',
+                          ),
+                        ),
+                        SizedBox(
+                          width: width,
+                          child: metric(
+                            Icons.inventory_2_outlined,
+                            'Units damaged',
+                            NumberFormat('#,##0.##').format(totalUnits),
+                          ),
+                        ),
+                        SizedBox(
+                          width: width,
+                          child: metric(
+                            Icons.account_balance_wallet_outlined,
+                            'Inventory cost',
+                            currency.format(totalCost),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'Recent damage records',
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                ...damages.take(20).map((damage) {
+                  final itemNames = damage.item.values
+                      .whereType<Map>()
+                      .map((item) => item['item']?.toString() ?? '')
+                      .where((name) => name.isNotEmpty)
+                      .take(2)
+                      .join(', ');
+                  return Card(
+                    color: colors.surface,
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.warning_amber_outlined,
+                        color: colors.primary,
+                      ),
+                      title: Text(
+                        itemNames.isEmpty ? 'Damage record' : itemNames,
+                      ),
+                      subtitle: Text(
+                        '${damage.branchname.isEmpty ? 'Unassigned' : damage.branchname} - ${DateFormat('dd MMM yyyy').format(damage.createdat)}',
+                      ),
+                      trailing: Text(currency.format(_cost(damage))),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              _DamageRecordDetailsPage(damage: damage),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ] else ...[
+                Text(
+                  switch (view) {
+                    _DamageInsightView.reasons =>
+                    'Select a reason to see the matching item, supplier, quantity, cost, and staff.',
+                    _DamageInsightView.branches =>
+                    'Select a branch to see its damage records and item details.',
+                    _DamageInsightView.suppliers =>
+                    'Select a supplier to see the damaged items linked to that supplier.',
+                    _DamageInsightView.items =>
+                    'Select an item to see its damage history, reasons, and suppliers.',
+                    _DamageInsightView.quantities =>
+                    'Items ranked by total damaged quantity. Select one to inspect its records.',
+                    _DamageInsightView.costs =>
+                    'Items ranked by inventory cost. Select one to inspect its records.',
+                    _DamageInsightView.overview => '',
+                  },
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (orderedGroups.isEmpty)
+                  const Center(child: Text('No damage records available.'))
+                else
+                  ...orderedGroups.map(
+                        (entry) => Card(
+                      color: colors.surface,
+                      child: ListTile(
+                        leading: Icon(_iconForView, color: colors.primary),
+                        title: Text(entry.key),
+                        subtitle: Text(
+                          '${NumberFormat('#,##0.##').format(entry.value.units)} units - ${entry.value.records} records',
+                        ),
+                        trailing: Text(currency.format(entry.value.amount)),
+                        onTap: () => _openGroup(context, entry.key),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
-// DATA SOURCE
+class _DamageGroupItemsPage extends StatelessWidget {
+  const _DamageGroupItemsPage({
+    required this.damages,
+    required this.view,
+    required this.groupLabel,
+  });
 
-class _DamageDataSource {
-List<damageitemmodel> items;
-final BuildContext context;
-final double Function(Map<String, dynamic>) calcTotal;
+  final List<damageitemmodel> damages;
+  final _DamageInsightView view;
+  final String groupLabel;
 
-final void Function(damageitemmodel) onEdit;
-final void Function(damageitemmodel) onDelete;
-final Future<void> Function(damageitemmodel) onPrint;
+  double _number(dynamic value) =>
+      double.tryParse(value?.toString().replaceAll(',', '') ?? '') ?? 0;
 
+  bool _matches(damageitemmodel damage, Map item) {
+    final key = switch (view) {
+      _DamageInsightView.branches =>
+      damage.branchname.trim().isEmpty
+          ? 'Unassigned'
+          : damage.branchname.trim(),
+      _DamageInsightView.reasons =>
+      (item['reason']?.toString().trim().isNotEmpty ?? false)
+          ? item['reason'].toString().trim()
+          : (damage.description.trim().isEmpty
+          ? 'Unspecified'
+          : damage.description.trim()),
+      _DamageInsightView.suppliers =>
+      item['supplier']?.toString().trim().isNotEmpty == true
+          ? item['supplier'].toString().trim()
+          : 'Unspecified',
+      _ =>
+      item['item']?.toString().trim().isNotEmpty == true
+          ? item['item'].toString().trim()
+          : 'Unknown item',
+    };
+    return key.toLowerCase() == groupLabel.toLowerCase();
+  }
 
-final void Function(damageitemmodel) onViewItems;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final currency = NumberFormat.currency(symbol: 'GHS ', decimalDigits: 2);
+    final itemLevel = view != _DamageInsightView.branches;
 
-Datafeed value;
-
-_DamageDataSource({
-required this.items,
-required this.context,
-required this.calcTotal,
-required this.onEdit,
-required this.onDelete,
-required this.onPrint,
-
-// THIS NOW MATCHES THE FIELD ABOVE
-required this.onViewItems,
-
-required this.value,
-int sortColumnIndex = 0,
-bool sortAscending = true,
-}) {
-_sort(sortColumnIndex, sortAscending);
+    return Scaffold(
+      appBar: AppBar(title: Text(groupLabel)),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(
+                itemLevel
+                    ? 'Matching damaged items - supplier, reason, quantity, cost, and staff are shown for each record.'
+                    : 'Damage items recorded for this branch.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final damage in damages)
+                for (final entry in damage.item.entries)
+                  if (entry.value is Map && _matches(damage, entry.value as Map))
+                    Builder(
+                      builder: (context) {
+                        final item = entry.value as Map;
+                        final pieces = _number(item['totalpieces']);
+                        final cost = _number(item['cp']) * pieces;
+                        final branch = damage.branchname.isEmpty
+                            ? 'Unassigned'
+                            : damage.branchname;
+                        final reason = item['reason']?.toString().trim();
+                        final supplier = item['supplier']?.toString().trim();
+                        final itemName =
+                        item['item']?.toString().trim().isNotEmpty == true
+                            ? item['item'].toString().trim()
+                            : 'Unknown item';
+                        final info = [
+                          if (reason != null && reason.isNotEmpty)
+                            'Reason: $reason',
+                          'Supplier: ${supplier == null || supplier.isEmpty ? 'Unspecified' : supplier}',
+                          'Staff: ${damage.createdby}',
+                          'Branch: $branch',
+                          'Qty: ${item['quantity'] ?? '-'} ${item['mode'] ?? ''} (${NumberFormat('#,##0.##').format(pieces)} pcs)',
+                        ].join(' - ');
+                        return Card(
+                          color: colors.surface,
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.inventory_2_outlined,
+                              color: colors.primary,
+                            ),
+                            title: Text(itemName),
+                            subtitle: Text(
+                              '$info\n${DateFormat('dd MMM yyyy, hh:mm a').format(damage.createdat)}',
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            isThreeLine: true,
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  currency.format(cost),
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  itemLevel
+                                      ? '${NumberFormat('#,##0.##').format(pieces)} pcs'
+                                      : currency.format(cost),
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => _DamageRecordDetailsPage(
+                                  damage: damage,
+                                  itemKeys: {entry.key},
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
-*/
+
+class _DamageRecordDetailsPage extends StatelessWidget {
+  const _DamageRecordDetailsPage({required this.damage, this.itemKeys});
+
+  final damageitemmodel damage;
+  final Set<String>? itemKeys;
+
+  double _number(dynamic value) =>
+      double.tryParse(value?.toString().replaceAll(',', '') ?? '') ?? 0;
+
+  Widget _detail(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 180,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 3),
+          Text(
+            value.isEmpty ? '-' : value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final currency = NumberFormat.currency(symbol: 'GHS ', decimalDigits: 2);
+    final itemEntries = damage.item.entries
+        .where(
+          (entry) =>
+      entry.value is Map &&
+          (itemKeys == null || itemKeys!.contains(entry.key)),
+    )
+        .toList();
+    final totalCost = itemEntries.fold<double>(0, (sum, entry) {
+      final item = entry.value as Map;
+      return sum + _number(item['cp']) * _number(item['totalpieces']);
+    });
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Damage record details')),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+
+              Text('Damaged items', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ...itemEntries.map((entry) {
+                final item = entry.value as Map;
+                final unitCost = _number(item['cp']);
+                final quantity = _number(item['totalpieces']);
+                final total = unitCost * quantity;
+                return Card(
+                  color: colors.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item['item']?.toString() ?? 'Unknown item',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              currency.format(total),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 24,
+                          runSpacing: 12,
+                          children: [
+                            _detail(
+                              context,
+                              'Quantity',
+                              '${item['quantity'] ?? '-'} ${item['mode'] ?? ''}',
+                            ),
+                            _detail(
+                              context,
+                              'Total pieces',
+                              NumberFormat('#,##0.##').format(quantity),
+                            ),
+                            _detail(
+                              context,
+                              'Unit cost',
+                              currency.format(unitCost),
+                            ),
+                            _detail(
+                              context,
+                              'Reason',
+                              item['reason']?.toString() ?? '',
+                            ),
+                            _detail(
+                              context,
+                              'Supplier',
+                              item['supplier']?.toString() ?? '',
+                            ),
+                            if (item['barcode'] != null)
+                              _detail(context, 'Barcode', '${item['barcode']}'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+}
+
+class _DamageCol {
+  final String label;
+  final int flex;
+  final bool sortable;
+  final Alignment alignment;
+
+  const _DamageCol(
+      this.label,
+      this.flex, {
+        this.sortable = false,
+        this.alignment = Alignment.centerLeft,
+      });
+}

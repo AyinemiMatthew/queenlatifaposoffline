@@ -14,13 +14,32 @@ class AccountTypeList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
-        final query = value.db.collection('accounts').where('companyId', isEqualTo: value.companyid).where('accountClass', isEqualTo: accountClass).orderBy('name');
+        final query = value.db
+            .collection('accounts')
+            .where('companyId', isEqualTo: value.companyid)
+            .where('accountClass', isEqualTo: accountClass)
+            .orderBy('name');
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final colorScheme = Theme.of(context).colorScheme;
+        final pageColor = isDark
+            ? const Color(0xFF101A23)
+            : colorScheme.surface;
+        final appBarColor = isDark
+            ? const Color(0xFF0D1A26)
+            : colorScheme.surface;
+        final cardColor = isDark
+            ? const Color(0xFF182232)
+            : colorScheme.surface;
+        final foregroundColor = isDark ? Colors.white : colorScheme.onSurface;
+        final secondaryColor = isDark
+            ? Colors.white70
+            : colorScheme.onSurfaceVariant;
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: pageColor,
           appBar: AppBar(
             title: Text('$accountClass Accounts'),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
+            backgroundColor: appBarColor,
+            foregroundColor: foregroundColor,
             elevation: 2,
           ),
           floatingActionButton: FloatingActionButton(
@@ -35,29 +54,29 @@ class AccountTypeList extends StatelessWidget {
                 ),
               );
             },
-            child: const Icon(Icons.add, color: Colors.white),
+            child: Icon(Icons.add, color: foregroundColor),
           ),
           body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: query.snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
                 return Center(
                   child: Text(
                     'Failed to load accounts: ${snapshot.error}',
-                    style: const TextStyle(color: Colors.white70),
+                    style: TextStyle(color: secondaryColor),
                   ),
                 );
               }
 
               final accounts = snapshot.data?.docs ?? const [];
               if (accounts.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text(
                     'No accounts found for this class.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: secondaryColor),
                   ),
                 );
               }
@@ -76,21 +95,21 @@ class AccountTypeList extends StatelessWidget {
                   ].where((value) => value.trim().isNotEmpty).toList();
 
                   return Card(
-                    color: const Color(0xFF182232),
+                    color: cardColor,
                     child: ListTile(
-                      leading: const Icon(
+                      leading: Icon(
                         Icons.account_balance_wallet,
-                        color: Colors.white70,
+                        color: secondaryColor,
                       ),
                       title: Text(
                         account.name,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: foregroundColor),
                       ),
                       subtitle: Text(
                         details.join(' • '),
-                        style: const TextStyle(color: Colors.white54),
+                        style: TextStyle(color: secondaryColor),
                       ),
-                      trailing: const Icon(Icons.edit, color: Colors.white54),
+                      trailing: Icon(Icons.edit, color: secondaryColor),
                       onTap: () {
                         Navigator.push(
                           context,

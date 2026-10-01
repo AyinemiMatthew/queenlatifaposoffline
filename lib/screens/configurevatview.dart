@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +23,7 @@ class _ConfigurevatViewState extends State<ConfigurevatView> {
   @override
   void initState() {
     super.initState();
+
     ///  initState
     Future.microtask(() {
       context.read<Datafeed>().fetchVat();
@@ -50,10 +50,10 @@ class _ConfigurevatViewState extends State<ConfigurevatView> {
         final filtered = filterVat(vatList);
 
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: const Text("VAT Configuration"),
-            backgroundColor: const Color(0xFF1B263B),
+            backgroundColor: Theme.of(context).colorScheme.surface,
           ),
 
           floatingActionButton: FloatingActionButton(
@@ -62,12 +62,11 @@ class _ConfigurevatViewState extends State<ConfigurevatView> {
             onPressed: () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const ConfigureVatreg()),
+                MaterialPageRoute(builder: (_) => const ConfigureVatreg()),
               );
 
               /// REFRESH AFTER ADD
-             // context.read<Datafeed>().fetchVat();
+              // context.read<Datafeed>().fetchVat();
             },
           ),
 
@@ -79,19 +78,26 @@ class _ConfigurevatViewState extends State<ConfigurevatView> {
                 constraints: const BoxConstraints(maxWidth: 700),
                 child: Column(
                   children: [
-
                     /// SEARCH
                     TextField(
                       controller: _searchController,
                       onChanged: (v) => setState(() => searchQuery = v),
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       decoration: InputDecoration(
                         hintText: "Search VAT...",
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        prefixIcon:
-                        const Icon(Icons.search, color: Colors.white54),
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                         filled: true,
-                        fillColor: const Color(0xFF182232),
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -103,168 +109,219 @@ class _ConfigurevatViewState extends State<ConfigurevatView> {
 
                     /// LIST
                     Expanded(
-                      child: value.isloadingvatlist ?
-                      Center(child: CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-                      )
-                       : vatList.isEmpty
-                          ? const Center(
-                        child: Text(
-                          "No VAT Found",
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      )
-                          : ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final vat = filtered[index];
-
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            margin: const EdgeInsets.only(top: 10),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF182232),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white12),
-                            ),
-                            child: Row(
-                              children: [
-
-                                /// ICON
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.2),
-                                    borderRadius:
-                                    BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.receipt,
-                                      color: Colors.green),
+                      child: value.isloadingvatlist
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            )
+                          : vatList.isEmpty
+                          ? Center(
+                              child: Text(
+                                "No VAT Found",
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
                                 ),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final vat = filtered[index];
 
-                                const SizedBox(width: 12),
-
-                                /// DETAILS
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                return Container(
+                                  padding: const EdgeInsets.all(14),
+                                  margin: const EdgeInsets.only(top: 10),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        vat.producttype,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight:
-                                          FontWeight.bold,
+                                      /// ICON
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.receipt,
+                                          color: Colors.green,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
 
-                                      Text(
-                                        "VAT Type: ${vat.vatrate}",
-                                        style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 13),
+                                      const SizedBox(width: 12),
+
+                                      /// DETAILS
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              vat.producttype,
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+
+                                            Text(
+                                              "VAT Type: ${vat.vatrate}",
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+
+                                            Text(
+                                              "Computation: ${vat.computationalmethod}",
+                                              style: TextStyle(
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
 
-                                      Text(
-                                        "Computation: ${vat.computationalmethod}",
-                                        style: const TextStyle(
-                                            color: Colors.white60,
-                                            fontSize: 12),
+                                      /// ACTIONS
+                                      Row(
+                                        children: [
+                                          /// EDIT
+                                          InkWell(
+                                            onTap: () async {
+                                              await Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ConfigureVatreg(vat: vat),
+                                                ),
+                                              );
+
+                                              //context.read<Datafeed>().fetchVat();
+                                            },
+                                            child: const Icon(
+                                              Icons.edit,
+                                              color: Colors.orange,
+                                            ),
+                                          ),
+
+                                          const SizedBox(width: 10),
+
+                                          /// DELETE
+                                          InkWell(
+                                            onTap: () async {
+                                              final confirm =
+                                                  await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (_) => AlertDialog(
+                                                      backgroundColor: Theme.of(
+                                                        context,
+                                                      ).colorScheme.surface,
+                                                      title: Text(
+                                                        "Delete VAT?",
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                      ),
+                                                      content: Text(
+                                                        "Delete ${vat.producttype} VAT?",
+                                                        style: const TextStyle(
+                                                          color: Colors.white70,
+                                                        ),
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.pop(
+                                                                context,
+                                                                false,
+                                                              ),
+                                                          child: const Text(
+                                                            "Cancel",
+                                                            style: TextStyle(
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.pop(
+                                                                context,
+                                                                true,
+                                                              ),
+                                                          child: const Text(
+                                                            "Delete",
+                                                            style: TextStyle(
+                                                              color: Colors.red,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+
+                                              if (confirm == true) {
+                                                await db
+                                                    .collection('vat')
+                                                    .doc(vat.id)
+                                                    .delete();
+                                                setState(() {
+                                                  vatList.removeWhere(
+                                                    (item) => item.id == vat.id,
+                                                  );
+                                                  filtered.removeWhere(
+                                                    (item) => item.id == vat.id,
+                                                  );
+                                                });
+
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                    content: Text(
+                                                      "VAT deleted successfully",
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            child: const Icon(
+                                              Icons.delete_forever,
+                                              color: Colors.red,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ),
-
-                                /// ACTIONS
-                                Row(
-                                  children: [
-
-                                    /// EDIT
-                                    InkWell(
-                                      onTap: () async {
-                                        await Navigator.push(context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ConfigureVatreg( vat: vat),
-                                          ),
-                                        );
-
-                                        //context.read<Datafeed>().fetchVat();
-                                      },
-                                      child: const Icon(Icons.edit,
-                                      color: Colors.orange),
-                                    ),
-
-                                    const SizedBox(width: 10),
-
-                                    /// DELETE
-                                    InkWell(
-                                      onTap: () async {
-                                        final confirm =
-                                        await showDialog<bool>(
-                                          context: context,
-                                          builder: (_) =>
-                                              AlertDialog(
-                                                backgroundColor:
-                                                const Color(0xFF1B263B),
-                                                title: const Text(
-                                                    "Delete VAT?",
-                                                    style: TextStyle(
-                                                        color: Colors.white)),
-                                                content: Text(
-                                                  "Delete ${vat.producttype} VAT?",
-                                                  style: const TextStyle(
-                                                      color: Colors
-                                                          .white70),
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>  Navigator.pop( context, false),
-                                                    child: const Text("Cancel",style: TextStyle(color: Colors.white),),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context,true),
-                                                    child: const Text( "Delete",
-                                                        style: TextStyle(
-                                                         color: Colors.red)),
-                                                  ),
-                                                ],
-                                              ),
-                                        );
-
-                                        if (confirm == true) {
-                                          await db.collection('vat').doc(vat.id).delete();
-                                          setState(() {
-                                            vatList.removeWhere((item) => item.id == vat.id);
-                                            filtered.removeWhere((item) => item.id == vat.id);
-                                          });
-
-
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              backgroundColor: Colors.green,
-                                              content: Text(
-
-                                                  "VAT deleted successfully"),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      child: const Icon(
-                                          Icons.delete_forever,
-                                          color: Colors.red),
-                                    ),
-                                  ],
-                                )
-                              ],
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    )
+                    ),
                   ],
                 ),
               ),

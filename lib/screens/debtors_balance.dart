@@ -14,106 +14,113 @@ class DebtorsBalance extends StatefulWidget {
   State<DebtorsBalance> createState() => _DebtorsBalanceState();
 }
 
-
 class _DebtorsBalanceState extends State<DebtorsBalance> {
-    bool _isSaving = false;
+  bool _isSaving = false;
 
-    Future<void> _saveDebtorBalance() async {
-      if (!_formKey.currentState!.validate()) return;
-      setState(() {
-        _isSaving = true;
-      });
-      try {
-        final datafeed = context.read<Datafeed>();
-        final debtorName = _selectedDebtor;
-        final amount = double.tryParse(_amountController.text) ?? 0.0;
-        final debtDate = _dateController.text;
-        final companyId = datafeed.companyid;
-        final branchId = datafeed.branchid;
-        final branchName = datafeed.branch;
+  Future<void> _saveDebtorBalance() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isSaving = true;
+    });
+    try {
+      final datafeed = context.read<Datafeed>();
+      final debtorName = _selectedDebtor;
+      final amount = double.tryParse(_amountController.text) ?? 0.0;
+      final debtDate = _dateController.text;
+      final companyId = datafeed.companyid;
+      final branchId = datafeed.branchid;
+      final branchName = datafeed.branch;
 
-        // Find customer by name
-        final customerQuery = await datafeed.db
-            .collection('customers')
-            .where('name', isEqualTo: debtorName)
-            .limit(1)
-            .get();
-        if (customerQuery.docs.isEmpty) {
-          throw Exception('Customer not found');
-        }
-        final customerDoc = customerQuery.docs.first;
-        final customerData = customerDoc.data();
-        final customerContact = customerData['contact']?.toString() ?? '';
-        final docId = '${companyId}_$customerContact';
+      // Find customer by name
+      final customerQuery = await datafeed.db
+          .collection('customers')
+          .where('name', isEqualTo: debtorName)
+          .limit(1)
+          .get();
+      if (customerQuery.docs.isEmpty) {
+        throw Exception('Customer not found');
+      }
+      final customerDoc = customerQuery.docs.first;
+      final customerData = customerDoc.data();
+      final customerContact = customerData['contact']?.toString() ?? '';
+      final docId = '${companyId}_$customerContact';
 
-        final debt = DebtorsBalModel(
-          id: widget.debtors?.id ?? docId,
-          name: debtorName,
-          amount: amount.toString(),
-          staff: datafeed.staff,
-          companyid: companyId,
-          branchId: branchId,
-          branchName: branchName,
-          activityType: 'debtor opening balance',
-          companyemail: datafeed.companyemail,
-          date: widget.debtors?.date ?? DateTime.tryParse(_dateController.text) ?? DateTime.now(),
-          updatedat: DateTime.now(),
+      final debt = DebtorsBalModel(
+        id: widget.debtors?.id ?? docId,
+        name: debtorName,
+        amount: amount.toString(),
+        staff: datafeed.staff,
+        companyid: companyId,
+        branchId: branchId,
+        branchName: branchName,
+        activityType: 'debtor opening balance',
+        companyemail: datafeed.companyemail,
+        date:
+            widget.debtors?.date ??
+            DateTime.tryParse(_dateController.text) ??
+            DateTime.now(),
+        updatedat: DateTime.now(),
+      );
 
-        );
+      double currentCredit =
+          double.tryParse(customerData['creditBalance']?.toString() ?? '0') ??
+          0.0;
+      double oldAmount = 0.0;
+      if (widget.debtors != null) {
+        // Editing: get the previous amount
+        oldAmount = double.tryParse(widget.debtors!.amount) ?? 0.0;
+      }
 
-
-        double currentCredit = double.tryParse(customerData['creditBalance']?.toString() ?? '0') ?? 0.0;
-        double oldAmount = 0.0;
-        if (widget.debtors != null) {
-          // Editing: get the previous amount
-          oldAmount = double.tryParse(widget.debtors!.amount) ?? 0.0;
-        }
-
-        // Save debtor balance
-        if (widget.debtors == null) {
-          await datafeed.db.collection('debtorsbalance').doc(docId).set(debt.toMap());
-        } else {
-          await datafeed.db
-              .collection('debtorsbalance')
-              .doc(debt.id)
-              .update(debt.toMap());
-        }
-
-        // Update creditBalance in customers collection
-        // If editing, subtract old amount and add new amount
-        final newCredit = currentCredit - oldAmount + amount;
+      // Save debtor balance
+      if (widget.debtors == null) {
         await datafeed.db
-            .collection('customers')
-            .doc(customerDoc.id)
-            .update({'creditBalance': newCredit});
+            .collection('debtorsbalance')
+            .doc(docId)
+            .set(debt.toMap());
+      } else {
+        await datafeed.db
+            .collection('debtorsbalance')
+            .doc(debt.id)
+            .update(debt.toMap());
+      }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                widget.debtors == null
-                    ? 'saved successfully'
-                    : 'updated successfully',
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _amountController.clear();
-          _dateController.clear();
-          setState(() {
-            _selectedDebtor = '';
-          });
-        }
-      } catch (e) {
+      // Update creditBalance in customers collection
+      // If editing, subtract old amount and add new amount
+      final newCredit = currentCredit - oldAmount + amount;
+      await datafeed.db.collection('customers').doc(customerDoc.id).update({
+        'creditBalance': newCredit,
+      });
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add debtor balance: \n${e.toString()}')),
+          SnackBar(
+            content: Text(
+              widget.debtors == null
+                  ? 'saved successfully'
+                  : 'updated successfully',
+            ),
+            backgroundColor: Colors.green,
+          ),
         );
-      } finally {
+        _amountController.clear();
+        _dateController.clear();
         setState(() {
-          _isSaving = false;
+          _selectedDebtor = '';
         });
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to add debtor balance: \n${e.toString()}'),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
     }
+  }
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
@@ -145,7 +152,9 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       final accessLevel = datafeed.accesslevel.toLowerCase();
       final companyId = datafeed.companyid;
       final branchId = datafeed.branchid;
-      var query = datafeed.db.collection('customers').where('companyid', isEqualTo: companyId);
+      var query = datafeed.db
+          .collection('customers')
+          .where('companyid', isEqualTo: companyId);
       if (accessLevel != 'super admin' && branchId.isNotEmpty) {
         query = query.where('branchid', isEqualTo: branchId);
       }
@@ -165,21 +174,25 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101A23),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
             title: Text(
               widget.debtors != null
                   ? 'EDIT DEBTORS BALANCE'
                   : 'DEBTORS BALANCE',
             ),
-            backgroundColor: const Color(0xFF0D1A26),
-            foregroundColor: Colors.white,
-            elevation: 2,
+            backgroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.surface
+                : Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).brightness == Brightness.light
+                ? Theme.of(context).colorScheme.onSurface
+                : Theme.of(context).colorScheme.onPrimary,
           ),
           body: Center(
             child: Padding(
@@ -190,10 +203,9 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                   key: _formKey,
                   child: ListView(
                     children: [
-
                       const SizedBox(height: 8),
                       Card(
-                        color: const Color(0xFF182232),
+                        color: Theme.of(context).colorScheme.surface,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -217,64 +229,87 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
 
                               TextFormField(
                                 controller: _amountController,
-                                style: const TextStyle(color: Colors.white),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d*\.?\d*'),
+                                  ),
                                 ],
                                 decoration: InputDecoration(
                                   labelText: 'Amount',
-                                  labelStyle: const TextStyle(
-                                    color: Colors.white70,
+                                  labelStyle: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.white24,
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context).colorScheme.outline,
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Colors.blue,
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   filled: true,
                                 ),
                                 validator: (value) =>
                                     value == null || value.isEmpty
-                                        ? 'Enter amount'
-                                        : null,
+                                    ? 'Enter amount'
+                                    : null,
                               ),
 
                               const SizedBox(height: 14),
                               TextFormField(
                                 controller: _dateController,
                                 readOnly: true,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
                                 decoration: InputDecoration(
                                   labelText: 'Date',
-                                  labelStyle: const TextStyle(color: Colors.white70),
+                                  labelStyle: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.white24),
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context).colorScheme.outline,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: Colors.blue),
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
                                   ),
-                                  fillColor: const Color(0xFF22304A),
+                                  fillColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   filled: true,
-                                  suffixIcon: const Icon(
+                                  suffixIcon: Icon(
                                     Icons.calendar_today,
-                                    color: Colors.white70,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                                 onTap: () async {
@@ -288,12 +323,18 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                     builder: (context, child) {
                                       return Theme(
                                         data: Theme.of(context).copyWith(
-                                          colorScheme: const ColorScheme.dark(
-                                            primary: Colors.blue,
-                                            onPrimary: Colors.white,
-                                            surface: Color(0xFF22304A),
-                                            onSurface: Colors.white,
-                                          ),
+                                          colorScheme: Theme.of(context)
+                                              .colorScheme
+                                              .copyWith(
+                                                primary: Colors.blue,
+                                                onPrimary: Colors.white,
+                                                surface: Theme.of(
+                                                  context,
+                                                ).colorScheme.surface,
+                                                onSurface: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
                                           textButtonTheme: TextButtonThemeData(
                                             style: TextButton.styleFrom(
                                               foregroundColor: Colors.white,
@@ -307,18 +348,20 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
 
                                   if (pickedDate != null) {
                                     _dateController.text =
-                                    "${pickedDate.year}-"
+                                        "${pickedDate.year}-"
                                         "${pickedDate.month.toString().padLeft(2, '0')}-"
                                         "${pickedDate.day.toString().padLeft(2, '0')}";
                                   }
                                 },
                                 validator: (value) =>
-                                value == null || value.isEmpty ? 'Select date' : null,
+                                    value == null || value.isEmpty
+                                    ? 'Select date'
+                                    : null,
                               ),
                               // TextFormField(
                               //   controller: _dateController,
                               //   readOnly: true,
-                              //   style: const TextStyle(color: Colors.white),
+                              //   style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                               //   decoration: InputDecoration(
                               //     labelText: 'Date',
                               //     labelStyle: const TextStyle(color: Colors.white70),
@@ -369,13 +412,21 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
                                         ),
                                       ),
-                                      onPressed: _isSaving ? null : _saveDebtorBalance,
+                                      onPressed: _isSaving
+                                          ? null
+                                          : _saveDebtorBalance,
                                       child: Text(
-                                        widget.debtors != null ? 'Update' : 'Add',
-                                        style: const TextStyle(color: Colors.white),
+                                        widget.debtors != null
+                                            ? 'Update'
+                                            : 'Add',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -388,21 +439,30 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                           vertical: 16,
                                         ),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(14),
-                                            side: BorderSide(color: Colors.white70)
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          side: BorderSide(
+                                            color: Colors.white70,
+                                          ),
                                         ),
                                       ),
                                       onPressed: () {
-                                        Navigator.pushNamed(context, Routes.debtorBalView);
+                                        Navigator.pushNamed(
+                                          context,
+                                          Routes.debtorBalView,
+                                        );
                                       },
                                       child: Text(
                                         "View Debtors",
-                                        style: const TextStyle(color: Colors.white),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         ),
@@ -417,6 +477,7 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       },
     );
   }
+
   Widget _buildDropdown({
     required String label,
     required String? value,
@@ -427,29 +488,26 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       value: value,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         filled: true,
-        fillColor: const Color(0xFF182232),
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.blue, width: 2),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
         ),
       ),
-      dropdownColor: const Color(0xFF182232),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: Theme.of(context).colorScheme.surface,
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       items: items.map((String item) {
-        return DropdownMenuItem<String>(
-          value: item,
-          child: Text(item),
-        );
+        return DropdownMenuItem<String>(value: item, child: Text(item));
       }).toList(),
       onChanged: onChanged,
       validator: (value) {

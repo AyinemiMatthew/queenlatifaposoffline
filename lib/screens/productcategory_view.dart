@@ -15,36 +15,42 @@ class ProductCategoryView extends StatefulWidget {
 
 class _ProductCategoryViewState extends State<ProductCategoryView> {
   final FirebaseFirestore db = FirebaseFirestore.instance;
-  List <Productcategorymodel> categoryList=[];
+  List<Productcategorymodel> categoryList = [];
   TextEditingController searchController = TextEditingController();
   String searchText = "";
 
   Stream<List<Productcategorymodel>> getAllCategories() {
-    final provider=Provider.of<Datafeed>(context,listen: false);
-    return db.collection('productcategoryreg').where('companyId', isEqualTo: provider.companyid).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return Productcategorymodel.fromJson(doc.data());
-      }).toList();
-    });
+    final provider = Provider.of<Datafeed>(context, listen: false);
+    return db
+        .collection('productcategoryreg')
+        .where('companyId', isEqualTo: provider.companyid)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return Productcategorymodel.fromJson(doc.data());
+          }).toList();
+        });
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("REGISTERED PRODUCT CATEGORY"),
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.onSurface,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => setState(() {}),
-          )
+          ),
         ],
       ),
       body: Column(
         children: [
-
           // SEARCH BAR
           Padding(
             padding: const EdgeInsets.all(12),
@@ -52,16 +58,34 @@ class _ProductCategoryViewState extends State<ProductCategoryView> {
               width: 700,
               child: TextField(
                 controller: searchController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 decoration: InputDecoration(
                   hintText: "Search product category...",
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                  hintStyle: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                   filled: true,
-                  fillColor: const Color(0xFF182232),
+                  fillColor: colorScheme.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: colorScheme.outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary,
+                      width: 1.5,
+                    ),
                   ),
                 ),
                 onChanged: (value) {
@@ -78,7 +102,6 @@ class _ProductCategoryViewState extends State<ProductCategoryView> {
             child: StreamBuilder<List<Productcategorymodel>>(
               stream: getAllCategories(),
               builder: (context, snapshot) {
-
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -105,41 +128,45 @@ class _ProductCategoryViewState extends State<ProductCategoryView> {
                       padding: const EdgeInsets.all(12),
                       itemCount: filteredList.length,
                       separatorBuilder: (context, index) =>
-                      const SizedBox(height: 10),
+                          const SizedBox(height: 10),
                       itemBuilder: (context, index) {
-
                         final acc = filteredList[index];
 
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF182232),
+                            color: colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                            ),
                           ),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.2),
+                                  color: colorScheme.secondary.withValues(
+                                    alpha: 0.12,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: const Icon(Icons.store,
-                                    color: Colors.blue),
+                                child: Icon(
+                                  Icons.store,
+                                  color: colorScheme.secondary,
+                                ),
                               ),
 
                               const SizedBox(width: 12),
 
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       acc.productname,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -155,12 +182,15 @@ class _ProductCategoryViewState extends State<ProductCategoryView> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => ProductCategoryReg(category: acc),
+                                          builder: (_) =>
+                                              ProductCategoryReg(category: acc),
                                         ),
                                       );
                                     },
-                                    child: const Icon(Icons.edit,
-                                        color: Colors.orange),
+                                    child: Icon(
+                                      Icons.edit,
+                                      color: colorScheme.secondary,
+                                    ),
                                   ),
 
                                   const SizedBox(width: 8),
@@ -172,12 +202,13 @@ class _ProductCategoryViewState extends State<ProductCategoryView> {
                                           .doc(acc.id)
                                           .delete();
                                     },
-                                    child: const Icon(
-                                        Icons.delete_forever,
-                                        color: Colors.red),
+                                    child: Icon(
+                                      Icons.delete_forever,
+                                      color: colorScheme.error,
+                                    ),
                                   ),
                                 ],
-                              )
+                              ),
                             ],
                           ),
                         );

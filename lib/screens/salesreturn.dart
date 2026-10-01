@@ -1,9 +1,9 @@
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:kologsoft/models/ReasonsModel.dart';
 import 'package:kologsoft/models/salesreturnmodel.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/screens/salesreturnlist.dart';
@@ -18,6 +18,24 @@ class Salesreturn extends StatefulWidget {
 }
 
 class _SalesreturnState extends State<Salesreturn> {
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _primaryTextColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _mutedTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white54;
+  Color get _cardColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
+      : const Color(0xFF131F2C);
+  Color get _innerCardColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF1A2635);
+  Color get _softDividerColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : Colors.white10;
+
   final TextEditingController _searchController = TextEditingController();
 
   String? _receiptId;
@@ -28,7 +46,7 @@ class _SalesreturnState extends State<Salesreturn> {
   String? _searcherror;
   Timer? _debounce;
   double _amountPaid = 0;
- String?_dateymd;
+  String? _dateymd;
   String? _selectedConditionId;
   Map<String, Map<String, dynamic>> _cartItems = {};
   List<Map<String, dynamic>> _receiptItems = [];
@@ -50,12 +68,13 @@ class _SalesreturnState extends State<Salesreturn> {
 
       if (widget.salesitem != null) {
         _receiptId = widget.salesitem!.id;
-        _dateymd =widget.salesitem!.dateymd;
+        _dateymd = widget.salesitem!.dateymd;
         print(_dateymd);
         final Map<String, dynamic> itemsMap = widget.salesitem!.items ?? {};
         setState(() {
           _cartItems = itemsMap.map(
-                (key, value) => MapEntry(key, Map<String, dynamic>.from(value as Map)),
+            (key, value) =>
+                MapEntry(key, Map<String, dynamic>.from(value as Map)),
           );
         });
       }
@@ -77,13 +96,15 @@ class _SalesreturnState extends State<Salesreturn> {
       _receiptId = null;
       _transMode = null;
       _amountPaid = 0;
-      _dateymd='';
+      _dateymd = '';
       _payments = [];
       _isSearching = false;
       _searcherror = null;
       _receiptItems = [];
       _cartItems = {};
-      _selectedConditionId = df.returnitemreasons.isNotEmpty ? df.returnitemreasons.first.id : null;
+      _selectedConditionId = df.returnitemreasons.isNotEmpty
+          ? df.returnitemreasons.first.id
+          : null;
     });
   }
 
@@ -98,7 +119,8 @@ class _SalesreturnState extends State<Salesreturn> {
     try {
       // strip leading zero then build doc id
       final cleanval = val.startsWith('0') ? val.substring(1) : val;
-      final docId = "${df.companyid.toUpperCase()}_${df.staffPosition}_$cleanval";
+      final docId =
+          "${df.companyid.toUpperCase()}_${df.staffPosition}_$cleanval";
 
       await df.fetchsalesitem(docId);
 
@@ -111,7 +133,8 @@ class _SalesreturnState extends State<Salesreturn> {
         });
         return;
       }
-      final bool alreadyReturned = fetchedItems.first['returned_isreturned'] == true;
+      final bool alreadyReturned =
+          fetchedItems.first['returned_isreturned'] == true;
       if (alreadyReturned) {
         final String returnedDate =
             fetchedItems.first['returned_isreturned_dateymd']?.toString() ?? '';
@@ -141,14 +164,16 @@ class _SalesreturnState extends State<Salesreturn> {
       }
 
       // capture transMode from first item
-      _transMode = fetchedItems.first['returned_transMode']?.toString()
-          ?? fetchedItems.first['transMode']?.toString();
+      _transMode =
+          fetchedItems.first['returned_transMode']?.toString() ??
+          fetchedItems.first['transMode']?.toString();
 
       final rawAmountPaid = fetchedItems.first['returned_amountPaid'];
       _amountPaid = double.tryParse(rawAmountPaid?.toString() ?? '0') ?? 0;
-     _dateymd = fetchedItems.first['returned_dateymd']?? '';
-      final rawPayments = fetchedItems.first['returned_payments']
-          ?? fetchedItems.first['payments'];
+      _dateymd = fetchedItems.first['returned_dateymd'] ?? '';
+      final rawPayments =
+          fetchedItems.first['returned_payments'] ??
+          fetchedItems.first['payments'];
       _payments = rawPayments is List
           ? rawPayments.map((p) => Map<String, dynamic>.from(p as Map)).toList()
           : [];
@@ -170,9 +195,10 @@ class _SalesreturnState extends State<Salesreturn> {
     }
   }
 
-
   void _addAllToCart(Datafeed df) {
-    final reason = df.returnitemreasons.where((r) => r.id == _selectedConditionId).firstOrNull;
+    final reason = df.returnitemreasons
+        .where((r) => r.id == _selectedConditionId)
+        .firstOrNull;
 
     if (_receiptItems.isEmpty) return;
     if (reason == null) {
@@ -188,10 +214,17 @@ class _SalesreturnState extends State<Salesreturn> {
     final Map<String, Map<String, dynamic>> newCart = {};
 
     for (final item in _receiptItems) {
-      final String key = item['itemkey']?.toString() ?? item['returned_itemid'].toString();
-      final double qty = double.tryParse(item['returned_quantity']?.toString() ?? '0') ?? 0;
-      final double price = double.tryParse(item['returned_price']?.toString() ?? '0') ?? 0;
-      final double grosstotalamount = double.tryParse(item['returned_grosstotalamount']?.toString() ?? '0') ?? 0;
+      final String key =
+          item['itemkey']?.toString() ?? item['returned_itemid'].toString();
+      final double qty =
+          double.tryParse(item['returned_quantity']?.toString() ?? '0') ?? 0;
+      final double price =
+          double.tryParse(item['returned_price']?.toString() ?? '0') ?? 0;
+      final double grosstotalamount =
+          double.tryParse(
+            item['returned_grosstotalamount']?.toString() ?? '0',
+          ) ??
+          0;
       final String totalAmount = (grosstotalamount).toStringAsFixed(2);
 
       newCart[key] = {
@@ -213,12 +246,20 @@ class _SalesreturnState extends State<Salesreturn> {
         'returned_pcategory': item['returned_pcategory'],
         'returned_producttype': item['returned_producttype'],
         'returned_stockCheckStatus': item['returned_stockCheckStatus'],
+        'returned_supplier':
+            item['returned_supplier'] ??
+            item['returned_suppliername'] ??
+            item['supplier'] ??
+            item['suppliername'] ??
+            '',
+        'returned_supplierid':
+            item['returned_supplierid'] ?? item['supplierid'] ?? '',
 
         'returned_receiptid': _receiptId ?? '',
         'returned_quantity': qty.toString(),
         'returned_price': price.toString(),
         'returned_transMode': item['returned_transMode'] ?? _transMode ?? '',
-        'returned_condition':reason?.name?? '',
+        'returned_condition': reason?.name ?? '',
         'returned_type': 'Full',
         'status': 'returned',
         'returned_totalamount': item['returned_totalamount'],
@@ -265,18 +306,21 @@ class _SalesreturnState extends State<Salesreturn> {
     setState(() => _isLoading = true);
 
     try {
-     // final String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      // final String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final String formattedDate = _dateymd!;
       final now = DateTime.now();
       final day = DateFormat('EEEE').format(now);
       final year = now.year.toString();
       final month = '${now.year}.${now.month}';
-      final weekNumber = ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
+      final weekNumber =
+          ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
       final week = '${now.year}.$weekNumber';
 
       final cleanReceipt = _receiptId!.trim();
 
-      if (cleanReceipt.isEmpty || cleanReceipt == 'null' || cleanReceipt.length < 2) {
+      if (cleanReceipt.isEmpty ||
+          cleanReceipt == 'null' ||
+          cleanReceipt.length < 2) {
         throw Exception("Invalid receipt ID");
       }
 
@@ -301,19 +345,24 @@ class _SalesreturnState extends State<Salesreturn> {
       final cart = cleanedCart();
 
       final firstCartItem = _cartItems.values.first;
-      final returnBranchId   = firstCartItem['returned_branchid']   ?? datafeed.activeBranchId;
-      final returnBranchName = firstCartItem['returned_branchname'] ?? datafeed.activeBranchName;
+      final returnBranchId =
+          firstCartItem['returned_branchid'] ?? datafeed.activeBranchId;
+      final returnBranchName =
+          firstCartItem['returned_branchname'] ?? datafeed.activeBranchName;
 
       final double totalAmount = _cartItems.values.fold(
         0.0,
-            (sum, item) => sum + (double.tryParse(item['returned_grosstotalamount'].toString()) ?? 0),
+        (sum, item) =>
+            sum +
+            (double.tryParse(item['returned_grosstotalamount'].toString()) ??
+                0),
       );
       final double totaldiscount = _cartItems.values.fold(
         0.0,
-            (sum, item) => sum + (double.tryParse(item['returned_discount'].toString()) ?? 0),
+        (sum, item) =>
+            sum + (double.tryParse(item['returned_discount'].toString()) ?? 0),
       );
       final amountPaid = _amountPaid;
-
 
       final returnData = {
         'returned_companyid': datafeed.companyid,
@@ -331,7 +380,8 @@ class _SalesreturnState extends State<Salesreturn> {
         'week': week,
         'month': month,
         'year': year,
-        'transmode': _transMode ?? cart.values.first['returned_transMode'] ?? '',
+        'transmode':
+            _transMode ?? cart.values.first['returned_transMode'] ?? '',
         'dateymd': formattedDate,
         'returned_items': cart,
         'returned_transMode': _transMode,
@@ -359,13 +409,17 @@ class _SalesreturnState extends State<Salesreturn> {
           .doc(id)
           .set(updateData, SetOptions(merge: true));
 
-      await datafeed.db.collection('salesreturn').doc(id)
+      await datafeed.db
+          .collection('salesreturn')
+          .doc(id)
           .set(returnData, SetOptions(merge: true));
 
       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-          content: Text("Return saved successfully",style:TextStyle(
-              color:ColorScheme.of(context).onPrimary ),),
+        SnackBar(
+          content: Text(
+            "Return saved successfully",
+            style: TextStyle(color: ColorScheme.of(context).onPrimary),
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -377,40 +431,43 @@ class _SalesreturnState extends State<Salesreturn> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e",style:
-          TextStyle(color: ColorScheme.of(context).onPrimary),),
-            backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            "Error: $e",
+            style: TextStyle(color: ColorScheme.of(context).onPrimary),
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final datafeed = context.watch<Datafeed>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F18),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Sales Returns",
           style: TextStyle(
-            color: Colors.white,
+            color: _primaryTextColor,
             fontSize: 22,
             fontWeight: FontWeight.w700,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             _resetAll(datafeed);
             Navigator.pop(context);
           },
         ),
-        backgroundColor: const Color(0xFF151F2E),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: _primaryTextColor,
         elevation: 2,
         shadowColor: Colors.black45,
         shape: const RoundedRectangleBorder(
@@ -422,10 +479,13 @@ class _SalesreturnState extends State<Salesreturn> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         elevation: 6,
-        icon: const Icon(Icons.view_list, color: Colors.white),
-        label: const Text(
+        icon: const Icon(Icons.view_list),
+        label: Text(
           'View History',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         onPressed: () => Navigator.push(
           context,
@@ -492,11 +552,9 @@ class _SalesreturnState extends State<Salesreturn> {
     );
   }
 
-
-
   Widget _buildLeftPanel(Datafeed df) {
     return Card(
-      color: const Color(0xFF131F2C),
+      color: _cardColor,
       elevation: 4,
       shadowColor: Colors.black54,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -506,10 +564,10 @@ class _SalesreturnState extends State<Salesreturn> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── HEADER
-            const Text(
+            Text(
               "Search Receipt",
               style: TextStyle(
-                color: Colors.white70,
+                color: _secondaryTextColor,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -520,22 +578,25 @@ class _SalesreturnState extends State<Salesreturn> {
             TextField(
               controller: _searchController,
               readOnly: _receiptLocked,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
-              cursorColor: Colors.white,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 15,
+              ),
+              cursorColor: Theme.of(context).colorScheme.secondary,
               decoration: _fieldInput("Receipt Number", Icons.search).copyWith(
                 suffixIcon: _receiptLocked
                     ? IconButton(
-                  icon: const Icon(Icons.close, color: Colors.redAccent),
-                  tooltip: 'Clear',
-                  onPressed: () => _resetAll(df),
-                )
+                        icon: const Icon(Icons.close, color: Colors.redAccent),
+                        tooltip: 'Clear',
+                        onPressed: () => _resetAll(df),
+                      )
                     : IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blue),
-                  onPressed: () async {
-                    final val = _searchController.text.trim();
-                    if (val.length >= 8) await _searchReceipt(df, val);
-                  },
-                ),
+                        icon: const Icon(Icons.send, color: Colors.blue),
+                        onPressed: () async {
+                          final val = _searchController.text.trim();
+                          if (val.length >= 8) await _searchReceipt(df, val);
+                        },
+                      ),
               ),
               onChanged: (val) {
                 if (_debounce?.isActive ?? false) _debounce!.cancel();
@@ -565,7 +626,10 @@ class _SalesreturnState extends State<Salesreturn> {
             // ── ERROR
             if (_searcherror != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -582,8 +646,8 @@ class _SalesreturnState extends State<Salesreturn> {
               const SizedBox(height: 16),
               Text(
                 "Items on Receipt (${_receiptItems.length})",
-                style: const TextStyle(
-                  color: Colors.white54,
+                style: TextStyle(
+                  color: _mutedTextColor,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -592,7 +656,7 @@ class _SalesreturnState extends State<Salesreturn> {
               Container(
                 constraints: const BoxConstraints(maxHeight: 260),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A2635),
+                  color: _innerCardColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.blue.withOpacity(0.15)),
                 ),
@@ -600,35 +664,43 @@ class _SalesreturnState extends State<Salesreturn> {
                   shrinkWrap: true,
                   itemCount: _receiptItems.length,
                   separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: Colors.white10),
+                      Divider(height: 1, color: _softDividerColor),
                   itemBuilder: (context, i) {
                     final item = _receiptItems[i];
-                    final double qty = double.tryParse(
-                        item['returned_quantity']?.toString() ?? '0') ??
+                    final double qty =
+                        double.tryParse(
+                          item['returned_quantity']?.toString() ?? '0',
+                        ) ??
                         0;
-                    final double price = double.tryParse(
-                        item['returned_price']?.toString() ?? '0') ??
+                    final double price =
+                        double.tryParse(
+                          item['returned_price']?.toString() ?? '0',
+                        ) ??
                         0;
                     final String total = (qty * price).toStringAsFixed(2);
 
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 6),
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
                       title: Text(
                         item['returned_item']?.toString() ?? '',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: _primaryTextColor,
                           fontWeight: FontWeight.w500,
                           fontSize: 14,
                         ),
                       ),
                       subtitle: Text(
-                        '${item['returned_mode']} • Qty: ${qty.toStringAsFixed(0)} • GHC $total',
-                        style:
-                        const TextStyle(color: Colors.white54, fontSize: 12),
+                        '${item['returned_mode']} • Qty: ${qty.toStringAsFixed(0)} • GHS $total',
+                        style: TextStyle(color: _mutedTextColor, fontSize: 12),
                       ),
-                      leading: const Icon(Icons.inventory_2_outlined,
-                          color: Colors.blue, size: 20),
+                      leading: const Icon(
+                        Icons.inventory_2_outlined,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
                     );
                   },
                 ),
@@ -637,10 +709,10 @@ class _SalesreturnState extends State<Salesreturn> {
               const SizedBox(height: 24),
 
               // ── REASON DROPDOWN
-              const Text(
+              Text(
                 "Return Reason",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _primaryTextColor,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -656,20 +728,17 @@ class _SalesreturnState extends State<Salesreturn> {
                 height: 50,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: const Icon(Icons.assignment_return, color: Colors.white),
+                  icon: const Icon(Icons.assignment_return),
                   label: const Text(
                     "Return All to Cart",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                   ),
                   onPressed: () => _addAllToCart(df),
                 ),
@@ -681,39 +750,170 @@ class _SalesreturnState extends State<Salesreturn> {
     );
   }
 
-
-
   Widget _buildConditionDropdown(Datafeed df) {
     final reasons = df.returnitemreasons;
-    if (reasons.isEmpty) return const SizedBox.shrink();
+    if (reasons.isNotEmpty) {
+      _selectedConditionId ??= reasons.first.id;
+      if (!reasons.any((r) => r.id == _selectedConditionId)) {
+        _selectedConditionId = reasons.first.id;
+      }
+    } else {
+      _selectedConditionId = null;
+    }
 
-    _selectedConditionId ??= reasons.first.id;
-
-    final exists = reasons.any((r) => r.id == _selectedConditionId);
-    if (!exists) _selectedConditionId = reasons.first.id;
-
-    return DropdownButtonFormField<String>(
-      value: _selectedConditionId,
-      dropdownColor: const Color(0xFF1A2635),
-      style: const TextStyle(color: Colors.white, fontSize: 15),
-      iconEnabledColor: Colors.white70,
-      decoration: _fieldInput("Select Reason", Icons.check_circle),
-      items: reasons
-          .map((c) => DropdownMenuItem<String>(
-        value: c.id,
-        child: Text(c.name,
-            style: const TextStyle(color: Colors.white)),
-      ))
-          .toList(),
-      onChanged: (v) => setState(() => _selectedConditionId = v),
+    return Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: _selectedConditionId,
+            hint: Text(
+              reasons.isEmpty ? 'No reasons available' : 'Select Reason',
+              style: TextStyle(color: _mutedTextColor),
+            ),
+            dropdownColor: Theme.of(context).colorScheme.surface,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 15,
+            ),
+            iconEnabledColor: _secondaryTextColor,
+            decoration: _fieldInput("Select Reason", Icons.check_circle),
+            items: reasons
+                .map(
+                  (reason) => DropdownMenuItem<String>(
+                    value: reason.id,
+                    child: Text(
+                      reason.name,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) => setState(() => _selectedConditionId = value),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: 'Add return reason',
+          onPressed: () => _addReturnReason(df),
+          icon: const Icon(Icons.add_circle_outline),
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ],
     );
   }
 
+  Future<void> _addReturnReason(Datafeed datafeed) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var isSaving = false;
+    String? errorMessage;
+
+    try {
+      final reasonId = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Add Return Reason'),
+            content: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Reason',
+                  errorText: errorMessage,
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a reason'
+                    : null,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+
+                        final name = controller.text.trim();
+                        ReasonsModel? existingReason;
+                        for (final reason in datafeed.returnitemreasons) {
+                          if (reason.name.toLowerCase() == name.toLowerCase()) {
+                            existingReason = reason;
+                            break;
+                          }
+                        }
+                        if (existingReason != null) {
+                          Navigator.of(dialogContext).pop(existingReason.id);
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isSaving = true;
+                          errorMessage = null;
+                        });
+
+                        try {
+                          final id = datafeed.normalizeAndSanitize(
+                            '${datafeed.companyid}$name',
+                          );
+                          final reason = ReasonsModel(
+                            name: name,
+                            staff: datafeed.staff,
+                            id: id,
+                            date: DateTime.now(),
+                            companyid: datafeed.companyid,
+                            company: datafeed.company,
+                          );
+                          await datafeed.db
+                              .collection('return_reasons')
+                              .doc(id)
+                              .set(reason.toMap());
+                          datafeed.returnitemreasons.add(reason);
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop(id);
+                          }
+                        } catch (error) {
+                          setDialogState(() {
+                            isSaving = false;
+                            errorMessage = 'Could not save reason: $error';
+                          });
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Add'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (reasonId != null && mounted) {
+        setState(() => _selectedConditionId = reasonId);
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
 
   Widget _buildCartList(Datafeed df) {
     if (_cartItems.isEmpty) {
       return Card(
-        color: const Color(0xFF131F2C),
+        color: _cardColor,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
@@ -721,15 +921,15 @@ class _SalesreturnState extends State<Salesreturn> {
           child: Center(
             child: Column(
               children: [
-                Icon(Icons.assignment_return_outlined,
-                    size: 56, color: Colors.white.withOpacity(0.2)),
+                Icon(
+                  Icons.assignment_return_outlined,
+                  size: 56,
+                  color: _mutedTextColor.withOpacity(0.2),
+                ),
                 const SizedBox(height: 16),
                 Text(
                   "Return cart is empty",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(color: _mutedTextColor, fontSize: 15),
                 ),
               ],
             ),
@@ -741,7 +941,7 @@ class _SalesreturnState extends State<Salesreturn> {
     final cartKeys = _cartItems.keys.toList();
 
     return Card(
-      color: const Color(0xFF131F2C),
+      color: _cardColor,
       elevation: 4,
       shadowColor: Colors.black54,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -756,8 +956,8 @@ class _SalesreturnState extends State<Salesreturn> {
               children: [
                 Text(
                   "Return Cart (${_cartItems.length})",
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: _primaryTextColor,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -772,27 +972,34 @@ class _SalesreturnState extends State<Salesreturn> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.delete_sweep_outlined,
-                      color: Colors.redAccent, size: 18),
+                  icon: const Icon(
+                    Icons.delete_sweep_outlined,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
                   label: const Text(
                     "Remove All",
                     style: TextStyle(color: Colors.redAccent, fontSize: 13),
                   ),
                   style: TextButton.styleFrom(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     backgroundColor: Colors.redAccent.withOpacity(0.08),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
-                          color: Colors.redAccent.withOpacity(0.3), width: 1),
+                        color: Colors.redAccent.withOpacity(0.3),
+                        width: 1,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
 
-            const Divider(height: 20, color: Colors.white10),
+            Divider(height: 20, color: _softDividerColor),
 
             ListView.separated(
               shrinkWrap: true,
@@ -805,10 +1012,11 @@ class _SalesreturnState extends State<Salesreturn> {
 
                 return Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A2635),
+                    color: _innerCardColor,
                     borderRadius: BorderRadius.circular(10),
-                    border:
-                    Border.all(color: Colors.white.withOpacity(0.05)),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                   padding: const EdgeInsets.all(12),
                   // ── No delete button per row anymore ──
@@ -817,17 +1025,16 @@ class _SalesreturnState extends State<Salesreturn> {
                     children: [
                       Text(
                         item['returned_item']?.toString() ?? '',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: _primaryTextColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${item['returned_condition']} • Qty: ${item['returned_quantity']} • GHC ${item['returned_totalamount']}',
-                        style: const TextStyle(
-                            color: Colors.white54, fontSize: 12),
+                        '${item['returned_condition']} • Qty: ${item['returned_quantity']} • GHS ${item['returned_totalamount']}',
+                        style: TextStyle(color: _mutedTextColor, fontSize: 12),
                       ),
                     ],
                   ),
@@ -840,19 +1047,17 @@ class _SalesreturnState extends State<Salesreturn> {
     );
   }
 
-
-
   Widget _buildSummaryCard() {
     if (_cartItems.isEmpty) return const SizedBox.shrink();
 
     final totalAmount = _cartItems.values.fold<double>(
       0.0,
-          (sum, item) =>
-      sum + (double.tryParse(item['returned_totalamount'].toString()) ?? 0),
+      (sum, item) =>
+          sum + (double.tryParse(item['returned_totalamount'].toString()) ?? 0),
     );
 
     return Card(
-      color: Colors.blue.withOpacity(0.08),
+      color: _innerCardColor,
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -863,10 +1068,10 @@ class _SalesreturnState extends State<Salesreturn> {
         child: Column(
           children: [
             _summaryRow("Items Count", "${_cartItems.length}"),
-            const Divider(color: Colors.white10, height: 20),
+            Divider(color: _softDividerColor, height: 20),
             _summaryRow(
               "Total Return Amount",
-              "GHC ${totalAmount.toStringAsFixed(2)}",
+              "GHS ${totalAmount.toStringAsFixed(2)}",
               large: true,
             ),
           ],
@@ -879,22 +1084,25 @@ class _SalesreturnState extends State<Salesreturn> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: TextStyle(
-                color: Colors.white70,
-                fontSize: large ? 14 : 13,
-                fontWeight:
-                large ? FontWeight.w600 : FontWeight.normal)),
-        Text(value,
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: large ? 18 : 15,
-                fontWeight: FontWeight.w700)),
+        Text(
+          label,
+          style: TextStyle(
+            color: _secondaryTextColor,
+            fontSize: large ? 14 : 13,
+            fontWeight: large ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: _primaryTextColor,
+            fontSize: large ? 18 : 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
-
-
 
   Widget _buildSaveButton(Datafeed df) {
     if (_cartItems.isEmpty) return const SizedBox.shrink();
@@ -904,53 +1112,66 @@ class _SalesreturnState extends State<Salesreturn> {
       height: 50,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
           elevation: 4,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         onPressed: _isLoading ? null : () => _saveReturn(df),
         child: _isLoading
             ? const SizedBox(
-          height: 22,
-          width: 22,
-          child: CircularProgressIndicator(
-              strokeWidth: 2.5, color: Colors.white),
-        )
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
             : const Text(
-          "Save Return",
-          style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 16),
-        ),
+                "Save Return",
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
       ),
     );
   }
 
-
   InputDecoration _fieldInput(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white70, fontSize: 14),
-      prefixIcon: Icon(icon, color: Colors.white70, size: 20),
+      hintStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 14,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 20,
+      ),
       filled: true,
-      fillColor: const Color(0xFF0E1A22),
-      contentPadding:
-      const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      fillColor: _innerCardColor,
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide:
-        BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          width: 1,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide:
-        BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          width: 1,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Colors.blue, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.primary,
+          width: 2,
+        ),
       ),
     );
   }

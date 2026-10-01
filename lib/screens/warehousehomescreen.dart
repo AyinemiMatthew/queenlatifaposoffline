@@ -13,6 +13,65 @@ import '../paymentwidgets/changepasswordDialog.dart';
 import '../paymentwidgets/showlogout.dart';
 import '../providers/routes.dart';
 
+class _WarehousePalette {
+  _WarehousePalette(ThemeData theme)
+      : isLight = theme.brightness == Brightness.light,
+        surface = theme.brightness == Brightness.light
+            ? theme.colorScheme.surface
+            : Constants.bgCard,
+        background = theme.brightness == Brightness.light
+            ? theme.colorScheme.surface
+            : Constants.bgDark,
+        elevatedSurface = theme.brightness == Brightness.light
+            ? theme.colorScheme.surfaceContainerHighest
+            : Constants.bgInput,
+        gradientSurface = theme.brightness == Brightness.light
+            ? theme.colorScheme.surfaceContainerHighest
+            : const Color(0xFF1E2645),
+        primaryText = theme.brightness == Brightness.light
+            ? theme.colorScheme.onSurface
+            : Constants.textPrimary,
+        secondaryText = theme.brightness == Brightness.light
+            ? theme.colorScheme.onSurfaceVariant
+            : Constants.textSecondary,
+        mutedText = theme.brightness == Brightness.light
+            ? theme.colorScheme.onSurfaceVariant
+            : Constants.textMuted,
+        border = theme.brightness == Brightness.light
+            ? theme.colorScheme.outlineVariant
+            : Constants.borderColor,
+        amber = Constants.amber,
+        amberFill = Constants.amberFill,
+        green = Constants.green,
+        accent = Constants.accent,
+        amberBackground = theme.brightness == Brightness.light
+            ? const Color(0xFFFFF4DF)
+            : Constants.amberBg,
+        greenBackground = theme.brightness == Brightness.light
+            ? const Color(0xFFE8F5EC)
+            : Constants.greenBg,
+        onAccent = theme.brightness == Brightness.light
+            ? theme.colorScheme.onSurface
+            : Constants.bgDark;
+
+  final bool isLight;
+  final Color surface;
+  final Color background;
+  final Color elevatedSurface;
+  final Color gradientSurface;
+  final Color primaryText;
+  final Color secondaryText;
+  final Color mutedText;
+  final Color border;
+  final Color amber;
+  final Color amberFill;
+  final Color green;
+  final Color accent;
+  final Color amberBackground;
+  final Color greenBackground;
+  final Color onAccent;
+}
+
 class SaleItem {
   final String name;
   final double qty;
@@ -275,58 +334,56 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
 
   Future<void> _selectDateRange(BuildContext context) async {
     var selectedRange = selectedDateRange;
+    final colors = _WarehousePalette(Theme.of(context));
 
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: Constants.bgCard,
-        title: const Text(
+        backgroundColor: colors.surface,
+        title: Text(
           'Select Date Range',
-          style: TextStyle(
-            color: Constants.textPrimary,
-          ),
+          style: TextStyle(color: colors.primaryText),
         ),
         content: SizedBox(
           height: 400,
           width: 320,
           child: SfDateRangePicker(
-            backgroundColor: Constants.bgDark,
+            backgroundColor: colors.background,
 
-            headerStyle: const DateRangePickerHeaderStyle(
-              backgroundColor: Constants.bgCard,
+            headerStyle: DateRangePickerHeaderStyle(
+              backgroundColor: colors.surface,
               textAlign: TextAlign.center,
               textStyle: TextStyle(
-                color: Colors.white,
+                color: colors.primaryText,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
               ),
             ),
 
             monthViewSettings:
-            const DateRangePickerMonthViewSettings(
-              viewHeaderStyle:
-              DateRangePickerViewHeaderStyle(
+            DateRangePickerMonthViewSettings(
+              viewHeaderStyle: DateRangePickerViewHeaderStyle(
                 textStyle: TextStyle(
-                  color: Colors.white70,
+                  color: colors.secondaryText,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
 
             monthCellStyle:
-            const DateRangePickerMonthCellStyle(
+            DateRangePickerMonthCellStyle(
               textStyle: TextStyle(
-                color: Colors.white,
+                color: colors.primaryText,
               ),
               todayTextStyle: TextStyle(
                 color: Colors.blueAccent,
                 fontWeight: FontWeight.bold,
               ),
               weekendTextStyle: TextStyle(
-                color: Colors.white60,
+                color: colors.secondaryText,
               ),
               disabledDatesTextStyle: TextStyle(
-                color: Colors.white24,
+                color: colors.mutedText,
               ),
             ),
 
@@ -336,7 +393,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
             rangeSelectionColor: const Color(0x262196F3),
             todayHighlightColor: Colors.blueAccent,
 
-            selectionTextStyle: const TextStyle(
+            selectionTextStyle: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
@@ -375,10 +432,10 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
             onPressed: () {
               Navigator.pop(dialogContext);
             },
-            child: const Text(
+            child: Text(
               'Cancel',
               style: TextStyle(
-                color: Constants.textSecondary,
+                color: colors.secondaryText,
               ),
             ),
           ),
@@ -401,8 +458,8 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Constants.amberFill,
-              foregroundColor: Constants.bgDark,
+              backgroundColor: colors.amberFill,
+              foregroundColor: colors.onAccent,
             ),
             child: const Text('Apply'),
           ),
@@ -480,6 +537,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
 
   void showToast(String message) {
     if (!mounted) return;
+    final colors = _WarehousePalette(Theme.of(context));
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -487,26 +545,24 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
           children: [
             Icon(
               Icons.check_circle,
-              color: Constants.green,
+              color: colors.green,
               size: 16,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(
-                  color: Colors.white,
-                ),
+                style: TextStyle(color: colors.isLight ? colors.primaryText : Colors.white),
               ),
             ),
           ],
         ),
-        backgroundColor: Constants.bgCard,
+        backgroundColor: colors.surface,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Constants.borderColor),
+          side: BorderSide(color: colors.border),
         ),
         duration: const Duration(milliseconds: 1800),
       ),
@@ -525,6 +581,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
     final data = filteredSales;
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 600;
+    final colors = _WarehousePalette(Theme.of(context));
 
     // Stats
     final pendingCount = allSales.where((s) => s.isPending).length;
@@ -533,10 +590,12 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
     final totalqueued = allSales.length;
 
     return Scaffold(
-      backgroundColor: Constants.bgDark,
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: const Text('Supply Queue'),
         centerTitle: false,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.primaryText,
         elevation: 0,
         actions: [
           IconButton(
@@ -596,9 +655,9 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
             minWidth: isDesktop ? 600 : 320,
           ),
           child: _isLoading
-              ? const Center(
+              ? Center(
             child: CircularProgressIndicator(
-              color: Constants.amberFill,
+              color: colors.amberFill,
             ),
           )
               : Column(
@@ -607,9 +666,9 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
               Container(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
                 decoration: BoxDecoration(
-                  color: Constants.bgDark,
+                  color: colors.background,
                   border: Border(
-                    bottom: BorderSide(color: Constants.borderColor, width: 0.5),
+                    bottom: BorderSide(color: colors.border, width: 0.5),
                   ),
                 ),
                 child: Row(
@@ -617,7 +676,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                     _StatItem(
                       label: 'Pending',
                       value: '$pendingCount',
-                      color: Constants.amber,
+                      color: colors.amber,
                       isActive: statusFilter == 'pending',
                       onTap: () {
                         setState(() {
@@ -628,7 +687,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                     _StatItem(
                       label: 'Partial',
                       value: '$partialCount',
-                      color: Constants.accent,
+                      color: colors.accent,
                       isActive: statusFilter == 'partial',
                       onTap: () {
                         setState(() {
@@ -639,7 +698,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                     _StatItem(
                       label: 'Completed',
                       value: '$completedCount',
-                      color: Constants.green,
+                      color: colors.green,
                       isActive: statusFilter == 'completed',
                       onTap: () {
                         setState(() {
@@ -650,7 +709,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                     _StatItem(
                       label: 'Total',
                       value: '$totalqueued',
-                      color: Constants.textPrimary,
+                      color: colors.primaryText,
                       isActive: statusFilter == 'all',
                       onTap: () {
                         setState(() {
@@ -676,15 +735,15 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Constants.amberBg,
+                    color: colors.amberBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Constants.amber.withOpacity(0.3)),
+                    border: Border.all(color: colors.amber.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.info_outline,
-                        color: Constants.amber,
+                        color: colors.amber,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -693,7 +752,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                           'Search by receipt number to view and supply items',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Constants.textPrimary,
+                            color: colors.primaryText,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -719,7 +778,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                         Icon(
                           Icons.inventory_2_outlined,
                           size: 40,
-                          color: Constants.textMuted,
+                          color: colors.mutedText,
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -727,7 +786,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                           style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
-                            color: Constants.textPrimary,
+                            color: colors.primaryText,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -736,7 +795,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                           'Nothing matches this filter for the selected date range.',
                           style: TextStyle(
                             fontSize: 12.5,
-                            color: Constants.textSecondary,
+                            color: colors.secondaryText,
                             decoration: TextDecoration.none,
                           ),
                           textAlign: TextAlign.center,
@@ -760,7 +819,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.6,
-                                  color: Constants.textSecondary,
+                                  color: colors.secondaryText,
                                   decoration: TextDecoration.none,
                                 ),
                               ),
@@ -1109,6 +1168,7 @@ class _StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _WarehousePalette(Theme.of(context));
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -1133,7 +1193,7 @@ class _StatItem extends StatelessWidget {
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'monospace',
-                      color: isActive ? color : Constants.textPrimary,
+                      color: isActive ? color : colors.primaryText,
                       height: 1,
                       decoration: TextDecoration.none,
                     ),
@@ -1153,7 +1213,7 @@ class _StatItem extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 10.5,
-                  color: isActive ? color : Constants.textPrimary,
+                  color: isActive ? color : colors.primaryText,
                   letterSpacing: 0.5,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                   decoration: TextDecoration.none,
@@ -1185,9 +1245,10 @@ class _FilterBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 400;
+    final colors = _WarehousePalette(Theme.of(context));
 
     return Container(
-      color: Constants.bgDark,
+      color: colors.background,
       padding: EdgeInsets.fromLTRB(
         isSmallScreen ? 12 : 18,
         12,
@@ -1206,18 +1267,18 @@ class _FilterBar extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Constants.bgCard,
-                    const Color(0xFF1E2645),
+                    colors.surface,
+                    colors.gradientSurface,
                   ],
                 ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Constants.borderColor,
+                  color: colors.border,
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Constants.amberFill.withOpacity(0.05),
+                    color: colors.amberFill.withOpacity(0.05),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1228,13 +1289,13 @@ class _FilterBar extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Constants.amberFill.withOpacity(0.15),
+                      color: colors.amberFill.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
                       Icons.calendar_today,
                       size: isSmallScreen ? 16 : 18,
-                      color: Constants.amberFill,
+                      color: colors.amberFill,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1247,7 +1308,7 @@ class _FilterBar extends StatelessWidget {
                           'Date Range',
                           style: TextStyle(
                             fontSize: isSmallScreen ? 10 : 11,
-                            color: Constants.textMuted,
+                            color: colors.mutedText,
                             decoration: TextDecoration.none,
                             letterSpacing: 0.5,
                           ),
@@ -1257,7 +1318,7 @@ class _FilterBar extends StatelessWidget {
                           dateRangeLabel,
                           style: TextStyle(
                             fontSize: isSmallScreen ? 13 : 14,
-                            color: Constants.textPrimary,
+                            color: colors.primaryText,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.none,
                           ),
@@ -1269,12 +1330,12 @@ class _FilterBar extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Constants.borderColor.withOpacity(0.5),
+                      color: colors.border.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(
                       Icons.arrow_forward_ios,
-                      color: Constants.textMuted,
+                      color: colors.mutedText,
                       size: isSmallScreen ? 12 : 14,
                     ),
                   ),
@@ -1287,21 +1348,21 @@ class _FilterBar extends StatelessWidget {
           // Search bar with hint based on access level
           Container(
             decoration: BoxDecoration(
-              color: Constants.bgInput,
+              color: colors.elevatedSurface,
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: Constants.borderColor),
+              border: Border.all(color: colors.border),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                Icon(Icons.search, size: 15, color: Constants.textMuted),
+                Icon(Icons.search, size: 15, color: colors.mutedText),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: searchController,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 12 : 13.5,
-                      color: Constants.textPrimary,
+                      color: colors.primaryText,
                       decoration: TextDecoration.none,
                     ),
                     decoration: InputDecoration(
@@ -1311,7 +1372,7 @@ class _FilterBar extends StatelessWidget {
                           : 'Enter receipt number to search',
                       hintStyle: TextStyle(
                         fontSize: isSmallScreen ? 12 : 13.5,
-                        color: Constants.textMuted,
+                        color: colors.mutedText,
                       ),
                     ),
                   ),
@@ -1324,7 +1385,7 @@ class _FilterBar extends StatelessWidget {
                     child: Icon(
                       Icons.clear,
                       size: 16,
-                      color: Constants.textMuted,
+                      color: colors.mutedText,
                     ),
                   ),
               ],
@@ -1356,32 +1417,33 @@ class _TicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _WarehousePalette(Theme.of(context));
     final bool isFullySupplied = sale.isFullySupplied;
     final bool isPartiallySupplied = sale.isPartiallySupplied;
 
     String statusText = 'Pending';
-    Color statusColor = Constants.amber;
-    Color statusBgColor = Constants.amberBg;
+    Color statusColor = colors.amber;
+    Color statusBgColor = colors.amberBackground;
     IconData statusIcon = Icons.pending;
 
     if (isFullySupplied) {
       statusText = 'Completed';
-      statusColor = Constants.green;
-      statusBgColor = Constants.greenBg;
+      statusColor = colors.green;
+      statusBgColor = colors.greenBackground;
       statusIcon = Icons.check_circle;
     } else if (isPartiallySupplied) {
       statusText = 'Partial';
-      statusColor = Constants.accent;
-      statusBgColor = Constants.accent.withOpacity(0.15);
+      statusColor = colors.accent;
+      statusBgColor = colors.accent.withOpacity(0.15);
       statusIcon = Icons.hourglass_top;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Constants.bgCard,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Constants.borderColor),
+        border: Border.all(color: colors.border),
       ),
       child: Column(
         children: [
@@ -1406,7 +1468,7 @@ class _TicketCard extends StatelessWidget {
                               fontFamily: 'monospace',
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Constants.textPrimary,
+                              color: colors.primaryText,
                               decoration: TextDecoration.none,
                             ),
                           ),
@@ -1416,7 +1478,7 @@ class _TicketCard extends StatelessWidget {
                             style: TextStyle(
                               fontFamily: 'monospace',
                               fontSize: 11,
-                              color: Constants.textSecondary,
+                              color: colors.secondaryText,
                               decoration: TextDecoration.none,
                             ),
                           ),
@@ -1464,7 +1526,7 @@ class _TicketCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Constants.textPrimary,
+                              color: colors.primaryText,
                               decoration: TextDecoration.none,
                             ),
                           ),
@@ -1473,7 +1535,7 @@ class _TicketCard extends StatelessWidget {
                             '${sale.pendingCount}/${sale.itemCount} items pending',
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: Constants.textSecondary,
+                              color: colors.secondaryText,
                               decoration: TextDecoration.none,
                             ),
                           ),
@@ -1485,7 +1547,7 @@ class _TicketCard extends StatelessWidget {
                           fontFamily: 'monospace',
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Constants.textPrimary,
+                          color: colors.primaryText,
                           decoration: TextDecoration.none,
                         ),
                       ),
@@ -1501,14 +1563,14 @@ class _TicketCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Container(
               height: 1.5,
-              color: Constants.borderColor,
+              color: colors.border,
             ),
           ),
 
           // Expanded items with supply buttons
           if (isExpanded && canViewItems)
             Container(
-              color: Constants.bgDark,
+              color: colors.background,
               child: Column(
                 children: sale.items.map((item) {
                   final isItemSupplied = item.isSupplied;
@@ -1523,7 +1585,7 @@ class _TicketCard extends StatelessWidget {
                               Icon(
                                 isItemSupplied ? Icons.check_circle : Icons.circle_outlined,
                                 size: 16,
-                                color: isItemSupplied ? Constants.green : Constants.textMuted,
+                                color: isItemSupplied ? colors.green : colors.mutedText,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -1531,9 +1593,9 @@ class _TicketCard extends StatelessWidget {
                                   item.name,
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    color: isItemSupplied ? Constants.textSecondary : Constants.textPrimary,
+                                    color: isItemSupplied ? colors.secondaryText : colors.primaryText,
                                     decoration: isItemSupplied ? TextDecoration.lineThrough : TextDecoration.none,
-                                    decorationColor: Constants.textSecondary,
+                                    decorationColor: colors.secondaryText,
                                   ),
                                 ),
                               ),
@@ -1545,7 +1607,7 @@ class _TicketCard extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12.5,
-                            color: isItemSupplied ? Constants.textSecondary : Constants.textPrimary,
+                            color: isItemSupplied ? colors.secondaryText : colors.primaryText,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -1556,7 +1618,7 @@ class _TicketCard extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Constants.amberFill,
+                                color: colors.amberFill,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -1564,7 +1626,7 @@ class _TicketCard extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
-                                  color: Constants.bgDark,
+                                  color: colors.onAccent,
                                   decoration: TextDecoration.none,
                                 ),
                               ),
@@ -1574,7 +1636,7 @@ class _TicketCard extends StatelessWidget {
                           Icon(
                             Icons.check,
                             size: 16,
-                            color: Constants.green,
+                            color: colors.green,
                           ),
                       ],
                     ),
@@ -1584,7 +1646,7 @@ class _TicketCard extends StatelessWidget {
             )
           else if (isExpanded && !canViewItems)
             Container(
-              color: Constants.bgDark,
+              color: colors.background,
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Center(
                 child: Column(
@@ -1592,14 +1654,14 @@ class _TicketCard extends StatelessWidget {
                     Icon(
                       Icons.lock_outline,
                       size: 24,
-                      color: Constants.textMuted,
+                      color: colors.mutedText,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Search by receipt number to view items',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Constants.textSecondary,
+                        color: colors.secondaryText,
                         decoration: TextDecoration.none,
                       ),
                     ),
@@ -1620,7 +1682,7 @@ class _TicketCard extends StatelessWidget {
                       Icon(
                         isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                         size: 16,
-                        color: Constants.textSecondary,
+                        color: colors.secondaryText,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -1628,7 +1690,7 @@ class _TicketCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontFamily: 'monospace',
-                          color: Constants.textSecondary,
+                          color: colors.secondaryText,
                           decoration: TextDecoration.none,
                         ),
                       ),
@@ -1645,7 +1707,7 @@ class _TicketCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                           decoration: BoxDecoration(
-                            color: Constants.amberFill,
+                            color: colors.amberFill,
                             borderRadius: BorderRadius.circular(9),
                           ),
                           child: Row(
@@ -1654,7 +1716,7 @@ class _TicketCard extends StatelessWidget {
                               Icon(
                                 Icons.checklist,
                                 size: 14,
-                                color: Constants.bgDark,
+                                color: colors.onAccent,
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -1662,7 +1724,7 @@ class _TicketCard extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: Constants.bgDark,
+                                  color: colors.onAccent,
                                   decoration: TextDecoration.none,
                                 ),
                               ),
@@ -1679,7 +1741,7 @@ class _TicketCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Constants.borderColor,
+                          color: colors.border,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Row(
@@ -1688,7 +1750,7 @@ class _TicketCard extends StatelessWidget {
                             Icon(
                               Icons.lock_outline,
                               size: 14,
-                              color: Constants.textSecondary,
+                              color: colors.secondaryText,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -1696,7 +1758,7 @@ class _TicketCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Constants.textSecondary,
+                                color: colors.secondaryText,
                                 decoration: TextDecoration.none,
                               ),
                             ),
@@ -1712,20 +1774,20 @@ class _TicketCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Constants.borderColor,
+                          color: colors.border,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check, size: 14, color: Constants.green),
+                            Icon(Icons.check, size: 14, color: colors.green),
                             const SizedBox(width: 6),
                             Text(
                               'All Supplied',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Constants.textSecondary,
+                                color: colors.secondaryText,
                                 decoration: TextDecoration.none,
                               ),
                             ),

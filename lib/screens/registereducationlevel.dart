@@ -189,9 +189,9 @@ class _EducationLevelRegistrationState extends State<EducationLevelRegistration>
                                         shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(14)),
                                       ),
-                                      icon: const Icon(Icons.view_list, color: Colors.white70),
+                                      icon: const Icon(Icons.view_list, color: Colors.white),
                                       label: const Text("View",
-                                          style: TextStyle(color: Colors.white70)),
+                                          style: TextStyle(color: Colors.white)),
                                       onPressed: () {
                                         Navigator.push(
                                           context,

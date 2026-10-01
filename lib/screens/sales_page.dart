@@ -7,23 +7,17 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:provider/provider.dart';
 
 import '../models/branch.dart';
-import '../models/customerreg_model.dart';
 import '../models/itemmodel.dart';
 import '../models/salesmodel.dart';
 import '../paymentwidgets/BarcodeScannerScreen.dart';
-import '../paymentwidgets/changepasswordDialog.dart';
 import '../paymentwidgets/customerinfodialog.dart';
 import '../paymentwidgets/momoDialog.dart';
 import '../paymentwidgets/printDialog.dart';
-import '../paymentwidgets/showlogout.dart';
 import '../providers/SalesProvider.dart';
-import '../providers/routes.dart';
 import '../widgets/salespagewidgets/hamper.dart';
 import '../widgets/salespagewidgets/mobilesalespreview.dart';
 import '../widgets/salespagewidgets/snackmsg.dart';
 import '../widgets/salespagewidgets/validators/salespagevalidator.dart';
-import '../widgets/stockreportmodal.dart';
-
 
 class SalesPage extends StatefulWidget {
   const SalesPage({super.key});
@@ -33,6 +27,30 @@ class SalesPage extends StatefulWidget {
 }
 
 class _SalesPageState extends State<SalesPage> {
+  ColorScheme get _colorScheme => Theme.of(context).colorScheme;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _primaryText =>
+      _isLightTheme ? _colorScheme.onSurface : Colors.white;
+  Color get _secondaryText =>
+      _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white70;
+  Color get _warningText =>
+      _isLightTheme ? Colors.deepOrange.shade700 : Colors.orangeAccent;
+  Color get _successText =>
+      _isLightTheme ? Colors.green.shade700 : Colors.greenAccent;
+  Color get _panelSurface => _isLightTheme
+      ? _colorScheme.surfaceContainerHighest
+      : const Color(0xFF22304A);
+  Color get _outlineColor =>
+      _isLightTheme ? _colorScheme.outline : Colors.white24;
+  ColorScheme get _datePickerColorScheme => _isLightTheme
+      ? _colorScheme
+      : _colorScheme.copyWith(
+          primary: Colors.blue,
+          onPrimary: Colors.white,
+          surface: _panelSurface,
+          onSurface: Colors.white,
+        );
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();
   final TextEditingController _itemController = TextEditingController();
@@ -64,9 +82,15 @@ class _SalesPageState extends State<SalesPage> {
   String _displayBranchName = "";
   String _loginBranchId = '';
   String _loginBranchName = '';
-  String get _activeBranchId =>  _superAdminBranchId.isNotEmpty ? _superAdminBranchId : branchid.isNotEmpty ? branchid : Provider.of<Datafeed>(context, listen: false).activeBranchId;
+  String get _activeBranchId => _superAdminBranchId.isNotEmpty
+      ? _superAdminBranchId
+      : branchid.isNotEmpty
+      ? branchid
+      : Provider.of<Datafeed>(context, listen: false).activeBranchId;
 
-  String get _activeBranchName => _superAdminBranchName.isNotEmpty ? _superAdminBranchName : Provider.of<Datafeed>(context, listen: false).activeBranchName;
+  String get _activeBranchName => _superAdminBranchName.isNotEmpty
+      ? _superAdminBranchName
+      : Provider.of<Datafeed>(context, listen: false).activeBranchName;
   String? cp;
   Map<String, dynamic>? branchbalance;
   final List<Map<String, dynamic>>? items = [];
@@ -75,6 +99,69 @@ class _SalesPageState extends State<SalesPage> {
   bool _showDiscountCodeField = false;
   final TextEditingController _bulkDiscountController = TextEditingController();
   bool _isSavingDirect = false;
+  bool _isNormalizingQuantity = false;
+
+  bool get _quantityLimitedSalesMode {
+    final mode = (_selectedSalesMode ?? '')
+        .toLowerCase()
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .trim();
+    return (mode.contains('half') && mode.contains('carton')) ||
+        RegExp(r'\bpack\b').hasMatch(mode) ||
+        RegExp(r'\bquarter\b').hasMatch(mode) ||
+        mode.contains('1/4') ||
+        mode.contains('¼');
+  }
+
+  bool _isFullCartonMode(String mode) {
+    final normalized = mode
+        .toLowerCase()
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .trim();
+    final isPartialCarton =
+        normalized.contains('half') ||
+        normalized.contains('quarter') ||
+        normalized.contains('1/2') ||
+        normalized.contains('1/4') ||
+        normalized.contains('½') ||
+        normalized.contains('¼');
+    return normalized.contains('carton') && !isPartialCarton;
+  }
+
+  bool _isSplitSalesMode(String mode) {
+    final normalized = mode
+        .toLowerCase()
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .trim();
+    return normalized.contains('half') ||
+        normalized.contains('quarter') ||
+        RegExp(r'\bpack\b').hasMatch(normalized) ||
+        normalized.contains('½') ||
+        normalized.contains('¼') ||
+        normalized.contains('1/2') ||
+        normalized.contains('1/4');
+  }
+
+  String? _validateQuantity(String? value) {
+    final quantityError = SalesFormValidators.quantity(value);
+    if (quantityError != null) return quantityError;
+
+    final quantity = double.parse(value!);
+    if (_quantityLimitedSalesMode && quantity > 1) {
+      return 'Quantity for half carton, pack, or quarter is limited to 1';
+    }
+    return null;
+  }
+
+  bool _isSalesPointType(String? t) =>
+      (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
+      'salespoint';
+
+  String get _effectivePriceMode =>
+      (_selectedPriceMode ?? '').toLowerCase().trim() == 'wholesale'
+      ? 'wholesale'
+      : 'retail';
+
   @override
   void initState() {
     super.initState();
@@ -87,7 +174,7 @@ class _SalesPageState extends State<SalesPage> {
       await value.getdata();
 
       if (!mounted) return;
-      if(branchid.isEmpty){
+      if (branchid.isEmpty) {
         branchid = value.branchid;
       }
 
@@ -104,12 +191,10 @@ class _SalesPageState extends State<SalesPage> {
       if (_selectedPriceMode == null && _priceMode.isNotEmpty) {
         _selectedPriceMode = _priceMode.first;
       }
-
     });
 
     _selectedDate = DateTime.now();
-    _dateController.text =
-        DateFormat('yyyy-MM-dd').format(_selectedDate!);
+    _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate!);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SalesProvider>().setSaleDate(_selectedDate);
@@ -123,7 +208,11 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   void _setQuantityValue(double value) {
-    final normalized = value <= 0 ? 1 : value;
+    final normalized = _quantityLimitedSalesMode
+        ? (value > 1 ? 1.0 : value)
+        : value <= 0
+        ? 1
+        : value;
     final text = normalized % 1 == 0
         ? normalized.toStringAsFixed(0)
         : normalized.toString();
@@ -141,6 +230,7 @@ class _SalesPageState extends State<SalesPage> {
     final next = _currentQuantityValue() - 1;
     _setQuantityValue(next <= 0 ? 1 : next);
   }
+
   String _calculateGrossAmount() {
     final price = double.tryParse(_priceController.text.trim()) ?? 0.0;
     final qty = double.tryParse(_quantityController.text.trim()) ?? 0.0;
@@ -149,6 +239,7 @@ class _SalesPageState extends State<SalesPage> {
 
     return gross.toStringAsFixed(2);
   }
+
   void _refreshPricingForBranch(String newBranchId) {
     if (_selectedItem == null) return;
 
@@ -158,7 +249,6 @@ class _SalesPageState extends State<SalesPage> {
     final branchPrices = item.branchprices;
     final modes = item.modes;
 
-    // Try branch-specific pricing first
     if (branchPrices != null &&
         branchPrices.containsKey(newBranchId) &&
         branchPrices[newBranchId]['pricing'] != null) {
@@ -166,7 +256,6 @@ class _SalesPageState extends State<SalesPage> {
         branchPrices[newBranchId]['pricing'],
       );
     } else if (modes != null) {
-      // Fall back to item modes
       for (var mode in modes) {
         effectivePricing[mode.name] = {
           'id': mode.id,
@@ -182,48 +271,40 @@ class _SalesPageState extends State<SalesPage> {
 
     _itemModes = effectivePricing;
 
-    // Rebuild sales mode list
-    /*
     if (_itemModes != null && _itemModes!.isNotEmpty) {
       _salesMode = _itemModes!.entries.map((e) {
         final data = e.value as Map<String, dynamic>;
         return data['name']?.toString() ?? e.key;
       }).toList();
 
-      _salesMode.sort((a, b) {
-        if (a.toLowerCase() == 'single') return -1;
-        if (b.toLowerCase() == 'single') return 1;
-        return 0;
-      });
-
-      // Keep same mode if it still exists in new branch, else reset to first
-      if (!_salesMode.contains(_selectedSalesMode)) {
-        _selectedSalesMode = _salesMode.first;
-      }
-    } else {
-      _salesMode = const ['single'];
-      _selectedSalesMode = null;
-      _currentModeData = null;
-    }
-    */
-    if (_itemModes != null && _itemModes!.isNotEmpty) {
-      _salesMode = _itemModes!.entries.map((e) {
-        final data = e.value as Map<String, dynamic>;
-        return data['name']?.toString() ?? e.key;
-      }).toList();
-
-      final bool isWholesale = (_selectedPriceMode ?? '').toLowerCase() == 'wholesale';
+      final bool isWholesale = _effectivePriceMode == 'wholesale';
       double cartonQty = 0;
       for (final entry in _itemModes!.entries) {
         if (entry.key.toLowerCase().trim() == 'carton') {
-          cartonQty = double.tryParse(entry.value['qty']?.toString() ?? '0') ?? 0;
+          cartonQty =
+              double.tryParse(entry.value['qty']?.toString() ?? '0') ?? 0;
           break;
         }
       }
       if (isWholesale) {
-        _salesMode = _salesMode
-            .where((m) => m.toLowerCase().contains('carton'))
+        final cartonModes = _salesMode
+            .where((mode) => mode.toLowerCase().contains('carton'))
             .toList();
+        if (cartonQty <= 1) {
+          final baseModes = cartonModes.isNotEmpty
+              ? cartonModes
+              : _salesMode
+                    .where((mode) => mode.toLowerCase().trim() == 'single')
+                    .toList();
+          _salesMode = [
+            ...baseModes,
+            ..._salesMode.where(
+              (mode) => _isSplitSalesMode(mode) && !baseModes.contains(mode),
+            ),
+          ];
+        } else {
+          _salesMode = cartonModes;
+        }
         if (_salesMode.isEmpty) {
           _salesMode = _itemModes!.entries.map((e) {
             final data = e.value as Map<String, dynamic>;
@@ -237,16 +318,23 @@ class _SalesPageState extends State<SalesPage> {
         });
       } else {
         if (cartonQty <= 1) {
-          _salesMode = _salesMode.where((m) => !m.toLowerCase().contains('carton')).toList();
+          final nonCartonModes = _salesMode
+              .where((mode) => !_isFullCartonMode(mode))
+              .toList();
+          if (nonCartonModes.isNotEmpty) {
+            _salesMode = nonCartonModes;
+          }
         }
+        final first = context.read<Datafeed>().isSalesPoint
+            ? 'carton'
+            : 'single';
         _salesMode.sort((a, b) {
-          if (a.toLowerCase() == 'single') return -1;
-          if (b.toLowerCase() == 'single') return 1;
+          if (a.toLowerCase() == first) return -1;
+          if (b.toLowerCase() == first) return 1;
           return 0;
         });
       }
 
-      // Keep same mode if it still exists in new branch, else reset to first
       if (!_salesMode.contains(_selectedSalesMode)) {
         _selectedSalesMode = _salesMode.first;
       }
@@ -258,366 +346,7 @@ class _SalesPageState extends State<SalesPage> {
     // Recalculate price under new branch
     _updatePrice();
   }
-  void _showChangePasswordDialog(BuildContext context, Datafeed datafeed) {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    bool isLoading = false;
-    bool showCurrentPassword = false;
-    bool showNewPassword = false;
-    bool showConfirmPassword = false;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            final theme = Theme.of(context);
-            final colorScheme = theme.colorScheme;
-
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.lock_reset,
-                                color: colorScheme.onPrimary,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Change Password',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Update your account password',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        TextFormField(
-                          controller: currentPasswordController,
-                          obscureText: !showCurrentPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Current Password',
-                            prefixIcon: Icon(
-                              Icons.lock_outline,
-                              color: colorScheme.onPrimary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                showCurrentPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              color: colorScheme.onPrimary,
-                              onPressed: () {
-                                setState(() {
-                                  showCurrentPassword = !showCurrentPassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.primary,
-                                width: 1.4,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: colorScheme.surfaceVariant,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter current password';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: newPasswordController,
-                          obscureText: !showNewPassword,
-                          decoration: InputDecoration(
-                            labelText: 'New Password',
-                            prefixIcon: Icon(
-                              Icons.lock,
-                              color: colorScheme.onPrimary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                showNewPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              color: colorScheme.onSurfaceVariant,
-                              onPressed: () {
-                                setState(() {
-                                  showNewPassword = !showNewPassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.primary,
-                                width: 1.4,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: colorScheme.surfaceVariant,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                            helperText: 'Must be at least 6 characters',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter new password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: confirmPasswordController,
-                          obscureText: !showConfirmPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Confirm New Password',
-                            prefixIcon: Icon(
-                              Icons.lock,
-                              color: colorScheme.onPrimary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                showConfirmPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              color: colorScheme.onSurfaceVariant,
-                              onPressed: () {
-                                setState(() {
-                                  showConfirmPassword = !showConfirmPassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.primary,
-                                width: 1.4,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: colorScheme.surfaceVariant,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please confirm password';
-                            }
-                            if (value != newPasswordController.text) {
-                              return 'Passwords do not match';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
-                              onPressed: isLoading
-                                  ? null
-                                  : () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text('Cancel',style: TextStyle(color: Colors.white),),
-                            ),
-                            const SizedBox(width: 12),
-                            FilledButton(
-                              onPressed: isLoading
-                                  ? null
-                                  : () async {
-                                if (formKey.currentState!.validate()) {
-                                  setState(() => isLoading = true);
-                                  try {
-                                    await datafeed.changePassword(
-                                      currentPasswordController.text,
-                                      newPasswordController.text,
-                                    );
-                                    if (context.mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Password changed successfully',style: TextStyle(color: ColorScheme.of(context).onPrimary),
-                                          ),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    setState(() => isLoading = false);
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Error: $e',style: TextStyle(color: ColorScheme.of(context).onPrimary),),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                }
-                              },
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: isLoading
-                                  ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                                  : const Text('Update Password'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showLogoutDialog(BuildContext parentcontext, Datafeed datafeed) {
-    showDialog(
-      context: parentcontext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                datafeed.logout(parentcontext);
-              },
-              child: const Text('Logout'),
-            ),
-          ],
-        );
-      },
-    );
-  }
   @override
   void dispose() {
     _barcodeController.removeListener(_onBarcodeChanged);
@@ -626,7 +355,7 @@ class _SalesPageState extends State<SalesPage> {
     _priceController.removeListener(_calculateTotals);
     _discountCodeController.dispose();
     _bulkDiscountController.dispose();
-   // _dateController.clear();
+    // _dateController.clear();
     _dateController.dispose();
     super.dispose();
   }
@@ -664,7 +393,31 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   void _onQuantityChanged() {
+    if (_isNormalizingQuantity) return;
+
+    final enteredQuantity = double.tryParse(_quantityController.text.trim());
+    if (_quantityLimitedSalesMode &&
+        enteredQuantity != null &&
+        enteredQuantity > 1) {
+      _isNormalizingQuantity = true;
+      _quantityController.value = const TextEditingValue(
+        text: '1',
+        selection: TextSelection.collapsed(offset: 1),
+      );
+      _isNormalizingQuantity = false;
+    }
     _updatePrice();
+  }
+
+  void _handleQuantityInput(String value) {
+    final enteredQuantity = double.tryParse(value.trim());
+    if (_quantityLimitedSalesMode &&
+        enteredQuantity != null &&
+        enteredQuantity > 1) {
+      _setQuantityValue(1);
+      return;
+    }
+    _onQuantityChanged();
   }
 
   void _calculateTotals() {
@@ -683,150 +436,226 @@ class _SalesPageState extends State<SalesPage> {
     setState(() {});
   }
 
+  bool _isSalesBranchType(String? t) =>
+      (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
+      'salesbranch';
 
   Widget _buildSalesWarehouseSelector(Datafeed datafeed) {
-    final accesslevel = datafeed.accesslevel;
-    final isSuperAdmin = accesslevel.toLowerCase().trim() == 'super admin';
+    InputDecoration deco(String label) => InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      floatingLabelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+      filled: true,
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+      ),
+    );
 
+    if (datafeed.canSellAnyBranch) {
+      final sp = Provider.of<SalesProvider>(context, listen: false);
 
+      final assignedIds = datafeed.salesWarehouseIds
+          .map((e) => e.toLowerCase())
+          .toSet();
 
-    if (isSuperAdmin || datafeed.canSellAnyBranch) {
-      final dedupedBranches = datafeed.branches.fold<Map<String, dynamic>>({}, (map, b) {
-        if (!map.containsKey(b.id)) map[b.id] = b;
-        return map;
-      }).values.toList();
+      final allBranches = datafeed.branches
+          .where((b) {
+            if (_isSalesPointType(b.branchtype)) return false;
+            final isSalesBranch = _isSalesBranchType(b.branchtype);
+            final isAssignedWarehouse = assignedIds.contains(
+              b.id.toLowerCase(),
+            );
+            return isSalesBranch || isAssignedWarehouse;
+          })
+          .fold<Map<String, BranchModel>>({}, (map, b) {
+            if (!map.containsKey(b.id)) map[b.id] = b;
+            return map;
+          })
+          .values
+          .toList();
 
-      if (dedupedBranches.isEmpty) {
-        return const Padding(
+      if (datafeed.branches.isEmpty) {
+        return Padding(
           padding: EdgeInsets.only(bottom: 12.0),
           child: Text(
-            'Loading branches…',
-            style: TextStyle(color: Colors.white54),
+            'Loading branches -',
+            style: TextStyle(color: _secondaryText),
           ),
         );
       }
 
-      final dedupedIds = dedupedBranches.map((b) => b.id as String).toList();
+      if (_selectedItem == null) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: DropdownButtonFormField<String>(
+            key: const ValueKey('branch_no_item'),
+            value: null,
+            isExpanded: true,
+            dropdownColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            decoration: deco('Sell From (Branch / Warehouse)'),
+            hint: Text(
+              'Select an item first',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            items: const [],
+            onChanged: null,
+          ),
+        );
+      }
 
-      final rawValue = _superAdminBranchId.isNotEmpty
+      final item = _selectedItem!;
+      final isService =
+          (item.producttype ?? '').toLowerCase().trim() == 'service';
+      final bool filterByBalance = !isService && datafeed.stockCheckEnabled;
+
+      double balanceOf(String id) {
+        final bal = item.branchbalance?[id] as Map<String, dynamic>? ?? {};
+        return sp.parseNetPieces(bal);
+      }
+
+      double boxQty = 1.0;
+      final modes = item.modes;
+      if (modes != null) {
+        final carton = modes.where((m) => m.name.toLowerCase() == 'carton');
+        final single = modes.where((m) => m.name.toLowerCase() == 'single');
+        final qtyString = carton.isNotEmpty
+            ? carton.first.qty
+            : single.isNotEmpty
+            ? single.first.qty
+            : '1';
+        boxQty = double.tryParse(qtyString) ?? 1.0;
+      }
+
+      final available = filterByBalance
+          ? allBranches.where((b) => balanceOf(b.id) > 0).toList()
+          : allBranches;
+
+      if (available.isEmpty) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 12.0),
+          child: Text(
+            'Selected item has no balance in your warehouses or sales branches.',
+            style: TextStyle(
+              color: _colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
+          ),
+        );
+      }
+
+      void applyBranch(BranchModel b) {
+        datafeed.setBranch(b.id, b.branchname, b.address, b.branchcontact);
+        if (datafeed.salesWarehouseIds.contains(b.id)) {
+          datafeed.setSalesWarehouse(b.id, b.branchname);
+        }
+        setState(() {
+          branchid = b.id;
+          branchtype = b.branchtype ?? '';
+          _superAdminBranchId = b.id;
+          _superAdminBranchName = b.branchname;
+          _displayBranchName = b.branchname;
+          _refreshPricingForBranch(b.id);
+        });
+      }
+
+      final availableIds = available.map((b) => b.id).toList();
+      final current = _superAdminBranchId.isNotEmpty
           ? _superAdminBranchId
           : datafeed.branchid;
-      final bool needsCorrection = !dedupedIds.contains(rawValue);
-      final String safeValue = needsCorrection ? dedupedIds.first : rawValue;
+      final bool needsCorrection = !availableIds.contains(current);
+      final String safeValue = needsCorrection ? availableIds.first : current;
 
       if (needsCorrection) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          final fallbackBranch =
-          dedupedBranches.firstWhere((b) => b.id == dedupedIds.first);
-          setState(() {
-            _superAdminBranchId = dedupedIds.first;
-            _superAdminBranchName = fallbackBranch.branchname;
-            _displayBranchName = fallbackBranch.branchname;
-            branchid = dedupedIds.first;
-            branchtype = fallbackBranch.branchtype ?? '';
-          });
+          applyBranch(available.first);
         });
       }
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 12.0),
         child: DropdownButtonFormField<String>(
+          key: ValueKey('branch_${item.id}_$safeValue'),
           value: safeValue,
           isExpanded: true,
-          dropdownColor: const Color(0xFF22304A),
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            labelText: 'Select Branch',
-            labelStyle: const TextStyle(color: Colors.white70),
-            filled: true,
-            fillColor: const Color(0xFF22304A),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.white24),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.blue),
-            ),
-          ),
-          items: dedupedBranches
-              .map((b) => DropdownMenuItem<String>(
-            value: b.id,
-            child: Text(b.branchname,
-                style: const TextStyle(color: Colors.white)),
-          ))
-              .toList(),
+          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          decoration: deco('Sell From (Branch / Warehouse)'),
+          items: available.map((b) {
+            final pcs = balanceOf(b.id);
+            final boxes = boxQty > 0 ? pcs / boxQty : 0.0;
+            final typeLabel = (b.branchtype ?? '').isNotEmpty
+                ? ' (${b.branchtype})'
+                : '';
+            final label = isService
+                ? '${b.branchname}$typeLabel'
+                : '${b.branchname}$typeLabel - ${pcs.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes';
+            return DropdownMenuItem<String>(
+              value: b.id,
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            );
+          }).toList(),
           onChanged: (v) {
             if (v == null) return;
-
-            final branch = dedupedBranches.firstWhere((b) => b.id == v);
-
-            datafeed.setBranch(
-              v,
-              branch.branchname,
-              branch.address,
-              branch.branchcontact,
-            );
-            setState(() {
-              branchid = v;
-              branchtype = branch.branchtype ?? '';
-              _superAdminBranchId = v;
-              _superAdminBranchName = branch.branchname;
-              _displayBranchName = branch.branchname;
-
-              if (_selectedItem != null) {
-                _refreshPricingForBranch(v);
-              }
-            });
+            applyBranch(available.firstWhere((b) => b.id == v));
           },
         ),
       );
     }
+
     if (!datafeed.isSalesPoint) {
-      final t = datafeed.branchtype.toLowerCase().trim();
-      if (t == 'sales branch' || t == 'salesbranch') {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12.0),
-          child: DropdownButtonFormField<String>(
-            value: datafeed.branchid,
-            dropdownColor: const Color(0xFF22304A),
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Sales Branch',
-              labelStyle: const TextStyle(color: Colors.white70),
-              filled: true,
-              fillColor: const Color(0xFF22304A),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.white24),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.blue),
-              ),
-            ),
-            items: [
-              DropdownMenuItem<String>(
-                value: datafeed.branchid,
-                child: Text(
-                  datafeed.branch,
-                  style: const TextStyle(color: Colors.white),
+      if (datafeed.branchid.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12.0),
+        child: DropdownButtonFormField<String>(
+          key: ValueKey('own_branch_${datafeed.branchid}'),
+          value: datafeed.branchid,
+          isExpanded: true,
+          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          decoration: deco('Branch'),
+          items: [
+            DropdownMenuItem<String>(
+              value: datafeed.branchid,
+              child: Text(
+                datafeed.branch,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-            ],
-            onChanged: null,
-          ),
-        );
-      }
-      return const SizedBox.shrink();
+            ),
+          ],
+          onChanged: null,
+        ),
+      );
     }
     if (_selectedItem == null) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.only(bottom: 12.0),
         child: Text(
           'Select an item first to choose warehouse.',
-          style: TextStyle(color: Colors.white60),
+          style: TextStyle(color: _secondaryText),
         ),
       );
     }
@@ -836,40 +665,38 @@ class _SalesPageState extends State<SalesPage> {
       return const SizedBox.shrink();
     }
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
-    final ids = salesProvider.availableSalesWarehousesForItem(
-      datafeed,
-      _selectedItem!,
-    );
+    final ids = datafeed.stockCheckEnabled
+        ? salesProvider.availableSalesWarehousesForItem(
+            datafeed,
+            _selectedItem!,
+          )
+        : datafeed.salesWarehouseIds.toSet().toList();
     if (ids.isEmpty) {
-      // Check if it's because no warehouses are assigned to this staff
       if (datafeed.salesWarehouseIds.isEmpty) {
-        return const Padding(
+        return Padding(
           padding: EdgeInsets.only(bottom: 12.0),
           child: Text(
             'No warehouses assigned to your account. Contact admin.',
-            style: TextStyle(color: Colors.orangeAccent, fontSize: 13),
+            style: TextStyle(color: _warningText, fontSize: 13),
           ),
         );
       }
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.only(bottom: 12.0),
         child: Text(
           'Selected item has no balance in your assigned warehouses.',
-          style: TextStyle(color: Colors.orangeAccent, fontSize: 13),
+          style: TextStyle(color: _warningText, fontSize: 13),
         ),
       );
     }
 
     final nameById = <String, String>{};
-
-    // Build id -> name from the source arrays, keyed by id (NOT by position
-    // within `ids`). `ids` can be reordered/filtered relative to
-    // salesWarehouseIds/salesWarehouseNames, so indexing by `i` mismatches
-    // names to the wrong id (e.g. Bakery's balance showing under "OA").
-    for (int i = 0;
-    i < datafeed.salesWarehouseIds.length &&
-        i < datafeed.salesWarehouseNames.length;
-    i++) {
+    for (
+      int i = 0;
+      i < datafeed.salesWarehouseIds.length &&
+          i < datafeed.salesWarehouseNames.length;
+      i++
+    ) {
       final srcId = datafeed.salesWarehouseIds[i];
       final srcName = datafeed.salesWarehouseNames[i];
       if (srcName.isNotEmpty) {
@@ -877,38 +704,25 @@ class _SalesPageState extends State<SalesPage> {
       }
     }
 
-    // Fallback: if any id in `ids` didn't get a name above, look it up from
-    // datafeed.branches, or fall back to the raw id.
     for (final id in ids) {
       if (!nameById.containsKey(id) || nameById[id]!.isEmpty) {
         final branch = datafeed.branches.firstWhere(
-              (b) => b.id == id,
+          (b) => b.id == id,
           orElse: () => BranchModel(),
         );
         nameById[id] = branch.branchname.isNotEmpty ? branch.branchname : id;
       }
     }
 
-    // De-duplicate ONCE and reuse everywhere below, so `value` and `items`
-    // can never disagree within a single build pass.
     final dedupedIds = ids.toSet().toList();
 
     final activeId = datafeed.salesWarehouseId;
     final bool needsCorrection =
         activeId == null || !dedupedIds.contains(activeId);
 
-    // Compute a value that is GUARANTEED to be in dedupedIds for this build,
-    // instead of trusting datafeed.salesWarehouseId which may still be
-    // stale/invalid until setSalesWarehouse finishes updating it.
-    final String safeValue =
-    needsCorrection ? dedupedIds.first : activeId!;
+    final String safeValue = needsCorrection ? dedupedIds.first : activeId;
 
     if (needsCorrection) {
-      // Defer the provider mutation until after this frame completes.
-      // Calling datafeed.setSalesWarehouse(...) synchronously here and then
-      // immediately reading datafeed.salesWarehouseId again for `value:`
-      // is what caused the dropdown assertion — the field isn't guaranteed
-      // to reflect the new id in time for this same build.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         datafeed.setSalesWarehouse(
@@ -921,59 +735,52 @@ class _SalesPageState extends State<SalesPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: DropdownButtonFormField<String>(
+        key: ValueKey('wh_${_selectedItem!.id}_$safeValue'),
         value: safeValue,
-        dropdownColor: const Color(0xFF22304A),
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: 'Sell From Warehouse',
-          labelStyle: const TextStyle(color: Colors.white70),
-          filled: true,
-          fillColor: const Color(0xFF22304A),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white24),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.blue),
-          ),
-        ),
+        isExpanded: true,
+        dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        decoration: deco('Sell From Warehouse'),
         items: dedupedIds.map((id) {
           final balance =
               _selectedItem?.branchbalance?[id] as Map<String, dynamic>? ?? {};
           final netPieces = salesProvider.parseNetPieces(balance);
 
           double boxQty = 1.0;
-
           final modes = _selectedItem?.modes;
-
           if (modes != null) {
             final carton = modes.where((m) => m.name.toLowerCase() == 'carton');
             final single = modes.where((m) => m.name.toLowerCase() == 'single');
-
             final qtyString = carton.isNotEmpty
                 ? carton.first.qty
                 : single.isNotEmpty
                 ? single.first.qty
                 : '1';
-
             boxQty = double.tryParse(qtyString) ?? 1.0;
           }
 
           final boxes = boxQty > 0 ? (netPieces / boxQty) : 0.0;
-
           final label =
               '${nameById[id] ?? id} - ${netPieces.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes';
           return DropdownMenuItem<String>(
             value: id,
-            child: Text(label, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
           );
         }).toList(),
+        // onChanged: (v) {
+        //   if (v == null) return;
+        //   datafeed.setSalesWarehouse(v, nameById[v] ?? '');
+        // },
         onChanged: (v) {
           if (v == null) return;
           datafeed.setSalesWarehouse(v, nameById[v] ?? '');
+          _refreshPricingForBranch(v);
+          setState(() {});
         },
-
         validator: SalesFormValidators.warehouse,
       ),
     );
@@ -983,18 +790,25 @@ class _SalesPageState extends State<SalesPage> {
     if (_formKey.currentState!.validate()) {
       final datafeed = Provider.of<Datafeed>(context, listen: false);
       final salesProvider = Provider.of<SalesProvider>(context, listen: false);
-      final isService = (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
+      final isService =
+          (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-      if (!isService && !salesProvider.ensureSalesWarehouseSelected(
-        context, datafeed, _selectedItem, ))
+      if (!isService &&
+          !datafeed.canSellAnyBranch &&
+          !salesProvider.ensureSalesWarehouseSelected(
+            context,
+            datafeed,
+            _selectedItem,
+          ))
         return;
-
 
       final activeBranchId = _activeBranchId;
       final activeBranchName = _activeBranchName;
 
-      final bool useSalesWarehouse = !isService &&
+      final bool useSalesWarehouse =
+          !isService &&
           datafeed.isSalesPoint &&
+          !datafeed.canSellAnyBranch &&
           (datafeed.salesWarehouseId?.isNotEmpty ?? false);
 
       final balanceBranchId = useSalesWarehouse
@@ -1002,18 +816,27 @@ class _SalesPageState extends State<SalesPage> {
           : activeBranchId;
 
       final balanceBranchName = useSalesWarehouse
-          ? (datafeed.branches.firstWhere(
-            (b) => b.id == balanceBranchId,
-        orElse: () => BranchModel(), ).branchname.isNotEmpty
-          ? datafeed.branches.firstWhere((b) => b.id == balanceBranchId).branchname
-          : balanceBranchId)
+          ? (datafeed.branches
+                    .firstWhere(
+                      (b) => b.id == balanceBranchId,
+                      orElse: () => BranchModel(),
+                    )
+                    .branchname
+                    .isNotEmpty
+                ? datafeed.branches
+                      .firstWhere((b) => b.id == balanceBranchId)
+                      .branchname
+                : balanceBranchId)
           : activeBranchName;
 
       final balanceBranchType = useSalesWarehouse
-          ? datafeed.branches.firstWhere(
-            (b) => b.id == balanceBranchId,
-        orElse: () => BranchModel(),
-      ).branchtype ?? ''
+          ? datafeed.branches
+                    .firstWhere(
+                      (b) => b.id == balanceBranchId,
+                      orElse: () => BranchModel(),
+                    )
+                    .branchtype ??
+                ''
           : branchtype;
       final totalPieces = double.tryParse(_totalPiecesController.text) ?? 0;
 
@@ -1043,11 +866,20 @@ class _SalesPageState extends State<SalesPage> {
                           balanceBranchName,
                         );
                       },
-                      child: Text('Click to update balance ', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 17)),
+                      child: Text(
+                        'Click to update balance ',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(
-                    child: Text('Insufficient stock: ${availableNetPieces.toStringAsFixed(0)} pcs available'),
+                    child: Text(
+                      'Insufficient stock: ${availableNetPieces.toStringAsFixed(0)} pcs available',
+                    ),
                   ),
                 ],
               ),
@@ -1064,11 +896,13 @@ class _SalesPageState extends State<SalesPage> {
       double qty = double.parse(_quantityController.text.toString());
       double cp = double.tryParse(_selectedItem?.cp ?? '') ?? 0;
 
-      double sp = double.tryParse(
-        _itemModes?['single']?['rp']?.toString() ??
-            _itemModes?['Single']?['rp']?.toString() ??
-            '0',
-      ) ?? 0;
+      double sp =
+          double.tryParse(
+            _itemModes?['single']?['rp']?.toString() ??
+                _itemModes?['Single']?['rp']?.toString() ??
+                '0',
+          ) ??
+          0;
 
       double profitonsale = totalAmt - (totalpcs * cp);
 
@@ -1084,7 +918,9 @@ class _SalesPageState extends State<SalesPage> {
         'quantity': _quantityController.text.trim().toString(),
         'price': _priceController.text.trim().toString(),
         'profit': profitonsale.toString(),
-        'discount': _discountController.text.trim().toString().isEmpty ? '0' : _discountController.text.trim().toString(),
+        'discount': _discountController.text.trim().toString().isEmpty
+            ? '0'
+            : _discountController.text.trim().toString(),
         'cp': cp.toString(),
         'sp': sp.toString(),
         'pcategory': _selectedItem?.pcategory ?? '',
@@ -1092,8 +928,12 @@ class _SalesPageState extends State<SalesPage> {
         'totalpieces': totalpcs.toString(),
         'totalamount': totalAmt.toString(),
         'grosstotalamount': _calculateGrossAmount(),
-        'pricemode': _selectedPriceMode ?? 'retail',
-        'boxpiece': (_itemModes?['carton']?['qty'] ?? _itemModes?['Carton']?['qty'] ?? '1'),
+        'pricemode': _effectivePriceMode,
+        'boxpiece':
+            (_itemModes?['carton']?['qty'] ??
+            _itemModes?['Carton']?['qty'] ??
+            '1'),
+        'stockcheck': datafeed.stockCheckEnabled,
       };
       salesProvider.addToSalesPreview(salesItem);
 
@@ -1110,20 +950,25 @@ class _SalesPageState extends State<SalesPage> {
       final theme = Theme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Item added to sales preview', style: TextStyle(color: theme.colorScheme.onSurface)),
+          content: Text(
+            'Item added to sales preview',
+            style: TextStyle(color: theme.colorScheme.onSurface),
+          ),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 2),
         ),
       );
     }
   }
+
   Future<void> _saveDirectSale() async {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final datafeed = Provider.of<Datafeed>(context, listen: false);
     final salesItems = salesProvider.salesItems;
 
     if (_isSavingDirect || salesItems.isEmpty) {
-      if (salesItems.isEmpty) snackMsg(context, 'Please add items to the sale first', Colors.red);
+      if (salesItems.isEmpty)
+        snackMsg(context, 'Please add items to the sale first', Colors.red);
       return;
     }
 
@@ -1131,13 +976,19 @@ class _SalesPageState extends State<SalesPage> {
     final activeBranchName = _activeBranchName;
 
     // Validate stock
-      if (datafeed.stockCheckEnabled) {
-    final isValid = await salesProvider.validateCartStockOnSaves(activeBranchId);
-   if (!isValid) {
-    snackMsg(context, 'Insufficient stock detected. Please adjust cart.', Colors.red);
-  return;
-   }
-  }
+    if (datafeed.stockCheckEnabled) {
+      final isValid = await salesProvider.validateCartStockOnSaves(
+        activeBranchId,
+      );
+      if (!isValid) {
+        snackMsg(
+          context,
+          'Insufficient stock detected. Please adjust cart.',
+          Colors.red,
+        );
+        return;
+      }
+    }
 
     setState(() => _isSavingDirect = true);
 
@@ -1146,52 +997,23 @@ class _SalesPageState extends State<SalesPage> {
       final double totalDiscount = salesProvider.calculateDiscountTotal();
       final double grossTotal = salesProvider.calculateGrossTotal();
 
-      final String customerId = '${datafeed.companyid.toLowerCase()}_cash';
-      final customerRef = datafeed.db.collection('customers').doc(customerId);
-      final customerDoc = await customerRef.get();
-
-      if (!customerDoc.exists) {
-        final customer = CustomerRegModel(
-          id: customerId,
-          branchname: activeBranchName,
-          branchid: activeBranchId,
-          name: 'Cash Customer',
-          contact: '0000000000',
-          customertype: 'cash',
-          creditlimit: '0',
-          companyid: datafeed.companyid,
-          staff: datafeed.staff,
-          date: DateTime.now(),
-          companyname: datafeed.company,
-          creditBalance: '0',
-        );
-        await customerRef.set(customer.toMap());
-      }
-
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final saleDocId = '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp';
+      final saleDocId =
+          '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp';
       final receiptNumber = '${datafeed.staffPosition}$timestamp';
 
       final itemsMap = {
-        for (int i = 0; i < salesItems.length; i++) 'item_$i': salesItems[i]
+        for (int i = 0; i < salesItems.length; i++) 'item_$i': salesItems[i],
       };
 
-      final payments = [
-        {
-          'amount': totalAmount,
-          'accountName': 'cash',
-          'accountNumber': 'cash',
-          'status': true,
-          'reference': 'cash',
-          'paymentmethod': 'cash',
-        }
-      ];
+      final payments = <Map<String, dynamic>>[];
 
       final now = DateTime.now();
       final day = DateFormat('EEEE').format(now);
       final year = now.year.toString();
       final month = '${now.year}.${now.month}';
-      final weekNumber = ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
+      final weekNumber =
+          ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
       final week = '${now.year}.$weekNumber';
       final formattedDate = salesProvider.saleDate;
 
@@ -1206,13 +1028,13 @@ class _SalesPageState extends State<SalesPage> {
         staffPosition: datafeed.staffPosition,
         payments: payments,
         receiptNumber: receiptNumber,
-        receiptby: datafeed.staff,
-        receiptat: Timestamp.now(),
-        paymentStatus: 'paid',
+        receiptby: '',
+        receiptat: null,
+        paymentStatus: 'pending',
         transMode: 'cash',
         items: itemsMap,
         totalamount: grossTotal,
-        amountPaid: totalAmount,
+        amountPaid: 0.0,
         discount: totalDiscount,
         change: 0.0,
         itemCount: salesItems.length,
@@ -1223,15 +1045,14 @@ class _SalesPageState extends State<SalesPage> {
         printedby: '',
         printedat: null,
         staffemail: datafeed.staffemail,
-        receiptbyemail: datafeed.staffemail,
+        receiptbyemail: '',
         dateymd: formattedDate,
         stockCheckedAt: Timestamp.now(),
         timestamp: timestamp,
         printed: false,
-        customerId: customerId,
         customerName: 'Cash Customer',
         customerPhone: '0000000000',
-        reciepted: true,
+        reciepted: false,
         day: day,
         week: week,
         month: month,
@@ -1239,12 +1060,20 @@ class _SalesPageState extends State<SalesPage> {
         supplystatus: false,
       );
 
-      await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
+      await datafeed.db
+          .collection('sales')
+          .doc(saleDocId)
+          .set(saleData.toMap());
 
-     // final skipCheck = salesProvider.isServiceOnlySale(salesItems);
-      final skipCheck = !datafeed.stockCheckEnabled || salesProvider.isServiceOnlySale(salesItems);
+      final skipCheck =
+          !datafeed.stockCheckEnabled ||
+          salesProvider.isServiceOnlySale(salesItems);
       if (!context.mounted) return;
-      final approved = await salesProvider.ensureSaleApproved(context, saleDocId, skipStockCheck: skipCheck);
+      final approved = await salesProvider.ensureSaleApproved(
+        context,
+        saleDocId,
+        skipStockCheck: skipCheck,
+      );
 
       if (!approved) {
         setState(() => _isSavingDirect = false);
@@ -1291,7 +1120,8 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _printReceipt() async {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final value = Provider.of<Datafeed>(context, listen: false);
-   final isService = (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
+    final isService =
+        (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
     if (!isService && value.stockCheckEnabled) {
       bool isValid = await salesProvider.validateCartStockOnSaves(
@@ -1299,7 +1129,11 @@ class _SalesPageState extends State<SalesPage> {
       );
 
       if (!isValid) {
-        snackMsg(context, 'Insufficient stock detected. Please adjust cart.', Colors.red);
+        snackMsg(
+          context,
+          'Insufficient stock detected. Please adjust cart.',
+          Colors.red,
+        );
         return;
       }
     }
@@ -1309,7 +1143,13 @@ class _SalesPageState extends State<SalesPage> {
       selectedItem: _selectedItem,
     );
   }
-  Future<void> _syncItemBalance(String itemId, String itemName, String branchId, String branchName) async {
+
+  Future<void> _syncItemBalance(
+    String itemId,
+    String itemName,
+    String branchId,
+    String branchName,
+  ) async {
     final provider = context.read<Datafeed>();
     final balance = await provider.fetchItemCurrentBalance(
       itemId: itemId,
@@ -1321,21 +1161,24 @@ class _SalesPageState extends State<SalesPage> {
       'branchbalance.$branchId.lastupdate': FieldValue.serverTimestamp(),
     });
     if (mounted) {
-      snackMsg(context, 'Balance synced: $itemName → $branchName | $balance pcs', Colors.green);
+      snackMsg(
+        context,
+        'Balance synced: $itemName â†’ $branchName | $balance pcs',
+        Colors.green,
+      );
     }
   }
+
   void _selectItem(ItemModel? item, Datafeed datafeed) {
     if (item == null) return;
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     setState(() {
       _selectedItem = item;
 
-      /// Ensure correct warehouse when in sales point
-      if (datafeed.isSalesPoint) {
-        final available = salesProvider.availableSalesWarehousesForItem(
-          datafeed,
-          item,
-        );
+      if (datafeed.isSalesPoint && !datafeed.canSellAnyBranch) {
+        final available = datafeed.stockCheckEnabled
+            ? salesProvider.availableSalesWarehousesForItem(datafeed, item)
+            : datafeed.salesWarehouseIds.toSet().toList();
 
         if (available.isNotEmpty &&
             !available.contains(datafeed.salesWarehouseId)) {
@@ -1368,7 +1211,10 @@ class _SalesPageState extends State<SalesPage> {
 
       final branchPrices = item.branchprices;
       final modes = item.modes;
-      final String branchId = datafeed.activeBranchId;
+      final String branchId =
+          (datafeed.canSellAnyBranch && _activeBranchId.isNotEmpty)
+          ? _activeBranchId
+          : datafeed.activeBranchId;
 
       if (branchPrices != null &&
           branchPrices.containsKey(branchId) &&
@@ -1401,16 +1247,34 @@ class _SalesPageState extends State<SalesPage> {
           return data['name']?.toString() ?? e.key;
         }).toList();
 
-        final bool isWholesale = (_selectedPriceMode ?? '').toLowerCase() == 'wholesale';
+        final bool isWholesale = _effectivePriceMode == 'wholesale';
         double cartonQty = 0;
         for (final entry in _itemModes!.entries) {
           if (entry.key.toLowerCase().trim() == 'carton') {
-            cartonQty = double.tryParse(entry.value['qty']?.toString() ?? '0') ?? 0;
+            cartonQty =
+                double.tryParse(entry.value['qty']?.toString() ?? '0') ?? 0;
             break;
           }
         }
         if (isWholesale) {
-          _salesMode = _salesMode.where((m) => m.toLowerCase().contains('carton')).toList();
+          final cartonModes = _salesMode
+              .where((mode) => mode.toLowerCase().contains('carton'))
+              .toList();
+          if (cartonQty <= 1) {
+            final baseModes = cartonModes.isNotEmpty
+                ? cartonModes
+                : _salesMode
+                      .where((mode) => mode.toLowerCase().trim() == 'single')
+                      .toList();
+            _salesMode = [
+              ...baseModes,
+              ..._salesMode.where(
+                (mode) => _isSplitSalesMode(mode) && !baseModes.contains(mode),
+              ),
+            ];
+          } else {
+            _salesMode = cartonModes;
+          }
 
           if (_salesMode.isEmpty) {
             _salesMode = _itemModes!.entries.map((e) {
@@ -1425,8 +1289,14 @@ class _SalesPageState extends State<SalesPage> {
           });
         } else {
           if (cartonQty <= 1) {
-            _salesMode = _salesMode.where((m) => !m.toLowerCase().contains('carton')).toList();
+            final nonCartonModes = _salesMode
+                .where((mode) => !_isFullCartonMode(mode))
+                .toList();
+            if (nonCartonModes.isNotEmpty) {
+              _salesMode = nonCartonModes;
+            }
           }
+
           /// Put "Single" first
           if (datafeed.isSalesPoint) {
             _salesMode.sort((a, b) {
@@ -1445,7 +1315,7 @@ class _SalesPageState extends State<SalesPage> {
 
         _selectedSalesMode = _salesMode.first;
 
-        _updatePrice();
+        _onQuantityChanged();
       } else {
         _salesMode = const ['single'];
         _selectedSalesMode = null;
@@ -1455,7 +1325,6 @@ class _SalesPageState extends State<SalesPage> {
       _suggestions.clear();
     });
   }
-
 
   void _updatePrice() {
     if (_selectedItem == null ||
@@ -1467,15 +1336,34 @@ class _SalesPageState extends State<SalesPage> {
       return;
     }
     final double qty = double.tryParse(_quantityController.text) ?? 0;
-    final double sminqty =
-        double.tryParse(_selectedItem?.sminqty?.toString() ?? '0') ?? 0;
+    final datafeed = context.read<Datafeed>();
+    final pricingBranchId =
+        datafeed.canSellAnyBranch && _activeBranchId.isNotEmpty
+        ? _activeBranchId
+        : datafeed.activeBranchId;
+    final branchPricing = _selectedItem!.branchprices?[pricingBranchId];
+    final branchSupplierMinQty = branchPricing is Map
+        ? branchPricing['sminqty']?.toString()
+        : null;
+    final sminqty =
+        double.tryParse(branchSupplierMinQty ?? _selectedItem!.sminqty) ?? 0;
 
     Map<String, dynamic>? selectedModeData;
+    String normalizeMode(String mode) =>
+        mode.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
     for (final entry in _itemModes!.entries) {
-      if (entry.key.toLowerCase().trim() ==
-          _selectedSalesMode!.toLowerCase().trim()) {
-        selectedModeData = Map<String, dynamic>.from(entry.value);
+      final data = entry.value;
+      if (data is! Map) continue;
+      final modeData = Map<String, dynamic>.from(data);
+      final modeKey = normalizeMode(entry.key);
+      final modeId = normalizeMode(modeData['id']?.toString() ?? '');
+      final modeName = normalizeMode(modeData['name']?.toString() ?? '');
+      final selectedMode = normalizeMode(_selectedSalesMode!);
+      if (modeKey == selectedMode ||
+          modeId == selectedMode ||
+          modeName == selectedMode) {
+        selectedModeData = modeData;
         break;
       }
     }
@@ -1490,54 +1378,58 @@ class _SalesPageState extends State<SalesPage> {
 
     String price = '0';
 
-    String pickRetail(Map<String, dynamic> data) {
-      return data['rp']?.toString() ??
-          data['sp']?.toString() ??
-          data['cp']?.toString() ??
-          '0';
+    String selectedModePrice(String field, {String fallback = '0'}) {
+      final value = selectedModeData![field]?.toString().trim();
+      return value == null || value.isEmpty ? fallback : value;
     }
 
-    final bool isCarton = _selectedSalesMode?.toLowerCase().contains('carton') ?? false;
-
-    if (isCarton) {
-      double effectiveThreshold = sminqty;
-
-      if (sminqty > 0) {
-        Map<String, dynamic>? fullCartonMode;
-        for (final entry in _itemModes!.entries) {
-          if (entry.key.toLowerCase().trim() == 'carton') {
-            fullCartonMode = Map<String, dynamic>.from(entry.value);
-            break;
-          }
-        }
-
-        final double fullCartonQty =
-            double.tryParse(fullCartonMode?['qty']?.toString() ?? '0') ?? 0;
-        final double currentModeQty =
-            double.tryParse(selectedModeData['qty']?.toString() ?? '0') ?? 0;
-
-        if (fullCartonQty > 0 && currentModeQty > 0 && currentModeQty != fullCartonQty) {
-          final double multiplier = fullCartonQty / currentModeQty;
-          effectiveThreshold = sminqty * multiplier;
-        }
+    final selectedModeName = normalizeMode(
+      selectedModeData['id']?.toString() ??
+          selectedModeData['name']?.toString() ??
+          _selectedSalesMode!,
+    );
+    MapEntry<String, dynamic>? cartonEntry;
+    for (final entry in _itemModes!.entries) {
+      final data = entry.value;
+      if (data is! Map) continue;
+      final modeData = Map<String, dynamic>.from(data);
+      if (normalizeMode(entry.key) == 'carton' ||
+          normalizeMode(modeData['id']?.toString() ?? '') == 'carton' ||
+          normalizeMode(modeData['name']?.toString() ?? '') == 'carton') {
+        cartonEntry = entry;
+        break;
       }
+    }
+    final cartonQuantity = cartonEntry == null
+        ? null
+        : double.tryParse(cartonEntry.value['qty']?.toString() ?? '');
+    final isSingleMode = selectedModeName == 'single';
+    final isCartonMode = selectedModeName == 'carton';
+    final isSplitMode = const {
+      'half',
+      'halfcarton',
+      'quarter',
+      'quartercarton',
+      'pack',
+    }.contains(selectedModeName);
+    final supplierThresholdApplies =
+        isSplitMode ||
+        isCartonMode ||
+        (isSingleMode && (cartonQuantity == null || cartonQuantity <= 1));
+    final retailPrice = selectedModePrice('rp');
 
-      if (effectiveThreshold > 0 && qty >= effectiveThreshold) {
-        price = selectedModeData['sp']?.toString() ?? '0';
-      } else {
-        price = pickRetail(selectedModeData);
-      }
+    if (sminqty > 0 && qty >= sminqty && supplierThresholdApplies) {
+      price = selectedModePrice('sp', fallback: retailPrice);
+    } else if (_effectivePriceMode == 'wholesale') {
+      price = selectedModePrice('wp', fallback: retailPrice);
     } else {
-      if (_selectedPriceMode == 'Wholesale') {
-        price = selectedModeData['wp']?.toString() ?? '0';
-      } else {
-        price = pickRetail(selectedModeData);
-      }
+      price = retailPrice;
     }
     _priceController.text = price;
 
     _calculateTotals();
   }
+
   Widget _previewActionTile({
     required String label,
     required IconData icon,
@@ -1563,7 +1455,11 @@ class _SalesPageState extends State<SalesPage> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: Colors.white, size: 18),
+                Icon(
+                  icon,
+                  color: _isLightTheme ? color : Colors.white,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -1571,8 +1467,8 @@ class _SalesPageState extends State<SalesPage> {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: _isLightTheme ? color : Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                       letterSpacing: 0.2,
@@ -1626,1205 +1522,219 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
         final salesItems = context.watch<SalesProvider>().salesItems;
         final allowed = value.allowedPaymentMethods;
-        final bool cashAllowed = allowed.map((e) => e.toLowerCase()).contains('cash');
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final bool cashAllowed = allowed
+            .map((e) => e.toLowerCase())
+            .contains('cash');
 
-        return Scaffold(
-          backgroundColor: const Color(0xFF101624),
-          appBar: AppBar(
-            title: Text(
-              "SALES TRANSACTIONS ${(_displayBranchName.isNotEmpty ? _displayBranchName : value.branch).toString().toUpperCase()}",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
+        return Theme(
+          data: theme.copyWith(
+            inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+              floatingLabelStyle: TextStyle(color: colorScheme.onSurface),
             ),
-            centerTitle: true,
-            backgroundColor: const Color(0xFF1B263B),
-            actions: [
-
-
-            ],
           ),
-          body: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 8.0,
-                  top: 8,
-                  right: 8,
-                  bottom: 20,
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            appBar: AppBar(
+              title: Text(
+                "SALES TRANSACTIONS ${(_displayBranchName.isNotEmpty ? _displayBranchName : value.branch).toString().toUpperCase()}",
+                style: TextStyle(
+                  color: _primaryText,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
                 ),
-                child: Column(
-                  children: [
-                    Center(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isSmallScreen = constraints.maxWidth < 900;
-                          final double itemWidth = isSmallScreen
-                              ? constraints.maxWidth
-                              : (constraints.maxWidth / 2) - 24;
-                          final bool isMobile = constraints.maxWidth < 600;
-                          final provider = Provider.of<Datafeed>(context, listen: false, );
-                          final salesProvider = Provider.of<SalesProvider>(context,listen: false,);
-                          final isSalesBranch =  provider.branchtype ==   "Sales Branch"; //"Sales Point";
-                          final accesslevel = provider.accesslevel;
-                          final isSuperAdmin = accesslevel.toLowerCase().trim() == 'super admin';
-                          final canPrint = provider.canPrint;
-                          final posPrint = isSalesBranch || canPrint;
-                          return Column(
-                            children: [
-                              if (isMobile)
-                                Container(
-                                  width: itemWidth,
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF182232),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.white24),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: !_showMobilePreview
-                                                ? Colors.orange
-                                                : const Color(0xFF22304A),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            elevation: !_showMobilePreview
-                                                ? 2
-                                                : 0,
-                                          ),
-
-                                          onPressed: () {
-                                            FocusScope.of(context).unfocus();
-                                            setState(
-                                              () => _showMobilePreview = false,
-                                            );
-                                          },
-                                          child: const Text('Sale Form'),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: _showMobilePreview
-                                                ? Colors.lightBlue
-                                                : const Color(0xFF22304A),
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 12,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            elevation: _showMobilePreview
-                                                ? 2
-                                                : 0,
-                                          ),
-                                          onPressed: () {
-                                            FocusScope.of(context).unfocus();
-                                            setState(
-                                              () => _showMobilePreview = true,
-                                            );
-                                          },
-                                          child: const Text('Preview'),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                              if (isMobile) const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 16,
-                                runSpacing: 16,
-                                children: [
-                                  if (!isMobile || !_showMobilePreview)
-                                 SizedBox(
-                                      width: itemWidth,
-                                      child: Container(
-                                        color: Color(0xFF182232),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              if (isMobile)
-                                                Container(
-                                                  width: double.infinity,
-                                                  padding: const EdgeInsets.all(
-                                                    12,
+              ),
+              centerTitle: true,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              actions: [],
+            ),
+            body: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: 8.0,
+                    top: 8,
+                    right: 8,
+                    bottom: 20,
+                  ),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isSmallScreen = constraints.maxWidth < 900;
+                            final double itemWidth = isSmallScreen
+                                ? constraints.maxWidth
+                                : (constraints.maxWidth / 2) - 24;
+                            final bool isMobile = constraints.maxWidth < 600;
+                            final provider = Provider.of<Datafeed>(
+                              context,
+                              listen: false,
+                            );
+                            final salesProvider = Provider.of<SalesProvider>(
+                              context,
+                              listen: false,
+                            );
+                            final isSalesBranch =
+                                provider.branchtype ==
+                                "Sales Branch"; //"Sales Point";
+                            final accesslevel = provider.accesslevel;
+                            final isSuperAdmin =
+                                accesslevel.toLowerCase().trim() ==
+                                'super admin';
+                            final canPrint = provider.canPrint;
+                            final posPrint = isSalesBranch || canPrint;
+                            return Column(
+                              children: [
+                                if (isMobile)
+                                  Container(
+                                    width: itemWidth,
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.surface,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: _outlineColor),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  !_showMobilePreview
+                                                  ? Colors.orange
+                                                  : _panelSurface,
+                                              foregroundColor:
+                                                  !_showMobilePreview
+                                                  ? (_isLightTheme
+                                                        ? Colors.black87
+                                                        : Colors.white)
+                                                  : _primaryText,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFF22304A,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              elevation: !_showMobilePreview
+                                                  ? 2
+                                                  : 0,
+                                            ),
+
+                                            onPressed: () {
+                                              FocusScope.of(context).unfocus();
+                                              setState(
+                                                () =>
+                                                    _showMobilePreview = false,
+                                              );
+                                            },
+                                            child: const Text('Sale Form'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  _showMobilePreview
+                                                  ? Colors.lightBlue
+                                                  : _panelSurface,
+                                              foregroundColor:
+                                                  _showMobilePreview
+                                                  ? (_isLightTheme
+                                                        ? Colors.black87
+                                                        : Colors.white)
+                                                  : _primaryText,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                              elevation: _showMobilePreview
+                                                  ? 2
+                                                  : 0,
+                                            ),
+                                            onPressed: () {
+                                              FocusScope.of(context).unfocus();
+                                              setState(
+                                                () => _showMobilePreview = true,
+                                              );
+                                            },
+                                            child: const Text('Preview'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                if (isMobile) const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 16,
+                                  runSpacing: 16,
+                                  children: [
+                                    if (!isMobile || !_showMobilePreview)
+                                      SizedBox(
+                                        width: itemWidth,
+                                        child: Container(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surface,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16.0),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                if (isMobile)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    padding:
+                                                        const EdgeInsets.all(
                                                           12,
                                                         ),
-                                                    border: Border.all(
-                                                      color: Colors.white24,
-                                                    ),
-                                                  ),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Row(
-                                                        children: [
-                                                          const Icon(
-                                                            Icons.shopping_cart,
-                                                            color:
-                                                                Colors.orange,
-                                                            size: 18,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 8,
-                                                          ),
-                                                          Expanded(
-                                                            child: Text(
-                                                              'Open: Cart ${salesProvider.currentCartId.split('_').length > 1 ? salesProvider.currentCartId.split('_')[1] : salesProvider.currentCartId}',
-                                                              style: const TextStyle(
-                                                                color: Colors
-                                                                    .white70,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            '${salesItems.length} item(s)',
-                                                            style:
-                                                                const TextStyle(
-                                                                  color: Colors
-                                                                      .white60,
-                                                                  fontSize: 12,
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .spaceBetween,
-                                                        children: [
-                                                          const Text(
-                                                            'Total Amount',
-                                                            style: TextStyle(
-                                                              color: Colors
-                                                                  .white60,
-                                                              fontSize: 12,
-                                                            ),
-                                                          ),
-                                                          Text(
-                                                            'GHC ${salesProvider.calculateTaxableTotal().toStringAsFixed(2)}',
-                                                            style:  const TextStyle(
-                                                                  color: Colors .white,
-                                                                  fontSize: 18,
-                                                                  fontWeight: FontWeight.bold,
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-
-                                              if (isMobile)
-                                                const SizedBox(height: 12),
-                                              const Text(
-                                                "SALES ENTRIES",
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              const Divider(
-                                                color: Colors.white24,
-                                              ),
-                                              Visibility(
-                                                visible: value.hamperEnabled,
-                                                maintainState: false,
-                                                child: Column(
-                                                  children: [
-                                                    HamperSection(
-                                                      datafeed: value,
-                                                      activeBranchId: _activeBranchId,
-                                                      activeBranchName: _activeBranchName,
-                                                    ),
-                                                    const Divider(
-                                                      color: Colors.white24,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-
-
-
-                                              SizedBox(height: 8),
-                                              Form(
-                                                key: _formKey,
-                                                child: Column(
-                                                  children: [
-
-                                                  if(value.canSelectDate)...[
-                                                    TextFormField(
-                                                      controller: _dateController,
-                                                      readOnly: true,
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                      decoration: _inputDecoration(
-                                                        label: 'Date',
-                                                        prefix: Icons.calendar_today,
-                                                        hint: 'yyyy-mm-dd',
-                                                      ),
-                                                      onTap: () async {
-                                                        DateTime? picked = await showDatePicker(
-                                                          context: context,
-                                                          initialDate: _selectedDate ?? DateTime.now(),
-                                                          firstDate: DateTime(2020),
-                                                          lastDate: DateTime.now(),
-                                                          builder: (context, child) {
-                                                            return Theme(
-                                                              data: Theme.of(context).copyWith(
-                                                                colorScheme: const ColorScheme.dark(
-                                                                  primary: Colors.blue,
-                                                                  onPrimary: Colors.white,
-                                                                  surface: Color(0xFF22304A),
-                                                                  onSurface: Colors.white,
-                                                                ),
-                                                              ),
-                                                              child: child!,
-                                                            );
-                                                          },
-                                                        );
-
-                                                        if (picked != null) {
-                                                          context.read<SalesProvider>().setSaleDate(picked);
-
-                                                          setState(() {
-                                                            _selectedDate = picked;
-                                                            _dateController.text =
-                                                            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
-                                                          });
-                                                        }
-                                                      },
-                                                      validator: (value) =>
-                                                      value == null || value.isEmpty
-                                                          ? 'Select date'
-                                                          : null,
-                                                    )
-                                                    ]
-                                                    ,
-                                                    SizedBox(height:8,),
-                                                    _buildSalesWarehouseSelector(
-                                                      value,
-                                                    ),
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: TextFormField(
-                                                            controller:  _barcodeController,
-                                                            style: TextStyle(
-                                                              color:  Colors.white,
-                                                            ),
-                                                            decoration: InputDecoration(
-                                                              labelText: 'Barcode',
-                                                              labelStyle: const TextStyle(
-                                                                    color: Colors.white70,
-                                                                  ),
-                                                              border: OutlineInputBorder(
-                                                                borderRadius: BorderRadius.circular( 12, ),
-                                                              ),
-                                                              enabledBorder: OutlineInputBorder(
-                                                                borderRadius: BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .white24,
-                                                                    ),
-                                                              ),
-                                                              focusedBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .blue,
-                                                                    ),
-                                                              ),
-                                                              fillColor:
-                                                                  const Color(
-                                                                    0xFF22304A,
-                                                                  ),
-                                                              filled: true,
-                                                            ),
-
-                                                           validator: SalesFormValidators.barcode,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 8,
-                                                        ),
-                                                        Container(
-                                                          height: 56,
-                                                          decoration: BoxDecoration(
-                                                            color: const Color(
-                                                              0xFF22304A,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            border: Border.all(
-                                                              color: Colors
-                                                                  .white24,
-                                                            ),
-                                                          ),
-                                                          child: IconButton(
-                                                            icon: const Icon(
-                                                              Icons
-                                                                  .qr_code_scanner,
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                            onPressed:
-                                                                _scanBarcode,
-                                                            tooltip:
-                                                                'Scan Barcode/QR Code',
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    if (_showSuggestions)
-                                                         value.loading
-                                                          ? const Center(
-                                                              child:
-                                                                  CircularProgressIndicator(
-                                                                    color: Colors
-                                                                        .blue,
-                                                                    strokeWidth:
-                                                                        2,
-                                                                  ),
-                                                            )
-                                                          : (() {
-                                                              final query =
-                                                                  _searchQuery
-                                                                      .toLowerCase();
-
-                                                              final filteredItems =
-                                                                  query.isEmpty ? value.items
-                                                                  : value.items .where((item) => item.isActive == true).where(( item, ) {
-                                                                          final name = item.name.toLowerCase();
-                                                                          final barcode = item.barcode.toLowerCase();
-                                                                          final company = item.company.toLowerCase();
-                                                                          final category = item.pcategory.toLowerCase();
-
-                                                                          return name.contains( query,) ||
-                                                                              barcode.contains(query, ) ||
-                                                                              company.contains(
-                                                                                query,
-                                                                              ) ||
-                                                                              category.contains(
-                                                                                query,
-                                                                              );
-                                                                        })
-                                                                        .take(
-                                                                          10,
-                                                                        )
-                                                                        .toList();
-
-                                                              if (filteredItems
-                                                                  .isEmpty) {
-                                                                return const SizedBox.shrink();
-                                                              }
-
-                                                              return Container(
-                                                                margin:
-                                                                    const EdgeInsets.only(
-                                                                      top: 4,
-                                                                    ),
-                                                                decoration: BoxDecoration(
-                                                                  color: const Color(
-                                                                    0xFF22304A,
-                                                                  ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        8,
-                                                                      ),
-                                                                  border: Border.all(
-                                                                    color: Colors
-                                                                        .blue
-                                                                        .withOpacity(
-                                                                          0.3,
-                                                                        ),
-                                                                  ),
-                                                                  boxShadow: const [
-                                                                    BoxShadow(
-                                                                      color: Colors
-                                                                          .black26,
-                                                                      blurRadius:
-                                                                          8,
-                                                                      offset:
-                                                                          Offset(
-                                                                            0,
-                                                                            4,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-
-                                                                constraints:
-                                                                    const BoxConstraints(
-                                                                      maxHeight:
-                                                                          250,
-                                                                    ),
-                                                                child: ListView.builder(
-                                                                  shrinkWrap:  true,
-                                                                  itemCount: filteredItems.length,
-                                                                  itemBuilder: (context, index,) {
-                                                                  final item =  filteredItems[index];
-                                                                  final branchId =  value.activeBranchId;
-                                                                  final branchbalance =  item.branchbalance?[branchId]  as Map<String, dynamic  >? ?? {};
-
-                                                                 final double   netPieces = (branchbalance['netpieces'] as num?) ?.toDouble() ?? 0.0;
-
-                                                                 double boxQty = double.tryParse(_selectedItem?.modes ?.firstWhere(
-                                                                              (m) => m.name.toLowerCase() == 'carton',
-                                                                          orElse: () => Mode(
-                                                                            id: '',
-                                                                            name: '',
-                                                                            qty: '1',
-                                                                            cp: '',
-                                                                            rp: '',
-                                                                            wp: '',
-                                                                            sp: '',
-                                                                          ),
-                                                                        ).qty ?? _selectedItem?.modes
-                                                                                ?.firstWhere(
-                                                                                  (m) => m.name.toLowerCase() == 'single',
-                                                                              orElse: () => Mode(
-                                                                                id: '',
-                                                                                name: '',
-                                                                                qty: '1',
-                                                                                cp: '',
-                                                                                rp: '',
-                                                                                wp: '',
-                                                                                sp: '',
-                                                                              ),
-                                                                            )
-                                                                                .qty ??
-                                                                            '1',
-                                                                      ) ??
-                                                                          1.0;
-                                                                        final double   cartonsLeft = boxQty > 0 ? (netPieces / boxQty) : 0.0;
-                                                                  final cartonMode = item.modes?.firstWhere(
-                                                                        (m) => m.name.toLowerCase() == 'carton',
-                                                                    orElse: () => Mode(
-                                                                      id: '',
-                                                                      name: '',
-                                                                      qty: '1',
-                                                                      cp: '',
-                                                                      rp: '',
-                                                                      wp: '',
-                                                                      sp: '',
-                                                                    ),
-                                                                  );
-
-                                                                  final singleMode = item.modes?.firstWhere(
-                                                                        (m) => m.name.toLowerCase() == 'single',
-                                                                    orElse: () => Mode(
-                                                                      id: '',
-                                                                      name: '',
-                                                                      qty: '1',
-                                                                      cp: '',
-                                                                      rp: '',
-                                                                      wp: '',
-                                                                      sp: '',
-                                                                    ),
-                                                                  );
-
-                                                                  final String boxPrice =
-                                                                  (cartonMode?.wp?.isNotEmpty ?? false)
-                                                                      ? cartonMode!.wp
-                                                                      : (singleMode?.wp ?? '0');
-                                                                        return ListTile(
-                                                                          dense: true,
-                                                                          leading: const Icon(
-                                                                            Icons.inventory_2,
-                                                                            color: Colors.blue,
-                                                                            size: 20,
-                                                                          ),
-                                                                          title: Text(
-                                                                            item.name,
-                                                                            style: const TextStyle(
-                                                                              color: Colors.white,
-                                                                              fontSize: 14,
-                                                                              fontWeight: FontWeight.w500,
-                                                                            ),
-                                                                          ),
-                                                                          subtitle: Text(
-                                                                            'Barcode: ${item.barcode} | Box Price: GHS $boxPrice | Retail Price: GHS ${singleMode?.rp} '
-                                                                                //'| Boxes Balance: ${cartonsLeft.toStringAsFixed(2)}'
-                                                                                ' | Pieces: ${netPieces.toStringAsFixed(0)}',
-                                                                            style: const TextStyle(
-                                                                              color: Colors.white70,
-                                                                              fontSize: 11,
-                                                                            ),
-                                                                          ),
-                                                                          trailing: const Icon(
-                                                                            Icons.arrow_forward_ios,
-                                                                            color:
-                                                                                Colors.white54,
-                                                                            size:
-                                                                                14,
-                                                                          ),
-                                                                          onTap: () {
-                                                                            _selectItem(
-                                                                              item,
-                                                                              value,
-                                                                            );
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                ),
-                                                              );
-                                                            })(),
-
-                                                    SizedBox(height: 8),
-                                                    TextFormField(
-                                                      enabled: false,
-                                                      controller:
-                                                          _itemController,
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                      decoration: InputDecoration(
-                                                        labelText: 'Item',
-                                                        labelStyle:
-                                                            const TextStyle(
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                        border: OutlineInputBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                        ),
-                                                        enabledBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .white24,
-                                                                  ),
-                                                            ),
-                                                        focusedBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .blue,
-                                                                  ),
-                                                            ),
-                                                        fillColor: const Color(
-                                                          0xFF22304A,
-                                                        ),
-                                                        filled: true,
-                                                      ),
-
-                                                      validator: SalesFormValidators.item,
-                                                    ),
-                                                    SizedBox(height: 8),
-                                                    DropdownButtonFormField<String>(
-                                                      value: _selectedSalesMode,
-                                                      dropdownColor:
-                                                          const Color(
-                                                            0xFF22304A,
-                                                          ),
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                      decoration: InputDecoration(
-                                                        labelText: 'Sales Mode',
-                                                        labelStyle:  const TextStyle(
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                        border: OutlineInputBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                        ),
-                                                        enabledBorder: OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .white24,
-                                                                  ),
-                                                            ),
-                                                        focusedBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .blue,
-                                                                  ),
-                                                            ),
-                                                        fillColor: const Color(
-                                                          0xFF22304A,
-                                                        ),
-                                                        filled: true,
-                                                      ),
-                                                      items: _salesMode.isEmpty
-                                                          ? null
-                                                          : _salesMode.map((
-                                                              type,
-                                                            ) {
-                                                              return DropdownMenuItem<
-                                                                String
-                                                              >(
-                                                                value: type,
-                                                                child: Text(
-                                                                  type,
-                                                                ),
-                                                              );
-                                                            }).toList(),
-                                                      onChanged: (value) {
-                                                        setState(() {
-                                                          _selectedSalesMode =
-                                                              value;
-                                                          _updatePrice();
-                                                        });
-                                                      },
-
-                                                      validator: SalesFormValidators.salesMode,
-                                                    ),
-                                                    SizedBox(height: 8),
-                                                    TextFormField(
-                                                      controller:  _priceController,
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                      decoration: InputDecoration(
-                                                        labelText: 'Price',
-                                                        labelStyle:
-                                                            const TextStyle(
-                                                              color: Colors
-                                                                  .white70,
-                                                            ),
-                                                        border: OutlineInputBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                        ),
-                                                        enabledBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .white24,
-                                                                  ),
-                                                            ),
-                                                        focusedBorder:
-                                                            OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .blue,
-                                                                  ),
-                                                            ),
-                                                        fillColor: const Color(
-                                                          0xFF22304A,
-                                                        ),
-                                                        filled: true,
-                                                      ),
-                                                      inputFormatters: [
-                                                        FilteringTextInputFormatter.allow(
-                                                          RegExp(
-                                                            r'^\d*\.?\d*$',
-                                                          ),
-                                                        ),
-                                                      ],
-
-                                                      validator: SalesFormValidators.price,
-                                                      enabled: value.canEditPrice,
-                                                    ),
-                                                    Visibility(
-                                                      visible: false,
-                                                      child: Row(
-                                                        children: [
-                                                          Visibility(
-                                                            visible: false,
-                                                            child: Expanded(
-                                                              child: DropdownButtonFormField<String>(
-                                                                initialValue:
-                                                                    _selectedPriceMode,
-                                                                dropdownColor:
-                                                                    const Color(
-                                                                      0xFF22304A,
-                                                                    ),
-                                                                style: const TextStyle(
-                                                                  color: Colors
-                                                                      .white,
-                                                                ),
-                                                                decoration: InputDecoration(
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                  ),
-                                                                  enabledBorder: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                    borderSide:
-                                                                        const BorderSide(
-                                                                          color:
-                                                                              Colors.white24,
-                                                                        ),
-                                                                  ),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                    borderSide:
-                                                                        const BorderSide(
-                                                                          color:
-                                                                              Colors.blue,
-                                                                        ),
-                                                                  ),
-                                                                  fillColor:
-                                                                      const Color(
-                                                                        0xFF22304A,
-                                                                      ),
-                                                                  filled: true,
-                                                                ),
-                                                                items: _priceMode.map((
-                                                                  type,
-                                                                ) {
-                                                                  return DropdownMenuItem<
-                                                                    String
-                                                                  >(
-                                                                    value: type,
-                                                                    child: Text(
-                                                                      type,
-                                                                    ),
-                                                                  );
-                                                                }).toList(),
-                                                                onChanged: (value) {
-                                                                  setState(() {
-                                                                    _selectedPriceMode =
-                                                                        value;
-                                                                    _updatePrice();
-                                                                  });
-                                                                },
-
-                                                                validator: SalesFormValidators.priceMode,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    SizedBox(height: 8),
-                                                    Row(
-                                                      children: [
-                                                        SizedBox(
-                                                          width: 52,
-                                                          height: 52,
-                                                          child: Material(
-                                                            color: const Color(
-                                                              0xFF22304A,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            child: InkWell(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              onTap:
-                                                                  _decrementQuantity,
-                                                              child: const Icon(
-                                                                Icons.remove,
-                                                                color: Colors
-                                                                    .white70,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 10,
-                                                        ),
-                                                        Expanded(
-                                                          child: TextFormField(
-                                                            controller: _quantityController,
-                                                            textAlign: TextAlign.center,
-                                                            style:  const TextStyle(
-                                                                  color: Colors.white,
-                                                                  fontWeight:  FontWeight.w600,
-                                                                ),
-                                                            keyboardType: const TextInputType.numberWithOptions(decimal: true,),
-                                                            inputFormatters: [
-                                                              FilteringTextInputFormatter.allow(
-                                                                RegExp(
-                                                                  r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$',
-                                                                ),
-                                                              ),
-                                                            ],
-                                                            decoration: InputDecoration(
-                                                              labelText:
-                                                                  'Quantity',
-                                                              labelStyle:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white70,
-                                                                  ),
-                                                              border: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                              ),
-                                                              enabledBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .white24,
-                                                                    ),
-                                                              ),
-                                                              focusedBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .blue,
-                                                                    ),
-                                                              ),
-                                                              fillColor:
-                                                                  const Color(
-                                                                    0xFF22304A,
-                                                                  ),
-                                                              filled: true,
-                                                            ),
-
-                                                              validator: SalesFormValidators.quantity,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 10,
-                                                        ),
-                                                        SizedBox(
-                                                          width: 52,
-                                                          height: 52,
-                                                          child: Material(
-                                                            color: const Color(
-                                                              0xFF22304A,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            child: InkWell(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              onTap:
-                                                                  _incrementQuantity,
-                                                              child: const Icon(
-                                                                Icons.add,
-                                                                color: Colors
-                                                                    .white70,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    SizedBox(height: 8),
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: TextFormField(
-                                                            controller:
-                                                                _totalPiecesController,
-                                                            style: TextStyle(
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
-                                                            readOnly: true,
-                                                            decoration: InputDecoration(
-                                                              labelText:
-                                                                  'Total Pieces',
-                                                              labelStyle:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white70,
-                                                                  ),
-                                                              border: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                              ),
-                                                              enabledBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .white24,
-                                                                    ),
-                                                              ),
-                                                              focusedBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .blue,
-                                                                    ),
-                                                              ),
-                                                              fillColor:
-                                                                  const Color(
-                                                                    0xFF22304A,
-                                                                  ),
-                                                              filled: true,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        SizedBox(width: 10),
-                                                        Expanded(
-                                                          child: TextFormField(
-                                                            controller:
-                                                                _totalAmountController,
-                                                            style: TextStyle(
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
-                                                            readOnly: true,
-                                                            decoration: InputDecoration(
-                                                              labelText:
-                                                                  'Total Amount',
-                                                              labelStyle:
-                                                                  const TextStyle(
-                                                                    color: Colors
-                                                                        .white70,
-                                                                  ),
-                                                              border: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                              ),
-                                                              enabledBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .white24,
-                                                                    ),
-                                                              ),
-                                                              focusedBorder: OutlineInputBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      12,
-                                                                    ),
-                                                                borderSide:
-                                                                    const BorderSide(
-                                                                      color: Colors
-                                                                          .blue,
-                                                                    ),
-                                                              ),
-                                                              fillColor:
-                                                                  const Color(
-                                                                    0xFF22304A,
-                                                                  ),
-                                                              filled: true,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-
-                                                    SizedBox(height: 8),
-                                                    if(value.allowDiscount) ...[
-                                                    TextFormField(
-                                                      controller: _discountController,
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                      ),
-                                                      keyboardType:  const TextInputType.numberWithOptions(
-                                                        decimal: true,
-                                                      ),
-                                                      inputFormatters: [
-                                                        FilteringTextInputFormatter.allow(
-                                                          RegExp(
-                                                            r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$',
-                                                          ),
-                                                        ),
-                                                      ],
-                                                      decoration: InputDecoration(
-                                                        labelText:'Discount',
-                                                        labelStyle: const TextStyle(
-                                                          color: Colors.white70, ),
-                                                        prefixText: 'GHS ',
-                                                        border: OutlineInputBorder(
-                                                          borderRadius: BorderRadius.circular(12, ),
-                                                        ),
-                                                        enabledBorder: OutlineInputBorder(
-                                                          borderRadius:
-                                                          BorderRadius.circular( 12, ),
-                                                          borderSide:
-                                                          const BorderSide(
-                                                            color: Colors
-                                                                .white24,
-                                                          ),
-                                                        ),
-                                                        focusedBorder: OutlineInputBorder(
-                                                          borderRadius:
+                                                    decoration: BoxDecoration(
+                                                      color: _panelSurface,
+                                                      borderRadius:
                                                           BorderRadius.circular(
                                                             12,
                                                           ),
-                                                          borderSide:
-                                                          const BorderSide(
-                                                            color: Colors
-                                                                .blue,
-                                                          ),
-                                                        ),
-                                                        fillColor:
-                                                        const Color(
-                                                          0xFF22304A,
-                                                        ),
-                                                        filled: true,
+                                                      border: Border.all(
+                                                        color: _outlineColor,
                                                       ),
-                                                      validator: (value) {
-                                                        if (value == null ||value.trim().isEmpty) {
-                                                          return null;
-                                                        }
-                                                        final parsed = double.tryParse(value.trim(), );
-                                                        if (parsed == null) {
-                                                          return 'Enter a valid discount';
-                                                        }
-                                                        if (parsed < 0) {
-                                                          return 'Discount cannot be negative';
-                                                        }
-                                                        return null;
-                                                      },
                                                     ),
-                                                    ],
-                                                    SizedBox(height: 8),
-                                                     if(value.allowDiscountCode)...[
-                                                    // clickable discount code field
-                                                    GestureDetector(
-                                                      onTap: () => setState(
-                                                        () => _showDiscountCodeField = !_showDiscountCodeField,
-                                                      ),
-                                                      child: Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 12,
-                                                              vertical: 10,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(
-                                                            0xFF22304A,
-                                                          ),
-                                                          borderRadius:  BorderRadius.circular(12,),
-                                                          border: Border.all(
-                                                            color: _appliedDiscountCode != null
-                                                                ? Colors.greenAccent.withOpacity(0.6, )
-                                                                : Colors.white24,
-                                                          ),
-                                                        ),
-                                                        child: Row(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Row(
                                                           children: [
-                                                            Icon(
-                                                              Icons.discount_outlined,
-                                                              color:_appliedDiscountCode != null
-                                                                  ? Colors.greenAccent
-                                                                  : Colors.white54,
+                                                            const Icon(
+                                                              Icons
+                                                                  .shopping_cart,
+                                                              color:
+                                                                  Colors.orange,
                                                               size: 18,
                                                             ),
                                                             const SizedBox(
@@ -2832,99 +1742,191 @@ class _SalesPageState extends State<SalesPage> {
                                                             ),
                                                             Expanded(
                                                               child: Text(
-                                                                _appliedDiscountCode !=null
-                                                                    ? 'Code "$_appliedDiscountCode" applied'
-                                                                    : 'Have a discount code? Tap to enter',
+                                                                'Open: Cart ${salesProvider.currentCartId.split('_').length > 1 ? salesProvider.currentCartId.split('_')[1] : salesProvider.currentCartId}',
                                                                 style: TextStyle(
-                                                                  color:_appliedDiscountCode != null
-                                                                      ? Colors.greenAccent
-                                                                      : Colors.white54,
-                                                                  fontSize: 13,
+                                                                  color:
+                                                                      _secondaryText,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
                                                                 ),
                                                               ),
                                                             ),
-                                                            Icon(
-                                                              _showDiscountCodeField
-                                                                  ? Icons.keyboard_arrow_up
-                                                                  : Icons.keyboard_arrow_down,
-                                                              color: Colors.white38,
-                                                              size: 18,
+                                                            Text(
+                                                              '${salesItems.length} item(s)',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    _secondaryText,
+                                                                fontSize: 12,
+                                                              ),
                                                             ),
                                                           ],
                                                         ),
-                                                      ),
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
+                                                        Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              'Total Amount',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    _secondaryText,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              'GHS ${salesProvider.calculateTaxableTotal().toStringAsFixed(2)}',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    _primaryText,
+                                                                fontSize: 18,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ),
+                                                  ),
 
-                                                    // Expandable code entry
-                                                    if (_showDiscountCodeField) ...[
-                                                      const SizedBox(height: 8),
+                                                if (isMobile)
+                                                  const SizedBox(height: 12),
+                                                Text(
+                                                  "SALES ENTRIES",
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: _primaryText,
+                                                  ),
+                                                ),
+                                                Divider(color: _outlineColor),
+                                                Visibility(
+                                                  visible: value.hamperEnabled,
+                                                  maintainState: false,
+                                                  child: Column(
+                                                    children: [
+                                                      HamperSection(
+                                                        datafeed: value,
+                                                        activeBranchId:
+                                                            _activeBranchId,
+                                                        activeBranchName:
+                                                            _activeBranchName,
+                                                      ),
+                                                      Divider(
+                                                        color: _outlineColor,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+
+                                                SizedBox(height: 8),
+                                                Form(
+                                                  key: _formKey,
+                                                  child: Column(
+                                                    children: [
+                                                      if (value
+                                                          .canSelectDate) ...[
+                                                        TextFormField(
+                                                          controller:
+                                                              _dateController,
+                                                          readOnly: true,
+                                                          style: TextStyle(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .onSurface,
+                                                          ),
+                                                          decoration:
+                                                              _inputDecoration(
+                                                                label: 'Date',
+                                                                prefix: Icons
+                                                                    .calendar_today,
+                                                                hint:
+                                                                    'yyyy-mm-dd',
+                                                              ),
+                                                          onTap: () async {
+                                                            DateTime?
+                                                            picked = await showDatePicker(
+                                                              context: context,
+                                                              initialDate:
+                                                                  _selectedDate ??
+                                                                  DateTime.now(),
+                                                              firstDate:
+                                                                  DateTime(
+                                                                    2020,
+                                                                  ),
+                                                              lastDate:
+                                                                  DateTime.now(),
+                                                              builder: (context, child) {
+                                                                return Theme(
+                                                                  data:
+                                                                      Theme.of(
+                                                                        context,
+                                                                      ).copyWith(
+                                                                        colorScheme:
+                                                                            _datePickerColorScheme,
+                                                                      ),
+                                                                  child: child!,
+                                                                );
+                                                              },
+                                                            );
+
+                                                            if (picked !=
+                                                                null) {
+                                                              context
+                                                                  .read<
+                                                                    SalesProvider
+                                                                  >()
+                                                                  .setSaleDate(
+                                                                    picked,
+                                                                  );
+
+                                                              setState(() {
+                                                                _selectedDate =
+                                                                    picked;
+                                                                _dateController
+                                                                        .text =
+                                                                    "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                              });
+                                                            }
+                                                          },
+                                                          validator: (value) =>
+                                                              value == null ||
+                                                                  value.isEmpty
+                                                              ? 'Select date'
+                                                              : null,
+                                                        ),
+                                                      ],
+                                                      SizedBox(height: 8),
+                                                      _buildSalesWarehouseSelector(
+                                                        value,
+                                                      ),
                                                       Row(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
                                                           Expanded(
                                                             child: TextFormField(
                                                               controller:
-                                                                  _discountCodeController,
-                                                              style: const TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                letterSpacing:
-                                                                    2,
+                                                                  _barcodeController,
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
                                                               ),
-                                                              textCapitalization:
-                                                                  TextCapitalization
-                                                                      .characters,
-                                                              inputFormatters: [
-                                                                FilteringTextInputFormatter.allow(
-                                                                  RegExp(
-                                                                    r'[A-Za-z0-9]',
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                              onFieldSubmitted:  _applyDiscountCode,
                                                               decoration: InputDecoration(
-                                                                labelText:  'Enter Discount Code',
-                                                                labelStyle:  const TextStyle(
-                                                                  color: Colors.white70, ),
-                                                                hintText:  'e.g. ABC12345',
-                                                                hintStyle:  const TextStyle(
-                                                                      color: Colors.white30,
-                                                                      fontSize: 12,
-                                                                    ),
-                                                                filled: true,
-                                                                fillColor: const Color( 0xFF22304A,),
-                                                                suffixIcon:  _appliedDiscountCode !=                                                            null
-                                                                    ? const Icon(
-                                                                        Icons.check_circle,
-                                                                        color: Colors.greenAccent,
-                                                                        size:  20,
-                                                                      )
-                                                                    : null,
-                                                                enabledBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color:
-                                                                        _appliedDiscountCode !=
-                                                                            null
-                                                                        ? Colors
-                                                                              .greenAccent
-                                                                        : Colors
-                                                                              .white24,
-                                                                  ),
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide:
-                                                                      const BorderSide(
-                                                                        color: Colors
-                                                                            .blue,
-                                                                      ),
+                                                                labelText:
+                                                                    'Barcode',
+                                                                labelStyle: TextStyle(
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.onSurfaceVariant,
                                                                 ),
                                                                 border: OutlineInputBorder(
                                                                   borderRadius:
@@ -2932,92 +1934,925 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                 ),
+                                                                enabledBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.outline,
+                                                                  ),
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.primary,
+                                                                  ),
+                                                                ),
+                                                                fillColor:
+                                                                    Theme.of(
+                                                                          context,
+                                                                        )
+                                                                        .colorScheme
+                                                                        .surfaceContainerHighest,
+                                                                filled: true,
                                                               ),
+
+                                                              validator:
+                                                                  SalesFormValidators
+                                                                      .barcode,
                                                             ),
                                                           ),
                                                           const SizedBox(
                                                             width: 8,
                                                           ),
-                                                          SizedBox(
+                                                          Container(
                                                             height: 56,
-                                                            child: ElevatedButton(
-                                                              style: ElevatedButton.styleFrom(
-                                                                backgroundColor: Colors.orangeAccent,
-                                                                foregroundColor: Colors.white,
-                                                                shape: RoundedRectangleBorder(
-                                                                  borderRadius: BorderRadius.circular( 12, ),
+                                                            decoration: BoxDecoration(
+                                                              color:
+                                                                  _panelSurface,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color:
+                                                                    _outlineColor,
+                                                              ),
+                                                            ),
+                                                            child: IconButton(
+                                                              icon: Icon(
+                                                                Icons
+                                                                    .qr_code_scanner,
+                                                                color:
+                                                                    _secondaryText,
+                                                              ),
+                                                              onPressed:
+                                                                  _scanBarcode,
+                                                              tooltip:
+                                                                  'Scan Barcode/QR Code',
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      if (_showSuggestions)
+                                                        value.loading
+                                                            ? const Center(
+                                                                child: CircularProgressIndicator(
+                                                                  color: Colors
+                                                                      .blue,
+                                                                  strokeWidth:
+                                                                      2,
+                                                                ),
+                                                              )
+                                                            : (() {
+                                                                final query =
+                                                                    _searchQuery
+                                                                        .toLowerCase();
+
+                                                                final filteredItems =
+                                                                    query
+                                                                        .isEmpty
+                                                                    ? value
+                                                                          .items
+                                                                    : value
+                                                                          .items
+                                                                          .where(
+                                                                            (
+                                                                              item,
+                                                                            ) =>
+                                                                                item.isActive ==
+                                                                                true,
+                                                                          )
+                                                                          .where((
+                                                                            item,
+                                                                          ) {
+                                                                            final name =
+                                                                                item.name.toLowerCase();
+                                                                            final barcode =
+                                                                                item.barcode.toLowerCase();
+                                                                            final company =
+                                                                                item.company.toLowerCase();
+                                                                            final category =
+                                                                                item.pcategory.toLowerCase();
+
+                                                                            return name.contains(
+                                                                                  query,
+                                                                                ) ||
+                                                                                barcode.contains(
+                                                                                  query,
+                                                                                ) ||
+                                                                                company.contains(
+                                                                                  query,
+                                                                                ) ||
+                                                                                category.contains(
+                                                                                  query,
+                                                                                );
+                                                                          })
+                                                                          .take(
+                                                                            10,
+                                                                          )
+                                                                          .toList();
+
+                                                                if (filteredItems
+                                                                    .isEmpty) {
+                                                                  return const SizedBox.shrink();
+                                                                }
+
+                                                                return Container(
+                                                                  margin:
+                                                                      const EdgeInsets.only(
+                                                                        top: 4,
+                                                                      ),
+                                                                  decoration: BoxDecoration(
+                                                                    color:
+                                                                        _panelSurface,
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          8,
+                                                                        ),
+                                                                    border: Border.all(
+                                                                      color: Colors
+                                                                          .blue
+                                                                          .withOpacity(
+                                                                            0.3,
+                                                                          ),
+                                                                    ),
+                                                                    boxShadow: const [
+                                                                      BoxShadow(
+                                                                        color: Colors
+                                                                            .black26,
+                                                                        blurRadius:
+                                                                            8,
+                                                                        offset:
+                                                                            Offset(
+                                                                              0,
+                                                                              4,
+                                                                            ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+
+                                                                  constraints:
+                                                                      const BoxConstraints(
+                                                                        maxHeight:
+                                                                            250,
+                                                                      ),
+                                                                  child: ListView.builder(
+                                                                    shrinkWrap:
+                                                                        true,
+                                                                    itemCount:
+                                                                        filteredItems
+                                                                            .length,
+                                                                    itemBuilder:
+                                                                        (
+                                                                          context,
+                                                                          index,
+                                                                        ) {
+                                                                          final item =
+                                                                              filteredItems[index];
+                                                                          final branchId =
+                                                                              value.canSellAnyBranch
+                                                                              ? _activeBranchId
+                                                                              : value.activeBranchId;
+                                                                          final branchbalance =
+                                                                              item.branchbalance?[branchId]
+                                                                                  as Map<
+                                                                                    String,
+                                                                                    dynamic
+                                                                                  >? ??
+                                                                              {};
+
+                                                                          final double
+                                                                          netPieces =
+                                                                              (branchbalance['netpieces']
+                                                                                      as num?)
+                                                                                  ?.toDouble() ??
+                                                                              0.0;
+
+                                                                          double
+                                                                          boxQty =
+                                                                              double.tryParse(
+                                                                                _selectedItem?.modes
+                                                                                        ?.firstWhere(
+                                                                                          (
+                                                                                            m,
+                                                                                          ) =>
+                                                                                              m.name.toLowerCase() ==
+                                                                                              'carton',
+                                                                                          orElse: () => Mode(
+                                                                                            id: '',
+                                                                                            name: '',
+                                                                                            qty: '1',
+                                                                                            cp: '',
+                                                                                            rp: '',
+                                                                                            wp: '',
+                                                                                            sp: '',
+                                                                                          ),
+                                                                                        )
+                                                                                        .qty ??
+                                                                                    _selectedItem?.modes
+                                                                                        ?.firstWhere(
+                                                                                          (
+                                                                                            m,
+                                                                                          ) =>
+                                                                                              m.name.toLowerCase() ==
+                                                                                              'single',
+                                                                                          orElse: () => Mode(
+                                                                                            id: '',
+                                                                                            name: '',
+                                                                                            qty: '1',
+                                                                                            cp: '',
+                                                                                            rp: '',
+                                                                                            wp: '',
+                                                                                            sp: '',
+                                                                                          ),
+                                                                                        )
+                                                                                        .qty ??
+                                                                                    '1',
+                                                                              ) ??
+                                                                              1.0;
+                                                                          final double
+                                                                          cartonsLeft =
+                                                                              boxQty >
+                                                                                  0
+                                                                              ? (netPieces /
+                                                                                    boxQty)
+                                                                              : 0.0;
+                                                                          final cartonMode = item.modes?.firstWhere(
+                                                                            (
+                                                                              m,
+                                                                            ) =>
+                                                                                m.name.toLowerCase() ==
+                                                                                'carton',
+                                                                            orElse: () => Mode(
+                                                                              id: '',
+                                                                              name: '',
+                                                                              qty: '1',
+                                                                              cp: '',
+                                                                              rp: '',
+                                                                              wp: '',
+                                                                              sp: '',
+                                                                            ),
+                                                                          );
+
+                                                                          final singleMode = item.modes?.firstWhere(
+                                                                            (
+                                                                              m,
+                                                                            ) =>
+                                                                                m.name.toLowerCase() ==
+                                                                                'single',
+                                                                            orElse: () => Mode(
+                                                                              id: '',
+                                                                              name: '',
+                                                                              qty: '1',
+                                                                              cp: '',
+                                                                              rp: '',
+                                                                              wp: '',
+                                                                              sp: '',
+                                                                            ),
+                                                                          );
+
+                                                                          final String
+                                                                          boxPrice =
+                                                                              (cartonMode?.wp?.isNotEmpty ??
+                                                                                  false)
+                                                                              ? cartonMode!.wp
+                                                                              : (singleMode?.wp ??
+                                                                                    '0');
+                                                                          return ListTile(
+                                                                            dense:
+                                                                                true,
+                                                                            leading: const Icon(
+                                                                              Icons.inventory_2,
+                                                                              color: Colors.blue,
+                                                                              size: 20,
+                                                                            ),
+                                                                            title: Text(
+                                                                              item.name,
+                                                                              style: TextStyle(
+                                                                                color: _primaryText,
+                                                                                fontSize: 14,
+                                                                                fontWeight: FontWeight.w500,
+                                                                              ),
+                                                                            ),
+                                                                            subtitle: Text(
+                                                                              'Barcode: ${item.barcode} | Box Price: GHS $boxPrice | Retail Price: GHS ${singleMode?.rp} '
+                                                                              //'| Boxes Balance: ${cartonsLeft.toStringAsFixed(2)}'
+                                                                              ' | Pieces: ${netPieces.toStringAsFixed(0)}',
+                                                                              style: TextStyle(
+                                                                                color: _secondaryText,
+                                                                                fontSize: 11,
+                                                                              ),
+                                                                            ),
+                                                                            trailing: Icon(
+                                                                              Icons.arrow_forward_ios,
+                                                                              color: _secondaryText,
+                                                                              size: 14,
+                                                                            ),
+                                                                            onTap: () {
+                                                                              _selectItem(
+                                                                                item,
+                                                                                value,
+                                                                              );
+                                                                            },
+                                                                          );
+                                                                        },
+                                                                  ),
+                                                                );
+                                                              })(),
+
+                                                      SizedBox(height: 8),
+                                                      TextFormField(
+                                                        enabled: false,
+                                                        controller:
+                                                            _itemController,
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                        decoration: InputDecoration(
+                                                          labelText: 'Item',
+                                                          labelStyle: TextStyle(
+                                                            color: Theme.of(context)
+                                                                .colorScheme
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                          border: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                          enabledBorder: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            borderSide: BorderSide(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .outline,
+                                                            ),
+                                                          ),
+                                                          focusedBorder: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            borderSide: BorderSide(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary,
+                                                            ),
+                                                          ),
+                                                          fillColor:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .surfaceContainerHighest,
+                                                          filled: true,
+                                                        ),
+
+                                                        validator:
+                                                            SalesFormValidators
+                                                                .item,
+                                                      ),
+                                                      SizedBox(height: 8),
+                                                      DropdownButtonFormField<
+                                                        String
+                                                      >(
+                                                        value:
+                                                            _selectedSalesMode,
+                                                        dropdownColor: Theme.of(
+                                                          context,
+                                                        ).colorScheme.surface,
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                        decoration: InputDecoration(
+                                                          labelText:
+                                                              'Sales Mode',
+                                                          labelStyle: TextStyle(
+                                                            color: Theme.of(context)
+                                                                .colorScheme
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                          border: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                          enabledBorder: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            borderSide: BorderSide(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .outline,
+                                                            ),
+                                                          ),
+                                                          focusedBorder: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            borderSide: BorderSide(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary,
+                                                            ),
+                                                          ),
+                                                          fillColor:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .surfaceContainerHighest,
+                                                          filled: true,
+                                                        ),
+                                                        items:
+                                                            _salesMode.isEmpty
+                                                            ? null
+                                                            : _salesMode.map((
+                                                                type,
+                                                              ) {
+                                                                return DropdownMenuItem<
+                                                                  String
+                                                                >(
+                                                                  value: type,
+                                                                  child: Text(
+                                                                    type,
+                                                                  ),
+                                                                );
+                                                              }).toList(),
+                                                        onChanged: (value) {
+                                                          setState(() {
+                                                            _selectedSalesMode =
+                                                                value;
+                                                            _onQuantityChanged();
+                                                          });
+                                                        },
+
+                                                        validator:
+                                                            SalesFormValidators
+                                                                .salesMode,
+                                                      ),
+                                                      SizedBox(height: 8),
+                                                      TextFormField(
+                                                        controller:
+                                                            _priceController,
+                                                        style: TextStyle(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                        ),
+                                                        decoration: InputDecoration(
+                                                          labelText: 'Price',
+                                                          labelStyle: TextStyle(
+                                                            color: Theme.of(context)
+                                                                .colorScheme
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                          border: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                          ),
+                                                          enabledBorder: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            borderSide: BorderSide(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .outline,
+                                                            ),
+                                                          ),
+                                                          focusedBorder: OutlineInputBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            borderSide: BorderSide(
+                                                              color:
+                                                                  Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary,
+                                                            ),
+                                                          ),
+                                                          fillColor:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .surfaceContainerHighest,
+                                                          filled: true,
+                                                        ),
+                                                        inputFormatters: [
+                                                          FilteringTextInputFormatter.allow(
+                                                            RegExp(
+                                                              r'^\d*\.?\d*$',
+                                                            ),
+                                                          ),
+                                                        ],
+
+                                                        validator:
+                                                            SalesFormValidators
+                                                                .price,
+                                                        enabled:
+                                                            value.canEditPrice,
+                                                      ),
+                                                      Visibility(
+                                                        visible: false,
+                                                        child: Row(
+                                                          children: [
+                                                            Visibility(
+                                                              visible: false,
+                                                              child: Expanded(
+                                                                child: DropdownButtonFormField<String>(
+                                                                  initialValue:
+                                                                      _selectedPriceMode,
+                                                                  dropdownColor:
+                                                                      Theme.of(
+                                                                        context,
+                                                                      ).colorScheme.surface,
+                                                                  style: TextStyle(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.onSurface,
+                                                                  ),
+                                                                  decoration: InputDecoration(
+                                                                    border: OutlineInputBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                    ),
+                                                                    enabledBorder: OutlineInputBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                      borderSide: BorderSide(
+                                                                        color: Theme.of(
+                                                                          context,
+                                                                        ).colorScheme.outline,
+                                                                      ),
+                                                                    ),
+                                                                    focusedBorder: OutlineInputBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                      borderSide: BorderSide(
+                                                                        color: Theme.of(
+                                                                          context,
+                                                                        ).colorScheme.primary,
+                                                                      ),
+                                                                    ),
+                                                                    fillColor:
+                                                                        Theme.of(
+                                                                          context,
+                                                                        ).colorScheme.surfaceContainerHighest,
+                                                                    filled:
+                                                                        true,
+                                                                  ),
+                                                                  items: _priceMode.map((
+                                                                    type,
+                                                                  ) {
+                                                                    return DropdownMenuItem<
+                                                                      String
+                                                                    >(
+                                                                      value:
+                                                                          type,
+                                                                      child:
+                                                                          Text(
+                                                                            type,
+                                                                          ),
+                                                                    );
+                                                                  }).toList(),
+                                                                  onChanged: (value) {
+                                                                    setState(() {
+                                                                      _selectedPriceMode =
+                                                                          value;
+                                                                      _updatePrice();
+                                                                    });
+                                                                  },
+
+                                                                  validator:
+                                                                      SalesFormValidators
+                                                                          .priceMode,
                                                                 ),
                                                               ),
-                                                              onPressed: () =>
-                                                                  _applyDiscountCode(
-                                                                    _discountCodeController
-                                                                        .text,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      SizedBox(height: 8),
+                                                      Row(
+                                                        children: [
+                                                          SizedBox(
+                                                            width: 52,
+                                                            height: 52,
+                                                            child: Material(
+                                                              color:
+                                                                  _panelSurface,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
                                                                   ),
-                                                              child: const Text(
-                                                                'Apply',
-                                                                style: TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
+                                                              child: InkWell(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      12,
+                                                                    ),
+                                                                onTap:
+                                                                    _decrementQuantity,
+                                                                child: Icon(
+                                                                  Icons.remove,
+                                                                  color:
+                                                                      _secondaryText,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 10,
+                                                          ),
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              controller:
+                                                                  _quantityController,
+                                                              onChanged:
+                                                                  _handleQuantityInput,
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                              keyboardType:
+                                                                  const TextInputType.numberWithOptions(
+                                                                    decimal:
+                                                                        true,
+                                                                  ),
+                                                              inputFormatters: [
+                                                                FilteringTextInputFormatter.allow(
+                                                                  RegExp(
+                                                                    r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$',
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                              decoration: InputDecoration(
+                                                                labelText:
+                                                                    'Quantity',
+                                                                labelStyle: TextStyle(
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.onSurfaceVariant,
+                                                                ),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                ),
+                                                                enabledBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.outline,
+                                                                  ),
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.primary,
+                                                                  ),
+                                                                ),
+                                                                fillColor:
+                                                                    Theme.of(
+                                                                          context,
+                                                                        )
+                                                                        .colorScheme
+                                                                        .surfaceContainerHighest,
+                                                                filled: true,
+                                                              ),
+
+                                                              validator:
+                                                                  _validateQuantity,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 10,
+                                                          ),
+                                                          SizedBox(
+                                                            width: 52,
+                                                            height: 52,
+                                                            child: Material(
+                                                              color:
+                                                                  _panelSurface,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              child: InkWell(
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      12,
+                                                                    ),
+                                                                onTap:
+                                                                    _incrementQuantity,
+                                                                child: Icon(
+                                                                  Icons.add,
+                                                                  color:
+                                                                      _secondaryText,
                                                                 ),
                                                               ),
                                                             ),
                                                           ),
                                                         ],
                                                       ),
-                                                      if (_appliedDiscountCode !=  null)
-                                                        Padding(
-                                                          padding:  const EdgeInsets.only( top: 6,),
-                                                          child: Row(
-                                                            children: [
-                                                              const Icon(
-                                                                Icons.check_circle,
-                                                                color: Colors.greenAccent,
-                                                                size: 13,
+                                                      SizedBox(height: 8),
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              controller:
+                                                                  _totalPiecesController,
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
                                                               ),
-                                                              const SizedBox(
-                                                                width: 4,
-                                                              ),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  '$_appliedDiscountCode applied',
-                                                                  style: const TextStyle(
-                                                                    color: Colors.greenAccent,
-                                                                    fontSize: 12,
-                                                                  ),
+                                                              readOnly: true,
+                                                              decoration: InputDecoration(
+                                                                labelText:
+                                                                    'Total Pieces',
+                                                                labelStyle: TextStyle(
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.onSurfaceVariant,
                                                                 ),
-                                                              ),
-                                                              GestureDetector(
-                                                                onTap: () => setState(() {
-                                                                  _appliedDiscountCode = null;
-                                                                  _discountCodeController.clear();
-                                                                  _discountController .clear();
-                                                                  _calculateTotals();
-                                                                }),
-                                                                child: const Text(
-                                                                  'Remove',
-                                                                  style: TextStyle(
-                                                                    color: Colors
-                                                                        .redAccent,
-                                                                    fontSize:
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
                                                                         12,
-                                                                    decoration:
-                                                                        TextDecoration
-                                                                            .underline,
+                                                                      ),
+                                                                ),
+                                                                enabledBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.outline,
                                                                   ),
                                                                 ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.primary,
+                                                                  ),
+                                                                ),
+                                                                fillColor:
+                                                                    Theme.of(
+                                                                          context,
+                                                                        )
+                                                                        .colorScheme
+                                                                        .surfaceContainerHighest,
+                                                                filled: true,
                                                               ),
-                                                            ],
+                                                            ),
                                                           ),
-                                                        ),
-                                                      if (!_showDiscountCodeField &&
-                                                          _appliedDiscountCode == null) ...[
+                                                          SizedBox(width: 10),
+                                                          Expanded(
+                                                            child: TextFormField(
+                                                              controller:
+                                                                  _totalAmountController,
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
+                                                              ),
+                                                              readOnly: true,
+                                                              decoration: InputDecoration(
+                                                                labelText:
+                                                                    'Total Amount',
+                                                                labelStyle: TextStyle(
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.onSurfaceVariant,
+                                                                ),
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                ),
+                                                                enabledBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.outline,
+                                                                  ),
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.primary,
+                                                                  ),
+                                                                ),
+                                                                fillColor:
+                                                                    Theme.of(
+                                                                          context,
+                                                                        )
+                                                                        .colorScheme
+                                                                        .surfaceContainerHighest,
+                                                                filled: true,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+
+                                                      SizedBox(height: 8),
+                                                      if (value
+                                                          .allowDiscount) ...[
                                                         TextFormField(
-                                                          controller: _discountController,
+                                                          controller:
+                                                              _discountController,
                                                           style: TextStyle(
-                                                            color: Colors.white,
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .onSurface,
                                                           ),
-                                                          keyboardType:  const TextInputType.numberWithOptions(
+                                                          keyboardType:
+                                                              const TextInputType.numberWithOptions(
                                                                 decimal: true,
                                                               ),
                                                           inputFormatters: [
@@ -3028,45 +2863,63 @@ class _SalesPageState extends State<SalesPage> {
                                                             ),
                                                           ],
                                                           decoration: InputDecoration(
-                                                            labelText:'Discount',
-                                                            labelStyle: const TextStyle(
-                                                                  color: Colors.white70, ),
+                                                            labelText:
+                                                                'Discount',
+                                                            labelStyle: TextStyle(
+                                                              color: Theme.of(context)
+                                                                  .colorScheme
+                                                                  .onSurfaceVariant,
+                                                            ),
                                                             prefixText: 'GHS ',
                                                             border: OutlineInputBorder(
-                                                              borderRadius: BorderRadius.circular(12, ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
                                                             ),
                                                             enabledBorder: OutlineInputBorder(
                                                               borderRadius:
-                                                                  BorderRadius.circular( 12, ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .white24,
+                                                                  BorderRadius.circular(
+                                                                    12,
                                                                   ),
+                                                              borderSide: BorderSide(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.outline,
+                                                              ),
                                                             ),
                                                             focusedBorder: OutlineInputBorder(
                                                               borderRadius:
                                                                   BorderRadius.circular(
                                                                     12,
                                                                   ),
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                    color: Colors
-                                                                        .blue,
-                                                                  ),
+                                                              borderSide: BorderSide(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.primary,
+                                                              ),
                                                             ),
                                                             fillColor:
-                                                                const Color(
-                                                                  0xFF22304A,
-                                                                ),
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .surfaceContainerHighest,
                                                             filled: true,
                                                           ),
                                                           validator: (value) {
-                                                            if (value == null ||value.trim().isEmpty) {
+                                                            if (value == null ||
+                                                                value
+                                                                    .trim()
+                                                                    .isEmpty) {
                                                               return null;
                                                             }
-                                                            final parsed = double.tryParse(value.trim(), );
-                                                            if (parsed == null) {
+                                                            final parsed =
+                                                                double.tryParse(
+                                                                  value.trim(),
+                                                                );
+                                                            if (parsed ==
+                                                                null) {
                                                               return 'Enter a valid discount';
                                                             }
                                                             if (parsed < 0) {
@@ -3076,510 +2929,962 @@ class _SalesPageState extends State<SalesPage> {
                                                           },
                                                         ),
                                                       ],
-                                                    ],
-                                                    ],
-                                                    SizedBox(height: 8),
-
-                                                    const Divider(
-                                                      color: Colors.white24,
-                                                    ),
-                                                    Wrap(
-                                                      spacing: 10,
-                                                      runSpacing: 10,
-                                                      children: [
-                                                        SizedBox(
-                                                          width: 150,
-                                                          child: ElevatedButton(
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor:  Colors.orangeAccent,
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    vertical:
-                                                                        16,
-                                                                  ),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      8,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                            onPressed:
-                                                                _addToSalesPreview,
-                                                            child: Text(
-                                                              "Save Record",
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                            ),
+                                                      SizedBox(height: 8),
+                                                      if (value
+                                                          .allowDiscountCode) ...[
+                                                        // clickable discount code field
+                                                        GestureDetector(
+                                                          onTap: () => setState(
+                                                            () => _showDiscountCodeField =
+                                                                !_showDiscountCodeField,
                                                           ),
-                                                        ),
-                                                        SizedBox(
-                                                          width: 150,
-                                                          child: ElevatedButton(
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor:
-                                                                  Colors
-                                                                      .lightBlue,
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    vertical:
-                                                                        16,
-                                                                  ),
-                                                              shape: RoundedRectangleBorder(
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      8,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                            onPressed:
-                                                                _resetForm,
-                                                            child: Text(
-                                                              "Reset",
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  Visibility(
-                                    visible: !isMobile,
-                                    child: SizedBox(
-                                      width: itemWidth,
-                                      child: Container(
-                                        color: Color(0xFF182232),
-                                        //height: 300,
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16.0),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  const Text(
-                                                    "SALES PREVIEW",
-                                                    style: TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                  // Cart switcher
-                                                  if (salesProvider
-                                                          .customerCarts
-                                                          .length >
-                                                      1)
-                                                    PopupMenuButton<String>(
-                                                      icon: Row(
-                                                        children: [
-                                                          Icon(
-                                                            Icons.shopping_cart,
-                                                            color:
-                                                                Colors.orange,
-                                                            size: 20,
-                                                          ),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Cart ${salesProvider.currentCartId.split('_')[1]} (${salesProvider.customerCarts.length})',
-                                                            style: TextStyle(
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      12,
+                                                                  vertical: 10,
+                                                                ),
+                                                            decoration: BoxDecoration(
                                                               color:
-                                                                  Colors.white,
-                                                              fontSize: 12,
+                                                                  _panelSurface,
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
+                                                                color:
+                                                                    _appliedDiscountCode !=
+                                                                        null
+                                                                    ? _successText
+                                                                          .withOpacity(
+                                                                            0.6,
+                                                                          )
+                                                                    : _outlineColor,
+                                                              ),
                                                             ),
-                                                          ),
-                                                          Icon(
-                                                            Icons
-                                                                .arrow_drop_down,
-                                                            color: Colors.white,
-                                                            size: 20,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      color: Color(0xFF22304A),
-                                                      itemBuilder: (context) {
-                                                        return salesProvider.customerCarts.keys.map((
-                                                          cartId,
-                                                        ) {
-                                                          final cartNum = cartId
-                                                              .split('_')[1];
-                                                          final itemCount =
-                                                              salesProvider
-                                                                  .customerCarts[cartId]
-                                                                  ?.length ??
-                                                              0;
-                                                          final isActive = cartId == salesProvider.currentCartId;
-                                                          return PopupMenuItem<String>(
-                                                            value: cartId,
                                                             child: Row(
                                                               children: [
                                                                 Icon(
-                                                                  isActive
-                                                                      ? Icons
-                                                                            .radio_button_checked
-                                                                      : Icons
-                                                                            .radio_button_unchecked,
+                                                                  Icons
+                                                                      .discount_outlined,
                                                                   color:
-                                                                      isActive
-                                                                      ? Colors
-                                                                            .orange
-                                                                      : Colors
-                                                                            .white70,
+                                                                      _appliedDiscountCode !=
+                                                                          null
+                                                                      ? _successText
+                                                                      : _secondaryText,
                                                                   size: 18,
                                                                 ),
-                                                                SizedBox(
+                                                                const SizedBox(
                                                                   width: 8,
                                                                 ),
                                                                 Expanded(
                                                                   child: Text(
-                                                                    'Cart $cartNum ($itemCount items)',
+                                                                    _appliedDiscountCode !=
+                                                                            null
+                                                                        ? 'Code "$_appliedDiscountCode" applied'
+                                                                        : 'Have a discount code? Tap to enter',
                                                                     style: TextStyle(
                                                                       color:
-                                                                          isActive
-                                                                          ? Colors.orange
-                                                                          : Colors.white,
-                                                                      fontWeight:
-                                                                          isActive
-                                                                          ? FontWeight.bold
-                                                                          : FontWeight.normal,
+                                                                          _appliedDiscountCode !=
+                                                                              null
+                                                                          ? _successText
+                                                                          : _secondaryText,
+                                                                      fontSize:
+                                                                          13,
                                                                     ),
                                                                   ),
                                                                 ),
-                                                                if (!isActive &&
-                                                                    salesProvider
-                                                                            .customerCarts
-                                                                            .length >
-                                                                        1)
-                                                                  IconButton(
-                                                                    icon: Icon(
-                                                                      Icons
-                                                                          .delete,
-                                                                      color: Colors
-                                                                          .red,
-                                                                      size: 18,
-                                                                    ),
-                                                                    onPressed: () {
-                                                                      Navigator.pop(
-                                                                        context,
-                                                                      );
-
-                                                                      salesProvider
-                                                                          .deleteCart(
-                                                                            cartId,
-                                                                          );
-                                                                    },
-                                                                    padding:
-                                                                        EdgeInsets
-                                                                            .zero,
-                                                                    constraints:
-                                                                        BoxConstraints(),
-                                                                  ),
+                                                                Icon(
+                                                                  _showDiscountCodeField
+                                                                      ? Icons
+                                                                            .keyboard_arrow_up
+                                                                      : Icons
+                                                                            .keyboard_arrow_down,
+                                                                  color:
+                                                                      _secondaryText,
+                                                                  size: 18,
+                                                                ),
                                                               ],
                                                             ),
-                                                          );
-                                                        }).toList();
-                                                      },
-                                                      onSelected: (cartId) {
-                                                        context
+                                                          ),
+                                                        ),
+
+                                                        // Expandable code entry
+                                                        if (_showDiscountCodeField) ...[
+                                                          const SizedBox(
+                                                            height: 8,
+                                                          ),
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Expanded(
+                                                                child: TextFormField(
+                                                                  controller:
+                                                                      _discountCodeController,
+                                                                  style: TextStyle(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.onSurface,
+                                                                    letterSpacing:
+                                                                        2,
+                                                                  ),
+                                                                  textCapitalization:
+                                                                      TextCapitalization
+                                                                          .characters,
+                                                                  inputFormatters: [
+                                                                    FilteringTextInputFormatter.allow(
+                                                                      RegExp(
+                                                                        r'[A-Za-z0-9]',
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                  onFieldSubmitted:
+                                                                      _applyDiscountCode,
+                                                                  decoration: InputDecoration(
+                                                                    labelText:
+                                                                        'Enter Discount Code',
+                                                                    labelStyle: TextStyle(
+                                                                      color: Theme.of(
+                                                                        context,
+                                                                      ).colorScheme.onSurfaceVariant,
+                                                                    ),
+                                                                    hintText:
+                                                                        'e.g. ABC12345',
+                                                                    hintStyle: TextStyle(
+                                                                      color: Theme.of(
+                                                                        context,
+                                                                      ).colorScheme.onSurfaceVariant,
+                                                                      fontSize:
+                                                                          12,
+                                                                    ),
+                                                                    filled:
+                                                                        true,
+                                                                    fillColor:
+                                                                        Theme.of(
+                                                                          context,
+                                                                        ).colorScheme.surfaceContainerHighest,
+                                                                    suffixIcon:
+                                                                        _appliedDiscountCode !=
+                                                                            null
+                                                                        ? Icon(
+                                                                            Icons.check_circle,
+                                                                            color:
+                                                                                Colors.greenAccent,
+                                                                            size:
+                                                                                20,
+                                                                          )
+                                                                        : null,
+                                                                    enabledBorder: OutlineInputBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                      borderSide: BorderSide(
+                                                                        color:
+                                                                            _appliedDiscountCode !=
+                                                                                null
+                                                                            ? Colors.greenAccent
+                                                                            : Theme.of(
+                                                                                context,
+                                                                              ).colorScheme.outline,
+                                                                      ),
+                                                                    ),
+                                                                    focusedBorder: OutlineInputBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                      borderSide: BorderSide(
+                                                                        color: Theme.of(
+                                                                          context,
+                                                                        ).colorScheme.primary,
+                                                                      ),
+                                                                    ),
+                                                                    border: OutlineInputBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 8,
+                                                              ),
+                                                              SizedBox(
+                                                                height: 56,
+                                                                child: ElevatedButton(
+                                                                  style: ElevatedButton.styleFrom(
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .orangeAccent,
+                                                                    foregroundColor:
+                                                                        Colors
+                                                                            .white,
+                                                                    shape: RoundedRectangleBorder(
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                    ),
+                                                                  ),
+                                                                  onPressed: () =>
+                                                                      _applyDiscountCode(
+                                                                        _discountCodeController
+                                                                            .text,
+                                                                      ),
+                                                                  child: const Text(
+                                                                    'Apply',
+                                                                    style: TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          if (_appliedDiscountCode !=
+                                                              null)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    top: 6,
+                                                                  ),
+                                                              child: Row(
+                                                                children: [
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .check_circle,
+                                                                    color: Colors
+                                                                        .greenAccent,
+                                                                    size: 13,
+                                                                  ),
+                                                                  const SizedBox(
+                                                                    width: 4,
+                                                                  ),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      '$_appliedDiscountCode applied',
+                                                                      style: const TextStyle(
+                                                                        color: Colors
+                                                                            .greenAccent,
+                                                                        fontSize:
+                                                                            12,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  GestureDetector(
+                                                                    onTap: () => setState(() {
+                                                                      _appliedDiscountCode =
+                                                                          null;
+                                                                      _discountCodeController
+                                                                          .clear();
+                                                                      _discountController
+                                                                          .clear();
+                                                                      _calculateTotals();
+                                                                    }),
+                                                                    child: const Text(
+                                                                      'Remove',
+                                                                      style: TextStyle(
+                                                                        color: Colors
+                                                                            .redAccent,
+                                                                        fontSize:
+                                                                            12,
+                                                                        decoration:
+                                                                            TextDecoration.underline,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          if (!_showDiscountCodeField &&
+                                                              _appliedDiscountCode ==
+                                                                  null) ...[
+                                                            TextFormField(
+                                                              controller:
+                                                                  _discountController,
+                                                              style: TextStyle(
+                                                                color: Theme.of(
+                                                                  context,
+                                                                ).colorScheme.onSurface,
+                                                              ),
+                                                              keyboardType:
+                                                                  const TextInputType.numberWithOptions(
+                                                                    decimal:
+                                                                        true,
+                                                                  ),
+                                                              inputFormatters: [
+                                                                FilteringTextInputFormatter.allow(
+                                                                  RegExp(
+                                                                    r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$',
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                              decoration: InputDecoration(
+                                                                labelText:
+                                                                    'Discount',
+                                                                labelStyle: TextStyle(
+                                                                  color: Theme.of(
+                                                                    context,
+                                                                  ).colorScheme.onSurfaceVariant,
+                                                                ),
+                                                                prefixText:
+                                                                    'GHS ',
+                                                                border: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                ),
+                                                                enabledBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.outline,
+                                                                  ),
+                                                                ),
+                                                                focusedBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        12,
+                                                                      ),
+                                                                  borderSide: BorderSide(
+                                                                    color: Theme.of(
+                                                                      context,
+                                                                    ).colorScheme.primary,
+                                                                  ),
+                                                                ),
+                                                                fillColor:
+                                                                    Theme.of(
+                                                                          context,
+                                                                        )
+                                                                        .colorScheme
+                                                                        .surfaceContainerHighest,
+                                                                filled: true,
+                                                              ),
+                                                              validator: (value) {
+                                                                if (value ==
+                                                                        null ||
+                                                                    value
+                                                                        .trim()
+                                                                        .isEmpty) {
+                                                                  return null;
+                                                                }
+                                                                final parsed =
+                                                                    double.tryParse(
+                                                                      value
+                                                                          .trim(),
+                                                                    );
+                                                                if (parsed ==
+                                                                    null) {
+                                                                  return 'Enter a valid discount';
+                                                                }
+                                                                if (parsed <
+                                                                    0) {
+                                                                  return 'Discount cannot be negative';
+                                                                }
+                                                                return null;
+                                                              },
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ],
+                                                      SizedBox(height: 8),
+
+                                                      Divider(
+                                                        color: _outlineColor,
+                                                      ),
+                                                      Wrap(
+                                                        spacing: 10,
+                                                        runSpacing: 10,
+                                                        children: [
+                                                          SizedBox(
+                                                            width: 150,
+                                                            child: ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .orangeAccent,
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      vertical:
+                                                                          16,
+                                                                    ),
+                                                                shape: RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        8,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                              onPressed:
+                                                                  _addToSalesPreview,
+                                                              child: Text(
+                                                                "Save Record",
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      _isLightTheme
+                                                                      ? Colors
+                                                                            .black87
+                                                                      : Colors
+                                                                            .white,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          SizedBox(
+                                                            width: 150,
+                                                            child: ElevatedButton(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .lightBlue,
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      vertical:
+                                                                          16,
+                                                                    ),
+                                                                shape: RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        8,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                              onPressed:
+                                                                  _resetForm,
+                                                              child: Text(
+                                                                "Reset",
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      _isLightTheme
+                                                                      ? Colors
+                                                                            .black87
+                                                                      : Colors
+                                                                            .white,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    Visibility(
+                                      visible: !isMobile,
+                                      child: SizedBox(
+                                        width: itemWidth,
+                                        child: Container(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surface,
+                                          //height: 300,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16.0),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      "SALES PREVIEW",
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: _primaryText,
+                                                      ),
+                                                    ),
+                                                    // Cart switcher
+                                                    if (salesProvider
+                                                            .customerCarts
+                                                            .length >
+                                                        1)
+                                                      PopupMenuButton<String>(
+                                                        icon: Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .shopping_cart,
+                                                              color:
+                                                                  Colors.orange,
+                                                              size: 20,
+                                                            ),
+                                                            SizedBox(width: 4),
+                                                            Text(
+                                                              'Cart ${salesProvider.currentCartId.split('_')[1]} (${salesProvider.customerCarts.length})',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    _primaryText,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                            Icon(
+                                                              Icons
+                                                                  .arrow_drop_down,
+                                                              color:
+                                                                  _primaryText,
+                                                              size: 20,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest,
+                                                        itemBuilder: (context) {
+                                                          return salesProvider.customerCarts.keys.map((
+                                                            cartId,
+                                                          ) {
+                                                            final cartNum =
+                                                                cartId.split(
+                                                                  '_',
+                                                                )[1];
+                                                            final itemCount =
+                                                                salesProvider
+                                                                    .customerCarts[cartId]
+                                                                    ?.length ??
+                                                                0;
+                                                            final isActive =
+                                                                cartId ==
+                                                                salesProvider
+                                                                    .currentCartId;
+                                                            return PopupMenuItem<
+                                                              String
+                                                            >(
+                                                              value: cartId,
+                                                              child: Row(
+                                                                children: [
+                                                                  Icon(
+                                                                    isActive
+                                                                        ? Icons
+                                                                              .radio_button_checked
+                                                                        : Icons
+                                                                              .radio_button_unchecked,
+                                                                    color:
+                                                                        isActive
+                                                                        ? Colors
+                                                                              .orange
+                                                                        : Colors
+                                                                              .grey,
+                                                                    size: 18,
+                                                                  ),
+                                                                  SizedBox(
+                                                                    width: 8,
+                                                                  ),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      'Cart $cartNum ($itemCount items)',
+                                                                      style: TextStyle(
+                                                                        color:
+                                                                            isActive
+                                                                            ? Colors.orange
+                                                                            : Colors.white,
+                                                                        fontWeight:
+                                                                            isActive
+                                                                            ? FontWeight.bold
+                                                                            : FontWeight.normal,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  if (!isActive &&
+                                                                      salesProvider
+                                                                              .customerCarts
+                                                                              .length >
+                                                                          1)
+                                                                    IconButton(
+                                                                      icon: Icon(
+                                                                        Icons
+                                                                            .delete,
+                                                                        color: Colors
+                                                                            .red,
+                                                                        size:
+                                                                            18,
+                                                                      ),
+                                                                      onPressed: () {
+                                                                        Navigator.pop(
+                                                                          context,
+                                                                        );
+
+                                                                        salesProvider.deleteCart(
+                                                                          cartId,
+                                                                        );
+                                                                      },
+                                                                      padding:
+                                                                          EdgeInsets
+                                                                              .zero,
+                                                                      constraints:
+                                                                          BoxConstraints(),
+                                                                    ),
+                                                                ],
+                                                              ),
+                                                            );
+                                                          }).toList();
+                                                        },
+                                                        onSelected: (cartId) {
+                                                          context
+                                                              .read<
+                                                                SalesProvider
+                                                              >()
+                                                              .switchCart(
+                                                                cartId,
+                                                              );
+                                                        },
+                                                      ),
+                                                  ],
+                                                ),
+                                                Divider(color: _outlineColor),
+                                                SizedBox(height: 15),
+
+                                                Table(
+                                                  border: TableBorder.all(
+                                                    color: Colors.grey,
+                                                  ),
+                                                  columnWidths: const {
+                                                    0: FixedColumnWidth(40),
+                                                    1: FlexColumnWidth(2),
+                                                    2: FlexColumnWidth(1),
+                                                    3: FlexColumnWidth(1),
+                                                    4: FlexColumnWidth(1),
+                                                    5: FlexColumnWidth(1),
+                                                    6: FixedColumnWidth(60),
+                                                  },
+                                                  children: [
+                                                    _tableRow([
+                                                      "#",
+                                                      "Item",
+                                                      "Quantity",
+                                                      "Price",
+                                                      "Discount",
+                                                      "Total",
+                                                      "Action",
+                                                    ], isHeader: true),
+                                                    // Display sales items
+                                                    ...salesItems.asMap().entries.map((
+                                                      entry,
+                                                    ) {
+                                                      final index = entry.key;
+                                                      final item = entry.value;
+                                                      //  final isInsufficient =salesProvider.isPreviewItemInsufficient(item, value,);
+
+                                                      final isInsufficient =
+                                                          value
+                                                              .stockCheckEnabled &&
+                                                          salesProvider
+                                                              .isPreviewItemInsufficient(
+                                                                item,
+                                                                value,
+                                                              );
+                                                      final isUnapproved =
+                                                          item['isUnapproved'] ==
+                                                          true;
+
+                                                      return _tableRowWithAction(
+                                                        (index + 1).toString(),
+                                                        item['item'] ?? '',
+                                                        "${item['quantity'] ?? '0'}${item['mode'] ?? ''}",
+                                                        item['price'] ?? '0',
+                                                        item['discount']
+                                                                ?.toString() ??
+                                                            '0',
+                                                        item['totalamount'] ??
+                                                            '0',
+                                                        () => context
                                                             .read<
                                                               SalesProvider
                                                             >()
-                                                            .switchCart(cartId);
-                                                      },
-                                                    ),
-                                                ],
-                                              ),
-                                              const Divider(
-                                                color: Colors.white24,
-                                              ),
-                                              SizedBox(height: 15),
-
-                                              Table(
-                                                border: TableBorder.all(
-                                                  color: Colors.grey,
-                                                ),
-                                                columnWidths: const {
-                                                  0: FixedColumnWidth(40),
-                                                  1: FlexColumnWidth(2),
-                                                  2: FlexColumnWidth(1),
-                                                  3: FlexColumnWidth(1),
-                                                  4: FlexColumnWidth(1),
-                                                  5: FlexColumnWidth(1),
-                                                  6: FixedColumnWidth(60),
-                                                },
-                                                children: [
-                                                  _tableRow([
-                                                    "#",
-                                                    "Item",
-                                                    "Quantity",
-                                                    "Price",
-                                                    "Discount",
-                                                    "Total",
-                                                    "Action",
-                                                  ], isHeader: true),
-                                                  // Display sales items
-                                                  ...salesItems.asMap().entries.map((
-                                                    entry,
-                                                  ) {
-                                                    final index = entry.key;
-                                                    final item = entry.value;
-                                                  //  final isInsufficient =salesProvider.isPreviewItemInsufficient(item, value,);
-
-                                                    final isInsufficient = value.stockCheckEnabled &&
-                                                        salesProvider.isPreviewItemInsufficient(item, value);
-                                                    final isUnapproved =
-                                                        item['isUnapproved'] ==
-                                                        true;
-
-                                                    return _tableRowWithAction(
-                                                      (index + 1).toString(),
-                                                      item['item'] ?? '',
-                                                      "${item['quantity'] ?? '0'}${item['mode'] ?? ''}",
-                                                      item['price'] ?? '0',
-                                                      item['discount']?.toString() ?? '0',
-                                                      item['totalamount'] ?? '0',
-                                                          () => context.read<SalesProvider>().removeFromSalesPreview(index),
-                                                      isInsufficient: isInsufficient,
-                                                      isUnapproved: isUnapproved,
-                                                      onSync: isInsufficient
-                                                          ? () => _syncItemBalance(
-                                                        item['itemid'] ?? '',
-                                                        item['item'] ?? '',
-                                                        item['branchid'] ?? '',
-                                                        item['branchname'] ?? '',
-                                                      )
-                                                          : null,
-                                                    );
-                                                  }).toList(),
-                                                  _tableRow([
-                                                    "",
-                                                    "Taxable Total",
-                                                    "",
-                                                    "",
-                                                    "",
-                                                    salesProvider
-                                                        .calculateTaxableTotal()
-                                                        .toStringAsFixed(2),
-                                                    "",
-                                                  ]),
-                                                  if (salesProvider
-                                                          .calculateDiscountTotal() >
-                                                      0)
+                                                            .removeFromSalesPreview(
+                                                              index,
+                                                            ),
+                                                        isInsufficient:
+                                                            isInsufficient,
+                                                        isUnapproved:
+                                                            isUnapproved,
+                                                        onSync: isInsufficient
+                                                            ? () => _syncItemBalance(
+                                                                item['itemid'] ??
+                                                                    '',
+                                                                item['item'] ??
+                                                                    '',
+                                                                item['branchid'] ??
+                                                                    '',
+                                                                item['branchname'] ??
+                                                                    '',
+                                                              )
+                                                            : null,
+                                                      );
+                                                    }).toList(),
                                                     _tableRow([
                                                       "",
-                                                      "Discount Total",
+                                                      "Taxable Total",
                                                       "",
                                                       "",
                                                       "",
-                                                      salesProvider.calculateDiscountTotal().toStringAsFixed(2),
+                                                      salesProvider
+                                                          .calculateTaxableTotal()
+                                                          .toStringAsFixed(2),
                                                       "",
                                                     ]),
-                                                  _tableRow([
-                                                    "",
-                                                    "Payable Amount",
-                                                    "",
-                                                    "",
-                                                    "",
-                                                    salesProvider.calculateTaxableTotal()
-                                                        .toStringAsFixed(2),
-                                                    "",
-                                                  ]),
-                                                ],
-                                              ),
+                                                    if (salesProvider
+                                                            .calculateDiscountTotal() >
+                                                        0)
+                                                      _tableRow([
+                                                        "",
+                                                        "Discount Total",
+                                                        "",
+                                                        "",
+                                                        "",
+                                                        salesProvider
+                                                            .calculateDiscountTotal()
+                                                            .toStringAsFixed(2),
+                                                        "",
+                                                      ]),
+                                                    _tableRow([
+                                                      "",
+                                                      "Payable Amount",
+                                                      "",
+                                                      "",
+                                                      "",
+                                                      salesProvider
+                                                          .calculateTaxableTotal()
+                                                          .toStringAsFixed(2),
+                                                      "",
+                                                    ]),
+                                                  ],
+                                                ),
 
-                                              SizedBox(height: 20),
-                                              LayoutBuilder(
-                                                builder: (context, constraints) {
-                                                  final isWideScreen =
-                                                      constraints.maxWidth >
-                                                      600;
-                                                  final minWidth = isWideScreen
-                                                      ? 170.0
-                                                      : 130.0;
+                                                SizedBox(height: 20),
+                                                LayoutBuilder(
+                                                  builder: (context, constraints) {
+                                                    final isWideScreen =
+                                                        constraints.maxWidth >
+                                                        600;
+                                                    final minWidth =
+                                                        isWideScreen
+                                                        ? 170.0
+                                                        : 130.0;
 
-                                                  return Wrap(
-                                                    spacing: isWideScreen
-                                                        ? 12
-                                                        : 10,
-                                                    runSpacing: isWideScreen
-                                                        ? 12
-                                                        : 10,
-                                                    alignment:
-                                                        WrapAlignment.center,
-                                                    children: [
-                                                      // if (posPrint) ...[
-                                                      //   _previewActionTile(
-                                                      //     label: 'POS PRINT',
-                                                      //     icon: Icons.print,
-                                                      //     color: Colors.teal,
-                                                      //     onTap: _printReceipt,
-                                                      //     minWidth: minWidth,
-                                                      //   ),
-                                                      // ],
-                                                      if (posPrint && cashAllowed) ...[
+                                                    return Wrap(
+                                                      spacing: isWideScreen
+                                                          ? 12
+                                                          : 10,
+                                                      runSpacing: isWideScreen
+                                                          ? 12
+                                                          : 10,
+                                                      alignment:
+                                                          WrapAlignment.center,
+                                                      children: [
+                                                        if (cashAllowed)
+                                                          _previewActionTile(
+                                                            label: posPrint
+                                                                ? 'POS PRINT'
+                                                                : 'SAVE',
+                                                            icon: posPrint
+                                                                ? Icons.print
+                                                                : Icons.save,
+                                                            color: posPrint
+                                                                ? Colors.teal
+                                                                : Colors.green,
+                                                            onTap:
+                                                                _printReceipt,
+                                                            minWidth: minWidth,
+                                                          ),
+
                                                         _previewActionTile(
-                                                          label: 'POS PRINT',
-                                                          icon: Icons.print,
-                                                          color: Colors.teal,
-                                                          onTap: _printReceipt,
+                                                          label:
+                                                              'NEW TRANSACTION',
+                                                          icon: Icons
+                                                              .add_shopping_cart,
+                                                          color:
+                                                              Colors.lightBlue,
+
+                                                          onTap: () {
+                                                            final provider =
+                                                                context
+                                                                    .read<
+                                                                      SalesProvider
+                                                                    >();
+                                                            provider
+                                                                .createNewCart();
+
+                                                            ScaffoldMessenger.of(
+                                                              context,
+                                                            ).showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(
+                                                                  'New transaction created: ${provider.currentCartId}',
+                                                                ),
+                                                                backgroundColor:
+                                                                    Colors.blue,
+                                                                duration:
+                                                                    const Duration(
+                                                                      seconds:
+                                                                          2,
+                                                                    ),
+                                                              ),
+                                                            );
+                                                          },
+                                                          minWidth: minWidth,
+                                                        ),
+                                                        _previewActionTile(
+                                                          label:
+                                                              'CUSTOMER INFO',
+                                                          icon: Icons.person,
+                                                          color: Colors.orange,
+                                                          onTap: () async {
+                                                            final salesProvider =
+                                                                Provider.of<
+                                                                  SalesProvider
+                                                                >(
+                                                                  context,
+                                                                  listen: false,
+                                                                );
+                                                            final activeBranchId =
+                                                                _activeBranchId;
+
+                                                            final isService =
+                                                                (_selectedItem
+                                                                            ?.producttype ??
+                                                                        '')
+                                                                    .toLowerCase()
+                                                                    .trim() ==
+                                                                'service';
+
+                                                            if (!isService &&
+                                                                value
+                                                                    .stockCheckEnabled) {
+                                                              bool
+                                                              isValid = await salesProvider
+                                                                  .validateCartStockOnSaves(
+                                                                    activeBranchId,
+                                                                  );
+
+                                                              if (!isValid) {
+                                                                snackMsg(
+                                                                  context,
+                                                                  'Insufficient stock detected. Please adjust cart.',
+                                                                  Colors.red,
+                                                                );
+
+                                                                return;
+                                                              }
+                                                            }
+                                                            CustomerInfoDialog.show(
+                                                              context: context,
+                                                              // activeBranchId: value.activeBranchId,
+                                                              activeBranchId:
+                                                                  activeBranchId,
+                                                              selectedItem:
+                                                                  _selectedItem,
+                                                            );
+                                                          },
                                                           minWidth: minWidth,
                                                         ),
                                                       ],
-                                                      if (value.accesslevel.toLowerCase().contains('sales attendance'))
-                                                        _previewActionTile(
-                                                          label: _isSavingDirect ? 'SAVING...' : 'SAVE',
-                                                          icon: _isSavingDirect ? Icons.hourglass_empty : Icons.save,
-                                                          color: Colors.green,
-                                                          onTap: _isSavingDirect ? () {} : _saveDirectSale,
-                                                          minWidth: minWidth,
-                                                        ),
-                                                      _previewActionTile(
-                                                        label:
-                                                            'NEW TRANSACTION',
-                                                        icon: Icons
-                                                            .add_shopping_cart,
-                                                        color: Colors.lightBlue,
-
-                                                        onTap: () {
-                                                          final provider =
-                                                              context
-                                                                  .read<
-                                                                    SalesProvider
-                                                                  >();
-                                                          provider
-                                                              .createNewCart();
-
-                                                          ScaffoldMessenger.of(
-                                                            context,
-                                                          ).showSnackBar(
-                                                            SnackBar(
-                                                              content: Text(
-                                                                'New transaction created: ${provider.currentCartId}',
-                                                              ),
-                                                              backgroundColor:
-                                                                  Colors.blue,
-                                                              duration:
-                                                                  const Duration(
-                                                                    seconds: 2,
-                                                                  ),
-                                                            ),
-                                                          );
-                                                        },
-                                                        minWidth: minWidth,
-                                                      ),
-                                                      _previewActionTile(
-                                                        label: 'CUSTOMER INFO',
-                                                        icon: Icons.person,
-                                                        color: Colors.orange,
-                                                        onTap: () async {
-                                                          final salesProvider = Provider.of<SalesProvider>( context, listen: false, );
-                                                          final activeBranchId = _activeBranchId;
-                                                          // bool   isValid = await salesProvider.validateCartStockOnSaves(activeBranchId, );
-                                                          //
-                                                          // if (!isValid) {
-                                                          //   snackMsg(context,'Insufficient stock detected. Please adjust cart.', Colors.red);
-                                                          //
-                                                          //   return;
-                                                          // }
-
-                                                          final isService = (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
-
-                                                          if (!isService && value.stockCheckEnabled) {
-                                                            bool isValid = await salesProvider.validateCartStockOnSaves(activeBranchId, );
-
-                                                            if (!isValid) {
-                                                              snackMsg(context,'Insufficient stock detected. Please adjust cart.', Colors.red);
-
-                                                              return;
-                                                            }
-                                                          }
-                                                          CustomerInfoDialog.show(
-                                                            context: context,
-                                                           // activeBranchId: value.activeBranchId,
-                                                            activeBranchId: activeBranchId,
-                                                            selectedItem: _selectedItem,
-                                                          );
-                                                        },
-                                                        minWidth: minWidth,
-                                                      ),
-                                                    ],
-                                                  );
-                                                },
-                                              ),
-                                            ],
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
 
-                                  Visibility(
-                                    visible: isMobile && _showMobilePreview,
-                                    child: MobileSalesPreview(
-                                      cartItems: salesProvider.salesItems,
-                                      customerCarts: salesProvider.customerCarts,
-                                      currentCartId: salesProvider.currentCartId,
-                                      taxableTotal: salesProvider.calculateTaxableTotal(),
-                                      payableTotal: salesProvider.calculateTaxableTotal(),
-                                      insufficientIndices: {
-                                        for (int i = 0; i < salesProvider.salesItems.length; i++)
-                                        //  if (salesProvider.isPreviewItemInsufficient(salesProvider.salesItems[i], value,)) i,
-                                          if (value.stockCheckEnabled && salesProvider.isPreviewItemInsufficient(salesProvider.salesItems[i], value,)) i,
-
-                                      },
-                                      onSwitchCart: salesProvider.switchCart,
-                                      onDeleteCart: salesProvider.deleteCart,
-                                      onPrintReceipt: _printReceipt,
-                                      onMomo: () {
-                                        MomoDialog.showMomo(
-                                          context: context,
-                                          salesItems: salesProvider.salesItems,
-                                        );
-                                      },
-                                      onNewTransaction: salesProvider.createNewCart,
-                                      onCustomerInfo: () {
-                                        CustomerInfoDialog.show(
-                                          context: context,
-                                          activeBranchId: _activeBranchId,
-                                         // activeBranchId: value.activeBranchId,
-                                          selectedItem: _selectedItem,
-                                        );
-                                      },
-                                      onSaveDirect: value.accesslevel.toLowerCase().contains('sales attendance')
-                                          ? _saveDirectSale
-                                          : null,
-                                      saveDirectLabel: _isSavingDirect ? 'SAVING...' : 'SAVE DIRECT',
-                                      onRemoveItem: (int index) {
-                                        salesProvider.removeFromSalesPreview(index);
-                                      },
-                                      posPrint: posPrint,
+                                    Visibility(
+                                      visible: isMobile && _showMobilePreview,
+                                      child: MobileSalesPreview(
+                                        cartItems: salesProvider.salesItems,
+                                        customerCarts:
+                                            salesProvider.customerCarts,
+                                        currentCartId:
+                                            salesProvider.currentCartId,
+                                        taxableTotal: salesProvider
+                                            .calculateTaxableTotal(),
+                                        payableTotal: salesProvider
+                                            .calculateTaxableTotal(),
+                                        insufficientIndices: {
+                                          for (
+                                            int i = 0;
+                                            i < salesProvider.salesItems.length;
+                                            i++
+                                          )
+                                            if (value.stockCheckEnabled &&
+                                                salesProvider
+                                                    .isPreviewItemInsufficient(
+                                                      salesProvider
+                                                          .salesItems[i],
+                                                      value,
+                                                    ))
+                                              i,
+                                        },
+                                        onSwitchCart: salesProvider.switchCart,
+                                        onDeleteCart: salesProvider.deleteCart,
+                                        onPrintReceipt: _printReceipt,
+                                        onMomo: () {
+                                          MomoDialog.showMomo(
+                                            context: context,
+                                            salesItems:
+                                                salesProvider.salesItems,
+                                          );
+                                        },
+                                        onNewTransaction:
+                                            salesProvider.createNewCart,
+                                        onCustomerInfo: () {
+                                          CustomerInfoDialog.show(
+                                            context: context,
+                                            activeBranchId: _activeBranchId,
+                                            // activeBranchId: value.activeBranchId,
+                                            selectedItem: _selectedItem,
+                                          );
+                                        },
+                                        onSaveDirect:
+                                            value.accesslevel
+                                                .toLowerCase()
+                                                .contains('sales attendance')
+                                            ? _saveDirectSale
+                                            : null,
+                                        saveDirectLabel: _isSavingDirect
+                                            ? 'SAVING...'
+                                            : 'SAVE DIRECT',
+                                        onRemoveItem: (int index) {
+                                          salesProvider.removeFromSalesPreview(
+                                            index,
+                                          );
+                                        },
+                                        posPrint: posPrint,
+                                        cashAllowed: cashAllowed,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          );
-                        },
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -3597,21 +3902,27 @@ class _SalesPageState extends State<SalesPage> {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white54),
-      prefixIcon: prefix != null ? Icon(prefix, color: Colors.white70) : null,
+      hintStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      prefixIcon: prefix != null
+          ? Icon(prefix, color: Theme.of(context).colorScheme.onSurfaceVariant)
+          : null,
       suffixIcon: suffix,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
       ),
-      fillColor: const Color(0xFF22304A),
+      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       filled: true,
     );
   }
@@ -3627,7 +3938,7 @@ class _SalesPageState extends State<SalesPage> {
                 textAlign: isHeader ? TextAlign.center : TextAlign.left,
                 style: TextStyle(
                   fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-                  color: Colors.white,
+                  color: _primaryText,
                 ),
               ),
             ),
@@ -3647,8 +3958,8 @@ class _SalesPageState extends State<SalesPage> {
     bool isInsufficient = false,
     bool isUnapproved = false,
     VoidCallback? onSync,
-      }) {
-    final textColor = isInsufficient ? Colors.redAccent : Colors.white;
+  }) {
+    final textColor = isInsufficient ? Colors.redAccent : _primaryText;
 
     return TableRow(
       decoration: isInsufficient
@@ -3705,6 +4016,3 @@ class _SalesPageState extends State<SalesPage> {
     );
   }
 }
-
-
-

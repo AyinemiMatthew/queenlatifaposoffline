@@ -36,16 +36,18 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
 
     return snapshot.docs
         .map((doc) {
-      final data = doc.data();
-      data['id'] = (data['id'] ?? '').toString().isNotEmpty
-          ? data['id']
-          : doc.id;
-      return ExpenseEntryModel.fromJson(data);
-    })
-        .where((expense) =>
-    expense.deletedby.isEmpty &&
-        (datafeed.companyid.isEmpty ||
-            expense.companyid == datafeed.companyid))
+          final data = doc.data();
+          data['id'] = (data['id'] ?? '').toString().isNotEmpty
+              ? data['id']
+              : doc.id;
+          return ExpenseEntryModel.fromJson(data);
+        })
+        .where(
+          (expense) =>
+              expense.deletedby.isEmpty &&
+              (datafeed.companyid.isEmpty ||
+                  expense.companyid == datafeed.companyid),
+        )
         .toList()
       ..sort((a, b) {
         final aDate = a.expenseDate ?? a.date ?? DateTime(1900);
@@ -65,18 +67,22 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
   //   });
   // }
 
-
   Future<void> getAll() async {
     try {
       final datafeed = context.read<Datafeed>();
-      Query<Map<String, dynamic>> query = db.collection('expenses').where('companyId', isEqualTo: datafeed.companyid);
-      if (datafeed.accesslevel.toLowerCase() != 'super admin' && datafeed.branchid.isNotEmpty) {
+      Query<Map<String, dynamic>> query = db
+          .collection('expenses')
+          .where('companyId', isEqualTo: datafeed.companyid);
+      if (datafeed.accesslevel.toLowerCase() != 'super admin' &&
+          datafeed.branchid.isNotEmpty) {
         query = query.where('branchId', isEqualTo: datafeed.branchid);
       }
       final news = await query.get();
       expenseList = news.docs.map((doc) {
         final data = doc.data();
-        data['id'] = (data['id'] ?? '').toString().isNotEmpty ? data['id'] : doc.id;
+        data['id'] = (data['id'] ?? '').toString().isNotEmpty
+            ? data['id']
+            : doc.id;
         return ExpenseEntryModel.fromJson(data);
       }).toList();
     } catch (e) {
@@ -113,10 +119,8 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     //
     // }
 
-
     super.initState();
     _expensesFuture = _getExpenses();
-
   }
 
   @override
@@ -142,7 +146,8 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     final filtered = source.where((expense) {
       final matchesQuery = _matchesSearch(expense, query);
       final expenseDate = expense.expenseDate ?? expense.date;
-      final matchesDate = _selectedDateRange == null ||
+      final matchesDate =
+          _selectedDateRange == null ||
           (expenseDate != null &&
               !expenseDate.isBefore(_selectedDateRange!.start) &&
               !expenseDate.isAfter(_selectedDateRange!.end));
@@ -166,18 +171,18 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       initialDateRange: _selectedDateRange,
       initialEntryMode: DatePickerEntryMode.calendar,
       builder: (context, child) {
+        final theme = Theme.of(context);
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Color(0xFF182232),
-              onSurface: Colors.white,
-            ),
-            scaffoldBackgroundColor: const Color(0xFF101624),
-            dialogBackgroundColor: const Color(0xFF182232),
-            textTheme: ThemeData.dark().textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
-          ),
+          data: theme.brightness == Brightness.dark
+              ? theme
+              : theme.copyWith(
+                  colorScheme: theme.colorScheme.copyWith(
+                    surface: Colors.white,
+                  ),
+                  dialogTheme: theme.dialogTheme.copyWith(
+                    backgroundColor: Colors.white,
+                  ),
+                ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420, maxHeight: 560),
@@ -197,9 +202,19 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
 
   Future<void> _downloadExpenses(List<ExpenseEntryModel> expenses) async {
     final rows = [
-      ['Date', 'Expense', 'Category', 'Vendor', 'Amount', 'Payment Method', 'Receipt', 'Description'],
+      [
+        'Date',
+        'Expense',
+        'Category',
+        'Vendor',
+        'Amount',
+        'Payment Method',
+        'Receipt',
+        'Description',
+      ],
       ...expenses.map((expense) {
-        final expenseDate = expense.expenseDate ?? expense.date ?? DateTime.now();
+        final expenseDate =
+            expense.expenseDate ?? expense.date ?? DateTime.now();
         return [
           DateFormat('yyyy-MM-dd').format(expenseDate),
           expense.expenseName,
@@ -214,35 +229,36 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     ];
 
     final csv = rows
-        .map((row) => row
-            .map((cell) => '"${cell.toString().replaceAll('"', '""')}"')
-            .join(','))
+        .map(
+          (row) => row
+              .map((cell) => '"${cell.toString().replaceAll('"', '""')}"')
+              .join(','),
+        )
         .join('\n');
 
     final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/expenses_${DateFormat('yyyyMMdd_Hmmss').format(DateTime.now())}.csv');
+    final file = File(
+      '${directory.path}/expenses_${DateFormat('yyyyMMdd_Hmmss').format(DateTime.now())}.csv',
+    );
     await file.writeAsString(csv);
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Downloaded to ${file.path}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Downloaded to ${file.path}')));
 
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], subject: 'Expense Entries'));
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], subject: 'Expense Entries'),
+    );
   }
 
-  Future<void> _printExpenses(
-      List<ExpenseEntryModel> expenses,
-      ) async {
+  Future<void> _printExpenses(List<ExpenseEntryModel> expenses) async {
     final datafeed = context.read<Datafeed>();
 
     final pdf = pw.Document();
 
-    final totalAmount = expenses.fold<double>(
-      0,
-          (sum, e) => sum + e.amount,
-    );
+    final totalAmount = expenses.fold<double>(0, (sum, e) => sum + e.amount);
 
     /// Group totals by category
     final Map<String, double> categoryTotals = {};
@@ -250,7 +266,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     for (final e in expenses) {
       categoryTotals.update(
         e.category,
-            (value) => value + e.amount,
+        (value) => value + e.amount,
         ifAbsent: () => e.amount,
       );
     }
@@ -263,8 +279,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
             children: [
               pw.Divider(),
               pw.Row(
-                mainAxisAlignment:
-                pw.MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
                     'Generated on: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
@@ -281,8 +296,8 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                     ),
                   ),
                 ],
-              )
-            ]
+              ),
+            ],
           );
         },
         header: (context) {
@@ -350,47 +365,26 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
             /// LEFT & RIGHT INFO
             /// =========================
             pw.Row(
-              mainAxisAlignment:
-              pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment:
-              pw.CrossAxisAlignment.start,
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Column(
-                  crossAxisAlignment:
-                  pw.CrossAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _infoRow(
-                      'Report:',
-                      'Expense Entries',
-                    ),
-                    _infoRow(
-                      'Records:',
-                      '${expenses.length}',
-                    ),
-                    _infoRow(
-                      'Company:',
-                      datafeed.company,
-                    ),
+                    _infoRow('Report:', 'Expense Entries'),
+                    _infoRow('Records:', '${expenses.length}'),
+                    _infoRow('Company:', datafeed.company),
                   ],
                 ),
                 pw.Column(
-                  crossAxisAlignment:
-                  pw.CrossAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _infoRow(
-                      'Branch:',
-                      datafeed.branch,
-                    ),
+                    _infoRow('Branch:', datafeed.branch),
                     _infoRow(
                       'Date:',
-                      DateFormat(
-                        'dd MMM yyyy',
-                      ).format(DateTime.now()),
+                      DateFormat('dd MMM yyyy').format(DateTime.now()),
                     ),
-                    _infoRow(
-                      'Staff:',
-                      datafeed.staff,
-                    ),
+                    _infoRow('Staff:', datafeed.staff),
                   ],
                 ),
               ],
@@ -402,20 +396,14 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
             /// TABLE
             /// =========================
             pw.TableHelper.fromTextArray(
-              border: pw.TableBorder.all(
-                color: PdfColors.grey300,
-              ),
-              headerDecoration:
-              const pw.BoxDecoration(
-                color: PdfColors.blue50,
-              ),
+              border: pw.TableBorder.all(color: PdfColors.grey300),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.blue50),
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.blue900,
                 fontSize: 10,
               ),
-              cellStyle:
-              const pw.TextStyle(fontSize: 9),
+              cellStyle: const pw.TextStyle(fontSize: 9),
               headers: const [
                 'Date',
                 'Invoice',
@@ -427,24 +415,17 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                 'Amount',
               ],
               data: expenses.map((e) {
-                final expenseDate =
-                    e.expenseDate ??
-                        e.date ??
-                        DateTime.now();
+                final expenseDate = e.expenseDate ?? e.date ?? DateTime.now();
 
                 return [
-                  DateFormat(
-                    'dd/MM/yyyy',
-                  ).format(expenseDate),
+                  DateFormat('dd/MM/yyyy').format(expenseDate),
                   e.createdAtTimestamp,
                   e.expenseName,
                   e.vendorName,
                   e.category,
                   //e.paymentMethod,
                   e.subAccountName,
-                  NumberFormat.currency(
-                    symbol: 'GHC ',
-                  ).format(e.amount),
+                  NumberFormat.currency(symbol: 'GHS ').format(e.amount),
                 ];
               }).toList(),
             ),
@@ -455,65 +436,47 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
             /// TOTAL BOX
             /// =========================
             pw.Align(
-              alignment:
-              pw.Alignment.centerRight,
+              alignment: pw.Alignment.centerRight,
               child: pw.Container(
                 width: 280,
-                padding:
-                const pw.EdgeInsets.all(15),
+                padding: const pw.EdgeInsets.all(15),
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(
-                    color: PdfColors.grey300,
-                  ),
-                  borderRadius:
-                  pw.BorderRadius.circular(5),
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: pw.BorderRadius.circular(5),
                 ),
                 child: pw.Column(
                   children: [
                     pw.Row(
-                      mainAxisAlignment:
-                      pw.MainAxisAlignment
-                          .spaceBetween,
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text(
                           'Total Records:',
-                          style: pw.TextStyle(
-                            fontWeight:
-                            pw.FontWeight.bold,
-                          ),
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
-                        pw.Text(
-                          '${expenses.length}',
-                        ),
+                        pw.Text('${expenses.length}'),
                       ],
                     ),
                     pw.SizedBox(height: 10),
                     pw.Divider(),
                     pw.Row(
-                      mainAxisAlignment:
-                      pw.MainAxisAlignment
-                          .spaceBetween,
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
                         pw.Text(
                           'TOTAL:',
                           style: pw.TextStyle(
                             fontSize: 16,
-                            fontWeight:
-                            pw.FontWeight.bold,
-                            color:
-                            PdfColors.blue900,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.blue900,
                           ),
                         ),
                         pw.Text(
                           NumberFormat.currency(
-                            symbol: 'GHC ',
+                            symbol: 'GHS ',
                           ).format(totalAmount),
                           style: pw.TextStyle(
                             fontSize: 16,
-                            fontWeight:
-                            pw.FontWeight.bold,
-                            color:
-                            PdfColors.blue900,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.blue900,
                           ),
                         ),
                       ],
@@ -556,7 +519,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
             //         (e) => [
             //       e.key,
             //       NumberFormat.currency(
-            //         symbol: 'GHC ',
+            //         symbol: 'GHS ',
             //       ).format(e.value),
             //     ],
             //   )
@@ -582,22 +545,27 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async =>
-          pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   Widget _buildExpenseCard(ExpenseEntryModel expense) {
     final expenseDate = expense.expenseDate ?? expense.date ?? DateTime.now();
     final datafeed = context.read<Datafeed>();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : theme.colorScheme.onSurface;
+    final secondaryTextColor = isDark
+        ? Colors.white
+        : theme.colorScheme.onSurfaceVariant;
+    final cardColor = isDark ? const Color(0xFF223449) : Colors.white;
+    final amountColor = isDark ? Colors.white : Colors.green.shade800;
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF223449),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,97 +575,138 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
               Expanded(
                 child: Text(
                   expense.expenseName,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 NumberFormat.currency(symbol: '₵').format(expense.amount),
-                style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: amountColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Date: ${DateFormat('dd/MM/yyyy').format(expenseDate)}',
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: secondaryTextColor),
           ),
           const SizedBox(height: 4),
           Text(
             'Vendor: ${expense.vendorName}',
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: secondaryTextColor),
           ),
           const SizedBox(height: 4),
           Text(
             'Category: ${expense.category}',
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: secondaryTextColor),
           ),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if(datafeed.canEdit(AppModules.accounts))
-              IconButton(
-                tooltip: 'Edit',
-                padding: const EdgeInsets.all(2),
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                iconSize: 18,
-                icon: const Icon(Icons.edit, color: Colors.orange),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ExpenseEntry(expense: expense),
-                    ),
-                  ).then((_) => _refreshExpenses());
-                },
-              ),
+              if (datafeed.canEdit(AppModules.accounts))
+                IconButton(
+                  tooltip: 'Edit',
+                  padding: const EdgeInsets.all(2),
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
+                  iconSize: 18,
+                  icon: const Icon(Icons.edit, color: Colors.orange),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ExpenseEntry(expense: expense),
+                      ),
+                    ).then((_) => _refreshExpenses());
+                  },
+                ),
 
               IconButton(
                 tooltip: 'Print',
                 padding: const EdgeInsets.all(2),
                 constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 iconSize: 18,
-                icon: const Icon(Icons.print_outlined, color: Colors.white70),
+                icon: Icon(Icons.print_outlined, color: secondaryTextColor),
                 onPressed: () => _printExpenses([expense]),
               ),
-              if(datafeed.canDelete(AppModules.accounts))
-              IconButton(
-                tooltip: 'Delete',
-                padding: const EdgeInsets.all(2),
-                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                iconSize: 18,
-                icon: const Icon(Icons.delete_forever, color: Colors.red),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (context) {
-                      return AlertDialog(
-                        backgroundColor: const Color(0xFF182232),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        title: const Text('Delete Expense', style: TextStyle(color: Colors.white)),
-                        content: Text('Delete ${expense.expenseName}?', style: const TextStyle(color: Colors.white70)),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              if (datafeed.canDelete(AppModules.accounts))
+                IconButton(
+                  tooltip: 'Delete',
+                  padding: const EdgeInsets.all(2),
+                  constraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 28,
+                  ),
+                  iconSize: 18,
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) {
+                        final dialogTheme = Theme.of(context);
+                        return AlertDialog(
+                          backgroundColor:
+                              dialogTheme.brightness == Brightness.dark
+                              ? dialogTheme.colorScheme.surface
+                              : Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                          title: Text(
+                            'Delete Expense',
+                            style: TextStyle(
+                              color: dialogTheme.brightness == Brightness.dark
+                                  ? Colors.white
+                                  : dialogTheme.colorScheme.onSurface,
+                            ),
                           ),
-                        ],
-                      );
-                    },
-                  );
+                          content: Text(
+                            'Delete ${expense.expenseName}?',
+                            style: TextStyle(
+                              color: dialogTheme.brightness == Brightness.dark
+                                  ? Colors.white
+                                  : dialogTheme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                foregroundColor:
+                                    dialogTheme.brightness == Brightness.dark
+                                    ? Colors.white
+                                    : dialogTheme.colorScheme.primary,
+                              ),
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
 
-                  if (confirm == true) {
-                    await _deleteExpense(expense);
-                  }
-                },
-              ),
+                    if (confirm == true) {
+                      await _deleteExpense(expense);
+                    }
+                  },
+                ),
             ],
           ),
         ],
@@ -736,6 +745,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       }
     }
   }
+
   Future<void> _printExpenseInvoice(ExpenseEntryModel expense) async {
     final pdf = pw.Document();
 
@@ -746,7 +756,6 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-
               /// Company Name
               pw.Center(
                 child: pw.Text(
@@ -777,46 +786,29 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
               /// Header information
               pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
-                mainAxisAlignment:
-                pw.MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Column(
-                    crossAxisAlignment:
-                    pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       _infoRow(
                         'Invoice Number:',
                         expense.createdAtTimestamp?.toString() ?? '',
                       ),
-                      _infoRow(
-                        'Vendor:',
-                        expense.vendorName,
-                      ),
-                      _infoRow(
-                        'Payment:',
-                        expense.paymentMethod,
-                      ),
+                      _infoRow('Vendor:', expense.vendorName),
+                      _infoRow('Payment:', expense.paymentMethod),
                     ],
                   ),
 
                   pw.Column(
-                    crossAxisAlignment:
-                    pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      _infoRow(
-                        'Branch:',
-                        expense.branchName,
-                      ),
+                      _infoRow('Branch:', expense.branchName),
                       _infoRow(
                         'Date:',
-                        DateFormat(
-                          'dd MMM yyyy',
-                        ).format(DateTime.now()),
+                        DateFormat('dd MMM yyyy').format(DateTime.now()),
                       ),
-                      _infoRow(
-                        'Staff:',
-                        expense.staff,
-                      ),
+                      _infoRow('Staff:', expense.staff),
                     ],
                   ),
                 ],
@@ -826,9 +818,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
 
               /// Expense table
               pw.Table(
-                border: pw.TableBorder.all(
-                  color: PdfColors.grey300,
-                ),
+                border: pw.TableBorder.all(color: PdfColors.grey300),
                 columnWidths: {
                   0: const pw.FlexColumnWidth(3), // Date
                   1: const pw.FlexColumnWidth(2), // Receipt
@@ -839,9 +829,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                 },
                 children: [
                   pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.blue50,
-                    ),
+                    decoration: const pw.BoxDecoration(color: PdfColors.blue50),
                     children: [
                       _tableHeader('DATE'),
                       _tableHeader('RECEIPT'),
@@ -854,12 +842,8 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                   pw.TableRow(
                     children: [
                       _tableCell(
-                        DateFormat(
-                          'dd/MM/yyyy',
-                        ).format(
-                          expense.expenseDate ??
-                              expense.date ??
-                              DateTime.now(),
+                        DateFormat('dd/MM/yyyy').format(
+                          expense.expenseDate ?? expense.date ?? DateTime.now(),
                         ),
                       ),
                       _tableCell(expense.receiptNumber),
@@ -868,7 +852,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                       _tableCell(expense.subAccountName),
                       _tableCell(
                         NumberFormat.currency(
-                          symbol: 'GHC ',
+                          symbol: 'GHS ',
                         ).format(expense.amount),
                       ),
                     ],
@@ -883,20 +867,14 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(10),
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(
-                    color: PdfColors.grey300,
-                  ),
+                  border: pw.Border.all(color: PdfColors.grey300),
                 ),
                 child: pw.Column(
-                  crossAxisAlignment:
-                  pw.CrossAxisAlignment.start,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
                       'Description',
-                      style: pw.TextStyle(
-                        fontWeight:
-                        pw.FontWeight.bold,
-                      ),
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                     ),
                     pw.SizedBox(height: 5),
                     pw.Text(expense.description),
@@ -911,28 +889,19 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                 alignment: pw.Alignment.centerRight,
                 child: pw.Container(
                   width: 250,
-                  padding:
-                  const pw.EdgeInsets.all(15),
+                  padding: const pw.EdgeInsets.all(15),
                   decoration: pw.BoxDecoration(
-                    border: pw.Border.all(
-                      color: PdfColors.grey300,
-                    ),
-                    borderRadius:
-                    pw.BorderRadius.circular(5),
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: pw.BorderRadius.circular(5),
                   ),
                   child: pw.Column(
                     children: [
                       pw.Row(
-                        mainAxisAlignment:
-                        pw.MainAxisAlignment
-                            .spaceBetween,
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
                             'Total Expenses:',
-                            style: pw.TextStyle(
-                              fontWeight:
-                              pw.FontWeight.bold,
-                            ),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text('1'),
                         ],
@@ -940,32 +909,24 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                       pw.SizedBox(height: 10),
                       pw.Divider(),
                       pw.Row(
-                        mainAxisAlignment:
-                        pw.MainAxisAlignment
-                            .spaceBetween,
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
                             'TOTAL:',
                             style: pw.TextStyle(
                               fontSize: 18,
-                              fontWeight:
-                              pw.FontWeight.bold,
-                              color:
-                              PdfColors.blue900,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.blue900,
                             ),
                           ),
                           pw.Text(
                             NumberFormat.currency(
-                              symbol: 'GHC ',
-                            ).format(
-                              expense.amount,
-                            ),
+                              symbol: 'GHS ',
+                            ).format(expense.amount),
                             style: pw.TextStyle(
                               fontSize: 18,
-                              fontWeight:
-                              pw.FontWeight.bold,
-                              color:
-                              PdfColors.blue900,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.blue900,
                             ),
                           ),
                         ],
@@ -992,18 +953,31 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : colors.onSurface;
+    final secondaryTextColor = isDark ? Colors.white : colors.onSurfaceVariant;
+    final screenColor = isDark ? const Color(0xFF101624) : Colors.white;
+    final panelColor = isDark ? const Color(0xFF182232) : Colors.white;
+    final panelHeaderColor = isDark ? const Color(0xFF223449) : Colors.white;
+    final actionBackgroundColor = isDark
+        ? const Color(0xFF22304A)
+        : colors.surfaceContainerHighest;
+    final amountColor = isDark ? Colors.white : Colors.green.shade800;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: screenColor,
       appBar: AppBar(
         title: const Text("EXPENSE ENTRIES"),
-        backgroundColor: const Color(0xFF1B263B),
+        backgroundColor: isDark ? const Color(0xFF1B263B) : Colors.white,
+        foregroundColor: textColor,
+        iconTheme: IconThemeData(color: textColor),
       ),
       // floatingActionButton: FloatingActionButton(
       //   onPressed: () {
@@ -1026,7 +1000,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
             return Center(
               child: Text(
                 "Error: ${snapshot.error}",
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: isDark ? Colors.white : colors.error),
               ),
             );
           }
@@ -1035,24 +1009,18 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.receipt_long,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.receipt_long, size: 64, color: secondaryTextColor),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     "No expenses found.",
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                    style: TextStyle(color: textColor, fontSize: 16),
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton.icon(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const ExpenseEntry(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const ExpenseEntry()),
                       ).then((_) => _refreshExpenses());
                     },
                     icon: const Icon(Icons.add),
@@ -1082,16 +1050,26 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                         Expanded(
                           child: TextField(
                             controller: _searchController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: textColor),
+                            cursorColor: colors.primary,
                             decoration: InputDecoration(
-                              hintText: "Search expenses by name, category, vendor...",
-                              hintStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-                              prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                              hintText:
+                                  "Search expenses by name, category, vendor...",
+                              hintStyle: TextStyle(
+                                color: secondaryTextColor,
+                                fontSize: 12,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: secondaryTextColor,
+                              ),
                               filled: true,
-                              fillColor: const Color(0xFF182232),
+                              fillColor: panelColor,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
+                                borderSide: BorderSide(
+                                  color: colors.outlineVariant,
+                                ),
                               ),
                             ),
                           ),
@@ -1100,14 +1078,15 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                         IconButton(
                           tooltip: 'Filter by date',
                           style: IconButton.styleFrom(
-                            foregroundColor: Colors.white70,
+                            foregroundColor: textColor,
                             backgroundColor: _selectedDateRange != null
                                 ? Colors.blue.shade800.withValues(alpha: 0.45)
-                                : const Color(0xFF22304A),
-                            disabledForegroundColor: Colors.white30,
+                                : actionBackgroundColor,
+                            disabledForegroundColor: colors.onSurface
+                                .withValues(alpha: 0.38),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              side: const BorderSide(color: Colors.white10),
+                              side: BorderSide(color: colors.outlineVariant),
                             ),
                           ),
                           icon: const Icon(Icons.calendar_month),
@@ -1117,12 +1096,13 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                         IconButton(
                           tooltip: 'Print expenses',
                           style: IconButton.styleFrom(
-                            foregroundColor: Colors.white70,
-                            backgroundColor: const Color(0xFF22304A),
-                            disabledForegroundColor: Colors.white30,
+                            foregroundColor: textColor,
+                            backgroundColor: actionBackgroundColor,
+                            disabledForegroundColor: colors.onSurface
+                                .withValues(alpha: 0.38),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
-                              side: const BorderSide(color: Colors.white10),
+                              side: BorderSide(color: colors.outlineVariant),
                             ),
                           ),
                           icon: const Icon(Icons.print_outlined),
@@ -1132,14 +1112,14 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                     ),
                   ),
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Colors.blue.shade700,
-                          Colors.blue.shade900,
-                        ],
+                        colors: [Colors.blue.shade700, Colors.blue.shade900],
                       ),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
@@ -1159,7 +1139,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                             const Text(
                               "Total Expenses",
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: Colors.white,
                                 fontSize: 14,
                               ),
                             ),
@@ -1194,13 +1174,16 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                   ),
                   if (_selectedDateRange != null)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
                               'Filtered from ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)} to ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}',
-                              style: const TextStyle(color: Colors.white70),
+                              style: TextStyle(color: secondaryTextColor),
                             ),
                           ),
                           TextButton(
@@ -1209,7 +1192,12 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                 _selectedDateRange = null;
                               });
                             },
-                            child: const Text('Clear filter', style: TextStyle(color: Colors.blueAccent)),
+                            child: Text(
+                              'Clear filter',
+                              style: TextStyle(
+                                color: isDark ? Colors.white : colors.primary,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1222,10 +1210,13 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                         _visibleExpenses = filtered;
 
                         if (filtered.isEmpty) {
-                          return const Center(
+                          return Center(
                             child: Text(
                               "No matching expense found.",
-                              style: TextStyle(color: Colors.white70, fontSize: 16),
+                              style: TextStyle(
+                                color: secondaryTextColor,
+                                fontSize: 16,
+                              ),
                             ),
                           );
                         }
@@ -1235,8 +1226,9 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                           child: Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF182232),
+                              color: panelColor,
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: colors.outlineVariant),
                             ),
                             child: LayoutBuilder(
                               builder: (context, constraints) {
@@ -1247,33 +1239,55 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                   return Column(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF223449),
-                                          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 12,
                                         ),
-                                        child: const Row(
+                                        decoration: BoxDecoration(
+                                          color: panelHeaderColor,
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(12),
+                                          ),
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: colors.outlineVariant,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Row(
                                           children: [
                                             Expanded(
                                               child: Text(
                                                 'Expense Entries',
-                                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
                                             Text(
                                               'Card view',
-                                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                                              style: TextStyle(
+                                                color: secondaryTextColor,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       Expanded(
                                         child: ListView.separated(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
                                           itemCount: filtered.length,
-                                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(height: 8),
                                           itemBuilder: (context, index) {
-                                            return _buildExpenseCard(filtered[index]);
+                                            return _buildExpenseCard(
+                                              filtered[index],
+                                            );
                                           },
                                         ),
                                       ),
@@ -1284,10 +1298,20 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                 return Column(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF223449),
-                                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: panelHeaderColor,
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(12),
+                                        ),
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: colors.outlineVariant,
+                                          ),
+                                        ),
                                       ),
                                       child: Row(
                                         children: [
@@ -1295,63 +1319,90 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                             flex: 2,
                                             child: Text(
                                               'Date',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 3,
                                             child: Text(
                                               'Invoice No.',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 3,
                                             child: Text(
                                               'Expense Name',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 3,
                                             child: Text(
                                               'Vendor',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 2,
                                             child: Text(
                                               'Category',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 2,
                                             child: Text(
                                               'Payment Method',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 2,
                                             child: Text(
                                               'Payment Account',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                           Expanded(
                                             flex: 2,
                                             child: Text(
                                               'Amount',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
-                                          const SizedBox(
+                                          SizedBox(
                                             width: 112,
                                             child: Text(
                                               'Actions',
-                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1359,151 +1410,280 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                     ),
                                     Expanded(
                                       child: ListView.separated(
-                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                        ),
                                         itemCount: filtered.length,
-                                        separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.white10),
+                                        separatorBuilder: (_, __) => Divider(
+                                          height: 1,
+                                          color: colors.outlineVariant,
+                                        ),
                                         itemBuilder: (context, index) {
                                           final expense = filtered[index];
-                                          final expenseDate = expense.expenseDate ?? expense.date ?? DateTime.now();
+                                          final expenseDate =
+                                              expense.expenseDate ??
+                                              expense.date ??
+                                              DateTime.now();
                                           return Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
                                             child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
-                                                    DateFormat('dd/MM/yyyy').format(expenseDate),
-                                                    style: const TextStyle(color: Colors.white70),
+                                                    DateFormat(
+                                                      'dd/MM/yyyy',
+                                                    ).format(expenseDate),
+                                                    style: TextStyle(
+                                                      color: secondaryTextColor,
+                                                    ),
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 3,
                                                   child: Text(
-                                                    expense.createdAtTimestamp?.toString() ?? '',
-                                                    style: const TextStyle(color: Colors.white),
+                                                    expense.createdAtTimestamp
+                                                            ?.toString() ??
+                                                        '',
+                                                    style: TextStyle(
+                                                      color: textColor,
+                                                    ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 3,
                                                   child: Text(
                                                     expense.expenseName,
-                                                    style: const TextStyle(color: Colors.white),
+                                                    style: TextStyle(
+                                                      color: textColor,
+                                                    ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 3,
                                                   child: Text(
                                                     expense.vendorName,
-                                                    style: const TextStyle(color: Colors.white70),
+                                                    style: TextStyle(
+                                                      color: secondaryTextColor,
+                                                    ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
                                                     expense.category,
-                                                    style: const TextStyle(color: Colors.white70),
+                                                    style: TextStyle(
+                                                      color: secondaryTextColor,
+                                                    ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
                                                     expense.paymentMethod,
-                                                    style: const TextStyle(color: Colors.white70),
+                                                    style: TextStyle(
+                                                      color: secondaryTextColor,
+                                                    ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
                                                     expense.subAccountName,
-                                                    style: const TextStyle(color: Colors.white70),
+                                                    style: TextStyle(
+                                                      color: secondaryTextColor,
+                                                    ),
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(
                                                   flex: 2,
                                                   child: Text(
-                                                    NumberFormat.currency(symbol: '₵').format(expense.amount),
-                                                    style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold),
+                                                    NumberFormat.currency(
+                                                      symbol: '₵',
+                                                    ).format(expense.amount),
+                                                    style: TextStyle(
+                                                      color: amountColor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
                                                 SizedBox(
                                                   width: 112,
                                                   child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
                                                     children: [
-                                                      if(datafeed.canEdit(AppModules.accounts))
-                                                      IconButton(
-                                                        tooltip: 'Edit',
-                                                        padding: const EdgeInsets.all(2),
-                                                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                        iconSize: 18,
-                                                        icon: const Icon(Icons.edit, color: Colors.orange),
-                                                        onPressed: () {
-                                                          Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute(
-                                                              builder: (_) => ExpenseEntry(expense: expense),
-                                                            ),
-                                                          ).then((_) => _refreshExpenses());
-                                                        },
-                                                      ),
-                                                      if(datafeed.canDelete(AppModules.accounts))
-
+                                                      if (datafeed.canEdit(
+                                                        AppModules.accounts,
+                                                      ))
                                                         IconButton(
-                                                        tooltip: 'Delete',
-                                                        padding: const EdgeInsets.all(2),
-                                                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                        iconSize: 18,
-                                                        icon: const Icon(Icons.delete_forever, color: Colors.red),
-                                                        onPressed: () async {
-                                                          final confirm = await showDialog<bool>(
-                                                            context: context,
-                                                            builder: (context) {
-                                                              return AlertDialog(
-                                                                backgroundColor: const Color(0xFF182232),
-                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                                                title: const Text('Delete Expense', style: TextStyle(color: Colors.white)),
-                                                                content: Text('Delete ${expense.expenseName}?', style: const TextStyle(color: Colors.white70)),
-                                                                actions: [
-                                                                  TextButton(
-                                                                    onPressed: () => Navigator.pop(context, false),
-                                                                    child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                                          tooltip: 'Edit',
+                                                          padding:
+                                                              const EdgeInsets.all(
+                                                                2,
+                                                              ),
+                                                          constraints:
+                                                              const BoxConstraints(
+                                                                minWidth: 28,
+                                                                minHeight: 28,
+                                                              ),
+                                                          iconSize: 18,
+                                                          icon: const Icon(
+                                                            Icons.edit,
+                                                            color:
+                                                                Colors.orange,
+                                                          ),
+                                                          onPressed: () {
+                                                            Navigator.push(
+                                                              context,
+                                                              MaterialPageRoute(
+                                                                builder: (_) =>
+                                                                    ExpenseEntry(
+                                                                      expense:
+                                                                          expense,
+                                                                    ),
+                                                              ),
+                                                            ).then(
+                                                              (_) =>
+                                                                  _refreshExpenses(),
+                                                            );
+                                                          },
+                                                        ),
+                                                      if (datafeed.canDelete(
+                                                        AppModules.accounts,
+                                                      ))
+                                                        IconButton(
+                                                          tooltip: 'Delete',
+                                                          padding:
+                                                              const EdgeInsets.all(
+                                                                2,
+                                                              ),
+                                                          constraints:
+                                                              const BoxConstraints(
+                                                                minWidth: 28,
+                                                                minHeight: 28,
+                                                              ),
+                                                          iconSize: 18,
+                                                          icon: const Icon(
+                                                            Icons
+                                                                .delete_forever,
+                                                            color: Colors.red,
+                                                          ),
+                                                          onPressed: () async {
+                                                            final confirm = await showDialog<bool>(
+                                                              context: context,
+                                                              builder: (context) {
+                                                                return AlertDialog(
+                                                                  backgroundColor:
+                                                                      isDark
+                                                                      ? colors
+                                                                            .surface
+                                                                      : Colors
+                                                                            .white,
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          16,
+                                                                        ),
                                                                   ),
-                                                                  ElevatedButton(
-                                                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                                                    onPressed: () => Navigator.pop(context, true),
-                                                                    child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                                                                  title: Text(
+                                                                    'Delete Expense',
+                                                                    style: TextStyle(
+                                                                      color: colors
+                                                                          .onSurface,
+                                                                    ),
                                                                   ),
-                                                                ],
-                                                              );
-                                                            },
-                                                          );
+                                                                  content: Text(
+                                                                    'Delete ${expense.expenseName}?',
+                                                                    style: TextStyle(
+                                                                      color: colors
+                                                                          .onSurfaceVariant,
+                                                                    ),
+                                                                  ),
+                                                                  actions: [
+                                                                    TextButton(
+                                                                      onPressed: () =>
+                                                                          Navigator.pop(
+                                                                            context,
+                                                                            false,
+                                                                          ),
+                                                                      child: const Text(
+                                                                        'Cancel',
+                                                                      ),
+                                                                    ),
+                                                                    ElevatedButton(
+                                                                      style: ElevatedButton.styleFrom(
+                                                                        backgroundColor:
+                                                                            Colors.red,
+                                                                      ),
+                                                                      onPressed: () =>
+                                                                          Navigator.pop(
+                                                                            context,
+                                                                            true,
+                                                                          ),
+                                                                      child: const Text(
+                                                                        'Delete',
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                );
+                                                              },
+                                                            );
 
-                                                          if (confirm == true) {
-                                                            await _deleteExpense(expense);
-                                                          }
-                                                        },
-                                                      ),
+                                                            if (confirm ==
+                                                                true) {
+                                                              await _deleteExpense(
+                                                                expense,
+                                                              );
+                                                            }
+                                                          },
+                                                        ),
 
                                                       IconButton(
                                                         tooltip: 'Print',
-                                                        padding: const EdgeInsets.all(2),
-                                                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              2,
+                                                            ),
+                                                        constraints:
+                                                            const BoxConstraints(
+                                                              minWidth: 28,
+                                                              minHeight: 28,
+                                                            ),
                                                         iconSize: 18,
-                                                        icon: const Icon(Icons.print_outlined, color: Colors.white70),
-                                                        onPressed: () => _printExpenseInvoice(expense),
+                                                        icon: Icon(
+                                                          Icons.print_outlined,
+                                                          color:
+                                                              secondaryTextColor,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _printExpenseInvoice(
+                                                              expense,
+                                                            ),
                                                       ),
                                                     ],
                                                   ),
@@ -1531,12 +1711,9 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       ),
     );
   }
-
 }
-pw.Widget _infoRow(
-    String title,
-    String value,
-    ) {
+
+pw.Widget _infoRow(String title, String value) {
   return pw.Padding(
     padding: const pw.EdgeInsets.only(bottom: 4),
     child: pw.RichText(
@@ -1544,9 +1721,7 @@ pw.Widget _infoRow(
         children: [
           pw.TextSpan(
             text: '$title ',
-            style: pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
           ),
           pw.TextSpan(text: value),
         ],
@@ -1569,8 +1744,5 @@ pw.Widget _tableHeader(String text) {
 }
 
 pw.Widget _tableCell(String text) {
-  return pw.Padding(
-    padding: const pw.EdgeInsets.all(8),
-    child: pw.Text(text),
-  );
+  return pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Text(text));
 }

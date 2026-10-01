@@ -83,7 +83,7 @@ class _SupplierReportState extends State<SupplierReport> {
             style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.bold)),
-        Text('GHC ${value.toStringAsFixed(2)}',
+        Text('GHS ${value.toStringAsFixed(2)}',
             style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.bold)),
@@ -117,12 +117,18 @@ class _SupplierReportState extends State<SupplierReport> {
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: colorScheme.primary,
-            foregroundColor: colorScheme.onPrimary,
+            backgroundColor: theme.brightness == Brightness.light
+                ? colorScheme.surface
+                : colorScheme.primary,
+            foregroundColor: theme.brightness == Brightness.light
+                ? colorScheme.onSurface
+                : colorScheme.onPrimary,
             title: Text('Supplier Report',
                 style: textTheme.titleMedium?.copyWith(
                     fontSize: 16, fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimary)),
+                    color: theme.brightness == Brightness.light
+                        ? colorScheme.onSurface
+                        : colorScheme.onPrimary)),
             centerTitle: true,
             actions: [
               ReusableDatePickerWidget(
@@ -140,12 +146,12 @@ class _SupplierReportState extends State<SupplierReport> {
               ),
             ],
           ),
-          body: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Align(
-              alignment: Alignment.topCenter,
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: screenWidth),
+                constraints: BoxConstraints(maxWidth: 1200,minWidth: 600),
                 child: Column(
                   children: [
                     Container(
@@ -228,7 +234,7 @@ class _SupplierReportState extends State<SupplierReport> {
                                         color: colorScheme.onSurface
                                             .withOpacity(0.6)),
                                     filled: true,
-                                    fillColor: theme.colorScheme.surface,
+                                    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                     border: const OutlineInputBorder(
                                       borderRadius: BorderRadius.all(
                                           Radius.circular(8)),
@@ -313,7 +319,7 @@ class _SupplierReportState extends State<SupplierReport> {
                                     borderSide: BorderSide(
                                         color: colorScheme.primary),
                                   ),
-                                  fillColor: theme.colorScheme.surface,
+                                  fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                   filled: true,
                                 ),
                                 items: [
@@ -392,7 +398,7 @@ class _SupplierReportState extends State<SupplierReport> {
                                             color: colorScheme.onSurface
                                                 .withOpacity(0.6)),
                                         filled: true,
-                                        fillColor: theme.colorScheme.surface,
+                                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                         border: const OutlineInputBorder(
                                           borderRadius: BorderRadius.all(
                                               Radius.circular(8)),
@@ -480,7 +486,7 @@ class _SupplierReportState extends State<SupplierReport> {
                                           borderSide: BorderSide(
                                               color: colorScheme.primary),
                                         ),
-                                        fillColor: theme.colorScheme.surface,
+                                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                                         filled: true,
                                       ),
                                       items: [
@@ -810,7 +816,7 @@ class _SupplierReportState extends State<SupplierReport> {
     );
   }
 
-  // ── supplier detail dialog
+  // ── supplier
   Future<void> _showSupplierDetail(
       BuildContext context, {
         required String supplierName,
@@ -818,7 +824,7 @@ class _SupplierReportState extends State<SupplierReport> {
       }) async {
     final provider = Provider.of<Datafeed>(context, listen: false);
 
-    // fire fetch — don't await here, dialog shows loading state via Consumer
+
     provider.fetchSupplierTransactions(
       supplierId: supplierId,
       selectedDate: selectedDate,
@@ -877,10 +883,10 @@ class _SupplierReportState extends State<SupplierReport> {
                         children: [
                           _chip(context, 'Purchases', '$purchases'),
                           _chip(context, 'Returns', '$returns'),
-                          _chip(context, 'Gross', 'GHC ${gross.toStringAsFixed(2)}'),
-                          _chip(context, 'Discount', 'GHC ${discount.toStringAsFixed(2)}'),
-                          _chip(context, 'Tax', 'GHC ${tax.toStringAsFixed(2)}'),
-                          _chip(context, 'Net Value', 'GHC ${net.toStringAsFixed(2)}',
+                          _chip(context, 'Gross', 'GHS ${gross.toStringAsFixed(2)}'),
+                          _chip(context, 'Discount', 'GHS ${discount.toStringAsFixed(2)}'),
+                          _chip(context, 'Tax', 'GHS ${tax.toStringAsFixed(2)}'),
+                          _chip(context, 'Net Value', 'GHS ${net.toStringAsFixed(2)}',
                               highlight: true),
                         ],
                       ),
@@ -1207,7 +1213,7 @@ class _SupplierReportState extends State<SupplierReport> {
                     DataColumn(label: Text('Qty')),
                     DataColumn(label: Text('Pieces')),
                     DataColumn(label: Text('Price')),
-                    DataColumn(label: Text('Total')),
+                    DataColumn(label: Text('Total (GHS)')),
                   ],
                   rows: items.asMap().entries.map((e) {
                     final i = e.key;
@@ -1388,8 +1394,7 @@ class _SupplierReportState extends State<SupplierReport> {
         ),
         build: (_) => [
           pw.Table(
-            // 11 columns — matches UI exactly:
-            // #, Supplier, Purchases, Cash, Credit, Opening Stock, Returns, Gross, Discount, Tax, Net Value
+
             columnWidths: {
               0:  const pw.FixedColumnWidth(22),   // #
               1:  const pw.FlexColumnWidth(2.5),   // Supplier

@@ -1561,7 +1561,7 @@ class MobileSalesPreview extends StatelessWidget {
           ),
 
           const Divider(color: Colors.white24),
-          _row("Payable Amount", "GHC ${totalAmount.toStringAsFixed(2)}", bold: true),
+          _row("Payable Amount", "GHS ${totalAmount.toStringAsFixed(2)}", bold: true),
           const SizedBox(height: 18),
 
           Wrap(
@@ -1596,10 +1596,10 @@ class MobileSalesPreview extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _line(name, "GHC ${price.toStringAsFixed(2)}"),
+              _line(name, "GHS ${price.toStringAsFixed(2)}"),
               _line("Mode", mode),
               _line("Qty", "$qty"),
-              _line("Total", "GHC ${total.toStringAsFixed(2)}"),
+              _line("Total", "GHS ${total.toStringAsFixed(2)}"),
             ],
           ),
         ),

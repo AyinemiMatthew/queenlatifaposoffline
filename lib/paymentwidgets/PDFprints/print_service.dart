@@ -1,19 +1,4 @@
-// ============================================================
-//  lib/services/print_service.dart
-//  Kologsoft — Silent Windows Printing Service
-//
-//  Talks to the native Win32 channel registered in
-//  print_channel.cpp via the MethodChannel
-//  "com.kologsoft/printing".
-//
-//  Public API:
-//    getPrinters()         → Future<List<String>>
-//    getDefaultPrinter()   → Future<String?>
-//    getSavedPrinter()     → Future<String?>
-//    savePrinter(name)     → Future<void>
-//    clearSavedPrinter()   → Future<void>
-//    printPdf(name, pdf)   → Future<PrintResult>
-// ============================================================
+
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';

@@ -25,7 +25,8 @@ class _CustomerListPageState extends State<CustomerListPage> {
   }
 
   List<CustomerRegModel> _filteredCustomerlist(
-      List<CustomerRegModel> customers) {
+    List<CustomerRegModel> customers,
+  ) {
     if (searchQuery.isEmpty) {
       return List<CustomerRegModel>.from(customers);
     }
@@ -45,29 +46,28 @@ class _CustomerListPageState extends State<CustomerListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final datafeed = context.watch<Datafeed>();
     final customers = datafeed.customerlist;
 
     final filteredCustomers = _filteredCustomerlist(customers);
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final listWidth =
-    screenWidth > 900 ? screenWidth * 0.6 : screenWidth * 0.95;
+    final listWidth = screenWidth > 900
+        ? screenWidth * 0.6
+        : screenWidth * 0.95;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121927),
-      appBar: AppBar(
-        title: const Text("Registered Customers"),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text("Registered Customers")),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF415A77),
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add),
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const CustomerRegistration(),
-            ),
+            MaterialPageRoute(builder: (_) => const CustomerRegistration()),
           );
         },
       ),
@@ -83,19 +83,23 @@ class _CustomerListPageState extends State<CustomerListPage> {
                 Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: TextFormField(
-                    cursorColor: Colors.white,
+                    cursorColor: Theme.of(context).colorScheme.secondary,
                     onChanged: (v) => setState(() => searchQuery = v),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
                       hintText: 'Search customers...',
-                      hintStyle: TextStyle(color: Colors.white54),
-                      prefixIcon:
-                      Icon(Icons.search, color: Colors.white54),
+                      hintStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       filled: true,
-                      fillColor: Color(0xFF22304A),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       border: OutlineInputBorder(
-                        borderRadius:
-                        BorderRadius.all(Radius.circular(8)),
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -107,170 +111,208 @@ class _CustomerListPageState extends State<CustomerListPage> {
                 ///
                 Expanded(
                   child: customers.isEmpty
-                      ? const Center(
-                    child: CircularProgressIndicator(),
-                  )
+                      ? const Center(child: CircularProgressIndicator())
                       : filteredCustomers.isEmpty
-                      ? const Center(
-                    child: Text(
-                      'No customers found',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  )
-                      : ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: filteredCustomers.length,
-                    itemBuilder: (context, index) {
-                      final customer =  filteredCustomers[index];
-
-                      return Container(
-                        key: ValueKey(customer.id),
-                        margin:   const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B263B),
-                          borderRadius:
-                          BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${index + 1}.',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      ? Center(
+                          child: Text(
+                            'No customers found',
+                            style: TextStyle(
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.light
+                                  ? colorScheme.onSurfaceVariant
+                                  : Colors.white70,
                             ),
-                            const SizedBox(width: 16),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(20),
+                          itemCount: filteredCustomers.length,
+                          itemBuilder: (context, index) {
+                            final customer = filteredCustomers[index];
 
-                            /// DETAILS
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            return Container(
+                              key: ValueKey(customer.id),
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    customer.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight:
-                                      FontWeight.bold,
+                                    '${index + 1}.',
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).brightness ==
+                                              Brightness.light
+                                          ? colorScheme.onSurfaceVariant
+                                          : Colors.white70,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  customer.customertype ==
-                                      "Credit"
-                                      ? Text(
-                                    "Type: ${customer.customertype}\n"
-                                        "Credit Limit: ${customer.creditlimit ?? '0'}\n"
-                                        "Payment Duration: ${customer.paymentduration ?? ''}\n"
-                                        "Contact: ${customer.contact}",
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
-                                      height: 1.4,
-                                    ),
-                                  )
-                                      : Text(
-                                    "Type: ${customer.customertype}\n"
-                                        "Contact: ${customer.contact}",
-                                    style:
-                                    const TextStyle(
-                                      color:
-                                      Colors.white70,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                  const SizedBox(width: 16),
 
-                            ///EDIT
-                            IconButton(
-                              icon: const Icon(Icons.edit,
-                                  color: Colors.amber),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        CustomerRegistration(
-                                          docId: customer.id,
-                                          data: customer,
-                                        ),
-                                  ),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete,
-                                  color: Colors.redAccent),
-                              onPressed: () async {
-                                final confirm =
-                                await showDialog<bool>(
-                                  context: context,
-                                  builder: (_) => AlertDialog(
-                                    title: const Text(
-                                        "Delete customer"),
-                                    content: const Text(
-                                        "Are you sure you want to delete this customer?"),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(
-                                                context,
-                                                false),
-                                        child: const Text(
-                                          "Cancel",
+                                  /// DETAILS
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          customer.name,
                                           style: TextStyle(
-                                              color:
-                                              Colors.red),
-                                        ),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () => Navigator.pop(context, true),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.redAccent,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          elevation: 2,
-                                        ),
-                                        child: const Text(
-                                          "Delete",
-                                          style: TextStyle(
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                    Brightness.light
+                                                ? colorScheme.onSurface
+                                                : Colors.white,
+                                            fontSize: 16,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 6),
+                                        customer.customertype == "Credit"
+                                            ? Text(
+                                                "Type: ${customer.customertype}\n"
+                                                "Credit Limit: ${customer.creditlimit ?? '0'}\n"
+                                                "Payment Duration: ${customer.paymentduration ?? ''}\n"
+                                                "Contact: ${customer.contact}",
+                                                style: TextStyle(
+                                                  color:
+                                                      Theme.of(context)
+                                                                  .brightness ==
+                                                              Brightness.light
+                                                          ? colorScheme
+                                                                .onSurfaceVariant
+                                                          : Colors.white70,
+                                                  height: 1.4,
+                                                ),
+                                              )
+                                            : Text(
+                                                "Type: ${customer.customertype}\n"
+                                                "Contact: ${customer.contact}",
+                                                style: TextStyle(
+                                                  color:
+                                                      Theme.of(context)
+                                                                  .brightness ==
+                                                              Brightness.light
+                                                          ? colorScheme
+                                                                .onSurfaceVariant
+                                                          : Colors.white70,
+                                                  height: 1.4,
+                                                ),
+                                              ),
+                                      ],
+                                    ),
                                   ),
-                                );
 
-                                if (confirm == true) {
-                                  await context.read<Datafeed>().deleteCustomer(customer.id);
-                                  setState(() {
-                                    filteredCustomers.removeWhere((c)=>c.id ==customer.id);
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                       backgroundColor: Colors.green,
-                                        content: Text("Customer deleted",style: TextStyle(color: Colors.white),)),
-                                  );
-                                }
-                              },
-                            ),
-                          ],
+                                  ///EDIT
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.amber,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => CustomerRegistration(
+                                            docId: customer.id,
+                                            data: customer,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.redAccent,
+                                    ),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                          title: const Text("Delete customer"),
+                                          content: const Text(
+                                            "Are you sure you want to delete this customer?",
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text(
+                                                "Cancel",
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    Colors.redAccent,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 20,
+                                                      vertical: 12,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                elevation: 2,
+                                              ),
+                                              child: const Text(
+                                                "Delete",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+
+                                      if (confirm == true) {
+                                        await context
+                                            .read<Datafeed>()
+                                            .deleteCustomer(customer.id);
+                                        setState(() {
+                                          filteredCustomers.removeWhere(
+                                            (c) => c.id == customer.id,
+                                          );
+                                        });
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            backgroundColor: Colors.green,
+                                            content: Text(
+                                              "Customer deleted",
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),

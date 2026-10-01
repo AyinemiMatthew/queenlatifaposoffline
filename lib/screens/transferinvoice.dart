@@ -11,7 +11,7 @@ Future<void> generateInvoicePdf(Map<String, dynamic> data, List<Map<String, dyna
 
   // Format currency
   final currencyFormat = NumberFormat.currency(
-    symbol: 'GHC ',
+    symbol: 'GHS ',
     decimalDigits: 2,
   );
 

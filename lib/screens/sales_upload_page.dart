@@ -13,7 +13,7 @@
 // }
 //
 // /// Kept only so old call sites that reference `SalesUploadWithoutValidate`
-// /// still compile — it now renders the exact same page.
+// /// still compile - it now renders the exact same page.
 // class SalesUploadWithoutValidate extends StatelessWidget {
 //   const SalesUploadWithoutValidate({super.key});
 //
@@ -42,7 +42,7 @@
 //     final datafeed = context.read<Datafeed>();
 //     try {
 //       if (datafeed.companyid.isEmpty) {
-//         print('[UI] Missing companyid/branchid — calling getdata()');
+//         print('[UI] Missing companyid/branchid - calling getdata()');
 //         await datafeed.getdata();
 //       }
 //     } catch (e, st) {
@@ -92,7 +92,7 @@
 //       if (result.uploaded == 0 && result.fetched == 0) {
 //         _snack('No sales returned by the POS API.', Colors.teal);
 //       } else if (result.uploaded == 0 && result.skipped > 0) {
-//         _snack('Nothing new — ${result.skipped} sale(s) already synced.', Colors.teal);
+//         _snack('Nothing new - ${result.skipped} sale(s) already synced.', Colors.teal);
 //       } else if (result.failed > 0) {
 //         _snack(
 //           'Synced ${result.uploaded} sale(s), ${result.failed} failed, ${result.skipped} already synced.',
@@ -210,7 +210,7 @@
 //                 child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
 //               )
 //                   : const Icon(Icons.cloud_sync),
-//               label: Text(_syncing ? 'Syncing…' : 'Sync Now', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+//               label: Text(_syncing ? 'Syncing-' : 'Sync Now', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
 //             ),
 //           ),
 //           if (_lastError != null) ...[
@@ -231,7 +231,7 @@
 //           Padding(
 //             padding: const EdgeInsets.only(bottom: 12),
 //             child: Text(
-//               'Last sync at ${_lastSyncAt!.toLocal().toString().split('.').first} — ${result.fetched} row(s) fetched from the API.',
+//               'Last sync at ${_lastSyncAt!.toLocal().toString().split('.').first} - ${result.fetched} row(s) fetched from the API.',
 //               style: const TextStyle(color: Colors.white54, fontSize: 12),
 //             ),
 //           ),
@@ -308,7 +308,7 @@ class SalesUploadPage extends StatefulWidget {
 }
 
 /// Kept only so old call sites that reference `SalesUploadWithoutValidate`
-/// still compile — it now renders the exact same page.
+/// still compile - it now renders the exact same page.
 class SalesUploadWithoutValidate extends StatelessWidget {
   const SalesUploadWithoutValidate({super.key});
 
@@ -326,7 +326,9 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
 
   void _snack(String msg, Color color) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
   Future<void> _syncFromApi() async {
@@ -337,7 +339,7 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
     final datafeed = context.read<Datafeed>();
     try {
       if (datafeed.companyid.isEmpty || datafeed.branchid.isEmpty) {
-        print('[UI] Missing companyid/branchid — calling getdata()');
+        print('[UI] Missing companyid/branchid - calling getdata()');
         await datafeed.getdata();
       }
     } catch (e, st) {
@@ -355,7 +357,10 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
     }
     if (datafeed.branchid.isEmpty) {
       print('[UI] branchid still empty after getdata()');
-      _snack('No branch context found for your account. Please log in again.', Colors.red);
+      _snack(
+        'No branch context found for your account. Please log in again.',
+        Colors.red,
+      );
       return;
     }
 
@@ -387,7 +392,10 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
       if (result.uploaded == 0 && result.fetched == 0) {
         _snack('No sales returned by the POS API.', Colors.teal);
       } else if (result.uploaded == 0 && result.skipped > 0) {
-        _snack('Nothing new — ${result.skipped} sale(s) already synced.', Colors.teal);
+        _snack(
+          'Nothing new - ${result.skipped} sale(s) already synced.',
+          Colors.teal,
+        );
       } else if (result.failed > 0) {
         _snack(
           'Synced ${result.uploaded} sale(s), ${result.failed} failed, ${result.skipped} already synced.',
@@ -415,15 +423,21 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF101624),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1B263B),
-        title: const Text('Sync Sales from POS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        title: const Text(
+          'Sync Sales from POS',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
         elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 20),
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 24,
+            vertical: 20,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
@@ -451,7 +465,7 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
   Widget _buildApiSyncSection() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF22304A),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -461,7 +475,11 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
         children: [
           Row(
             children: [
-              Icon(Icons.sync, color: _syncing ? Colors.lightBlue : Colors.white70, size: 24),
+              Icon(
+                Icons.sync,
+                color: _syncing ? Colors.lightBlue : Colors.white70,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -469,16 +487,16 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
                   children: [
                     Text(
                       'Sync from POS API',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     const Text(
                       'Pulls unsynced sales (sync_status "0") from the connected POS, uploads the new ones, '
-                          'and reports the ids back so the POS can mark them synced. Already-synced sales are '
-                          'skipped automatically.',
+                      'and reports the ids back so the POS can mark them synced. Already-synced sales are '
+                      'skipped automatically.',
                       style: TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
@@ -494,23 +512,37 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _syncing ? Colors.grey : Colors.teal,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 elevation: 0,
               ),
               onPressed: _syncing ? null : _syncFromApi,
               icon: _syncing
                   ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
-              )
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
                   : const Icon(Icons.cloud_sync),
-              label: Text(_syncing ? 'Syncing…' : 'Sync Now', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              label: Text(
+                _syncing ? 'Syncing-' : 'Sync Now',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
           if (_lastError != null) ...[
             const SizedBox(height: 12),
-            Text(_lastError!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+            Text(
+              _lastError!,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
           ],
         ],
       ),
@@ -526,24 +558,44 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              'Last sync at ${_lastSyncAt!.toLocal().toString().split('.').first} — ${result.fetched} row(s) fetched from the API.',
+              'Last sync at ${_lastSyncAt!.toLocal().toString().split('.').first} - ${result.fetched} row(s) fetched from the API.',
               style: const TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ),
         Row(
           children: [
-            _buildStatCard('Uploaded', result.uploaded, Colors.green.withOpacity(0.2), Colors.green),
+            _buildStatCard(
+              'Uploaded',
+              result.uploaded,
+              Colors.green.withOpacity(0.2),
+              Colors.green,
+            ),
             const SizedBox(width: 12),
-            _buildStatCard('Skipped', result.skipped, Colors.orange.withOpacity(0.2), Colors.orange),
+            _buildStatCard(
+              'Skipped',
+              result.skipped,
+              Colors.orange.withOpacity(0.2),
+              Colors.orange,
+            ),
             const SizedBox(width: 12),
-            _buildStatCard('Failed', result.failed, Colors.red.withOpacity(0.2), Colors.red),
+            _buildStatCard(
+              'Failed',
+              result.failed,
+              Colors.red.withOpacity(0.2),
+              Colors.red,
+            ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, int count, Color bgColor, Color accentColor) {
+  Widget _buildStatCard(
+    String label,
+    int count,
+    Color bgColor,
+    Color accentColor,
+  ) {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
@@ -554,9 +606,19 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Column(
           children: [
-            Text(count.toString(), style: TextStyle(color: accentColor, fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -566,7 +628,7 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
   Widget _buildErrorsList(List<String> errors) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B263B),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.red.withOpacity(0.3)),
       ),
@@ -574,17 +636,25 @@ class _SalesUploadPageState extends State<SalesUploadPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Sync errors (${errors.length})',
-              style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 12)),
+          Text(
+            'Sync errors (${errors.length})',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
           const SizedBox(height: 8),
           for (final e in errors)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text(e, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              child: Text(
+                e,
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
             ),
         ],
       ),
     );
   }
 }
-

@@ -394,7 +394,7 @@ void initState() {
                             children: [
 
                               Text(
-                                "Total: GHC ${data['netval'].toStringAsFixed(2) ?? 0}",
+                                "Total: GHS ${data['netval'].toStringAsFixed(2) ?? 0}",
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,

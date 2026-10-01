@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
@@ -17,11 +16,6 @@ import '../models/staffmodel.dart';
 import '../providers/Datafeed.dart';
 import 'login_screen.dart';
 
-
-const _kBg = Color(0xFF101624);
-const _kCard = Color(0xFF1B263B);
-const _kHeaderStrip = Color(0xFF0D1420);
-const _kFieldFill = Color(0xFF22304A);
 const _kAccent = Colors.blue;
 const _kButton = Color(0xFF415A77);
 
@@ -30,7 +24,13 @@ class CompanyRegPage extends StatefulWidget {
   final Map<String, dynamic>? data;
   final bool isSuperAdmin;
   final bool isSystemAdmin;
-  const CompanyRegPage({Key? key, this.docId,this.isSuperAdmin = false, this.isSystemAdmin = false, this.data}) : super(key: key);
+  const CompanyRegPage({
+    Key? key,
+    this.docId,
+    this.isSuperAdmin = false,
+    this.isSystemAdmin = false,
+    this.data,
+  }) : super(key: key);
 
   @override
   State<CompanyRegPage> createState() => _CompanyRegPageState();
@@ -67,15 +67,15 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
 
   List<String> get _effectiveStepLabels =>
       (_selectedPlan == "free_trial" || widget.docId != null)
-          ? _stepLabels
-          : [..._stepLabels, "Payment"];
+      ? _stepLabels
+      : [..._stepLabels, "Payment"];
 
   static const List<Map<String, dynamic>> _plans = [
     {
       'id': 'free_trial',
       'icon': Icons.flag,
       'name': 'Free Trial',
-      'price': 'GHC 0',
+      'price': 'GHS 0',
       'priceNote': '10 days · No card needed',
       'features': ['All core features', 'Up to 5 users · 1 property'],
       'popular': false,
@@ -85,8 +85,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'id': 'starter',
       'icon': Icons.star,
       'name': 'Starter',
-      'price': 'GHC 1,000/mo',
-      'priceNote': '≈ USD 63 · +GHC 3k setup',
+      'price': 'GHS 1,000/mo',
+      'priceNote': '≈ USD 63 · +GHS 3k setup',
       'features': ['Up to 10 users · 1-3 properties', 'SMS + Email + POS'],
       'popular': false,
       'amount': 1000.0,
@@ -95,8 +95,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'id': 'professional',
       'icon': Icons.business_center,
       'name': 'Professional',
-      'price': 'GHC 2,000/mo',
-      'priceNote': '≈ USD 125 · +GHC 3k setup',
+      'price': 'GHS 2,000/mo',
+      'priceNote': '≈ USD 125 · +GHS 3k setup',
       'features': ['Up to 20 users · 10 properties', 'AI Reports + Analytics'],
       'popular': true,
       'amount': 2000.0,
@@ -105,8 +105,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'id': 'enterprise',
       'icon': Icons.apartment,
       'name': 'Enterprise',
-      'price': 'GHC 4,000/mo',
-      'priceNote': '≈ USD 250 · +GHC 3k setup',
+      'price': 'GHS 4,000/mo',
+      'priceNote': '≈ USD 250 · +GHS 3k setup',
       'features': ['Unlimited users · 20+ properties', 'Dedicated support'],
       'popular': false,
       'amount': 4000.0,
@@ -119,7 +119,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   ];
 
   final String randomTestimonial =
-  testimonials[Random().nextInt(testimonials.length)];
+      testimonials[Random().nextInt(testimonials.length)];
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
@@ -136,7 +136,9 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       _addressController.text = d['address'] ?? '';
       final rawDomains = d['customDomains'];
       if (rawDomains is List) {
-        _domainsController.text = rawDomains.map((e) => e.toString()).join(', ');
+        _domainsController.text = rawDomains
+            .map((e) => e.toString())
+            .join(', ');
       } else {
         _domainsController.text = (rawDomains ?? '').toString();
       }
@@ -150,7 +152,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       _vatRateController.text = (vat != null) ? vat.toString() : '';
       _vatEnabled = d['vatEnabled'] ?? false;
       _selectedPlan = d['plan'] ?? d['subscriptionTier'] ?? 'free_trial';
-
     }
   }
 
@@ -177,7 +178,9 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   }
 
   String normalizeKey(String input) {
-    return input.trim().toLowerCase()
+    return input
+        .trim()
+        .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9 ]'), '')
         .replaceAll(RegExp(r'\s+'), '_');
   }
@@ -195,7 +198,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
     }
     setState(() {});
   }
-
 
   Future<String?> uploadLogo(String companyId) async {
     if (_logoFile == null && _logoBytes == null) {
@@ -225,7 +227,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
     return await snapshot.ref.getDownloadURL();
   }
 
-
   void _goNext() {
     final isValid = _formKey.currentState?.validate() ?? true;
     if (!isValid) return;
@@ -241,8 +242,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   }
 
   Future<bool> _processGatewayPayment(String method, double amount) async {
-   return false;
-
+    return false;
   }
 
   Future<void> _submit(Datafeed datafeed) async {
@@ -268,7 +268,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
         final amount = plan['amount'] as double;
 
         if (_paymentMethod == 'paystack' || _paymentMethod == 'hubtel') {
-
           final ok = await _processGatewayPayment(_paymentMethod, amount);
           if (!ok) {
             throw Exception("Payment could not be verified. Please try again.");
@@ -279,7 +278,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           // print(amount);
         }
       }
-
 
       if (widget.docId != null) {
         final id = widget.docId!;
@@ -305,10 +303,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           'updatedat': DateTime.now(),
           'updatedby': staff,
         });
-      }
-
-
-      else {
+        if (datafeed.companyid == id) {
+          await datafeed.updateCompanyType(_branchType);
+        }
+      } else {
         final existing = await _db
             .collection('companies')
             .where('company', isEqualTo: companyName)
@@ -357,7 +355,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           companyMap['plan'] = _selectedPlan;
           if (_selectedPlan != 'free_trial') {
             companyMap['paymentMethod'] = _paymentMethod;
-            companyMap['paymentReference'] = _paymentNumberController.text.trim();
+            companyMap['paymentReference'] = _paymentNumberController.text
+                .trim();
           }
 
           tx.set(_db.collection('companies').doc(newId), companyMap);
@@ -423,10 +422,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           content: Text(
             widget.docId == null
                 ? (_selectedPlan == 'free_trial'
-                ? "Company and Staff Registered Successfully"
-                : "Payment received — your account has been created successfully")
+                      ? "Company and Staff Registered Successfully"
+                      : "Payment received — your account has been created successfully")
                 : "Company Updated Successfully",
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
@@ -436,20 +435,26 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString(), style: TextStyle(color: Colors.white))),
+        SnackBar(
+          content: Text(
+            e.toString(),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+        ),
       );
     }
 
     setState(() => _loading = false);
   }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<Datafeed>(
       builder: (context, datafeed, child) {
         return Scaffold(
-          backgroundColor: _kBg,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: _kBg,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             title: Text(
               widget.docId == null ? "Register Company" : "Edit Company",
             ),
@@ -461,7 +466,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
 
               if (!isWide) {
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24,
+                    horizontal: 16,
+                  ),
                   child: Column(
                     children: [
                       _buildLeftPanel(),
@@ -482,7 +490,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                     flex: 4,
                     child: Center(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 40,
+                          horizontal: 24,
+                        ),
                         child: wizardCard,
                       ),
                     ),
@@ -501,7 +512,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       constraints: const BoxConstraints(maxWidth: 620),
       child: Container(
         decoration: BoxDecoration(
-          color: _kCard,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
         ),
         clipBehavior: Clip.antiAlias,
@@ -546,35 +557,81 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   //desktop
   Widget _buildLeftPanel() {
     final features = <Map<String, dynamic>>[
-      {'icon': Icons.point_of_sale, 'title': 'Sales & POS', 'desc': 'Fast checkout, multiple payment methods'},
-      {'icon': Icons.inventory_2, 'title': 'Stock & Inventory', 'desc': 'Transfers, requests & stock levels'},
-      {'icon': Icons.store, 'title': 'Multi-Branch', 'desc': 'Run several branches from one account'},
-      {'icon': Icons.assignment_return, 'title': 'Damages & Returns', 'desc': 'Track returned and damaged stock'},
-      {'icon': Icons.admin_panel_settings, 'title': 'Role-Based Access', 'desc': 'Control what each staff member can do'},
-      {'icon': Icons.bar_chart, 'title': 'Sales Reports', 'desc': 'Staff, branch & payment breakdowns'},
-      {'icon': Icons.print, 'title': 'Receipt Printing', 'desc': 'Silent printing straight to your printer'},
-      {'icon': Icons.devices, 'title': 'Any Device', 'desc': 'Windows desktop, tablet or phone'},
+      {
+        'icon': Icons.point_of_sale,
+        'title': 'Sales & POS',
+        'desc': 'Fast checkout, multiple payment methods',
+      },
+      {
+        'icon': Icons.inventory_2,
+        'title': 'Stock & Inventory',
+        'desc': 'Transfers, requests & stock levels',
+      },
+      {
+        'icon': Icons.store,
+        'title': 'Multi-Branch',
+        'desc': 'Run several branches from one account',
+      },
+      {
+        'icon': Icons.assignment_return,
+        'title': 'Damages & Returns',
+        'desc': 'Track returned and damaged stock',
+      },
+      {
+        'icon': Icons.admin_panel_settings,
+        'title': 'Role-Based Access',
+        'desc': 'Control what each staff member can do',
+      },
+      {
+        'icon': Icons.bar_chart,
+        'title': 'Sales Reports',
+        'desc': 'Staff, branch & payment breakdowns',
+      },
+      {
+        'icon': Icons.print,
+        'title': 'Receipt Printing',
+        'desc': 'Silent printing straight to your printer',
+      },
+      {
+        'icon': Icons.devices,
+        'title': 'Any Device',
+        'desc': 'Windows desktop, tablet or phone',
+      },
     ];
 
     return Container(
-      color: _kBg,
+      color: Theme.of(context).scaffoldBackgroundColor,
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Run Your Business Smarter",
-            style: TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.bold, height: 1.2),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
           ),
           const Text(
             "with KologSoft POS",
-            style: TextStyle(color: _kAccent, fontSize: 30, fontWeight: FontWeight.bold, height: 1.2),
+            style: TextStyle(
+              color: _kAccent,
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
           ),
           const SizedBox(height: 14),
-          const Text(
+          Text(
             "The all-in-one platform for sales, inventory, billing and multi-branch"
-                " management — built for African businesses.",
-            style: TextStyle(color: Colors.white60, fontSize: 14, height: 1.5),
+            " management — built for African businesses.",
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 14,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 28),
           Wrap(
@@ -590,7 +647,13 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           LayoutBuilder(
             builder: (context, constraints) {
               final tiles = features
-                  .map((f) => _buildFeatureTile(f['icon'] as IconData, f['title'] as String, f['desc'] as String))
+                  .map(
+                    (f) => _buildFeatureTile(
+                      f['icon'] as IconData,
+                      f['title'] as String,
+                      f['desc'] as String,
+                    ),
+                  )
                   .toList();
 
               if (constraints.maxWidth < 420) {
@@ -611,7 +674,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
+                  for (final tile in tiles)
+                    SizedBox(width: tileWidth, child: tile),
                 ],
               );
             },
@@ -620,13 +684,13 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _kCard,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               randomTestimonial,
-              style: const TextStyle(
-                color: Colors.white38,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
                 fontStyle: FontStyle.italic,
               ),
@@ -641,7 +705,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -650,7 +714,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: _kFieldFill,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: Colors.white70, size: 16),
@@ -660,8 +724,21 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                Text(desc, style: const TextStyle(color: Colors.white38, fontSize: 10.5)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  desc,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 10.5,
+                  ),
+                ),
               ],
             ),
           ),
@@ -674,23 +751,26 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   Widget _buildHeaderStrip() {
     return Container(
       width: double.infinity,
-      color: _kHeaderStrip,
+      color: Theme.of(context).colorScheme.surface,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
       child: Column(
         children: [
-          const Text(
+          Text(
             "KologSoft POS",
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 2),
-          const Text(
+          Text(
             "Company setup · takes about a minute",
-            style: TextStyle(color: Colors.white54, fontSize: 12),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 18),
           _buildStepper(),
@@ -727,16 +807,18 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 children: [
                   CircleAvatar(
                     radius: circleRadius,
-                    backgroundColor: isActive || isDone ? _kAccent : _kFieldFill,
+                    backgroundColor: isActive || isDone
+                        ? _kAccent
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: isDone
                         ? const Icon(Icons.check, size: 16, color: Colors.white)
                         : Text(
-                      "${step + 1}",
-                      style: TextStyle(
-                        color: isActive ? Colors.white : Colors.white54,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                            "${step + 1}",
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.white54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -747,7 +829,9 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                     style: TextStyle(
                       color: isActive ? Colors.white : Colors.white38,
                       fontSize: 11,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -755,7 +839,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
             );
           }),
         );
-
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -788,12 +871,12 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   Widget _buildCompanyStep() {
     return Column(
       children: [
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Text(
             "Tell us about your business",
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -804,7 +887,9 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           onTap: pickLogo,
           child: CircleAvatar(
             radius: 40,
-            backgroundColor: _kFieldFill,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
             backgroundImage: _logoBytes != null
                 ? MemoryImage(_logoBytes!)
                 : _logoFile != null
@@ -812,25 +897,52 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 : _existingLogoUrl != null
                 ? NetworkImage(_existingLogoUrl!)
                 : null,
-            child: (_logoBytes == null &&
-                _logoFile == null &&
-                _existingLogoUrl == null)
+            child:
+                (_logoBytes == null &&
+                    _logoFile == null &&
+                    _existingLogoUrl == null)
                 ? const Icon(Icons.camera_alt, color: Colors.white70, size: 26)
                 : null,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           "Tap to add a logo (optional)",
-          style: TextStyle(color: Colors.white38, fontSize: 11),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 11,
+          ),
         ),
         const SizedBox(height: 20),
-        _buildField(_companyController, "Company Name", Icons.business, enabled:widget.docId == null|| widget.isSuperAdmin || widget.isSystemAdmin),
+        _buildField(
+          _companyController,
+          "Company Name",
+          Icons.business,
+          enabled:
+              widget.docId == null ||
+              widget.isSuperAdmin ||
+              widget.isSystemAdmin,
+        ),
         const SizedBox(height: 14),
-        _buildField(_phoneController, "Phone Number", Icons.phone, enabled: widget.docId == null||widget.isSuperAdmin || widget.isSystemAdmin),
+        _buildField(
+          _phoneController,
+          "Phone Number",
+          Icons.phone,
+          enabled:
+              widget.docId == null ||
+              widget.isSuperAdmin ||
+              widget.isSystemAdmin,
+        ),
         const SizedBox(height: 14),
-        _buildField(_addressController, "Address", Icons.location_on, enabled: widget.docId == null||widget.isSuperAdmin || widget.isSystemAdmin),
-
+        _buildField(
+          _addressController,
+          "Address",
+          Icons.location_on,
+          enabled:
+              widget.docId == null ||
+              widget.isSuperAdmin ||
+              widget.isSystemAdmin,
+        ),
       ],
     );
   }
@@ -838,7 +950,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   Widget _buildTypeRadio(String label, String value) {
     final canEdit = widget.docId == null || widget.isSystemAdmin;
     return RadioListTile<String>(
-      title: Text(label, style: const TextStyle(color: Colors.white70)),
+      title: Text(
+        label,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+      ),
       value: value,
       groupValue: _branchType,
       activeColor: _kAccent,
@@ -848,37 +963,57 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           : null,
     );
   }
+
   // ── Step 2: Owner / admin details
   Widget _buildOwnerStep() {
     return Column(
       children: [
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Text(
             "Owner / Admin details",
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
         const SizedBox(height: 16),
-        _buildField(_nameController, "Contact Person", Icons.person,enabled:widget.docId==null|| widget.isSuperAdmin || widget.isSystemAdmin),
+        _buildField(
+          _nameController,
+          "Contact Person",
+          Icons.person,
+          enabled:
+              widget.docId == null ||
+              widget.isSuperAdmin ||
+              widget.isSystemAdmin,
+        ),
         const SizedBox(height: 14),
-        _buildField(_emailController, "Email Address", Icons.email,enabled:widget.docId==null|| widget.isSystemAdmin ),
+        _buildField(
+          _emailController,
+          "Email Address",
+          Icons.email,
+          enabled: widget.docId == null || widget.isSystemAdmin,
+        ),
         const SizedBox(height: 6),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Text(
             "Your login credentials will be sent here.",
-            style: TextStyle(color: Colors.white38, fontSize: 11),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 11,
+            ),
           ),
         ),
         const SizedBox(height: 20),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
-          child: Text("Business Type", style: TextStyle(color: Colors.white70)),
+          child: Text(
+            "Business Type",
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
         ),
         _buildTypeRadio("Retail", "retail"),
         _buildTypeRadio("Wholesale", "wholesale"),
@@ -890,14 +1025,13 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   // ── Step 3: Setup (branch mode, VAT, domains)
   Widget _buildSetupStep() {
     return Column(
-
       children: [
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Text(
             "Business setup",
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -905,16 +1039,21 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          dropdownColor: _kFieldFill,
-          style: const TextStyle(color: Colors.white70),
+          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           decoration: _inputDecoration("Branch Mode", icon: Icons.store),
           value: _mode,
           items: const [
             DropdownMenuItem(value: "single", child: Text("Single branch")),
-            DropdownMenuItem(value: "multiple", child: Text("Multiple branches")),
+            DropdownMenuItem(
+              value: "multiple",
+              child: Text("Multiple branches"),
+            ),
           ],
-         // onChanged: (val) => setState(() => _mode = val),
-          onChanged: widget.docId==null||widget.isSystemAdmin ? (val) => setState(() => _mode = val) : null,
+          // onChanged: (val) => setState(() => _mode = val),
+          onChanged: widget.docId == null || widget.isSystemAdmin
+              ? (val) => setState(() => _mode = val)
+              : null,
           validator: (val) => val == null ? "Please select a mode" : null,
         ),
         const SizedBox(height: 14),
@@ -922,9 +1061,11 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           builder: (context, constraints) {
             final vatField = TextFormField(
               controller: _vatRateController,
-              enabled: widget.docId==null || widget.isSystemAdmin,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white70),
+              enabled: widget.docId == null || widget.isSystemAdmin,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
               decoration: _inputDecoration(
                 'VAT Rate (decimal)',
                 icon: Icons.percent,
@@ -934,15 +1075,23 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
             final taxSwitch = Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: _kFieldFill,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white24),
               ),
               child: SwitchListTile(
-                title: const Text('Enable Tax', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                title: Text(
+                  'Enable Tax',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 13,
+                  ),
+                ),
                 value: _vatEnabled,
-               // onChanged: (val) => setState(() => _vatEnabled = val),
-                onChanged: widget.docId == null ||widget.isSystemAdmin ? (val) => setState(() => _vatEnabled = val) : null,
+                // onChanged: (val) => setState(() => _vatEnabled = val),
+                onChanged: widget.docId == null || widget.isSystemAdmin
+                    ? (val) => setState(() => _vatEnabled = val)
+                    : null,
                 activeColor: _kAccent,
                 inactiveThumbColor: Colors.grey,
                 contentPadding: EdgeInsets.zero,
@@ -951,11 +1100,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
 
             if (constraints.maxWidth < 360) {
               return Column(
-                children: [
-                  vatField,
-                  const SizedBox(height: 12),
-                  taxSwitch,
-                ],
+                children: [vatField, const SizedBox(height: 12), taxSwitch],
               );
             }
             return Row(
@@ -972,13 +1117,15 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
         TextFormField(
           controller: _domainsController,
           enabled: widget.docId == null || widget.isSystemAdmin,
-          style: const TextStyle(color: Colors.white70),
-          decoration: _inputDecoration('Custom Domains (comma separated)', icon: Icons.public),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          decoration: _inputDecoration(
+            'Custom Domains (comma separated)',
+            icon: Icons.public,
+          ),
         ),
       ],
     );
   }
-
 
   // ── Step 4: Plan selection
   Widget _buildPlanStep() {
@@ -986,18 +1133,21 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
+        Text(
           "Choose your plan",
           style: TextStyle(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           "All paid plans include a 10-day free trial. No card required to start.",
-          style: TextStyle(color: Colors.white38, fontSize: 12),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 12,
+          ),
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
@@ -1071,20 +1221,22 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _kFieldFill,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isSelected ? _kButton : _kFieldFill,
+                color: isSelected
+                    ? _kButton
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 width: isSelected ? 2 : 1,
               ),
               boxShadow: isSelected
                   ? [
-                BoxShadow(
-                  color: _kAccent.withOpacity(0.35),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              ]
+                      BoxShadow(
+                        color: _kAccent.withOpacity(0.35),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      ),
+                    ]
                   : null,
             ),
             child: Column(
@@ -1099,8 +1251,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                         plan['name'] as String,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
@@ -1113,8 +1265,8 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 const SizedBox(height: 12),
                 Text(
                   plan['price'] as String,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
@@ -1122,7 +1274,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 const SizedBox(height: 2),
                 Text(
                   plan['priceNote'] as String,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 11,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 for (final f in (plan['features'] as List))
@@ -1130,7 +1285,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                     padding: const EdgeInsets.only(bottom: 3),
                     child: Text(
                       f.toString(),
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
               ],
@@ -1147,10 +1305,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 color: _kAccent,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 "POPULAR",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1164,45 +1322,67 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   // ── Step 5: Payment
 
   Widget _buildPaymentStep() {
-    final plan = _plans.firstWhere((p) => p['id'] == _selectedPlan, orElse: () => _plans[1]);
+    final plan = _plans.firstWhere(
+      (p) => p['id'] == _selectedPlan,
+      orElse: () => _plans[1],
+    );
     final bool needsPhoneNumber =
         _paymentMethod == 'momo' ||
-            _paymentMethod == 'vodafone_cash' ||
-            _paymentMethod == 'airteltigo';
+        _paymentMethod == 'vodafone_cash' ||
+        _paymentMethod == 'airteltigo';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "Payment",
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           "You selected ${plan['name']} — ${plan['price']}",
-          style: const TextStyle(color: Colors.white54, fontSize: 12),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 12,
+          ),
         ),
         const SizedBox(height: 18),
         DropdownButtonFormField<String>(
-          dropdownColor: _kFieldFill,
-          style: const TextStyle(color: Colors.white70),
+          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           decoration: _inputDecoration("Payment Method", icon: Icons.payment),
           value: _paymentMethod,
           items: const [
             DropdownMenuItem(value: "momo", child: Text("MTN Mobile Money")),
-            DropdownMenuItem(value: "vodafone_cash", child: Text("Vodafone Cash")),
-            DropdownMenuItem(value: "airteltigo", child: Text("AirtelTigo Money")),
-            DropdownMenuItem(value: "paystack", child: Text("Paystack (Card, MoMo, Bank)")),
-            DropdownMenuItem(value: "hubtel", child: Text("Hubtel (MoMo, Card)")),
-
+            DropdownMenuItem(
+              value: "vodafone_cash",
+              child: Text("Vodafone Cash"),
+            ),
+            DropdownMenuItem(
+              value: "airteltigo",
+              child: Text("AirtelTigo Money"),
+            ),
+            DropdownMenuItem(
+              value: "paystack",
+              child: Text("Paystack (Card, MoMo, Bank)"),
+            ),
+            DropdownMenuItem(
+              value: "hubtel",
+              child: Text("Hubtel (MoMo, Card)"),
+            ),
           ],
-          onChanged: (val) => setState(() => _paymentMethod = val ?? _paymentMethod),
+          onChanged: (val) =>
+              setState(() => _paymentMethod = val ?? _paymentMethod),
         ),
         const SizedBox(height: 14),
         if (needsPhoneNumber)
           TextFormField(
             controller: _paymentNumberController,
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             validator: (v) => v == null || v.isEmpty ? "Required" : null,
             decoration: _inputDecoration(
               "Mobile Money Number",
@@ -1213,7 +1393,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _kFieldFill,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white24),
             ),
@@ -1224,17 +1404,24 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 Expanded(
                   child: Text(
                     _redirectMethodLabel(),
-                    style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontSize: 12.5,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         const SizedBox(height: 10),
-        const Text(
+        Text(
           "Payment confirmation is simulated here — wire this up to your actual "
-              "payment gateway (e.g. Paystack/Flutterwave/Stripe) before this goes live.",
-          style: TextStyle(color: Colors.white38, fontSize: 10.5, fontStyle: FontStyle.italic),
+          "payment gateway (e.g. Paystack/Flutterwave/Stripe) before this goes live.",
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 10.5,
+            fontStyle: FontStyle.italic,
+          ),
         ),
       ],
     );
@@ -1250,6 +1437,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
         return "You'll be redirected to a secure checkout page to complete payment.";
     }
   }
+
   // ── Bottom nav: Back / Continue / Register
   Widget _buildNavButtons(Datafeed datafeed) {
     final isLastStep = _currentStep == _effectiveStepLabels.length - 1;
@@ -1264,7 +1452,9 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       } else {
         label = "Pay & Create Account";
       }
-    } else if (isPlanStep && _selectedPlan != 'free_trial' && widget.docId == null) {
+    } else if (isPlanStep &&
+        _selectedPlan != 'free_trial' &&
+        widget.docId == null) {
       label = "Continue to Payment";
     } else {
       label = "Continue";
@@ -1283,7 +1473,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text("Back", style: TextStyle(color: Colors.white70)),
+              child: const Text(
+                "Back",
+                style: TextStyle(color: Colors.white70),
+              ),
             ),
           ),
         if (_currentStep > 0) const SizedBox(width: 12),
@@ -1302,50 +1495,66 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                 : () => isLastStep ? _submit(datafeed) : _goNext(),
             child: _loading
                 ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-            )
-                : Text(label, style: const TextStyle(color: Colors.white70)),
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
           ),
         ),
       ],
     );
   }
 
-  InputDecoration _inputDecoration(String label, {IconData? icon, String? hint}) {
+  InputDecoration _inputDecoration(
+    String label, {
+    IconData? icon,
+    String? hint,
+  }) {
+    final theme = Theme.of(context);
+    final labelColor = theme.brightness == Brightness.dark
+        ? Colors.white
+        : theme.colorScheme.onSurface;
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      labelStyle: const TextStyle(color: Colors.white70),
-      hintStyle: const TextStyle(color: Colors.white38),
-      prefixIcon: icon != null ? Icon(icon, color: Colors.white70) : null,
+      labelStyle: TextStyle(color: labelColor),
+      floatingLabelStyle: TextStyle(color: labelColor),
+      hintStyle: TextStyle(color: theme.colorScheme.onSurface),
+      prefixIcon: icon != null
+          ? Icon(icon, color: theme.colorScheme.onSurfaceVariant)
+          : null,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: theme.colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _kAccent),
+        borderSide: BorderSide(color: _kAccent),
       ),
-      fillColor: _kFieldFill,
+      fillColor: theme.colorScheme.surfaceContainerHighest,
       filled: true,
     );
   }
 
   Widget _buildField(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool enabled = true,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool enabled = true,
+  }) {
     return TextFormField(
       controller: controller,
       enabled: enabled,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
       validator: (v) => v == null || v.isEmpty ? "Required" : null,
       decoration: _inputDecoration(label, icon: icon),
     );
@@ -1364,11 +1573,19 @@ class _StatBadge extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(color: _kAccent, fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: _kAccent,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         Text(
           note,
-          style: const TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 0.5),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 10,
+            letterSpacing: 0.5,
+          ),
         ),
       ],
     );

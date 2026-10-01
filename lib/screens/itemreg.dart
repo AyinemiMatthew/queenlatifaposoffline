@@ -13,6 +13,7 @@ import 'package:universal_io/io.dart';
 
 import '../models/itemmodel.dart';
 import '../models/itemregmodel.dart';
+import '../models/productcategorymodel.dart';
 import '../providers/Datafeed.dart';
 import 'itemlist.dart';
 
@@ -28,7 +29,7 @@ class ItemRegPage extends StatefulWidget {
 
 class _ItemRegPageState extends State<ItemRegPage> {
   final _formKey = GlobalKey<FormState>();
-
+  final _newCategoryController = TextEditingController();
 
   final _nameController = TextEditingController();
   final _barcodeController = TextEditingController();
@@ -53,6 +54,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
   final _shelfnumberController = TextEditingController();
   Map<String, TextEditingController> stockingControllers = {};
 
+  final Set<String> _removedModes = {};
   String? _productType;
   String? _productCategory;
   bool _productTypeLocked = false;
@@ -67,10 +69,13 @@ class _ItemRegPageState extends State<ItemRegPage> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
+  String _formatSplitQuantity(double quantity) {
+    return quantity.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
 
   String? _validateField(String fieldName, String? value) {
     if (value == null || value.isEmpty) {
-      if (fieldName == 'supplierMinQty') return null; // Optional field
+      if (fieldName == 'supplierMinQty') return null;
       return 'Required';
     }
 
@@ -115,7 +120,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
         return null;
 
       case 'boxQty':
-        final boxQty = int.tryParse(value) ?? 0;
+        final boxQty = double.tryParse(value) ?? 0;
         if (boxQty < 1) {
           return 'Box quantity must be at least 1';
         }
@@ -132,9 +137,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
         double costPrice = double.tryParse(_costController.text) ?? 0;
 
         if (boxQty == 1) {
-          // if (supplierPrice != boxPrice || supplierPrice != retailPrice) {
-          //   return 'Prices should be equal because Box Qty is 1,';
-          // }
           if (costPrice > boxPrice) {
             return 'Cost price  GHS$costPrice \n is more than Box Price GHS$boxPrice';
           }
@@ -183,8 +185,10 @@ class _ItemRegPageState extends State<ItemRegPage> {
         return null;
 
       case 'supplierMinQty':
-        final supplierQty = int.tryParse(value) ?? 0;
-        if (supplierQty == 1) return null;
+        final supplierQty = double.tryParse(value);
+        if (supplierQty == null || supplierQty <= 0) {
+          return 'Supplier Min Qty must be greater than zero';
+        }
         return null;
 
       case 'halfBoxQty':
@@ -193,21 +197,16 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
         if (boxQty == 0) return null;
 
-        // Special case: 1 carton -> half is 0.5
-        if (boxQty == 1) {
-          if (halfBoxQty != 0.5) {
-            return 'Half Box Qty must be 0.5';
-          }
-          return null;
-        }
-
         final requiredHalfQty = boxQty / 2;
 
+        if (halfBoxQty <= 0) {
+          return 'Half Box Qty must be greater than zero';
+        }
         if (halfBoxQty > boxQty) {
           return 'Half Box Qty cannot exceed Box Qty';
         }
 
-        if (halfBoxQty != requiredHalfQty) {
+        if ((halfBoxQty - requiredHalfQty).abs() > 0.001) {
           return 'Half Box Qty must be $requiredHalfQty';
         }
 
@@ -235,21 +234,16 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
         if (boxQty == 0) return null;
 
-        // Special case: 1 carton -> quarter is 0.25
-        if (boxQty == 1) {
-          if (quarterQty != 0.25) {
-            return 'Quarter Qty must be 0.25';
-          }
-          return null;
-        }
-
         final requiredQuarterQty = boxQty / 4;
 
+        if (quarterQty <= 0) {
+          return 'Quarter Qty must be greater than zero';
+        }
         if (quarterQty > boxQty) {
           return 'Quarter Qty cannot exceed Box Qty';
         }
 
-        if (quarterQty != requiredQuarterQty) {
+        if ((quarterQty - requiredQuarterQty).abs() > 0.001) {
           return 'Quarter Qty must be $requiredQuarterQty';
         }
 
@@ -286,12 +280,16 @@ class _ItemRegPageState extends State<ItemRegPage> {
       case 'packQty':
         if (!_enableBoxPricing) return null;
 
-        final packQty = int.tryParse(value) ?? 0;
-        final boxQty = int.tryParse(_boxQtyController.text) ?? 0;
-        final halfQty = int.tryParse(_halfboxqty_controller.text) ?? 0;
-        final quarterQty = int.tryParse(_quarterqty_controller.text) ?? 0;
+        final packQty = double.tryParse(value) ?? 0;
+        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
+        final halfQty = double.tryParse(_halfboxqty_controller.text) ?? 0;
+        final quarterQty = double.tryParse(_quarterqty_controller.text) ?? 0;
 
-        if (boxQty > 0 && packQty > 0 && boxQty % packQty != 0) {
+        if (packQty <= 0) {
+          return 'Pack Qty must be greater than zero';
+        }
+
+        if (boxQty > 0 && packQty > 0 && (boxQty % packQty).abs() > 0.000001) {
           return 'Box Qty must be divisible by Pack Qty';
         }
 
@@ -307,14 +305,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
           return 'Pack Qty must be less than Quarter Qty';
         }
 
-        final packUnitPrice = double.tryParse(_packprice_controller.text) ?? 0;
-        final unitCost = double.tryParse(_costController.text) ?? 0;
-        final totalPackPrice = packUnitPrice * boxQty;
-        final totalUnitCost = unitCost * boxQty;
-
-        if (totalPackPrice < totalUnitCost) {
-          return 'Pack unit price × Box Qty must be ≥ Unit Cost × Box Qty';
-        }
         return null;
 
       case 'packPrice':
@@ -324,7 +314,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
         final packQty = double.tryParse(_packQtyController.text) ?? 0;
         final retailprice = double.tryParse(_retail_price.text) ?? 0;
         final unitcostprice =
-            int.tryParse(_costController.text.toString()) ?? 0;
+            double.tryParse(_costController.text.toString()) ?? 0;
 
         if (boxQty == 0 || packQty == 0 || boxPrice == 0) return null;
 
@@ -343,16 +333,123 @@ class _ItemRegPageState extends State<ItemRegPage> {
     }
   }
 
+  Future<void> _addProductCategory() async {
+    _newCategoryController.clear();
+    final datafeed = context.read<Datafeed>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final formKey = GlobalKey<FormState>();
+    var isSaving = false;
+
+    final categoryName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add product category'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: _newCategoryController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: 'Category name',
+                labelStyle: TextStyle(
+                  color: isDark
+                      ? colorScheme.onSurface
+                      : colorScheme.onSurfaceVariant,
+                ),
+                floatingLabelStyle: TextStyle(
+                  color: isDark ? colorScheme.onSurface : colorScheme.primary,
+                ),
+                border: OutlineInputBorder(),
+              ),
+              validator: (value) {
+                final name = value?.trim() ?? '';
+                if (name.isEmpty) return 'Enter category name';
+                if (datafeed.productcategory.any(
+                  (category) =>
+                      category.productname.trim().toLowerCase() ==
+                      name.toLowerCase(),
+                )) {
+                  return 'This category already exists';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+              style: TextButton.styleFrom(
+                foregroundColor: isDark
+                    ? colorScheme.onSurface
+                    : colorScheme.primary,
+              ),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setDialogState(() => isSaving = true);
+                      final name = _newCategoryController.text.trim();
+                      try {
+                        await datafeed.addOrUpdateCategory(
+                          Productcategorymodel(
+                            productname: name,
+                            staff: datafeed.staff,
+                            companyid: datafeed.companyid,
+                            companyemail: datafeed.companyemail,
+                            date: DateTime.now(),
+                            updatedat: DateTime.now(),
+                            updatedby: datafeed.staff,
+                          ),
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext, name);
+                        }
+                      } catch (error) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() => isSaving = false);
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(
+                            content: Text('Could not save category: $error'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || categoryName == null) return;
+    setState(() {
+      _productCategory = categoryName;
+    });
+    _formKey.currentState?.validate();
+  }
+
   @override
   void initState() {
     super.initState();
-    Future.microtask((){
+    Future.microtask(() {
       context.read<Datafeed>().fetchproductcategory();
     });
 
     if (widget.item != null) {
       final d = widget.item!;
-      // Basic fields
       _existingLogoUrl = d.imageurl;
       _nameController.text = d.name ?? '';
       _barcodeController.text = d.barcode ?? '';
@@ -360,120 +457,78 @@ class _ItemRegPageState extends State<ItemRegPage> {
       _productCategory = d.pcategory;
       _productType = d.producttype;
       _costController.text = d.cp;
-      _shelfnumberController.text = d.shelfnumber?? '';
+      _shelfnumberController.text = d.shelfnumber ?? '';
       _supplierMinQtyController.text = d.sminqty;
 
       _enableBoxPricing = d.modemore == true;
 
+      final modes = d.modes ?? <Mode>[];
 
-      final modes = d.modes ;
-
-
-
-
-     // Carton (Full Box) — load box qty and prices first
-      if (modes?.any((m) => m.id.toLowerCase() == 'carton') ?? false) {
-        final carton = modes!.firstWhere((m) => m.id == 'carton');
+      if (modes.any((m) => m.id.toLowerCase() == 'carton')) {
+        final carton = modes.firstWhere((m) => m.id == 'carton');
         _boxQtyController.text = carton.qty;
+        _retail_price.text = carton.rp;
         _wholesalePriceController.text = carton.wp;
         _supplierPriceController.text = carton.sp;
       }
 
-     if (modes?.any((m) => m.id.toLowerCase() == 'single') ?? false) {
-        final single = modes!.firstWhere((m) => m.id == 'single');
+      if (modes.any((m) => m.id.toLowerCase() == 'single')) {
+        final single = modes.firstWhere((m) => m.id == 'single');
         _retail_price.text = single.rp;
         _costController.text = single.cp;
-
-        if (_boxQtyController.text.isEmpty) {
+        if (!modes.any((m) => m.id.toLowerCase() == 'carton')) {
           _boxQtyController.text = single.qty;
+          _wholesalePriceController.text = single.wp;
+          _supplierPriceController.text = single.sp;
         }
       }
 
-
-
-     // Half
-      if (modes?.any((m) => m.id.toLowerCase() == 'half') ?? false) {
-        final half = modes!.firstWhere((m) => m.id == 'half');
+      if (modes.any((m) => m.id.toLowerCase() == 'half')) {
+        final half = modes.firstWhere((m) => m.id == 'half');
         _halfboxqty_controller.text = half.qty;
         _halfboxprice_controller.text = half.wp;
       }
 
-// Quarter
-      if (modes?.any((m) => m.id.toLowerCase() == 'quarter') ?? false) {
-        final quarter = modes!.firstWhere((m) => m.id == 'quarter');
+      if (modes.any((m) => m.id.toLowerCase() == 'quarter')) {
+        final quarter = modes.firstWhere((m) => m.id == 'quarter');
         _quarterqty_controller.text = quarter.qty;
         _quarterprice_controller.text = quarter.wp;
-        // DO NOT set _retail_price or _boxQtyController here
       }
 
-// Pack
-      if (modes?.any((m) => m.id.toLowerCase() == 'pack') ?? false) {
-        final pack = modes!.firstWhere((m) => m.id == 'pack');
+      if (modes.any((m) => m.id.toLowerCase() == 'pack')) {
+        final pack = modes.firstWhere((m) => m.id == 'pack');
         _packQtyController.text = pack.qty;
         _packprice_controller.text = pack.wp;
-        //DO NOT set _retail_price here
       }
 
-      final int boxQty = int.tryParse(_boxQtyController.text) ?? 0;
-      final double boxPrice =
-          double.tryParse(_wholesalePriceController.text) ?? 0;
-
-
-      final bool hasHalfMode = modes?.any((m) => m.id.toLowerCase() == 'half') ?? false;
-      final bool hasQuarterMode = modes?.any((m) => m.id.toLowerCase() == 'quarter') ?? false;
-
-      if (boxQty > 1 && boxPrice > 0) {
-        if (!hasHalfMode) {
-          _halfboxqty_controller.text = (boxQty / 2).ceil().toString();
-          _halfboxprice_controller.text = (boxPrice / 2).toStringAsFixed(2);
-        }
-        if (!hasQuarterMode) {
-          _quarterqty_controller.text = (boxQty / 4).ceil().toString();
-          _quarterprice_controller.text = (boxPrice / 4).toStringAsFixed(2);
-        }
-      }
-
-      if (boxQty > 1 && boxPrice > 0) {
-        // quantities
-        final int halfQty = (boxQty / 2).ceil();
-        final int quarterQty = (boxQty / 4).ceil();
-
-        // prices
-        final double halfPrice = boxPrice / 2;
-        final double quarterPrice = boxPrice / 4;
-
-        _halfboxqty_controller.text = halfQty.toString();
-        _quarterqty_controller.text = quarterQty.toString();
-
-        _halfboxprice_controller.text = halfPrice.toStringAsFixed(2);
-        _quarterprice_controller.text = quarterPrice.toStringAsFixed(2);
-
-      }
-
-      // pricingStep: 0 = none, 1 = half, 2 = quarter, 3 = pack
       int step = 0;
-      if (modes!.any((m) => m.id.toLowerCase() == 'half')) step = 1;
-      if(modes.any((m) => m.id.toLowerCase() == 'quarter'))step = 2;
-      if(modes.any((m) => m.id.toLowerCase() == 'pack')) step = 3;
+      if (modes.any((m) => m.id.toLowerCase() == 'half')) {
+        step = 1;
+        if (modes.any((m) => m.id.toLowerCase() == 'quarter')) {
+          step = 2;
+          if (modes.any((m) => m.id.toLowerCase() == 'pack')) step = 3;
+        }
+      }
 
       pricingStep = step;
 
-      _enableBoxPricing = modes.isNotEmpty &&
-          modes.any((m) => ['carton', 'half', 'quarter', 'pack']
-              .contains((m.id).toLowerCase()));
+      _enableBoxPricing =
+          modes.isNotEmpty &&
+          modes.any(
+            (m) => [
+              'carton',
+              'half',
+              'quarter',
+              'pack',
+            ].contains((m.id).toLowerCase()),
+          );
 
-
-      _showBoxPricingSwitch = _enableBoxPricing;
-
-      try {
-        final boxQtyVal = int.tryParse(_boxQtyController.text) ?? 0;
-        if (boxQtyVal == 1) {
-          final retail = _retail_price.text;
-          _wholesalePriceController.text = retail;
-          _supplierPriceController.text = retail;
-        }
-      } catch (_) {}
-
+      final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
+      _showBoxPricingSwitch = boxQty >= 1;
+      if (boxQty >= 1) {
+        _halfboxqty_controller.text = _formatSplitQuantity(boxQty / 2);
+        _quarterqty_controller.text = _formatSplitQuantity(boxQty / 4);
+      }
     }
   }
 
@@ -496,7 +551,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
       _packprice_controller.clear();
       _wholesaleMinQtyController.clear();
       _supplierMinQtyController.clear();
-
 
       if (!_productTypeLocked) _productType = null;
       if (!_productCategoryLocked) _productCategory = null;
@@ -589,9 +643,21 @@ class _ItemRegPageState extends State<ItemRegPage> {
     return Consumer<Datafeed>(
       builder: (context, datafeed, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFF101624),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+
           appBar: AppBar(
-            title: Text(  widget.docId == null  ? 'Register Item' : 'Edit ${_nameController.text}',
+            leading: IconButton(
+              tooltip: 'Back',
+              icon: Icon(
+                Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            title: Text(
+              widget.docId == null
+                  ? 'Register Item'
+                  : 'Edit ${_nameController.text}',
             ),
             actions: [
               IconButton(
@@ -603,7 +669,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
                     MaterialPageRoute(builder: (_) => const ItemListPage()),
                   );
                 },
-              )
+              ),
             ],
           ),
 
@@ -642,25 +708,34 @@ class _ItemRegPageState extends State<ItemRegPage> {
                               'Barcode',
                               Icons.qr_code,
                               required: false,
-
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF22304A),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.qr_code_scanner,
-                                color: Colors.white70,
-                              ),
-                              onPressed: _scanBarcode,
-                              tooltip: 'Scan Barcode/QR Code',
-                            ),
+                          Builder(
+                            builder: (context) {
+                              final theme = Theme.of(context);
+                              return Container(
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: theme.colorScheme.outline,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  icon: Icon(
+                                    Icons.qr_code_scanner,
+                                    color: theme.brightness == Brightness.dark
+                                        ? Colors.white
+                                        : theme.colorScheme.primary,
+                                  ),
+                                  onPressed: _scanBarcode,
+                                  tooltip: 'Scan Barcode/QR Code',
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -695,20 +770,11 @@ class _ItemRegPageState extends State<ItemRegPage> {
                           Icons.attach_money,
                           isNumber: true,
                           validator: (v) => _validateField('retailPrice', v),
-                          onChanged: (value) {
-                            final boxQty =
-                                double.tryParse(_boxQtyController.text) ?? 0;
-                            if (boxQty == 1 && widget.docId == null) {
-                              setState(() {
-                                _wholesalePriceController.text = value;
-                                _supplierPriceController.text = value;
-                              });
-                            }
+                          onChanged: (_) {
                             _formKey.currentState?.validate();
                           },
                         ),
                       ),
-
                       SizedBox(height: 10),
                       SizedBox(
                         child: _buildField(
@@ -723,30 +789,24 @@ class _ItemRegPageState extends State<ItemRegPage> {
                           isNumber: true,
                           onChanged: (value) {
                             final qty = double.tryParse(value) ?? 0;
-                            if (qty > 1) {
-                              setState(() {
-                                _showBoxPricingSwitch = true;
-                                _enableBoxPricing = true;
-                                // auto calculate quantities
-                                _halfboxqty_controller.text = (qty / 2).ceil().toString();
-                                _quarterqty_controller.text = (qty / 4).ceil().toString();
-                              });
-                            } else if (qty == 1) {
+                            if (qty >= 1) {
                               setState(() {
                                 _showBoxPricingSwitch = true;
                                 _enableBoxPricing = true;
 
-                                if (widget.docId == null) {
-                                  final retailPrice = _retail_price.text;
-                                  _wholesalePriceController.text = retailPrice;
-                                  _supplierPriceController.text = retailPrice;
-                                }
+                                _halfboxqty_controller.text =
+                                    _formatSplitQuantity(qty / 2);
+                                _quarterqty_controller.text =
+                                    _formatSplitQuantity(qty / 4);
                               });
                             } else {
                               setState(() {
                                 _showBoxPricingSwitch = false;
                                 _enableBoxPricing = false;
                                 pricingStep = 0;
+                                _halfboxqty_controller.clear();
+                                _quarterqty_controller.clear();
+                                _packQtyController.clear();
                               });
                             }
                             _formKey.currentState!.validate();
@@ -754,6 +814,44 @@ class _ItemRegPageState extends State<ItemRegPage> {
                           validator: (v) => _validateField('boxQty', v),
                         ),
                       ),
+                      if (_showBoxPricingSwitch)
+                        Builder(
+                          builder: (context) {
+                            final scheme = Theme.of(context).colorScheme;
+                            final isDark =
+                                Theme.of(context).brightness == Brightness.dark;
+                            return SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              selected: _enableBoxPricing,
+                              selectedTileColor: scheme.primary.withValues(
+                                alpha: 0.12,
+                              ),
+                              title: Text(
+                                'Enable carton and split pricing',
+                                style: TextStyle(
+                                  color: _enableBoxPricing
+                                      ? (isDark ? Colors.white : scheme.primary)
+                                      : scheme.onSurface,
+                                  fontWeight: _enableBoxPricing
+                                      ? FontWeight.w600
+                                      : null,
+                                ),
+                              ),
+                              subtitle: const Text(
+                                'Add half, quarter, and pack sales modes',
+                              ),
+                              value: _enableBoxPricing,
+                              activeThumbColor: scheme.onPrimary,
+                              activeTrackColor: scheme.primary,
+                              inactiveThumbColor: scheme.outline,
+                              inactiveTrackColor:
+                                  scheme.surfaceContainerHighest,
+                              onChanged: (enabled) {
+                                setState(() => _enableBoxPricing = enabled);
+                              },
+                            );
+                          },
+                        ),
 
                       SizedBox(height: 10),
                       Row(
@@ -761,9 +859,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
                           Expanded(
                             child: _buildFieldWithEnabled(
                               onChanged: (val) {
-                                final price = double.tryParse(val) ?? 0;
-                                _halfboxprice_controller.text = (price / 2).toStringAsFixed(2);
-                                _quarterprice_controller.text = (price / 4).toStringAsFixed(2);
                                 _formKey.currentState?.validate();
                               },
                               inputFormatters: [
@@ -775,7 +870,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
                               'Box Price',
                               Icons.attach_money,
                               isNumber: true,
-                              // enabled: double.tryParse(_boxQtyController.text) != 1,
                               validator: (v) => _validateField('boxPrice', v),
                             ),
                           ),
@@ -829,7 +923,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                 child: _buildField(
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
-                                      RegExp(r'^\d*\.?\d{0,2}$'),
+                                      RegExp(r'^\d*\.?\d{0,3}$'),
                                     ),
                                   ],
                                   enabled: false,
@@ -868,69 +962,96 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                 height: 30,
                                 width: 30,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF22304A),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white24),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
                                 ),
                                 child: IconButton(
                                   tooltip: 'Remove half pricing',
                                   padding: EdgeInsets.zero,
                                   splashRadius: 20,
                                   constraints: const BoxConstraints(),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.remove_circle,
                                     size: 20,
-                                    color: Colors.white70,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                   onPressed: () async {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       barrierDismissible: false,
-                                      builder: (context) => AlertDialog(
-                                        backgroundColor: const Color(
-                                          0xFF182232,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        title: const Text(
-                                          'Confirm removal',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        content: const Text(
-                                          'Remove half-box pricing for this item? This cannot be undone.',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
-                                            child: const Text('Cancel',style: TextStyle(color: Colors.white),),
-                                          ),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
+                                      builder: (dialogContext) {
+                                        final colorScheme = Theme.of(
+                                          dialogContext,
+                                        ).colorScheme;
+                                        return AlertDialog(
+                                          backgroundColor: colorScheme.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
-                                            onPressed: () =>
-                                                Navigator.pop(context, true),
-                                            child: const Text(
-                                              'Remove',
-                                              style: TextStyle(
-                                                color: Colors.white,
+                                          ),
+                                          title: Text(
+                                            'Confirm removal',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            'Remove half-box pricing for this item? This cannot be undone.',
+                                            style: TextStyle(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: colorScheme.onSurface,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                                foregroundColor:
+                                                    colorScheme.onError,
+                                              ),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     );
 
                                     if (confirm != true) return;
 
                                     setState(() {
                                       pricingStep = 0;
+                                      _removedModes.addAll({
+                                        'half',
+                                        'quarter',
+                                        'pack',
+                                      });
 
                                       _halfboxqty_controller.clear();
                                       _halfboxprice_controller.clear();
@@ -944,11 +1065,20 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
                                     if (widget.docId != null) {
                                       try {
-                                        await _db.collection('itemsreg').doc(widget.docId)
-                                            .update({'modes.half': FieldValue.delete(),});
+                                        await _db
+                                            .collection('itemsreg')
+                                            .doc(widget.docId)
+                                            .update({
+                                              'modes.half': FieldValue.delete(),
+                                            });
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context, ).showSnackBar(
-                                            const SnackBar(content: Text('Half pricing removed', ),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Half pricing removed',
+                                              ),
                                               backgroundColor: Colors.green,
                                               duration: Duration(seconds: 2),
                                             ),
@@ -956,8 +1086,13 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                         }
                                       } catch (e) {
                                         if (mounted) {
-                                          ScaffoldMessenger.of(context,).showSnackBar(
-                                            SnackBar( content: Text('Failed to remove half pricing: $e', ),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Failed to remove half pricing: $e',
+                                              ),
                                               backgroundColor: Colors.red,
                                             ),
                                           );
@@ -980,7 +1115,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                 child: _buildField(
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
-                                      RegExp(r'^\d*\.?\d{0,2}$'),
+                                      RegExp(r'^\d*\.?\d{0,3}$'),
                                     ),
                                   ],
                                   enabled: false,
@@ -988,7 +1123,8 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                   'Quarter Qty',
                                   Icons.inventory,
                                   isNumber: true,
-                                  validator: (v) => _validateField('quarterQty', v),
+                                  validator: (v) =>
+                                      _validateField('quarterQty', v),
                                   onChanged: (value) {
                                     _formKey.currentState?.validate();
                                   },
@@ -1006,7 +1142,8 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                   'Quarter Price',
                                   Icons.attach_money,
                                   isNumber: true,
-                                  validator: (v) => _validateField('quarterPrice', v),
+                                  validator: (v) =>
+                                      _validateField('quarterPrice', v),
                                   onChanged: (value) {
                                     _formKey.currentState?.validate();
                                   },
@@ -1017,67 +1154,89 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                 height: 30,
                                 width: 30,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF22304A),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white24),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
                                 ),
                                 child: IconButton(
                                   tooltip: 'Remove quarter pricing',
                                   padding: EdgeInsets.zero,
                                   splashRadius: 20,
                                   constraints: const BoxConstraints(),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.remove_circle,
                                     size: 20,
-                                    color: Colors.white70,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                   onPressed: () async {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       barrierDismissible: false,
-                                      builder: (context) => AlertDialog(
-                                        backgroundColor: const Color(
-                                          0xFF182232,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        title: const Text(
-                                          'Confirm removal',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        content: const Text(
-                                          'Remove quarter pricing for this item? This cannot be undone.',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>  Navigator.pop(context, false),
-                                            child: const Text('Cancel',style: TextStyle(color: Colors.white),),
-                                          ),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
+                                      builder: (dialogContext) {
+                                        final colorScheme = Theme.of(
+                                          dialogContext,
+                                        ).colorScheme;
+                                        return AlertDialog(
+                                          backgroundColor: colorScheme.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
-                                            onPressed: () =>
-                                                Navigator.pop(context, true),
-                                            child: const Text(
-                                              'Remove',
-                                              style: TextStyle(
-                                                color: Colors.white,
+                                          ),
+                                          title: Text(
+                                            'Confirm removal',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            'Remove quarter pricing for this item? This cannot be undone.',
+                                            style: TextStyle(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: colorScheme.onSurface,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                                foregroundColor:
+                                                    colorScheme.onError,
+                                              ),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     );
 
                                     if (confirm != true) return;
-
+                                    _removedModes.addAll({'quarter', 'pack'});
                                     setState(() {
                                       pricingStep = 1;
                                       _quarterqty_controller.clear();
@@ -1088,9 +1247,13 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
                                     if (widget.docId != null) {
                                       try {
-                                        await _db .collection('itemsreg')
+                                        await _db
+                                            .collection('itemsreg')
                                             .doc(widget.docId)
-                                            .update({ 'modes.quarter':  FieldValue.delete(),});
+                                            .update({
+                                              'modes.quarter':
+                                                  FieldValue.delete(),
+                                            });
 
                                         if (mounted) {
                                           ScaffoldMessenger.of(
@@ -1143,7 +1306,8 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                   'Pack Qty',
                                   Icons.inventory,
                                   isNumber: true,
-                                  validator: (v) => _validateField('packQty', v),
+                                  validator: (v) =>
+                                      _validateField('packQty', v),
                                   onChanged: (v) {
                                     _formKey.currentState!.validate();
                                   },
@@ -1161,7 +1325,8 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                   'Pack Price',
                                   Icons.attach_money,
                                   isNumber: true,
-                                  validator: (v) => _validateField('packPrice', v),
+                                  validator: (v) =>
+                                      _validateField('packPrice', v),
                                   onChanged: (value) {
                                     _formKey.currentState?.validate();
                                   },
@@ -1172,81 +1337,103 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                 height: 30,
                                 width: 30,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF22304A),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.white24),
+                                  border: Border.all(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
+                                  ),
                                 ),
                                 child: IconButton(
                                   tooltip: 'Remove pack pricing',
                                   padding: EdgeInsets.zero,
                                   splashRadius: 20,
                                   constraints: const BoxConstraints(),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.remove_circle,
                                     size: 20,
-                                    color: Colors.white70,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                   onPressed: () async {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       barrierDismissible: false,
-                                      builder: (context) => AlertDialog(
-                                        backgroundColor: const Color(
-                                          0xFF182232,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        title: const Text(
-                                          'Confirm removal',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        content: const Text(
-                                          'Remove pack pricing for this item? This cannot be undone.',
-                                          style: TextStyle(
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context, false),
-                                            child: const Text('Cancel',style: TextStyle(color: Colors.white),),
-                                          ),
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
+                                      builder: (dialogContext) {
+                                        final colorScheme = Theme.of(
+                                          dialogContext,
+                                        ).colorScheme;
+                                        return AlertDialog(
+                                          backgroundColor: colorScheme.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
-                                            onPressed: () =>
-                                                Navigator.pop(context, true),
-                                            child: const Text(
-                                              'Remove',
-                                              style: TextStyle(
-                                                color: Colors.white,
+                                          ),
+                                          title: Text(
+                                            'Confirm removal',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            'Remove pack pricing for this item? This cannot be undone.',
+                                            style: TextStyle(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: colorScheme.onSurface,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    colorScheme.error,
+                                                foregroundColor:
+                                                    colorScheme.onError,
+                                              ),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              child: const Text('Remove'),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     );
 
                                     if (confirm != true) return;
-
                                     setState(() {
                                       pricingStep = 2;
                                       _packQtyController.clear();
                                       _packprice_controller.clear();
+                                      _removedModes.add('pack');
                                     });
 
                                     if (widget.docId != null) {
                                       try {
-                                        await _db .collection('itemsreg')
+                                        await _db
+                                            .collection('itemsreg')
                                             .doc(widget.docId)
                                             .update({
-                                          'modes.pack': FieldValue.delete(),
-                                        });
+                                              'modes.pack': FieldValue.delete(),
+                                            });
 
                                         if (mounted) {
                                           ScaffoldMessenger.of(
@@ -1289,9 +1476,9 @@ class _ItemRegPageState extends State<ItemRegPage> {
                         'Shelf Number',
                         Icons.label,
                         onChanged: (v) {
-                        if(v.isEmpty){
-                          return;
-                        }
+                          if (v.isEmpty) {
+                            return;
+                          }
                         },
                         validator: (v) => null,
                       ),
@@ -1304,9 +1491,15 @@ class _ItemRegPageState extends State<ItemRegPage> {
                             child: DropdownButtonFormField<String>(
                               isExpanded: true,
                               initialValue: _productType,
-                              dropdownColor: Color(0xFF1B263B),
-                              style: TextStyle(color: Colors.white70),
-                              decoration: _buildDropdownDecoration('Product Type'),
+                              dropdownColor: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              decoration: _buildDropdownDecoration(
+                                'Product Type',
+                              ),
                               items: const [
                                 DropdownMenuItem(
                                   value: 'product',
@@ -1320,22 +1513,35 @@ class _ItemRegPageState extends State<ItemRegPage> {
                               onChanged: _productTypeLocked
                                   ? null
                                   : (v) => setState(() {
-                                _productType = v;
-                                _formKey.currentState?.validate();
-                              }),
-                              validator: (v) => v == null ? 'Select product type' : null,
+                                      _productType = v;
+                                      _formKey.currentState?.validate();
+                                    }),
+                              validator: (v) =>
+                                  v == null ? 'Select product type' : null,
                             ),
                           ),
-                          const SizedBox(width: 8),
+
+                          const SizedBox(width: 2),
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: IconButton(
                               icon: Icon(
-                                _productTypeLocked ? Icons.lock : Icons.lock_open,
-                                color: _productTypeLocked ? Colors.blue : Colors.white24,
+                                _productTypeLocked
+                                    ? Icons.lock
+                                    : Icons.lock_open,
+                                color: _productTypeLocked
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).brightness ==
+                                          Brightness.light
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Colors.white24,
                               ),
-                              tooltip: _productTypeLocked ? 'Unlock Product Type' : 'Lock Product Type',
-                              onPressed: () => setState(() => _productTypeLocked = !_productTypeLocked),
+                              tooltip: _productTypeLocked
+                                  ? 'Unlock Product Type'
+                                  : 'Lock Product Type',
+                              onPressed: () => setState(
+                                () => _productTypeLocked = !_productTypeLocked,
+                              ),
                             ),
                           ),
                         ],
@@ -1345,9 +1551,11 @@ class _ItemRegPageState extends State<ItemRegPage> {
                       Builder(
                         builder: (context) {
                           final uniqueCategories = <String, String>{
-                            for (final w in datafeed.productcategory) w.productname: w.productname
+                            for (final w in datafeed.productcategory)
+                              w.productname: w.productname,
                           };
-                          final safeCategoryValue = uniqueCategories.containsKey(_productCategory)
+                          final safeCategoryValue =
+                              uniqueCategories.containsKey(_productCategory)
                               ? _productCategory
                               : null;
 
@@ -1358,34 +1566,71 @@ class _ItemRegPageState extends State<ItemRegPage> {
                                 child: DropdownButtonFormField<String>(
                                   value: safeCategoryValue,
                                   isExpanded: true,
-                                  dropdownColor: const Color(0xFF22304A),
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: _buildDropdownDecoration('Product category'),
+                                  dropdownColor: Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
+                                  decoration: _buildDropdownDecoration(
+                                    'Product category',
+                                  ),
                                   items: uniqueCategories.values
-                                      .map((name) => DropdownMenuItem<String>(
-                                    value: name,
-                                    child: Text(name),
-                                  ))
+                                      .map(
+                                        (name) => DropdownMenuItem<String>(
+                                          value: name,
+                                          child: Text(name),
+                                        ),
+                                      )
                                       .toList(),
                                   onChanged: _productCategoryLocked
                                       ? null
                                       : (v) => setState(() {
-                                    _productCategory = v;
-                                    _formKey.currentState?.validate();
-                                  }),
-                                  validator: (v) => v == null ? 'Select product category' : null,
+                                          _productCategory = v;
+                                          _formKey.currentState?.validate();
+                                        }),
+                                  validator: (v) => v == null
+                                      ? 'Select product category'
+                                      : null,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: IconButton(
+                                  icon: const Icon(Icons.add_circle_outline),
+                                  tooltip: 'Add product category',
+                                  onPressed: _productCategoryLocked
+                                      ? null
+                                      : _addProductCategory,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: IconButton(
                                   icon: Icon(
-                                    _productCategoryLocked ? Icons.lock : Icons.lock_open,
-                                    color: _productCategoryLocked ? Colors.blue : Colors.white24,
+                                    _productCategoryLocked
+                                        ? Icons.lock
+                                        : Icons.lock_open,
+                                    color: _productCategoryLocked
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).brightness ==
+                                              Brightness.light
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface
+                                        : Colors.white24,
                                   ),
-                                  tooltip: _productCategoryLocked ? 'Unlock Product Category' : 'Lock Product Category',
-                                  onPressed: () => setState(() => _productCategoryLocked = !_productCategoryLocked),
+                                  tooltip: _productCategoryLocked
+                                      ? 'Unlock Product Category'
+                                      : 'Lock Product Category',
+                                  onPressed: () => setState(
+                                    () => _productCategoryLocked =
+                                        !_productCategoryLocked,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1407,282 +1652,417 @@ class _ItemRegPageState extends State<ItemRegPage> {
                             ),
                           ),
 
-                          onPressed: _loading ? null : () async {
-                            if (!_formKey.currentState!.validate()) return;
-                            setState(() => _loading = true);
-                            final now = DateTime.now();
-                            final day = DateFormat('EEEE').format(now);
-                            final year = now.year.toString();
-                            final month = '${now.year}.${now.month}';
-                            final weekNumber = ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
-                            final week = '${now.year}.$weekNumber';
+                          onPressed: _loading
+                              ? null
+                              : () async {
+                                  if (!_formKey.currentState!.validate())
+                                    return;
+                                  setState(() => _loading = true);
+                                  final now = DateTime.now();
+                                  final day = DateFormat('EEEE').format(now);
+                                  final year = now.year.toString();
+                                  final month = '${now.year}.${now.month}';
+                                  final weekNumber =
+                                      ((now
+                                                  .difference(
+                                                    DateTime(now.year, 1, 1),
+                                                  )
+                                                  .inDays) /
+                                              7)
+                                          .floor() +
+                                      1;
+                                  final week = '${now.year}.$weekNumber';
 
-                            try {
-                              final datafeed = context.read<Datafeed>();
-                              final companyId = datafeed.companyid;
-                              final itemName = _nameController.text.trim();
+                                  try {
+                                    final datafeed = context.read<Datafeed>();
+                                    final companyId = datafeed.companyid;
+                                    final itemName = _nameController.text
+                                        .trim();
 
-                              String sanitize(String input) {
-                                return input.trim().toLowerCase()
-                                    .replaceAll(RegExp(r'\s+'), '')
-                                    .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-                              }
+                                    String sanitize(String input) {
+                                      return input
+                                          .trim()
+                                          .toLowerCase()
+                                          .replaceAll(RegExp(r'\s+'), '')
+                                          .replaceAll(
+                                            RegExp(r'[^a-z0-9_]'),
+                                            '',
+                                          );
+                                    }
 
-                              // docId declared FIRST so it's available everywhere below
-                              final docId = widget.docId ?? '${sanitize(companyId)}_${sanitize(itemName)}';
+                                    final docId =
+                                        widget.docId ??
+                                        '${sanitize(companyId)}_${sanitize(itemName)}';
 
+                                    final cleabbarcode =
+                                        (_barcodeController.text.trim().isEmpty
+                                                ? itemName
+                                                : _barcodeController.text
+                                                      .trim())
+                                            .toLowerCase();
 
-                              final cleabbarcode = (_barcodeController.text.trim().isEmpty
-                                  ? itemName
-                                  : _barcodeController.text.trim()).toLowerCase();
+                                    // Name duplicate - new items only
+                                    final nameQuery = await _db
+                                        .collection('itemsreg')
+                                        .where(
+                                          'companyid',
+                                          isEqualTo: companyId,
+                                        )
+                                        .where('name', isEqualTo: itemName)
+                                        .limit(1)
+                                        .get();
 
-                              // Name duplicate — new items only
-                              final nameQuery = await _db.collection('itemsreg')
-                                  .where('companyid', isEqualTo: companyId)
-                                  .where('name', isEqualTo: itemName)
-                                  .limit(1).get();
+                                    if (nameQuery.docs.isNotEmpty &&
+                                        nameQuery.docs.first.id != docId) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'An item with name "$itemName" already exists for this company',
+                                            ),
+                                            backgroundColor: Colors.red,
+                                            duration: const Duration(
+                                              seconds: 4,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      setState(() => _loading = false);
+                                      return;
+                                    }
 
-                              if (nameQuery.docs.isNotEmpty && nameQuery.docs.first.id != docId) {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    content: Text('An item with name "$itemName" already exists for this company'),
-                                    backgroundColor: Colors.red,
-                                    duration: const Duration(seconds: 4),
-                                  ));
-                                }
-                                setState(() => _loading = false);
-                                return;
-                              }
+                                    if (cleabbarcode.isNotEmpty) {
+                                      final barcodeQuery = await _db
+                                          .collection('itemsreg')
+                                          .where(
+                                            'companyid',
+                                            isEqualTo: companyId,
+                                          )
+                                          .where(
+                                            'barcode',
+                                            isEqualTo: cleabbarcode,
+                                          )
+                                          .limit(1)
+                                          .get();
 
-                              if (cleabbarcode.isNotEmpty) {
-                                final barcodeQuery = await _db.collection('itemsreg')
-                                    .where('companyid', isEqualTo: companyId)
-                                    .where('barcode', isEqualTo: cleabbarcode)
-                                    .limit(1).get();
+                                      if (barcodeQuery.docs.isNotEmpty &&
+                                          barcodeQuery.docs.first.id != docId) {
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'An item with barcode "$cleabbarcode" already exists',
+                                              ),
+                                              backgroundColor: Colors.red,
+                                              duration: const Duration(
+                                                seconds: 4,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        setState(() => _loading = false);
+                                        return;
+                                      }
+                                    }
 
-                                if (barcodeQuery.docs.isNotEmpty && barcodeQuery.docs.first.id != docId) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                      content: Text('An item with barcode "$cleabbarcode" already exists'),
-                                      backgroundColor: Colors.red,
-                                      duration: const Duration(seconds: 4),
-                                    ));
+                                    final docRef = _db
+                                        .collection('itemsreg')
+                                        .doc(docId);
+                                    final imageUrl = await uploadLogo(docId);
+
+                                    List<Mode> modes = List<Mode>.from(
+                                      widget.item?.modes ?? [],
+                                    );
+                                    final double boxqty =
+                                        double.tryParse(
+                                          _boxQtyController.text,
+                                        ) ??
+                                        0;
+
+                                    void upsertMode(String id, Mode newMode) {
+                                      final index = modes.indexWhere(
+                                        (m) => m.id == id,
+                                      );
+                                      if (index != -1) {
+                                        modes[index] = newMode;
+                                      } else {
+                                        modes.add(newMode);
+                                      }
+                                    }
+
+                                    void removeMode(String id) =>
+                                        modes.removeWhere((m) => m.id == id);
+
+                                    final bool hasBoxQuantity = boxqty >= 1;
+                                    final businessType = datafeed.companytype
+                                        .toLowerCase()
+                                        .trim();
+                                    final bool supportsRetail =
+                                        businessType != 'wholesale';
+                                    final bool supportsWholesale =
+                                        businessType != 'retail';
+                                    final bool wantSingle =
+                                        hasBoxQuantity && supportsRetail;
+                                    final bool wantCartonSet =
+                                        hasBoxQuantity && supportsWholesale;
+
+                                    final String cp = _costController.text
+                                        .trim();
+                                    final String rp = _retail_price.text.trim();
+                                    final String boxPrice =
+                                        _wholesalePriceController.text.trim();
+                                    final String supplierPrice =
+                                        _supplierPriceController.text.trim();
+
+                                    if (wantSingle) {
+                                      upsertMode(
+                                        "single",
+                                        Mode(
+                                          id: "single",
+                                          name: "Single",
+                                          qty: "1",
+                                          cp: cp,
+                                          rp: rp,
+                                          wp: boxqty == 1 ? boxPrice : rp,
+                                          sp: boxqty == 1 ? supplierPrice : rp,
+                                        ),
+                                      );
+                                    } else {
+                                      removeMode("single");
+                                    }
+
+                                    if (wantCartonSet) {
+                                      upsertMode(
+                                        "carton",
+                                        Mode(
+                                          id: "carton",
+                                          name: "Carton",
+                                          qty: _boxQtyController.text.trim(),
+                                          cp: cp,
+                                          rp: boxqty > 1 ? boxPrice : rp,
+                                          wp: boxPrice,
+                                          sp: supplierPrice,
+                                        ),
+                                      );
+                                    } else {
+                                      removeMode("carton");
+                                    }
+
+                                    if (hasBoxQuantity && _enableBoxPricing) {
+                                      if (pricingStep >= 1 &&
+                                          _halfboxqty_controller
+                                              .text
+                                              .isNotEmpty &&
+                                          _halfboxprice_controller
+                                              .text
+                                              .isNotEmpty) {
+                                        upsertMode(
+                                          "half",
+                                          Mode(
+                                            id: "half",
+                                            name: "Half Carton",
+                                            qty: _halfboxqty_controller.text
+                                                .trim(),
+                                            cp: cp,
+                                            rp: _halfboxprice_controller.text
+                                                .trim(),
+                                            wp: _halfboxprice_controller.text
+                                                .trim(),
+                                            sp: _halfboxprice_controller.text
+                                                .trim(),
+                                          ),
+                                        );
+                                      } else {
+                                        removeMode("half");
+                                      }
+
+                                      if (pricingStep >= 2 &&
+                                          _quarterqty_controller
+                                              .text
+                                              .isNotEmpty &&
+                                          _quarterprice_controller
+                                              .text
+                                              .isNotEmpty) {
+                                        upsertMode(
+                                          "quarter",
+                                          Mode(
+                                            id: "quarter",
+                                            name: "Quarter Carton",
+                                            qty: _quarterqty_controller.text
+                                                .trim(),
+                                            cp: cp,
+                                            rp: _quarterprice_controller.text
+                                                .trim(),
+                                            wp: _quarterprice_controller.text
+                                                .trim(),
+                                            sp: _quarterprice_controller.text
+                                                .trim(),
+                                          ),
+                                        );
+                                      } else {
+                                        removeMode("quarter");
+                                      }
+
+                                      if (pricingStep >= 3 &&
+                                          _packQtyController.text.isNotEmpty &&
+                                          _packprice_controller
+                                              .text
+                                              .isNotEmpty) {
+                                        upsertMode(
+                                          "pack",
+                                          Mode(
+                                            id: "pack",
+                                            name: "Pack",
+                                            qty: _packQtyController.text.trim(),
+                                            cp: cp,
+                                            rp: _packprice_controller.text
+                                                .trim(),
+                                            wp: _packprice_controller.text
+                                                .trim(),
+                                            sp: _packprice_controller.text
+                                                .trim(),
+                                          ),
+                                        );
+                                      } else {
+                                        removeMode("pack");
+                                      }
+                                    } else {
+                                      removeMode("half");
+                                      removeMode("quarter");
+                                      removeMode("pack");
+                                    }
+
+                                    Map<String, dynamic> data;
+
+                                    if (widget.docId == null) {
+                                      // NEW ITEM
+                                      final item = ItemModel(
+                                        id: docId,
+                                        name: itemName,
+                                        barcode: cleabbarcode,
+                                        cp: _costController.text.trim(),
+                                        retailmarkup: '',
+                                        wholesalemarkup: '',
+                                        retailprice: '',
+                                        wholesaleprice: '',
+                                        producttype: _productType ?? '',
+                                        pricingmode: false,
+                                        pcategory: _productCategory ?? '',
+                                        warehouse: '',
+                                        openingstock: '',
+                                        company: datafeed.company,
+                                        companyid: datafeed.companyid,
+                                        imageurl: imageUrl ?? '',
+                                        modes: modes,
+                                        createdat: DateTime.now(),
+                                        updatedby: null,
+                                        updatedat: null,
+                                        wminqty:
+                                            _wholesaleMinQtyController.text,
+                                        sminqty: _supplierMinQtyController.text,
+                                        staff: datafeed.staff,
+                                        modemore: _enableBoxPricing,
+                                        deletedat: null,
+                                        deletedby: null,
+                                        day: day,
+                                        week: week,
+                                        month: month,
+                                        year: year,
+                                        shelfnumber:
+                                            _shelfnumberController.text,
+                                      );
+
+                                      data = item.toMap();
+                                      data['createdat'] =
+                                          FieldValue.serverTimestamp();
+                                      await docRef.set(
+                                        data,
+                                        SetOptions(merge: true),
+                                      );
+                                    } else {
+                                      // EDIT
+                                      data = {
+                                        'name': itemName,
+                                        'barcode': cleabbarcode,
+                                        'cp': _costController.text.trim(),
+                                        'producttype': _productType ?? '',
+                                        'pcategory': _productCategory ?? '',
+                                        'imageurl': imageUrl ?? '',
+                                        'modes': {
+                                          for (var m in modes) m.id: m.toMap(),
+                                        },
+                                        'wminqty':
+                                            _wholesaleMinQtyController.text,
+                                        'sminqty':
+                                            _supplierMinQtyController.text,
+                                        'modemore': _enableBoxPricing,
+                                        'updatedat':
+                                            FieldValue.serverTimestamp(),
+                                        'updatedby': datafeed.staff,
+                                        'shelfnumber':
+                                            _shelfnumberController.text,
+                                      };
+                                      await docRef.update(data);
+                                    }
+
+                                    if (widget.docId == null) {
+                                      _clearAllFields();
+                                    }
+
+                                    if (mounted) {
+                                      final theme = Theme.of(context);
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            widget.docId == null
+                                                ? 'Item saved successfully!'
+                                                : 'Item updated successfully!',
+                                            style: TextStyle(
+                                              color:
+                                                  theme.colorScheme.onPrimary,
+                                            ),
+                                          ),
+                                          backgroundColor: Colors.green,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      final theme = Theme.of(context);
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error: $e',
+                                            style: TextStyle(
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                            ),
+                                          ),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 4),
+                                        ),
+                                      );
+                                    }
                                   }
                                   setState(() => _loading = false);
-                                  return;
-                                }
-                              }
-
-                              final docRef = _db.collection('itemsreg').doc(docId);
-                              final imageUrl = await uploadLogo(docId);
-
-                              List<Mode> modes = widget.item?.modes ?? [];
-                              double boxqty = double.tryParse(_boxQtyController.text) ?? 0;
-
-                              void upsertMode(String id, Mode newMode) {
-                                int index = modes.indexWhere((m) => m.id == id);
-                                if (index != -1) { modes[index] = newMode; } else { modes.add(newMode); }
-                              }
-                              void removeMode(String id) { modes.removeWhere((m) => m.id == id); }
-
-                              upsertMode("single", Mode(
-                                id: "single", name: "Single", qty: "1",
-                                cp: _costController.text.trim(),
-                                rp: _retail_price.text.trim(),
-                                wp: _retail_price.text.trim(),
-                                sp: _retail_price.text.trim(),
-                              ));
-
-                              if (boxqty >= 2) {
-                                upsertMode("carton", Mode(
-                                  id: "carton", name: "Carton",
-                                  qty: _boxQtyController.text.trim(),
-                                  cp: _costController.text.trim(),
-                                  rp: _wholesalePriceController.text.trim(),
-                                  wp: _wholesalePriceController.text.trim(),
-                                  sp: _supplierPriceController.text.trim(),
-                                ));
-                              }
-                              else {
-                                upsertMode("carton", Mode(
-                                  id: "carton", name: "Carton",
-                                  qty: "1",
-                                  cp: _costController.text.trim(),
-                                  rp: _retail_price.text.trim(),
-                                  wp: _wholesalePriceController.text.trim().isNotEmpty
-                                      ? _wholesalePriceController.text.trim()
-                                      : _retail_price.text.trim(),
-                                  sp: _supplierPriceController.text.trim().isNotEmpty
-                                      ? _supplierPriceController.text.trim()
-                                      : _retail_price.text.trim(),
-                                ));
-
-                                final double singleCp = double.tryParse(_costController.text.trim()) ?? 0;
-                                final double singleRp = double.tryParse(_retail_price.text.trim()) ?? 0;
-                                final double singleWp = double.tryParse(
-                                  _wholesalePriceController.text.trim().isNotEmpty
-                                      ? _wholesalePriceController.text.trim()
-                                      : _retail_price.text.trim(),
-                                ) ?? 0;
-                                final double singleSp = double.tryParse(
-                                  _supplierPriceController.text.trim().isNotEmpty
-                                      ? _supplierPriceController.text.trim()
-                                      : _retail_price.text.trim(),
-                                ) ?? 0;
-
-                                upsertMode("half", Mode(
-                                  id: "half", name: "Half Carton",
-                                  qty: (0.5).toString(),
-                                  cp: (singleCp / 2).toStringAsFixed(2),
-                                  rp: (singleRp / 2).toStringAsFixed(2),
-                                  wp: (singleWp / 2).toStringAsFixed(2),
-                                  sp: (singleSp / 2).toStringAsFixed(2),
-                                ));
-
-                                upsertMode("quarter", Mode(
-                                  id: "quarter", name: "Quarter Carton",
-                                  qty: (0.25).toString(),
-                                  cp: (singleCp / 4).toStringAsFixed(2),
-                                  rp: (singleRp / 4).toStringAsFixed(2),
-                                  wp: (singleWp / 4).toStringAsFixed(2),
-                                  sp: (singleSp / 4).toStringAsFixed(2),
-                                ));
-                              }
-
-
-                              if (boxqty >= 2 && _enableBoxPricing) {
-                                if (pricingStep >= 1 && _halfboxqty_controller.text.isNotEmpty && _halfboxprice_controller.text.isNotEmpty) {
-                                  upsertMode("half", Mode(
-                                    id: "half", name: "Half Carton",
-                                    qty: _halfboxqty_controller.text.trim(),
-                                    cp: _costController.text.trim(),
-                                    rp: _halfboxprice_controller.text.trim(),
-                                    wp: _halfboxprice_controller.text.trim(),
-                                    sp: _halfboxprice_controller.text.trim(),
-                                  ));
-                                } else { removeMode("half"); }
-
-                                if (pricingStep >= 2 && _quarterqty_controller.text.isNotEmpty && _quarterprice_controller.text.isNotEmpty) {
-                                  upsertMode("quarter", Mode(
-                                    id: "quarter", name: "Quarter Carton",
-                                    qty: _quarterqty_controller.text.trim(),
-                                    cp: _costController.text.trim(),
-                                    rp: _quarterprice_controller.text.trim(),
-                                    wp: _quarterprice_controller.text.trim(),
-                                    sp: _quarterprice_controller.text.trim(),
-                                  ));
-                                } else { removeMode("quarter"); }
-
-                                if (pricingStep >= 3 && _packQtyController.text.isNotEmpty && _packprice_controller.text.isNotEmpty) {
-                                  upsertMode("pack", Mode(
-                                    id: "pack", name: "Pack",
-                                    qty: _packQtyController.text.trim(),
-                                    cp: _costController.text.trim(),
-                                    rp: _packprice_controller.text.trim(),
-                                    wp: _packprice_controller.text.trim(),
-                                    sp: _packprice_controller.text.trim(),
-                                  ));
-                                } else { removeMode("pack"); }
-                              } else if (boxqty >= 2) {
-                                removeMode("half");
-                                removeMode("quarter");
-                                removeMode("pack");
-                              }
-                              Map<String, dynamic> data;
-
-                              if (widget.docId == null) {
-                                // NEW ITEM
-                                final item = ItemModel(
-                                  id: docId,
-                                  name: itemName,
-                                  barcode: cleabbarcode,
-                                  cp: _costController.text.trim(),
-                                  retailmarkup: '',
-                                  wholesalemarkup: '',
-                                  retailprice: '',
-                                  wholesaleprice: '',
-                                  producttype: _productType ?? '',
-                                  pricingmode: false,
-                                  pcategory: _productCategory ?? '',
-                                  warehouse: '',
-                                  openingstock: '',
-                                  company: datafeed.company,
-                                  companyid: datafeed.companyid,
-                                  imageurl: imageUrl ?? '',
-                                  modes: modes,
-                                  createdat: DateTime.now(),
-                                  updatedby: null,
-                                  updatedat: null,
-                                  wminqty: _wholesaleMinQtyController.text,
-                                  sminqty: _supplierMinQtyController.text,
-                                  staff: datafeed.staff,
-                                  modemore: _enableBoxPricing,
-                                  deletedat: null,
-                                  deletedby: null,
-                                  day: day,
-                                  week: week,
-                                  month: month,
-                                  year: year,
-                                  shelfnumber: _shelfnumberController.text,
-                                );
-
-                                data = item.toMap();
-                                data['createdat'] = FieldValue.serverTimestamp();
-                                await docRef.set(data, SetOptions(merge: true));
-                              } else {
-                                // EDIT
-                                data = {
-                                  'name': itemName,
-                                  'barcode': cleabbarcode,
-                                  'cp': _costController.text.trim(),
-                                  'producttype': _productType ?? '',
-                                  'pcategory': _productCategory ?? '',
-                                  'imageurl': imageUrl ?? '',
-                                  'modes': {for (var m in modes) m.id: m.toMap()},
-                                  'wminqty': _wholesaleMinQtyController.text,
-                                  'sminqty': _supplierMinQtyController.text,
-                                  'modemore': _enableBoxPricing,
-                                  'updatedat': FieldValue.serverTimestamp(),
-                                  'updatedby': datafeed.staff,
-                                  'shellnumber': _shelfnumberController.text,
-                                };
-                                await docRef.update(data);
-                              }
-
-                              if (widget.docId == null) {
-                                _clearAllFields();
-                              }
-
-                              if (mounted) {
-                                final theme = Theme.of(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                  content: Text(widget.docId == null ? 'Item saved successfully!' : 'Item updated successfully!',style: TextStyle(color: theme.colorScheme.onPrimary,),),
-                                  backgroundColor: Colors.green,
-                                  duration: const Duration(seconds: 2),
-                                ));
-                               // if (widget.docId != null) Navigator.pop(context);
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                final theme = Theme.of(context);
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text('Error: $e',style: TextStyle(color: theme.colorScheme.onSurface,),),
-                                  backgroundColor: Colors.red,
-                                  duration: const Duration(seconds: 4),
-                                ));
-                              }
-                            }
-                            setState(() => _loading = false);
-                          },
+                                },
                           child: _loading
                               ? const CircularProgressIndicator(
-                            color: Colors.white,
-                          )
+                                  color: Colors.white,
+                                )
                               : const Text(
-                            'Save',
-                            style: TextStyle(color: Colors.white70),
-                          ),
+                                  'Save',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
                         ),
                       ),
                     ],
@@ -1691,45 +2071,57 @@ class _ItemRegPageState extends State<ItemRegPage> {
               ),
             ),
           ),
-          floatingActionButton: _enableBoxPricing && double.tryParse(_boxQtyController.text) != 1
+          floatingActionButton:
+              _enableBoxPricing &&
+                  (double.tryParse(_boxQtyController.text) ?? 0) >= 1
               ? Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  mini: true,
-                  heroTag: 'add_pricing',
-                  backgroundColor: Colors.green,
-                  onPressed: () {
-                    setState(() {
-                      if (pricingStep < 3) pricingStep++;
-                    });
-                  },
-                  child: const Icon(Icons.add),
-                ),
-                const SizedBox(width: 12),
-                FloatingActionButton(
-                  mini: true,
-                  heroTag: 'toggle_pricing',
-                  backgroundColor: Colors.blue,
-                  onPressed: () {
-                    setState(() => _enableBoxPricing = false);
-                  },
-                  child: const Icon(Icons.close),
-                ),
-              ],
-            ),
-          )
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FloatingActionButton(
+                        mini: true,
+                        heroTag: 'add_pricing',
+                        backgroundColor: Colors.green,
+                        onPressed: () {
+                          setState(() {
+                            if (pricingStep < 3) pricingStep++;
+                            _removedModes.remove(
+                              const [
+                                '',
+                                'half',
+                                'quarter',
+                                'pack',
+                              ][pricingStep],
+                            );
+                          });
+                        },
+                        child: const Icon(Icons.add),
+                      ),
+                      const SizedBox(width: 12),
+                      FloatingActionButton(
+                        mini: true,
+                        heroTag: 'toggle_pricing',
+                        backgroundColor: Colors.blue,
+                        onPressed: () {
+                          setState(() => _enableBoxPricing = false);
+                        },
+                        child: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                )
               : null,
         );
       },
     );
   }
 
-
   Widget _imagePickerSection() {
-    bool hasImage = _logoBytes != null || _logoFile != null ||
+    final colorScheme = Theme.of(context).colorScheme;
+    bool hasImage =
+        _logoBytes != null ||
+        _logoFile != null ||
         (_existingLogoUrl != null && _existingLogoUrl!.isNotEmpty);
 
     return Column(
@@ -1743,15 +2135,15 @@ class _ItemRegPageState extends State<ItemRegPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF22304A),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white24),
+              border: Border.all(color: colorScheme.outline),
             ),
             child: Row(
               children: [
                 Icon(
                   hasImage ? Icons.image : Icons.add_photo_alternate,
-                  color: hasImage ? Colors.green : Colors.white54,
+                  color: hasImage ? Colors.green : colorScheme.onSurfaceVariant,
                   size: 20,
                 ),
                 const SizedBox(width: 10),
@@ -1760,12 +2152,15 @@ class _ItemRegPageState extends State<ItemRegPage> {
                     hasImage
                         ? 'Item Image (tap to change)'
                         : 'Item Image (optional - tap to add)',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
                 Icon(
                   _imageExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: Colors.white54,
+                  color: colorScheme.onSurfaceVariant,
                   size: 20,
                 ),
               ],
@@ -1782,10 +2177,10 @@ class _ItemRegPageState extends State<ItemRegPage> {
                 height: 140,
                 width: 140,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF22304A),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: hasImage ? Colors.green : Colors.white24,
+                    color: hasImage ? Colors.green : colorScheme.outline,
                     width: hasImage ? 2 : 1,
                   ),
                 ),
@@ -1794,36 +2189,36 @@ class _ItemRegPageState extends State<ItemRegPage> {
                   child: Center(
                     child: hasImage
                         ? Stack(
-                      children: [
-                        if (_logoBytes != null)
-                          Image.memory(
-                            _logoBytes!,
-                            fit: BoxFit.cover,
-                            width: 140,
-                            height: 140,
+                            children: [
+                              if (_logoBytes != null)
+                                Image.memory(
+                                  _logoBytes!,
+                                  fit: BoxFit.cover,
+                                  width: 140,
+                                  height: 140,
+                                )
+                              else if (_logoFile != null)
+                                Image.file(
+                                  _logoFile!,
+                                  fit: BoxFit.cover,
+                                  width: 140,
+                                  height: 140,
+                                )
+                              else if (_existingLogoUrl != null &&
+                                  _existingLogoUrl!.isNotEmpty)
+                                Image.network(
+                                  _existingLogoUrl!,
+                                  fit: BoxFit.cover,
+                                  width: 140,
+                                  height: 140,
+                                ),
+                            ],
                           )
-                        else if (_logoFile != null)
-                          Image.file(
-                            _logoFile!,
-                            fit: BoxFit.cover,
-                            width: 140,
-                            height: 140,
-                          )
-                        else if (_existingLogoUrl != null &&
-                              _existingLogoUrl!.isNotEmpty)
-                            Image.network(
-                              _existingLogoUrl!,
-                              fit: BoxFit.cover,
-                              width: 140,
-                              height: 140,
-                            ),
-                      ],
-                    )
                         : const Icon(
-                      Icons.add_photo_alternate,
-                      size: 50,
-                      color: Colors.white38,
-                    ),
+                            Icons.add_photo_alternate,
+                            size: 50,
+                            color: Colors.white38,
+                          ),
                   ),
                 ),
               ),
@@ -1861,19 +2256,17 @@ class _ItemRegPageState extends State<ItemRegPage> {
     );
   }
 
-
-
   TextFormField _buildField(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool enabled = true,
-        bool isNumber = false,
-        bool required = true,
-        Function(String)? onChanged,
-        String? Function(String?)? validator,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool enabled = true,
+    bool isNumber = false,
+    bool required = true,
+    Function(String)? onChanged,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       enabled: enabled,
       controller: controller,
@@ -1881,7 +2274,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
 
       validator: (value) {
         if (validator != null) {
@@ -1904,22 +2297,22 @@ class _ItemRegPageState extends State<ItemRegPage> {
   }
 
   TextFormField _buildFieldWithEnabled(
-      TextEditingController controller,
-      String label,
-      IconData icon, {
-        bool isNumber = false,
-        bool enabled = true,
-        Function(String)? onChanged,
-        String? Function(String?)? validator,
-        List<TextInputFormatter>? inputFormatters,
-      }) {
+    TextEditingController controller,
+    String label,
+    IconData icon, {
+    bool isNumber = false,
+    bool enabled = true,
+    Function(String)? onChanged,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return TextFormField(
       controller: controller,
       enabled: enabled,
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
-      style: const TextStyle(color: Colors.white70),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
       validator: validator ?? (v) => v == null || v.isEmpty ? 'Required' : null,
       decoration: _inputDecoration(label, icon),
       inputFormatters: inputFormatters,
@@ -1928,38 +2321,77 @@ class _ItemRegPageState extends State<ItemRegPage> {
   }
 
   InputDecoration _inputDecoration(String label, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
-      prefixIcon: Icon(icon, color: Colors.white70),
+      labelStyle: TextStyle(
+        color: isDark ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+      ),
+      floatingLabelStyle: TextStyle(
+        color: isDark ? colorScheme.onSurface : colorScheme.primary,
+      ),
+      prefixIcon: Icon(icon, color: colorScheme.onSurfaceVariant),
       filled: true,
-      fillColor: const Color(0xFF22304A),
+      fillColor: colorScheme.surfaceContainerHighest,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
+        borderSide: BorderSide(color: colorScheme.secondary, width: 1.5),
       ),
     );
   }
 
   InputDecoration _buildDropdownDecoration(String label) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(
+        color: isDark ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+      ),
+      floatingLabelStyle: TextStyle(
+        color: isDark ? colorScheme.onSurface : colorScheme.primary,
+      ),
       filled: true,
-      fillColor: const Color(0xFF22304A),
+      fillColor: colorScheme.surfaceContainerHighest,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.white24),
+        borderSide: BorderSide(color: colorScheme.outline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red),
+        borderSide: BorderSide(color: colorScheme.secondary, width: 1.5),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _newCategoryController.dispose();
+    _barcodeController.dispose();
+    _costController.dispose();
+    _boxQtyController.dispose();
+    _halfboxqty_controller.dispose();
+    _quarterqty_controller.dispose();
+    _retail_price.dispose();
+    _packQtyController.dispose();
+    _supplierPriceController.dispose();
+    _wholesalePriceController.dispose();
+    _halfboxprice_controller.dispose();
+    _quarterprice_controller.dispose();
+    _packprice_controller.dispose();
+    _wholesaleMinQtyController.dispose();
+    _supplierMinQtyController.dispose();
+    _shelfnumberController.dispose();
+    for (final controller in stockingControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 }
 

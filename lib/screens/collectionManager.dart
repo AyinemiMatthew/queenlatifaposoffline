@@ -83,7 +83,9 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
       throw Exception('Not signed in.');
     }
     if (user.email == null) {
-      throw Exception('Signed-in account has no email — cannot look up staff profile.');
+      throw Exception(
+        'Signed-in account has no email — cannot look up staff profile.',
+      );
     }
     final doc = await FirebaseFirestore.instance
         .collection('staff')
@@ -100,8 +102,9 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
   }
 
   Future<void> _loadCollections() async {
-    final result =
-    await _functions.httpsCallable('listFirestoreCollections').call();
+    final result = await _functions
+        .httpsCallable('listFirestoreCollections')
+        .call();
     final names = List<String>.from(result.data['collections'] as List);
     setState(() => _collections = names);
   }
@@ -164,6 +167,7 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
+          backgroundColor: Theme.of(ctx).colorScheme.surface,
           title: const Text('Confirm Staff ID'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -171,7 +175,7 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
             children: [
               Text(
                 'Enter your Staff ID to confirm deletion of your company\'s '
-                    'data in ${_selected.length} collection(s):',
+                'data in ${_selected.length} collection(s):',
               ),
               const SizedBox(height: 8),
               Text(
@@ -196,6 +200,10 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
               child: const Text('Cancel'),
             ),
             FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () => Navigator.pop(ctx, controller.text),
               child: const Text('Continue'),
             ),
@@ -209,11 +217,12 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Theme.of(ctx).colorScheme.surface,
         title: const Text('This cannot be undone'),
         content: Text(
           'Every document belonging to your company will be permanently '
-              'deleted from these ${_selected.length} collection(s) — other '
-              'companies\' data is left untouched:\n\n${_selected.join(', ')}',
+          'deleted from these ${_selected.length} collection(s) — other '
+          'companies\' data is left untouched:\n\n${_selected.join(', ')}',
         ),
         actions: [
           TextButton(
@@ -221,7 +230,10 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete permanently'),
           ),
@@ -235,17 +247,14 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
     try {
       final result = await _functions
           .httpsCallable('clearFirestoreCollections')
-          .call({
-        'collectionNames': _selected.toList(),
-        'staffId': staffId,
-      });
+          .call({'collectionNames': _selected.toList(), 'staffId': staffId});
 
       final counts = Map<String, dynamic>.from(result.data['deletedCounts']);
       final total = counts.values.fold<int>(0, (sum, v) => sum + (v as int));
 
       _showSnack(
         'Cleared $total document(s) belonging to your company across '
-            '${counts.length} collection(s).',
+        '${counts.length} collection(s).',
       );
       setState(() => _selected.clear());
     } on FirebaseFunctionsException catch (e) {
@@ -259,7 +268,9 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _friendlyError(Object e) {
@@ -272,6 +283,8 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Collection Manager'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -322,7 +335,7 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: const Text(
               'Viewing only — your account is not a super admin, '
-                  'so deletion is disabled.',
+              'so deletion is disabled.',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
@@ -332,8 +345,14 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
             children: [
               Text('${_selected.length} of ${_collections.length} selected'),
               const Spacer(),
-              TextButton(onPressed: _selectAll, child: const Text('Select all')),
-              TextButton(onPressed: _clearSelection, child: const Text('Clear')),
+              TextButton(
+                onPressed: _selectAll,
+                child: const Text('Select all'),
+              ),
+              TextButton(
+                onPressed: _clearSelection,
+                child: const Text('Clear'),
+              ),
             ],
           ),
         ),
@@ -366,22 +385,25 @@ class _CollectionManagerPageState extends State<CollectionManagerPage> {
         child: FilledButton.icon(
           style: FilledButton.styleFrom(
             backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
             minimumSize: const Size.fromHeight(48),
           ),
           onPressed: _deleting ? null : _onDeletePressed,
           icon: _deleting
               ? const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.white,
-            ),
-          )
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
               : const Icon(Icons.delete_forever),
-          label: Text(_deleting
-              ? 'Deleting…'
-              : 'Delete company data in ${_selected.length} collection(s)'),
+          label: Text(
+            _deleting
+                ? 'Deleting…'
+                : 'Delete company data in ${_selected.length} collection(s)',
+          ),
         ),
       ),
     );
