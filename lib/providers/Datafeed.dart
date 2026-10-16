@@ -337,7 +337,7 @@ class Datafeed extends ChangeNotifier {
   bool allowDiscountCode = false;
   String branchid = "";
   String accesslevel = "";
-  String subscriptionTier = 'starter';
+  String subscriptionTier = '';
   int staffPosition = 0;
   String sessionId = "";
   List<String> allowedPaymentMethods = [];
@@ -4827,7 +4827,6 @@ class Datafeed extends ChangeNotifier {
         // Save to SharedPreferences
         spref.setString('email', currentStaff!.email);
         spref.setString('accesslevel', currentStaff!.accesslevel);
-        spref.setString('accessLevel', currentStaff!.accesslevel);
         spref.setString('staff', currentStaff!.name);
         spref.setString('staffemail', currentStaff!.email);
         spref.setString('phone', currentStaff!.phone);
@@ -5001,7 +5000,6 @@ class Datafeed extends ChangeNotifier {
 
       spref.setString('email', currentStaff!.email);
       spref.setString('accesslevel', currentStaff!.accesslevel);
-      spref.setString('accessLevel', currentStaff!.accesslevel);
       spref.setString('staff', currentStaff!.name);
       spref.setString('staffemail', currentStaff!.email);
       spref.setString('phone', currentStaff!.phone);
@@ -5055,7 +5053,6 @@ class Datafeed extends ChangeNotifier {
     spref.setString('staff', staff);
     spref.setString('staffemail', staffemail);
     spref.setString('accesslevel', accesslevel);
-    spref.setString('accessLevel', accesslevel);
     spref.setInt('staffPosition', staffPosition);
     spref.setString('branch', branch);
     spref.setString('branchid', branchid);
@@ -5334,11 +5331,16 @@ class Datafeed extends ChangeNotifier {
     final role = normalizedAccessLevelNoSpaces;
     if (role.contains('cashier')) {
       return Routes.cashierPage;
-    } else if (role == 'salesattendance' ||
+    }
+    else if(role=='warehouse'){
+      return Routes.warehousehomescreen;
+    }
+    else if (role == 'salesattendance' ||
         role == 'salesmanager' ||
         role.contains('operations') ||
         role.contains('stockofficer') ||
         role.contains('accountant') ||
+        role.contains('warehouse') ||
         role.contains('sales')) {
       return Routes.roleAccessDashboard;
     } else if (role.contains('superadmin')) {
@@ -10710,11 +10712,11 @@ class Datafeed extends ChangeNotifier {
           '${d.month.toString().padLeft(2, '0')}-'
           '${d.day.toString().padLeft(2, '0')}';
 
-      Query query = db
-          .collection('sales')
-          .where('companyId', isEqualTo: companyid);
-      final canPick = isAdminLevel || canSelectBranch;
-      final branch = canPick ? branchId : activeBranchId;
+      Query query = db.collection('sales').where('isreturned',isEqualTo: false).where('companyId', isEqualTo: companyid);
+      final branch = isAdminLevel ? branchId : branchid;
+      if (!isAdminLevel && (branch == null || branch.trim().isEmpty)) {
+        throw StateError('Cannot load unprinted receipts without a branch.');
+      }
       if (branch != null && branch.isNotEmpty) {
         query = query.where('branchId', isEqualTo: branch);
       }
@@ -10722,17 +10724,16 @@ class Datafeed extends ChangeNotifier {
       query = query
           .where('dateymd', isGreaterThanOrEqualTo: ymd(start))
           .where('dateymd', isLessThanOrEqualTo: ymd(end))
+          .where('isreturned',isEqualTo: false)
           .orderBy('dateymd', descending: true);
 
       final snap = await query.get();
 
-      unprintedSales = snap.docs
-          .where((d) {
+      unprintedSales = snap.docs.where((d) {
             final m = d.data() as Map<String, dynamic>;
             final printedBy = (m['printedby'] ?? '').toString().trim();
             return m['printed'] != true && printedBy.isEmpty;
-          })
-          .map((d) {
+          }).map((d) {
             try {
               return SalesModel.fromSnapshot(d);
             } catch (e) {

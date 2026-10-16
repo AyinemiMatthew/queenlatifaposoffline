@@ -439,10 +439,8 @@ class _StaffState extends State<Staff> {
                             value: 'warehouse',
                             child: Text('warehouse'),
                           ),
-                          DropdownMenuItem(
-                            value: 'sales',
-                            child: Text('sales'),
-                          ),
+
+
                           DropdownMenuItem(
                             value: 'cashier',
                             child: Text('cashier'),

@@ -9,6 +9,8 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/screens/salesreturnlist.dart';
 import 'package:provider/provider.dart';
 
+const double _returnPanelMinHeight = 200;
+
 class Salesreturn extends StatefulWidget {
   final salereturn? salesitem;
   const Salesreturn({super.key, this.salesitem});
@@ -553,198 +555,220 @@ class _SalesreturnState extends State<Salesreturn> {
   }
 
   Widget _buildLeftPanel(Datafeed df) {
-    return Card(
-      color: _cardColor,
-      elevation: 4,
-      shadowColor: Colors.black54,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── HEADER
-            Text(
-              "Search Receipt",
-              style: TextStyle(
-                color: _secondaryTextColor,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ── SEARCH FIELD
-            TextField(
-              controller: _searchController,
-              readOnly: _receiptLocked,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 15,
-              ),
-              cursorColor: Theme.of(context).colorScheme.secondary,
-              decoration: _fieldInput("Receipt Number", Icons.search).copyWith(
-                suffixIcon: _receiptLocked
-                    ? IconButton(
-                        icon: const Icon(Icons.close, color: Colors.redAccent),
-                        tooltip: 'Clear',
-                        onPressed: () => _resetAll(df),
-                      )
-                    : IconButton(
-                        icon: const Icon(Icons.send, color: Colors.blue),
-                        onPressed: () async {
-                          final val = _searchController.text.trim();
-                          if (val.length >= 8) await _searchReceipt(df, val);
-                        },
-                      ),
-              ),
-              onChanged: (val) {
-                if (_debounce?.isActive ?? false) _debounce!.cancel();
-                _debounce = Timer(const Duration(milliseconds: 600), () async {
-                  if (val.length >= 9) await _searchReceipt(df, val);
-                });
-              },
-              onSubmitted: (val) async {
-                if (val.length >= 8) await _searchReceipt(df, val);
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // ── LOADING
-            if (_isSearching)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: Colors.blue,
-                  ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _returnPanelMinHeight),
+      child: Card(
+        color: _cardColor,
+        elevation: 4,
+        shadowColor: Colors.black54,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── HEADER
+              Text(
+                "Search Receipt",
+                style: TextStyle(
+                  color: _secondaryTextColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(height: 20),
 
-            // ── ERROR
-            if (_searcherror != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+              // ── SEARCH FIELD
+              TextField(
+                controller: _searchController,
+                readOnly: _receiptLocked,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 15,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.4)),
-                ),
-                child: Text(
-                  _searcherror!,
-                  style: const TextStyle(color: Colors.redAccent, fontSize: 14),
-                ),
+                cursorColor: Theme.of(context).colorScheme.secondary,
+                decoration: _fieldInput("Receipt Number", Icons.search)
+                    .copyWith(
+                      suffixIcon: _receiptLocked
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.redAccent,
+                              ),
+                              tooltip: 'Clear',
+                              onPressed: () => _resetAll(df),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.send, color: Colors.blue),
+                              onPressed: () async {
+                                final val = _searchController.text.trim();
+                                if (val.length >= 8)
+                                  await _searchReceipt(df, val);
+                              },
+                            ),
+                    ),
+                onChanged: (val) {
+                  if (_debounce?.isActive ?? false) _debounce!.cancel();
+                  _debounce = Timer(
+                    const Duration(milliseconds: 600),
+                    () async {
+                      if (val.length >= 9) await _searchReceipt(df, val);
+                    },
+                  );
+                },
+                onSubmitted: (val) async {
+                  if (val.length >= 8) await _searchReceipt(df, val);
+                },
               ),
 
-            // ── ITEMS LIST
-            if (_receiptItems.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text(
-                "Items on Receipt (${_receiptItems.length})",
-                style: TextStyle(
-                  color: _mutedTextColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 260),
-                decoration: BoxDecoration(
-                  color: _innerCardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.withOpacity(0.15)),
-                ),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _receiptItems.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: _softDividerColor),
-                  itemBuilder: (context, i) {
-                    final item = _receiptItems[i];
-                    final double qty =
-                        double.tryParse(
-                          item['returned_quantity']?.toString() ?? '0',
-                        ) ??
-                        0;
-                    final double price =
-                        double.tryParse(
-                          item['returned_price']?.toString() ?? '0',
-                        ) ??
-                        0;
-                    final String total = (qty * price).toStringAsFixed(2);
 
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 6,
-                      ),
-                      title: Text(
-                        item['returned_item']?.toString() ?? '',
-                        style: TextStyle(
-                          color: _primaryTextColor,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${item['returned_mode']} • Qty: ${qty.toStringAsFixed(0)} • GHS $total',
-                        style: TextStyle(color: _mutedTextColor, fontSize: 12),
-                      ),
-                      leading: const Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // ── REASON DROPDOWN
-              Text(
-                "Return Reason",
-                style: TextStyle(
-                  color: _primaryTextColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              _buildConditionDropdown(df),
-
-              const SizedBox(height: 24),
-
-              // ── RETURN ALL BUTTON
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              // ── LOADING
+              if (_isSearching)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.blue,
                     ),
                   ),
-                  icon: const Icon(Icons.assignment_return),
-                  label: const Text(
-                    "Return All to Cart",
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                  onPressed: () => _addAllToCart(df),
                 ),
-              ),
+
+              // ── ERROR
+              if (_searcherror != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.redAccent.withOpacity(0.4),
+                    ),
+                  ),
+                  child: Text(
+                    _searcherror!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+
+              // ── ITEMS LIST
+              if (_receiptItems.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  "Items on Receipt (${_receiptItems.length})",
+                  style: TextStyle(
+                    color: _mutedTextColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 260),
+                  decoration: BoxDecoration(
+                    color: _innerCardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _receiptItems.length,
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: _softDividerColor),
+                    itemBuilder: (context, i) {
+                      final item = _receiptItems[i];
+                      final double qty =
+                          double.tryParse(
+                            item['returned_quantity']?.toString() ?? '0',
+                          ) ??
+                          0;
+                      final double price =
+                          double.tryParse(
+                            item['returned_price']?.toString() ?? '0',
+                          ) ??
+                          0;
+                      final String total = (qty * price).toStringAsFixed(2);
+
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        title: Text(
+                          item['returned_item']?.toString() ?? '',
+                          style: TextStyle(
+                            color: _primaryTextColor,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${item['returned_mode']} • Qty: ${qty.toStringAsFixed(0)} • GHS $total',
+                          style: TextStyle(
+                            color: _mutedTextColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                        leading: const Icon(
+                          Icons.inventory_2_outlined,
+                          color: Colors.blue,
+                          size: 20,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── REASON DROPDOWN
+                Text(
+                  "Return Reason",
+                  style: TextStyle(
+                    color: _primaryTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildConditionDropdown(df),
+
+                const SizedBox(height: 24),
+
+                // ── RETURN ALL BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.assignment_return),
+                    label: const Text(
+                      "Return All to Cart",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    onPressed: () => _addAllToCart(df),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -912,26 +936,31 @@ class _SalesreturnState extends State<Salesreturn> {
 
   Widget _buildCartList(Datafeed df) {
     if (_cartItems.isEmpty) {
-      return Card(
-        color: _cardColor,
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-          child: Center(
-            child: Column(
-              children: [
-                Icon(
-                  Icons.assignment_return_outlined,
-                  size: 56,
-                  color: _mutedTextColor.withOpacity(0.2),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "Return cart is empty",
-                  style: TextStyle(color: _mutedTextColor, fontSize: 15),
-                ),
-              ],
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: _returnPanelMinHeight),
+        child: Card(
+          color: _cardColor,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.assignment_return_outlined,
+                    size: 56,
+                    color: _mutedTextColor.withOpacity(0.2),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Return cart is empty",
+                    style: TextStyle(color: _mutedTextColor, fontSize: 15),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

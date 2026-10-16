@@ -118,8 +118,6 @@ class Sidebar extends StatelessWidget {
                 ),
               ),
 
-
-
               if (isAdmin || isSuperAdmin)
                 Theme(
                   data: Theme.of(context).copyWith(
@@ -316,7 +314,6 @@ class Sidebar extends StatelessWidget {
                           Navigator.pushNamed(context, Routes.customerreg);
                         },
                       ),
-
                     ],
                   ),
                   Divider(color: colorScheme.outlineVariant),
@@ -871,6 +868,22 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
+                      ListTile(
+                        leading: Icon(
+                          Icons.receipt_long_outlined,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(
+                          'Unprinted Receipts',
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        ),
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            Routes.unprintedreceiptview,
+                          );
+                        },
+                      ),
                     ],
                   ),
 
@@ -1291,7 +1304,7 @@ class Sidebar extends StatelessWidget {
                         ),
 
                       if (value.hasFeature('debtor_report'))
-                     ListTile(
+                        ListTile(
                           leading: Icon(
                             Icons.account_balance_wallet,
                             color: colorScheme.onSurface,
@@ -1314,9 +1327,7 @@ class Sidebar extends StatelessWidget {
                         ),
                         title: Text(
                           'Supplier Report',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
                         ),
                         onTap: () {
                           Navigator.pushNamed(context, Routes.supplierreport);
@@ -1504,6 +1515,26 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
+                      if (isAdmin || isSuperAdmin)
+                        ListTile(
+                          leading: Icon(
+                            Icons.tune,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Dashboard & Feature Settings',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DashboardSettings(),
+                              ),
+                            );
+                          },
+                        ),
                       if (value.hasFeature('supplier_registration'))
                         ListTile(
                           leading: Icon(
@@ -1598,24 +1629,6 @@ class Sidebar extends StatelessWidget {
                         },
                       ),
 
-                      if (isAdmin || isSuperAdmin)
-                        ListTile(
-                          leading: Icon(Icons.tune, color: colorScheme.onSurface),
-                          title: Text(
-                            'Dashboard & Feature Settings',
-                            style: TextStyle(color: colorScheme.onSurface),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const DashboardSettings(),
-                              ),
-                            );
-                          },
-                        ),
-
                       // ListTile(
                       //   leading: Icon(
                       //     Icons.graphic_eq,
@@ -1650,8 +1663,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-
-                 ListTile(
+                ListTile(
                   leading: Icon(Icons.login, color: colorScheme.onSurface),
                   title: Text(
                     'logout',
@@ -1662,7 +1674,6 @@ class Sidebar extends StatelessWidget {
                   },
                 ),
               ],
-
             ],
           ),
         );

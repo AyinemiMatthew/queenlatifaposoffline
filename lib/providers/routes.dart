@@ -26,6 +26,7 @@ import 'package:kologsoft/screens/staff_view.dart';
 import 'package:kologsoft/screens/sub_account_form.dart';
 import 'package:kologsoft/screens/sub_account_form_view.dart';
 import 'package:kologsoft/screens/transfer_page.dart';
+import 'package:kologsoft/screens/unprintedreceiptview.dart';
 import 'package:kologsoft/screens/transfers.dart';
 import 'package:provider/provider.dart';
 
@@ -168,6 +169,7 @@ class Routes {
   static const String purchaseReturns = '/purchaseReturns';
   static const String purchaseReturnsView = '/purchaseReturnsView';
   static const String salesview = '/salesview';
+  static const String unprintedreceiptview = '/unprintedreceiptview';
   static const String salesinvoice = '/salesinvoice';
   static const String salesreport = '/salesreport';
   static const String salesreportsummary = '/salesreportsummary';
@@ -679,6 +681,19 @@ final pages = {
       'systemadmin',
     ],
     child: SalesViewPage(),
+  ),
+  Routes.unprintedreceiptview: (context) => const RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'sales',
+      'operations officers',
+      'sales attendance',
+      'sales manager',
+      'cashier',
+      'systemadmin',
+    ],
+    child: UnprintedReceiptView(),
   ),
   Routes.salesinvoice: (context) => const RouteGuard(
     allowedAccessLevels: [

@@ -65,7 +65,6 @@ Map<String, List<String>> getDefaultRoleAccessSelections() {
       Routes.stockreport,
       Routes.salesreportsummary,
       Routes.salesregister,
-      Routes.hampersalereport,
       Routes.newstock,
       Routes.stocklisttable,
       Routes.stocklist,
@@ -99,28 +98,27 @@ Map<String, List<String>> getDefaultRoleAccessSelections() {
       Routes.activityChartReg,
       Routes.activityChartView,
       Routes.paymentaccounts,
-      Routes.paymentdurationreg,
-      Routes.paymentdurationview,
-      Routes.creditopenbal,
-      Routes.creditopenbalview,
-      Routes.creditorpayable,
-      Routes.creditorpayableview,
-      Routes.debtorlist,
-      Routes.debtorBal,
-      Routes.debtpayments,
-      Routes.debtorBalView,
-      Routes.banktransfer,
-      Routes.banktransferview,
-      Routes.journalEntry,
-      Routes.journalView,
-      Routes.salesreportsummary,
-      Routes.stockreport,
-      Routes.staffsalereport,
-      Routes.salesregister,
-      Routes.hampersalereport,
-      Routes.salesreport,
-      Routes.uploadreceipt,
-      Routes.uploadreceiptview,
+     //  Routes.paymentdurationreg,
+     //  Routes.paymentdurationview,
+     //  Routes.creditopenbal,
+     //  Routes.creditopenbalview,
+     //  Routes.creditorpayable,
+     //  Routes.creditorpayableview,
+     //  Routes.debtorlist,
+     //  Routes.debtorBal,
+     //  Routes.debtpayments,
+     //  Routes.debtorBalView,
+     //  Routes.banktransfer,
+     //  Routes.banktransferview,
+     //  Routes.journalEntry,
+     //  Routes.journalView,
+     //  Routes.salesreportsummary,
+     //  Routes.stockreport,
+     //  Routes.staffsalereport,
+     //  Routes.salesregister,
+     // Routes.salesreport,
+     // Routes.uploadreceipt,
+     // Routes.uploadreceiptview,
     ],
   };
 }
@@ -155,6 +153,7 @@ List<RoleAccessAction> buildRoleAccessActions(
 String _fallbackRoleKey(String roleKey) {
   if (roleKey.contains('salesmanager')) return 'salesmanager';
   if (roleKey.contains('salesattendance')) return 'salesattendance';
+  if(roleKey.contains('warehouse')) return'warehouse';
   if (roleKey.contains('operation') || roleKey.contains('officer')) {
     return 'operationsofficer';
   }
@@ -517,6 +516,7 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _RoleOption(value: 'operationsofficer', label: 'Operations Officer'),
     _RoleOption(value: 'stockofficer', label: 'Stock Officer'),
     _RoleOption(value: 'accountant', label: 'Accountant'),
+    _RoleOption(value: 'warehouse', label: 'warehouse'),
   ];
 
   static const List<_PageOption> _pageOptions = [
@@ -532,8 +532,8 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _PageOption(route: Routes.salesregister, label: 'Sales Register'),
     _PageOption(route: Routes.stockrequest, label: 'Stock Requests'),
     _PageOption(route: Routes.stockrequestlist, label: 'Request List'),
-    _PageOption(route: Routes.salesreportsummary, label: 'Sales Summary'),
-    _PageOption(route: Routes.hampersalereport, label: 'Hamper Sales Report'),
+
+
     _PageOption(route: Routes.newstock, label: 'Stock Management'),
     _PageOption(route: Routes.stocklisttable, label: 'Stock List Table'),
     _PageOption(route: Routes.stocklist, label: 'Stock List'),
@@ -739,28 +739,6 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     );
   }
 
-  Future<void> _addCustomPage() async {
-    final label = _labelController.text.trim();
-    final route = _routeController.text.trim();
-    if (label.isEmpty || route.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide both a label and route.')),
-      );
-      return;
-    }
-
-    setState(() {
-      final current = List<String>.from(
-        _selections[_selectedRole] ?? <String>[],
-      );
-      if (!current.contains(route)) {
-        current.add(route);
-      }
-      _selections[_selectedRole] = current;
-      _labelController.clear();
-      _routeController.clear();
-    });
-  }
 
   Future<void> _saveSelections() async {
     setState(() => _isSaving = true);

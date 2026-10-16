@@ -232,7 +232,7 @@ class _ReturnReasonsState extends State<ReturnReasons> {
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: Theme.of(
                                           context,
-                                        ).colorScheme.primary,
+                                        ).colorScheme.primaryContainer,
                                         side: BorderSide(
                                           color: Theme.of(
                                             context,
