@@ -48,7 +48,7 @@ class _StockListTableState extends State<StockListTable> {
 
   Color _alternateSurfaceColor(BuildContext context) => _isLightTheme(context)
       ? Theme.of(context).colorScheme.surfaceContainerLow
-      : const Color(0xFF0D1B2A);
+      : Theme.of(context).colorScheme.surfaceContainerLow;
 
   Color _primaryTextColor(BuildContext context) =>
       Theme.of(context).colorScheme.onSurface;
@@ -64,29 +64,19 @@ class _StockListTableState extends State<StockListTable> {
 
   Widget _buildDatePickerTheme(BuildContext context, Widget? child) {
     final theme = Theme.of(context);
-    final colorScheme = _isLightTheme(context)
-        ? theme.colorScheme
-        : theme.colorScheme.copyWith(
-            primary: Colors.blue,
-            onPrimary: Colors.white,
-            surface: const Color(0xFF22304A),
-            onSurface: Colors.white,
-          );
-    return Theme(
-      data: theme.copyWith(colorScheme: colorScheme),
-      child: child!,
-    );
+    return Theme(data: theme, child: child!);
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_)async{
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = Provider.of<StockProvider>(context, listen: false);
       await provider.getdata();
       _loadData();
     });
   }
+
   StreamSubscription? _subscription;
 
   Future<void> _loadData() async {
@@ -94,27 +84,31 @@ class _StockListTableState extends State<StockListTable> {
 
     final provider = Provider.of<StockProvider>(context, listen: false);
 
-    _subscription = provider.stockStream(
-      collectionName: 'stock_transactions',
-      startDate: _isDateRangeActive ? _startDate : null,
-      endDate: _isDateRangeActive ? _endDate : null,
-      branchfield: 'staffbranchid',
-      datefield: 'invoicedate',
-    ).listen((snapshot) {
-      if (snapshot.isNotEmpty) {
-        setState(() {
-          _allData = snapshot;
-          _totalCount = _allData.length;
-          _applySearchAndPagination();
-          _isLoading = false;
-        });
-      }
-    }, onError: (e) {
-      print("Error loading data: $e");
-      setState(() => _isLoading = false);
-    });
+    _subscription = provider
+        .stockStream(
+          collectionName: 'stock_transactions',
+          startDate: _isDateRangeActive ? _startDate : null,
+          endDate: _isDateRangeActive ? _endDate : null,
+          branchfield: 'staffbranchid',
+          datefield: 'invoicedate',
+        )
+        .listen(
+          (snapshot) {
+            if (snapshot.isNotEmpty) {
+              setState(() {
+                _allData = snapshot;
+                _totalCount = _allData.length;
+                _applySearchAndPagination();
+                _isLoading = false;
+              });
+            }
+          },
+          onError: (e) {
+            print("Error loading data: $e");
+            setState(() => _isLoading = false);
+          },
+        );
   }
-
 
   // Future<void> _loadData() async {
   //   setState(() => _isLoading = true);
@@ -145,7 +139,9 @@ class _StockListTableState extends State<StockListTable> {
       if (searchQuery.isEmpty) return true;
       return doc.values.any((value) {
         if (value == null) return false;
-        return value.toString().toLowerCase().contains(searchQuery.toLowerCase());
+        return value.toString().toLowerCase().contains(
+          searchQuery.toLowerCase(),
+        );
       });
     }).toList();
 
@@ -156,10 +152,7 @@ class _StockListTableState extends State<StockListTable> {
         ? _totalCount
         : startIndex + _rowsPerPage;
 
-    _displayData = filtered.sublist(
-      startIndex,
-      endIndex,
-    );
+    _displayData = filtered.sublist(startIndex, endIndex);
 
     setState(() {});
   }
@@ -219,21 +212,20 @@ class _StockListTableState extends State<StockListTable> {
   List<Widget> _buildAppBarActions() {
     final stock = Provider.of<StockProvider>(context);
     final colors = Theme.of(context).colorScheme;
-    final isLight = _isLightTheme(context);
     final actions = <Widget>[
       IconButton(
         icon: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: _isDateRangeActive
-                ? Colors.blue.shade800.withOpacity(0.3)
+                ? colors.secondaryContainer
                 : colors.onSurface.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             Icons.calendar_month,
             color: _isDateRangeActive
-                ? (isLight ? Colors.blue.shade800 : Colors.blue.shade300)
+                ? colors.onSecondaryContainer
                 : colors.onSurface.withOpacity(0.7),
           ),
         ),
@@ -260,6 +252,7 @@ class _StockListTableState extends State<StockListTable> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: _pageColor(context),
       appBar: AppBar(
@@ -267,8 +260,8 @@ class _StockListTableState extends State<StockListTable> {
         actions: _buildAppBarActions(),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF415A77),
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
         child: const Icon(Icons.add),
         onPressed: () {
           Navigator.push(
@@ -295,22 +288,29 @@ class _StockListTableState extends State<StockListTable> {
                     },
                     style: TextStyle(color: _primaryTextColor(context)),
                     decoration: InputDecoration(
-                      fillColor: _isLightTheme(context)
-                          ? Theme.of(context).colorScheme.surfaceContainerHighest
-                          : const Color(0xFF22304A),
+                      filled: true,
+                      fillColor: colors.surfaceContainerHighest,
                       hintText: 'Search  ...',
                       hintStyle: TextStyle(color: _subtleTextColor(context)),
-                      prefixIcon: Icon(Icons.search, color: _subtleTextColor(context)),
-                      suffixIcon: searchQuery.isNotEmpty ? IconButton(
-                        icon: Icon(Icons.clear, color: _subtleTextColor(context)),
-                        onPressed: () {
-                          setState(() {
-                            searchQuery = "";
-                            _currentPage = 0;
-                          });
-                          _applySearchAndPagination();
-                        },
-                      ) : null,
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: _subtleTextColor(context),
+                      ),
+                      suffixIcon: searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: _subtleTextColor(context),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  searchQuery = "";
+                                  _currentPage = 0;
+                                });
+                                _applySearchAndPagination();
+                              },
+                            )
+                          : null,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: _dividerColor(context)),
@@ -321,7 +321,7 @@ class _StockListTableState extends State<StockListTable> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.blue),
+                        borderSide: BorderSide(color: colors.primary),
                       ),
                     ),
                   ),
@@ -330,17 +330,14 @@ class _StockListTableState extends State<StockListTable> {
               if (_startDate != null && _endDate != null)
                 Container(
                   margin: const EdgeInsets.only(top: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: _isLightTheme(context)
-                        ? Theme.of(context).colorScheme.secondary.withOpacity(0.12)
-                        : Colors.blue.shade900.withOpacity(0.3),
+                    color: colors.secondaryContainer,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _isLightTheme(context)
-                          ? Theme.of(context).colorScheme.secondary.withOpacity(0.35)
-                          : Colors.blue.shade700.withOpacity(0.3),
-                    ),
+                    border: Border.all(color: colors.secondary),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -348,14 +345,15 @@ class _StockListTableState extends State<StockListTable> {
                       Icon(
                         Icons.date_range,
                         size: 14,
-                        color: _isLightTheme(context)
-                            ? Theme.of(context).colorScheme.secondary
-                            : Colors.blue,
+                        color: colors.onSecondaryContainer,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                        style: TextStyle(color: _primaryTextColor(context), fontSize: 12),
+                        style: TextStyle(
+                          color: _primaryTextColor(context),
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
@@ -363,48 +361,45 @@ class _StockListTableState extends State<StockListTable> {
                         child: Icon(
                           Icons.close,
                           size: 14,
-                          color: _isLightTheme(context)
-                              ? Theme.of(context).colorScheme.secondary
-                              : Colors.blue,
+                          color: colors.onSecondaryContainer,
                         ),
                       ),
                     ],
                   ),
                 ),
+
               /// RESPONSIVE VIEW
               Expanded(
                 child: _isLoading
-                    ? const Center(
-                  child: Text("no data"),
-                )
+                    ? const Center(child: Text("no data"))
                     : _displayData.isEmpty
                     ? Center(
-                  child: Text(
-                    searchQuery.isEmpty
-                        ? "No stock items available"
-                        : "No items found matching '$searchQuery'",
-                    style: TextStyle(color: _mutedTextColor(context)),
-                  ),
-                )
-                    : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isMobile = constraints.maxWidth < 800;
-
-                    return Column(
-                      children: [
-                        // Content - ListView or DataTable
-                        Expanded(
-                          child: isMobile
-                              ? _buildMobileView()
-                              : _buildDesktopView(constraints),
+                        child: Text(
+                          searchQuery.isEmpty
+                              ? "No stock items available"
+                              : "No items found matching '$searchQuery'",
+                          style: TextStyle(color: _mutedTextColor(context)),
                         ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isMobile = constraints.maxWidth < 800;
 
-                        // Pagination Controls
-                        _buildPaginationControls(context),
-                      ],
-                    );
-                  },
-                ),
+                          return Column(
+                            children: [
+                              // Content - ListView or DataTable
+                              Expanded(
+                                child: isMobile
+                                    ? _buildMobileView()
+                                    : _buildDesktopView(constraints),
+                              ),
+
+                              // Pagination Controls
+                              _buildPaginationControls(context),
+                            ],
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -436,14 +431,10 @@ class _StockListTableState extends State<StockListTable> {
         controller: horizontalController,
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: constraints.maxWidth,
-          ),
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
           child: DataTable(
             dividerThickness: 1,
-            headingRowColor: WidgetStateProperty.all(
-              _surfaceColor(context),
-            ),
+            headingRowColor: WidgetStateProperty.all(_surfaceColor(context)),
             headingRowHeight: 56,
             columnSpacing: 10,
             headingTextStyle: TextStyle(
@@ -451,9 +442,7 @@ class _StockListTableState extends State<StockListTable> {
               fontWeight: FontWeight.bold,
               fontSize: 15,
             ),
-            dataTextStyle: TextStyle(
-              color: _primaryTextColor(context),
-            ),
+            dataTextStyle: TextStyle(color: _primaryTextColor(context)),
             columns: const [
               DataColumn(label: Text('#')),
               //DataColumn(label: Text('CID')),
@@ -521,9 +510,7 @@ class _StockListTableState extends State<StockListTable> {
             children: [
               _buildRowsPerPageSelector(isSmall: false),
               _buildPageInfo(isSmall: false),
-              Row(
-                children: _buildNavigationButtons(isSmall: false),
-              ),
+              Row(children: _buildNavigationButtons(isSmall: false)),
             ],
           );
         },
@@ -550,10 +537,7 @@ class _StockListTableState extends State<StockListTable> {
             color: _primaryTextColor(context),
             fontSize: isSmall ? 12 : 14,
           ),
-          underline: Container(
-            height: 1,
-            color: _dividerColor(context),
-          ),
+          underline: Container(height: 1, color: _dividerColor(context)),
           items: const [
             DropdownMenuItem(value: 5, child: Text('5')),
             DropdownMenuItem(value: 10, child: Text('10')),
@@ -603,10 +587,12 @@ class _StockListTableState extends State<StockListTable> {
         ),
         padding: EdgeInsets.zero,
         constraints: BoxConstraints.tight(Size(buttonSize, buttonSize)),
-        onPressed: _currentPage > 0 ? () {
-          setState(() => _currentPage = 0);
-          _applySearchAndPagination();
-        } : null,
+        onPressed: _currentPage > 0
+            ? () {
+                setState(() => _currentPage = 0);
+                _applySearchAndPagination();
+              }
+            : null,
         tooltip: 'First page',
       ),
       IconButton(
@@ -617,10 +603,12 @@ class _StockListTableState extends State<StockListTable> {
         ),
         padding: EdgeInsets.zero,
         constraints: BoxConstraints.tight(Size(buttonSize, buttonSize)),
-        onPressed: _currentPage > 0 ? () {
-          setState(() => _currentPage--);
-          _applySearchAndPagination();
-        } : null,
+        onPressed: _currentPage > 0
+            ? () {
+                setState(() => _currentPage--);
+                _applySearchAndPagination();
+              }
+            : null,
         tooltip: 'Previous page',
       ),
       IconButton(
@@ -631,10 +619,12 @@ class _StockListTableState extends State<StockListTable> {
         ),
         padding: EdgeInsets.zero,
         constraints: BoxConstraints.tight(Size(buttonSize, buttonSize)),
-        onPressed: ((_currentPage + 1) * _rowsPerPage) < _totalCount ? () {
-          setState(() => _currentPage++);
-          _applySearchAndPagination();
-        } : null,
+        onPressed: ((_currentPage + 1) * _rowsPerPage) < _totalCount
+            ? () {
+                setState(() => _currentPage++);
+                _applySearchAndPagination();
+              }
+            : null,
         tooltip: 'Next page',
       ),
       IconButton(
@@ -645,39 +635,44 @@ class _StockListTableState extends State<StockListTable> {
         ),
         padding: EdgeInsets.zero,
         constraints: BoxConstraints.tight(Size(buttonSize, buttonSize)),
-        onPressed: ((_currentPage + 1) * _rowsPerPage) < _totalCount ? () {
-          setState(() {
-            _currentPage = (_totalCount / _rowsPerPage).ceil() - 1;
-          });
-          _applySearchAndPagination();
-        } : null,
+        onPressed: ((_currentPage + 1) * _rowsPerPage) < _totalCount
+            ? () {
+                setState(() {
+                  _currentPage = (_totalCount / _rowsPerPage).ceil() - 1;
+                });
+                _applySearchAndPagination();
+              }
+            : null,
         tooltip: 'Last page',
       ),
     ];
   }
 
   // Mobile Card View
-  Widget _buildMobileCard(BuildContext context, Map<String, dynamic> data, int index) {
+  Widget _buildMobileCard(
+    BuildContext context,
+    Map<String, dynamic> data,
+    int index,
+  ) {
     final invoiceDate = data['invoicedate'] != null
-        ? (data['invoicedate'] as Timestamp)
-        .toDate()
-        .toString()
-        .substring(0, 10)
+        ? (data['invoicedate'] as Timestamp).toDate().toString().substring(
+            0,
+            10,
+          )
         : 'N/A';
 
     final stockValue = (data['netval'] ?? 0.00).toDouble();
     final value = Provider.of<Datafeed>(context, listen: false);
     final colors = Theme.of(context).colorScheme;
     final isLight = _isLightTheme(context);
-    final bool syncStatus = data['syncstatus'] is bool ? data['syncstatus'] as bool : false;
+    final bool syncStatus = data['syncstatus'] is bool
+        ? data['syncstatus'] as bool
+        : false;
     return Card(
       color: index.isEven
           ? _alternateSurfaceColor(context)
           : _surfaceColor(context),
-      margin: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -688,13 +683,10 @@ class _StockListTableState extends State<StockListTable> {
               children: [
                 CircleAvatar(
                   radius: 14,
-                  backgroundColor: isLight ? colors.secondary : Colors.blueGrey,
+                  backgroundColor: colors.secondary,
                   child: Text(
                     '${index + 1}',
-                    style: TextStyle(
-                      color: isLight ? colors.onSecondary : Colors.white,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: colors.onSecondary, fontSize: 12),
                   ),
                 ),
                 const Spacer(),
@@ -777,43 +769,29 @@ class _StockListTableState extends State<StockListTable> {
 
             Text(
               "Date: $invoiceDate",
-              style: TextStyle(
-                color: _mutedTextColor(context),
-                fontSize: 13,
-              ),
+              style: TextStyle(color: _mutedTextColor(context), fontSize: 13),
             ),
             const SizedBox(height: 4),
 
             Text(
               "Supplier: ${data['suppliername'] ?? ''}",
-              style: TextStyle(
-                color: _primaryTextColor(context),
-                fontSize: 13,
-              ),
+              style: TextStyle(color: _primaryTextColor(context), fontSize: 13),
             ),
             const SizedBox(height: 4),
 
             Text(
               "Branch: ${data['branchname'] ?? ''}",
-              style: TextStyle(
-                color: _primaryTextColor(context),
-                fontSize: 13,
-              ),
+              style: TextStyle(color: _primaryTextColor(context), fontSize: 13),
             ),
             const SizedBox(height: 4),
 
             Text(
               "Mode: ${data['purchasetype'] ?? ''}",
-              style: TextStyle(
-                color: _primaryTextColor(context),
-                fontSize: 13,
-              ),
+              style: TextStyle(color: _primaryTextColor(context), fontSize: 13),
             ),
             const SizedBox(height: 8),
 
-            Divider(
-              color: _dividerColor(context),
-            ),
+            Divider(color: _dividerColor(context)),
 
             // Action Buttons
             Wrap(
@@ -830,9 +808,7 @@ class _StockListTableState extends State<StockListTable> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => StockDetailsPage(
-                          data: data,
-                        ),
+                        builder: (_) => StockDetailsPage(data: data),
                       ),
                     );
                   },
@@ -840,7 +816,7 @@ class _StockListTableState extends State<StockListTable> {
                 IconButton(
                   icon: Icon(
                     Icons.print,
-                    color: isLight ? Colors.blueGrey.shade700 : Colors.blueGrey,
+                    color: colors.onSurfaceVariant,
                     size: 20,
                   ),
                   onPressed: () async {
@@ -852,12 +828,10 @@ class _StockListTableState extends State<StockListTable> {
                           .map((e) => Map<String, dynamic>.from(e))
                           .toList();
                     } else if (rawItems is Map) {
-                      items = rawItems.entries
-                          .map((entry) {
+                      items = rawItems.entries.map((entry) {
                         return {
                           'key': entry.key,
-                          ...Map<String, dynamic>.from(
-                              entry.value),
+                          ...Map<String, dynamic>.from(entry.value),
                         };
                       }).toList();
                     }
@@ -876,10 +850,8 @@ class _StockListTableState extends State<StockListTable> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => NewStock(
-                            docId: data['docid'],
-                            data: data,
-                          ),
+                          builder: (_) =>
+                              NewStock(docId: data['docid'], data: data),
                         ),
                       );
                     },
@@ -896,9 +868,9 @@ class _StockListTableState extends State<StockListTable> {
 
                 if (!syncStatus)
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.cloud_upload_outlined,
-                      color: Colors.blue,
+                      color: colors.primary,
                       size: 20,
                     ),
                     onPressed: () => _handleSync(context, data),
@@ -912,32 +884,34 @@ class _StockListTableState extends State<StockListTable> {
   }
 
   // Desktop Row View
-  DataRow _buildDesktopRow(BuildContext context, Map<String, dynamic> data, int index) {
+  DataRow _buildDesktopRow(
+    BuildContext context,
+    Map<String, dynamic> data,
+    int index,
+  ) {
     final invoiceDate = data['invoicedate'] != null
-        ? (data['invoicedate'] as Timestamp)
-        .toDate()
-        .toString()
-        .substring(0, 10)
+        ? (data['invoicedate'] as Timestamp).toDate().toString().substring(
+            0,
+            10,
+          )
         : 'N/A';
     final entryDate = data['createdat'] != null
-        ? (data['createdat'] as Timestamp)
-        .toDate()
-        .toString()
-        .substring(0, 10)
+        ? (data['createdat'] as Timestamp).toDate().toString().substring(0, 10)
         : 'N/A';
 
     final stockValue = (data['netval'] ?? 0.00).toDouble();
     final value = Provider.of<Datafeed>(context, listen: false);
+    final colors = Theme.of(context).colorScheme;
     final isLight = _isLightTheme(context);
-    final bool syncStatus = data['syncstatus'] is bool ? data['syncstatus'] as bool : false;
+    final bool syncStatus = data['syncstatus'] is bool
+        ? data['syncstatus'] as bool
+        : false;
     return DataRow(
-      color: WidgetStateProperty.resolveWith<Color?>(
-            (Set<WidgetState> states) {
-          return index.isEven
-              ? _alternateSurfaceColor(context)
-              : _surfaceColor(context);
-        },
-      ),
+      color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+        return index.isEven
+            ? _alternateSurfaceColor(context)
+            : _surfaceColor(context);
+      }),
       cells: [
         DataCell(Text('${index + 1}')),
         //DataCell(Text(data['companyid'])),
@@ -946,9 +920,9 @@ class _StockListTableState extends State<StockListTable> {
             onTap: () async {
               final invoice = data['invoice']?.toString() ?? '';
               await Clipboard.setData(ClipboardData(text: invoice));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invoice copied')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Invoice copied')));
             },
             child: Text(data['invoice']?.toString() ?? ''),
           ),
@@ -958,27 +932,19 @@ class _StockListTableState extends State<StockListTable> {
             onTap: () async {
               final waybill = data['waybill']?.toString() ?? '';
               await Clipboard.setData(ClipboardData(text: waybill));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Waybill copied')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Waybill copied')));
             },
             child: Text(data['waybill']?.toString() ?? ''),
           ),
         ),
         DataCell(Text(invoiceDate)),
         DataCell(Text(entryDate)),
-        DataCell(
-          Text(data['suppliername']?.toString() ?? ''),
-        ),
-        DataCell(
-          Text(data['branchname']?.toString() ?? ''),
-        ),
-        DataCell(
-          Text(data['purchasetype']?.toString() ?? ''),
-        ),
-        DataCell(
-          Text("GHS ${stockValue.toStringAsFixed(2)}"),
-        ),
+        DataCell(Text(data['suppliername']?.toString() ?? '')),
+        DataCell(Text(data['branchname']?.toString() ?? '')),
+        DataCell(Text(data['purchasetype']?.toString() ?? '')),
+        DataCell(Text("GHS ${stockValue.toStringAsFixed(2)}")),
         DataCell(
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -993,9 +959,7 @@ class _StockListTableState extends State<StockListTable> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => StockDetailsPage(
-                        data: data,
-                      ),
+                      builder: (_) => StockDetailsPage(data: data),
                     ),
                   );
                 },
@@ -1003,7 +967,7 @@ class _StockListTableState extends State<StockListTable> {
               IconButton(
                 icon: Icon(
                   Icons.print,
-                  color: isLight ? Colors.blueGrey.shade700 : Colors.blueGrey,
+                  color: colors.onSurfaceVariant,
                   size: 20,
                 ),
                 onPressed: () async {
@@ -1037,10 +1001,8 @@ class _StockListTableState extends State<StockListTable> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => NewStock(
-                          docId: data['docid'],
-                          data: data,
-                        ),
+                        builder: (_) =>
+                            NewStock(docId: data['docid'], data: data),
                       ),
                     );
                   },
@@ -1056,9 +1018,9 @@ class _StockListTableState extends State<StockListTable> {
                 ),
               if (!syncStatus)
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.cloud_upload_outlined,
-                    color: Colors.blue,
+                    color: colors.primary,
                     size: 20,
                   ),
                   onPressed: () => _handleSync(context, data),
@@ -1071,44 +1033,40 @@ class _StockListTableState extends State<StockListTable> {
   }
 
   // Delete handler
-  void _handleDelete(BuildContext context, Map<String, dynamic> data, Datafeed value) async {
+  void _handleDelete(
+    BuildContext context,
+    Map<String, dynamic> data,
+    Datafeed value,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-      backgroundColor: _isLightTheme(context)
-          ? Theme.of(context).colorScheme.surface
-          : const Color(0xFF1B263B),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      title: Text(
-        "Delete Stock Invoice #${data['invoice']}",
-        style: TextStyle(
-          color: _primaryTextColor(context),
-          fontWeight: FontWeight.bold,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          "Delete Stock Invoice #${data['invoice']}",
+          style: TextStyle(
+            color: _primaryTextColor(context),
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
-      content: Text(
-        "Are you sure you want to delete this stock invoice?",
-        style: TextStyle(color: _mutedTextColor(context)),
-      ),
-      actions: [
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _primaryTextColor(context),
-            side: BorderSide(
-              color: _isLightTheme(context)
-                  ? Theme.of(context).colorScheme.outline
-                  : Colors.white54,
-            ),
+        content: Text(
+          "Are you sure you want to delete this stock invoice?",
+          style: TextStyle(color: _mutedTextColor(context)),
+        ),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _primaryTextColor(context),
+              side: BorderSide(color: Theme.of(context).colorScheme.outline),
             ),
             onPressed: () => Navigator.pop(context, false),
             child: const Text("Cancel"),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text("Delete"),
@@ -1121,10 +1079,8 @@ class _StockListTableState extends State<StockListTable> {
       final overlay = Overlay.of(context);
       final overlayEntry = OverlayEntry(
         builder: (context) => Container(
-          color: Colors.black.withOpacity(0.5),
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
+          color: Theme.of(context).colorScheme.scrim.withOpacity(0.5),
+          child: const Center(child: CircularProgressIndicator()),
         ),
       );
       overlay.insert(overlayEntry);
@@ -1134,9 +1090,7 @@ class _StockListTableState extends State<StockListTable> {
         List<Map<String, dynamic>> items = [];
 
         if (rawItems is List) {
-          items = rawItems
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
+          items = rawItems.map((e) => Map<String, dynamic>.from(e)).toList();
         } else if (rawItems is Map) {
           items = rawItems.values
               .map((e) => Map<String, dynamic>.from(e))
@@ -1150,10 +1104,9 @@ class _StockListTableState extends State<StockListTable> {
           final itemName = item['item']?.toString() ?? itemId;
 
           final piecesToDelete =
-          (item['stockin_pieces'] ?? item['pieces'] ?? 0) as num;
+              (item['stockin_pieces'] ?? item['pieces'] ?? 0) as num;
 
-          final currentBalance =
-          await value.fetchItemCurrentBalance(
+          final currentBalance = await value.fetchItemCurrentBalance(
             itemId: itemId,
             selectedBranch: data['branchid'],
           );
@@ -1161,8 +1114,8 @@ class _StockListTableState extends State<StockListTable> {
           if (currentBalance < piecesToDelete) {
             insufficient.add(
               '$itemName\n'
-                  'Available: ${currentBalance.toInt()} pcs\n'
-                  'Trying to remove: ${piecesToDelete.toInt()} pcs',
+              'Available: ${currentBalance.toInt()} pcs\n'
+              'Trying to remove: ${piecesToDelete.toInt()} pcs',
             );
           }
         }
@@ -1176,7 +1129,7 @@ class _StockListTableState extends State<StockListTable> {
                 content: SingleChildScrollView(
                   child: Text(
                     'The following items no longer have enough stock to reverse this transaction:\n\n'
-                        '${insufficient.join('\n\n')}',
+                    '${insufficient.join('\n\n')}',
                   ),
                 ),
                 actions: [
@@ -1186,13 +1139,12 @@ class _StockListTableState extends State<StockListTable> {
                       side: BorderSide(
                         color: _isLightTheme(context)
                             ? Theme.of(context).colorScheme.outline
-                            : Colors.white54,
+                            : Theme.of(context).colorScheme.outline,
                       ),
                     ),
                     onPressed: () => Navigator.pop(context),
                     child: const Text("Ok"),
                   ),
-
                 ],
               ),
             );
@@ -1200,8 +1152,9 @@ class _StockListTableState extends State<StockListTable> {
           return;
         }
         await db.runTransaction((transaction) async {
-          final stockRef =
-          db.collection('stock_transactions').doc(data['docid']);
+          final stockRef = db
+              .collection('stock_transactions')
+              .doc(data['docid']);
 
           final stockSnap = await transaction.get(stockRef);
 
@@ -1211,7 +1164,9 @@ class _StockListTableState extends State<StockListTable> {
 
           final stockData = stockSnap.data()!;
 
-          final purchaseType = (stockData['purchasetype'] ?? '').toString().toLowerCase();
+          final purchaseType = (stockData['purchasetype'] ?? '')
+              .toString()
+              .toLowerCase();
 
           // if (purchaseType == 'credit') {
           //   final supplierId = stockData['supplierid'];
@@ -1237,7 +1192,9 @@ class _StockListTableState extends State<StockListTable> {
           //   }
           // }
 
-          final deletedStockRef = db.collection('deletedstock').doc(stockData['docid']);
+          final deletedStockRef = db
+              .collection('deletedstock')
+              .doc(stockData['docid']);
 
           final deletedData = Map<String, dynamic>.from(stockData);
 
@@ -1255,9 +1212,7 @@ class _StockListTableState extends State<StockListTable> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                "Stock invoice deleted successfully",
-              ),
+              content: Text("Stock invoice deleted successfully"),
               backgroundColor: Colors.green,
             ),
           );
@@ -1282,10 +1237,8 @@ class _StockListTableState extends State<StockListTable> {
     final overlay = Overlay.of(context);
     final overlayEntry = OverlayEntry(
       builder: (context) => Container(
-        color: Colors.black.withOpacity(0.5),
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        color: Theme.of(context).colorScheme.scrim.withOpacity(0.5),
+        child: const Center(child: CircularProgressIndicator()),
       ),
     );
     overlay.insert(overlayEntry);
@@ -1297,9 +1250,7 @@ class _StockListTableState extends State<StockListTable> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              "Stock invoice synced successfully",
-            ),
+            content: Text("Stock invoice synced successfully"),
             backgroundColor: Colors.green,
           ),
         );

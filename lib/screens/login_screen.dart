@@ -59,10 +59,10 @@ class _LoginScreenState extends State<LoginScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isLightTheme
-                    ? [
-                        colorScheme.surface,
-                        colorScheme.surfaceContainerHighest,
-                        colorScheme.surface,
+                    ? const [
+                        Color(0xFFFCFCFD),
+                        Color(0xFFF9FAFB),
+                        Color(0xFFFCFCFD),
                       ]
                     : const [
                         Color(0xFF0D1B2A),
@@ -214,9 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: isLightTheme
-                                    ? colorScheme.primary
-                                    : const Color(0xFF415A77),
+                                color: colorScheme.secondary,
                                 width: 1.5,
                               ),
                             ),

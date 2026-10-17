@@ -828,7 +828,7 @@ class _SalesStaffTransactionsPageState
                               },
                               child: Text(receiptRow, style: link),
                             ),
-                            Text('${s['customer'] ?? ''}', style: dim),
+                            Text('${s['customer'] ?? 'Cash customer'}', style: dim),
                             InkWell(
                               onTap: () =>
                                   _showItemsPopup(receiptRow, itemLinesRow),

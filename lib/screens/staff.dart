@@ -73,6 +73,20 @@ class _StaffState extends State<Staff> {
     return match.id.isNotEmpty ? match.id : null;
   }
 
+  bool _hasStandardAccessLevel(String? accessLevel) {
+    return const {
+      'admin',
+      'super admin',
+      'warehouse',
+      'cashier',
+      'sales attendance',
+      'sales manager',
+      'operations officers',
+      'stock officer',
+      'accountant',
+    }.contains(accessLevel?.toLowerCase().trim());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -421,55 +435,66 @@ class _StaffState extends State<Staff> {
                         },
                       ),
                       const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        initialValue: _accesslevel,
-                        dropdownColor: colorScheme.surface,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        decoration: _buildDropdownDecoration('Access Level'),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'admin',
-                            child: Text('admin'),
+                      if (_accesslevel != null &&
+                          !_hasStandardAccessLevel(_accesslevel))
+                        InputDecorator(
+                          decoration: _buildDropdownDecoration('Access Level'),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _accesslevel!,
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
                           ),
-                          DropdownMenuItem(
-                            value: 'super admin',
-                            child: Text('super admin'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'warehouse',
-                            child: Text('warehouse'),
-                          ),
-
-
-                          DropdownMenuItem(
-                            value: 'cashier',
-                            child: Text('cashier'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'sales attendance',
-                            child: Text('sales attendance'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'sales manager',
-                            child: Text('sales manager'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'operations officers',
-                            child: Text('operations officers'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'stock officer',
-                            child: Text('stock officer'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'accountant',
-                            child: Text('accountant'),
-                          ),
-                        ],
-                        onChanged: (v) => setState(() => _accesslevel = v),
-                        validator: (v) =>
-                            v == null ? 'Select product type' : null,
-                      ),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _accesslevel,
+                          dropdownColor: colorScheme.surface,
+                          style: TextStyle(color: colorScheme.onSurface),
+                          decoration: _buildDropdownDecoration('Access Level'),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'admin',
+                              child: Text('admin'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'super admin',
+                              child: Text('super admin'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'warehouse',
+                              child: Text('warehouse'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'cashier',
+                              child: Text('cashier'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'sales attendance',
+                              child: Text('sales attendance'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'sales manager',
+                              child: Text('sales manager'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'operations officers',
+                              child: Text('operations officers'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'stock officer',
+                              child: Text('stock officer'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'accountant',
+                              child: Text('accountant'),
+                            ),
+                          ],
+                          onChanged: (v) => setState(() => _accesslevel = v),
+                          validator: (v) =>
+                              v == null ? 'Select product type' : null,
+                        ),
                       const SizedBox(height: 10),
                       Consumer<Datafeed>(
                         builder: (context, datafeed, _) {
@@ -1360,47 +1385,27 @@ class _StaffState extends State<Staff> {
                                           .where((name) => name.isNotEmpty)
                                           .toList();
 
-                                  final docid = email.toLowerCase();
-                                  try {
-                                    final id = (widget.docId ?? docid)
-                                        .toLowerCase();
-
-                                    final staffRef = _db.collection('staff');
-
-                                    final query = await staffRef
-                                        .where('email', isEqualTo: email.trim())
-                                        .limit(1)
-                                        .get();
-
-                                    final isCreating = widget.docId == null;
-
-                                    if (query.docs.isNotEmpty) {
-                                      final matchedDocId = query.docs.first.id
+                                  final docid = email.trim().toLowerCase();
+                                  final isCreating =
+                                      widget.docId == null &&
+                                      widget.staff == null &&
+                                      widget.data == null;
+                                  final originalEmail =
+                                      (widget.staff?.email ??
+                                              widget.data?['email']?.toString() ??
+                                              widget.docId ??
+                                              docid)
+                                          .trim()
                                           .toLowerCase();
-                                      final isSameUser = matchedDocId == id;
-
-                                      if (!isSameUser) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            backgroundColor: Colors.red,
-                                            content: Text(
-                                              isCreating
-                                                  ? 'Staff already exists'
-                                                  : 'Email already used by another staff',
-                                              style: TextStyle(
-                                                color: ColorScheme.of(
-                                                  context,
-                                                ).onPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                        setState(() => _loading = false);
-                                        return;
-                                      }
-                                    }
+                                  final id = isCreating
+                                      ? docid
+                                      : (widget.docId ??
+                                                widget.staff?.id ??
+                                                widget.data?['id']?.toString() ??
+                                                originalEmail)
+                                            .toLowerCase();
+                                  try {
+                                    final staffRef = _db.collection('staff');
                                     final imageUrl = await uploadLogo(id);
                                     // collect one-or-more pricing modes
                                     final List<String> pricingModes = [];
@@ -1496,21 +1501,50 @@ class _StaffState extends State<Staff> {
                                    */
 
                                     // if (widget.docId == null) {
-                                    await _db
-                                        .collection('staff')
-                                        .doc(id)
-                                        .set(record, SetOptions(merge: true));
+                                    await _db.runTransaction((transaction) async {
+                                      final staffDoc = staffRef.doc(docid);
+                                      final existingDoc = await transaction.get(
+                                        staffDoc,
+                                      );
+
+                                      if (existingDoc.exists &&
+                                          (isCreating ||
+                                              existingDoc.id.toLowerCase() != id)) {
+                                        throw StateError(
+                                          'A staff account with this email already exists.Change a different email',
+                                        );
+                                      }
+
+                                      if (!isCreating &&
+                                          docid != originalEmail) {
+                                        throw StateError(
+                                          'Staff email cannot be changed while editing.',
+                                        );
+                                      }
+
+                                      if (!isCreating && !existingDoc.exists) {
+                                        throw StateError(
+                                          'Staff record no longer exists.',
+                                        );
+                                      }
+
+                                      transaction.set(
+                                        staffDoc,
+                                        record,
+                                        SetOptions(merge: true),
+                                      );
+                                    });
 
                                     snackMsg(
                                       context,
-                                      widget.docId == null
+                                      isCreating
                                           ? 'Staff Registered Successfully'
                                           : 'Staff Updated Successfully',
                                       Colors.green,
                                     );
 
                                     // reset form
-                                    if (widget.docId == null) {
+                                    if (isCreating) {
                                       _nameController.clear();
                                       _emailController.clear();
                                       _phoneController.clear();

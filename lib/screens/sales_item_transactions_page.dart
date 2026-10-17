@@ -796,7 +796,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                       color: _mutedTextColor,
                     ),
                     SizedBox(width: 10),
-                    Text('Print'),
+                    Text('Print', style: TextStyle(color: _textColor)),
                   ],
                 ),
               ),
@@ -810,7 +810,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                       color: _mutedTextColor,
                     ),
                     SizedBox(width: 10),
-                    Text('Download PDF'),
+                    Text('Download PDF', style: TextStyle(color: _textColor)),
                   ],
                 ),
               ),
@@ -824,7 +824,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                       color: _mutedTextColor,
                     ),
                     SizedBox(width: 10),
-                    Text('Download Excel'),
+                    Text('Download Excel', style: TextStyle(color: _textColor)),
                   ],
                 ),
               ),
@@ -977,7 +977,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                 onPressed: page > 0
                     ? () => setState(() => _page = page - 1)
                     : null,
-                icon: const Icon(Icons.chevron_left),
+                icon: Icon(Icons.chevron_left, color: _textColor),
               ),
               Text(
                 '${page + 1}/$totalPages',
@@ -991,7 +991,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                 onPressed: page < totalPages - 1
                     ? () => setState(() => _page = page + 1)
                     : null,
-                icon: const Icon(Icons.chevron_right),
+                icon: Icon(Icons.chevron_right, color: _textColor),
               ),
             ],
           ),

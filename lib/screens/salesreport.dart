@@ -32,6 +32,7 @@ class _SalesReportState extends State<SalesReport> {
   bool _isSearching = false;
   int? _sortColumn;
   bool _sortAscending = true;
+  final Set<int> _hiddenPaymentColumns = {};
 
   String? _selectedType;
   String? _selectedCategory;
@@ -57,23 +58,25 @@ class _SalesReportState extends State<SalesReport> {
   Color get _mutedTextColor => Theme.of(context).colorScheme.onSurfaceVariant;
   Color get _rowColor => Theme.of(context).colorScheme.surface;
   Color get _textColor => Theme.of(context).colorScheme.onSurface;
-  Color get _accent => Theme.of(context).colorScheme.primary;
+  Color get _accent => Theme.of(context).brightness == Brightness.dark
+      ? Colors.amberAccent
+      : Theme.of(context).colorScheme.primary;
 
   static const List<int> _colFlexes = [
     1,
     4,
+    5,
+    3,
+    3,
+    2,
+    2,
+    3,
+    5,
+    5,
     3,
     3,
     3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
+    5,
   ];
   static const List<String> _headers = [
     '#',
@@ -91,6 +94,7 @@ class _SalesReportState extends State<SalesReport> {
     'Profit',
     'Cash@Hand',
   ];
+  static const Set<int> _toggleablePaymentColumns = {3, 4, 5, 6, 7};
 
   static final NumberFormat _nf = NumberFormat('#,##0.00');
 
@@ -101,6 +105,267 @@ class _SalesReportState extends State<SalesReport> {
       (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') == 'warehouse';
 
   bool _canSelect(Datafeed v) => v.isAdminLevel;
+
+  bool _isColumnVisible(int column) =>
+      !_toggleablePaymentColumns.contains(column) ||
+      !_hiddenPaymentColumns.contains(column);
+
+  void _togglePaymentColumn(int column) {
+    setState(() {
+      if (!_hiddenPaymentColumns.add(column)) {
+        _hiddenPaymentColumns.remove(column);
+      }
+    });
+  }
+
+  Widget _columnVisibilityButton() {
+    return PopupMenuButton<int>(
+      tooltip: 'Show or hide payment columns',
+      icon: Icon(Icons.view_column_outlined, color: _textColor, size: 21),
+      color: _cardColor,
+      onSelected: _togglePaymentColumn,
+      itemBuilder: (context) => _toggleablePaymentColumns.map((column) {
+        final visible = _isColumnVisible(column);
+        return CheckedPopupMenuItem<int>(
+          value: column,
+          checked: visible,
+          child: Text(_headers[column], style: TextStyle(color: _textColor)),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _showColumnVisibilitySheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _cardColor,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Visible payment columns',
+                  style: TextStyle(
+                    color: _textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              for (final column in _toggleablePaymentColumns)
+                CheckboxListTile(
+                  value: _isColumnVisible(column),
+                  title: Text(
+                    _headers[column],
+                    style: TextStyle(color: _textColor),
+                  ),
+                  activeColor: _accent,
+                  onChanged: (_) {
+                    _togglePaymentColumn(column);
+                    setSheetState(() {});
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _showMobileOptionSheet(
+    String title,
+    List<String> options,
+    String? selected, {
+    Map<String, String> labels = const {},
+  }) {
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: _cardColor,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: _textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            ListTile(
+              title: Text('All', style: TextStyle(color: _textColor)),
+              trailing: selected == null
+                  ? Icon(Icons.check, color: _accent)
+                  : null,
+              onTap: () => Navigator.pop(context, '__ALL__'),
+            ),
+            for (final option in options)
+              ListTile(
+                title: Text(
+                  labels[option] ?? option,
+                  style: TextStyle(color: _textColor),
+                ),
+                trailing: option == selected
+                    ? Icon(Icons.check, color: _accent)
+                    : null,
+                onTap: () => Navigator.pop(context, option),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickMobileDateRange(Datafeed value) async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: now,
+      initialDateRange: selectedDate ?? DateTimeRange(start: now, end: now),
+    );
+    if (picked == null) return;
+    setState(() => selectedDate = picked);
+    await value.fetchsalesreport(
+      selectedDate: picked,
+      selectedBranch: _selectedBranch,
+      productType: _selectedType,
+      category: _selectedCategory,
+    );
+  }
+
+  Widget _mobileMoreButton(Datafeed value, String branchLabel) {
+    return PopupMenuButton<String>(
+      tooltip: 'More options',
+      color: _cardColor,
+      icon: Icon(Icons.more_vert, color: _textColor),
+      onSelected: (action) async {
+        switch (action) {
+          case 'columns':
+            await _showColumnVisibilitySheet();
+            break;
+          case 'branch':
+            final branches = value.branches
+                .where((branch) => !_isWarehouseType(branch.branchtype))
+                .where((branch) => branch.id.isNotEmpty)
+                .toList();
+            final selected = await _showMobileOptionSheet(
+              'Branch: $branchLabel',
+              branches.map((branch) => branch.id).toList(),
+              _selectedBranch,
+              labels: {
+                for (final branch in branches) branch.id: branch.branchname,
+              },
+            );
+            if (selected == null) return;
+            setState(() {
+              _selectedBranch = selected == '__ALL__' ? null : selected;
+              _mainPage = 0;
+            });
+            await value.fetchsalesreport(
+              selectedDate: selectedDate,
+              selectedBranch: _selectedBranch,
+              productType: _selectedType,
+              category: _selectedCategory,
+            );
+            break;
+          case 'date':
+            await _pickMobileDateRange(value);
+            break;
+          case 'type':
+            final type = await _showMobileOptionSheet(
+              'Product type',
+              value.salesReportProductTypes,
+              _selectedType,
+            );
+            if (type == null) return;
+            setState(() {
+              _selectedType = type == '__ALL__' ? null : type;
+              _mainPage = 0;
+            });
+            _applyFilter(value);
+            break;
+          case 'category':
+            final category = await _showMobileOptionSheet(
+              'Category',
+              value.salesReportCategories,
+              _selectedCategory,
+            );
+            if (category == null) return;
+            setState(() {
+              _selectedCategory = category == '__ALL__' ? null : category;
+              _mainPage = 0;
+            });
+            _applyFilter(value);
+            break;
+          case 'print':
+          case 'pdf':
+          case 'excel':
+            try {
+              final rows = _rows(value);
+              final totals = _BranchRow.sum(rows);
+              if (action == 'print') {
+                await _printMain(value, rows, totals);
+              } else if (action == 'pdf') {
+                await _downloadMainPdf(value, rows, totals);
+              } else {
+                await _downloadMainExcel(value, rows, totals);
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Action failed: $e')));
+              }
+            }
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: 'columns',
+          child: Text('Visible columns', style: TextStyle(color: _textColor)),
+        ),
+        if (_canSelect(value)) ...[
+          PopupMenuItem(
+            value: 'branch',
+            child: Text('Branch', style: TextStyle(color: _textColor)),
+          ),
+          PopupMenuItem(
+            value: 'date',
+            child: Text('Date range', style: TextStyle(color: _textColor)),
+          ),
+          PopupMenuItem(
+            value: 'type',
+            child: Text('Product type', style: TextStyle(color: _textColor)),
+          ),
+          PopupMenuItem(
+            value: 'category',
+            child: Text('Category', style: TextStyle(color: _textColor)),
+          ),
+        ],
+        PopupMenuItem(
+          value: 'print',
+          child: Text('Print', style: TextStyle(color: _textColor)),
+        ),
+        PopupMenuItem(
+          value: 'pdf',
+          child: Text('Download PDF', style: TextStyle(color: _textColor)),
+        ),
+        PopupMenuItem(
+          value: 'excel',
+          child: Text('Download Excel', style: TextStyle(color: _textColor)),
+        ),
+      ],
+    );
+  }
 
   void _openStaff(_BranchRow r) {
     Navigator.of(context).push(
@@ -628,6 +893,8 @@ class _SalesReportState extends State<SalesReport> {
             Flexible(
               child: Text(
                 label,
+                maxLines: 1,
+                softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 style: _headerStyle,
               ),
@@ -637,7 +904,9 @@ class _SalesReportState extends State<SalesReport> {
                 _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
                 color: _textColor,
                 size: 14,
-              ),
+              )
+            else
+              Icon(Icons.unfold_more, color: _mutedTextColor, size: 14),
           ],
         ),
       ),
@@ -679,7 +948,7 @@ class _SalesReportState extends State<SalesReport> {
               style: TextStyle(color: _textColor, fontSize: 13),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 6),
           Expanded(
             flex: _colFlexes[1],
             child: Text(
@@ -693,31 +962,32 @@ class _SalesReportState extends State<SalesReport> {
               ),
             ),
           ),
-          for (int i = 0; i < values.length; i++) ...[
-            const SizedBox(width: 12),
-            Expanded(
-              flex: _colFlexes[i + 2],
-              child: _tip(
-                tips[i],
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    _n(values[i]),
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: _textColor,
-                      fontSize: 13,
-                      fontWeight: total || i == values.length - 1
-                          ? FontWeight.w800
-                          : FontWeight.w400,
+          for (int i = 0; i < values.length; i++)
+            if (_isColumnVisible(i + 2)) ...[
+              const SizedBox(width: 6),
+              Expanded(
+                flex: _colFlexes[i + 2],
+                child: _tip(
+                  tips[i],
+                  SizedBox(
+                    width: double.infinity,
+                    child: Text(
+                      _n(values[i]),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: _textColor,
+                        fontSize: 13,
+                        fontWeight: total || i == values.length - 1
+                            ? FontWeight.w800
+                            : FontWeight.w400,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           if (showAction) ...[
-            const SizedBox(width: 12),
+            const SizedBox(width: 6),
             SizedBox(
               width: 72,
               child: total
@@ -735,7 +1005,7 @@ class _SalesReportState extends State<SalesReport> {
                           icon: Icon(
                             Icons.inventory_2_outlined,
                             size: 19,
-                            color: _accent,
+                            color: _textColor,
                           ),
                           onPressed: () => _openBranchItems(r),
                         ),
@@ -749,7 +1019,7 @@ class _SalesReportState extends State<SalesReport> {
                           icon: Icon(
                             Icons.groups_outlined,
                             size: 19,
-                            color: _accent,
+                            color: _textColor,
                           ),
                           onPressed: () => _openStaff(r),
                         ),
@@ -796,11 +1066,12 @@ class _SalesReportState extends State<SalesReport> {
                 ),
                 child: Row(
                   children: [
-                    for (int i = 0; i < _headers.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 12),
-                      _headerCell(i),
-                    ],
-                    const SizedBox(width: 12),
+                    for (int i = 0; i < _headers.length; i++)
+                      if (_isColumnVisible(i)) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        _headerCell(i),
+                      ],
+                    const SizedBox(width: 6),
                     const SizedBox(width: 72),
                   ],
                 ),
@@ -880,7 +1151,7 @@ class _SalesReportState extends State<SalesReport> {
                             child: Text(
                               r.branchName,
                               style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
+                                color: _textColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                               ),
@@ -896,7 +1167,7 @@ class _SalesReportState extends State<SalesReport> {
                             icon: Icon(
                               Icons.inventory_2_outlined,
                               size: 20,
-                              color: _accent,
+                              color: _textColor,
                             ),
                             onPressed: () => _openBranchItems(r),
                           ),
@@ -910,7 +1181,7 @@ class _SalesReportState extends State<SalesReport> {
                             icon: Icon(
                               Icons.groups_outlined,
                               size: 20,
-                              color: _accent,
+                              color: _textColor,
                             ),
                             onPressed: () => _openStaff(r),
                           ),
@@ -922,11 +1193,16 @@ class _SalesReportState extends State<SalesReport> {
                         runSpacing: 10,
                         children: [
                           _tipStat('Cash', r.cash, tips[0]),
-                          _tipStat('MoMo', r.momo, tips[1]),
-                          _tipStat('Hubtel', r.hubtel, tips[2]),
-                          _tipStat('Card', r.card, tips[3]),
-                          _tipStat('Bank', r.bank, tips[4]),
-                          _tipStat('Cheque', r.cheque, tips[5]),
+                          if (_isColumnVisible(3))
+                            _tipStat('MoMo', r.momo, tips[1]),
+                          if (_isColumnVisible(4))
+                            _tipStat('Hubtel', r.hubtel, tips[2]),
+                          if (_isColumnVisible(5))
+                            _tipStat('Card', r.card, tips[3]),
+                          if (_isColumnVisible(6))
+                            _tipStat('Bank', r.bank, tips[4]),
+                          if (_isColumnVisible(7))
+                            _tipStat('Cheque', r.cheque, tips[5]),
                           _tipStat('Credit', r.credit, tips[6]),
                           _tipStat('Total Sales', r.totalSales, tips[7]),
                           _tipStat('Returns', r.returns, tips[8]),
@@ -965,10 +1241,12 @@ class _SalesReportState extends State<SalesReport> {
           ),
           IconButton(
             padding: EdgeInsets.zero,
+            color: _textColor,
+            disabledColor: _mutedTextColor,
             onPressed: page > 0
                 ? () => setState(() => _mainPage = page - 1)
                 : null,
-            icon: const Icon(Icons.chevron_left),
+            icon: Icon(Icons.chevron_left, color: _textColor),
           ),
           Text(
             '${page + 1}/$totalPages',
@@ -976,10 +1254,12 @@ class _SalesReportState extends State<SalesReport> {
           ),
           IconButton(
             padding: EdgeInsets.zero,
+            color: _textColor,
+            disabledColor: _mutedTextColor,
             onPressed: page < totalPages - 1
                 ? () => setState(() => _mainPage = page + 1)
                 : null,
-            icon: const Icon(Icons.chevron_right),
+            icon: Icon(Icons.chevron_right, color: _textColor),
           ),
         ],
       ),
@@ -1233,144 +1513,157 @@ class _SalesReportState extends State<SalesReport> {
                         icon: Icon(Icons.search, color: _textColor, size: 21),
                         onPressed: _openSearch,
                       ),
-                      if (canSelect)
-                        IconButton(
-                          key: _branchKey,
-                          tooltip: 'Branch: $branchLabel',
+                      if (isMobile)
+                        _mobileMoreButton(value, branchLabel)
+                      else ...[
+                        _columnVisibilityButton(),
+                        if (canSelect)
+                          IconButton(
+                            key: _branchKey,
+                            tooltip: 'Branch: $branchLabel',
+                            icon: Icon(
+                              Icons.store_outlined,
+                              color: _textColor,
+                              size: 21,
+                            ),
+                            onPressed: () => _showBranchMenu(context, value),
+                          ),
+                        if (canSelect)
+                          Tooltip(
+                            message: 'Select date',
+                            child: ReusableDatePickerWidget(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                child: Icon(
+                                  Icons.calendar_today_outlined,
+                                  color: _textColor,
+                                  size: 19,
+                                ),
+                              ),
+                              onDateSelected: (selection) {
+                                setState(() => selectedDate = selection);
+                                context.read<Datafeed>().fetchsalesreport(
+                                  selectedDate: selectedDate,
+                                  selectedBranch: _selectedBranch,
+                                  productType: _selectedType,
+                                  category: _selectedCategory,
+                                );
+                              },
+                            ),
+                          ),
+                        if (canSelect)
+                          IconButton(
+                            key: _typeKey,
+                            tooltip: 'Product type: ${_selectedType ?? 'All'}',
+                            icon: Icon(
+                              Icons.inventory_2_outlined,
+                              color: _selectedType != null
+                                  ? _accent
+                                  : _textColor,
+                              size: 21,
+                            ),
+                            onPressed: () => _pickType(value),
+                          ),
+                        if (canSelect)
+                          IconButton(
+                            key: _categoryKey,
+                            tooltip: 'Category: ${_selectedCategory ?? 'All'}',
+                            icon: Icon(
+                              Icons.category_outlined,
+                              color: _selectedCategory != null
+                                  ? _accent
+                                  : _textColor,
+                              size: 21,
+                            ),
+                            onPressed: () => _pickCategory(value),
+                          ),
+                        PopupMenuButton<String>(
+                          tooltip: 'Print / Download',
+                          color: _cardColor,
                           icon: Icon(
-                            Icons.store_outlined,
+                            Icons.picture_as_pdf_outlined,
                             color: _textColor,
-                            size: 21,
+                            size: 20,
                           ),
-                          onPressed: () => _showBranchMenu(context, value),
-                        ),
-                      if (canSelect)
-                        Tooltip(
-                          message: 'Select date',
-                          child: ReusableDatePickerWidget(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
+                          itemBuilder: (_) => [
+                            PopupMenuItem<String>(
+                              value: 'print',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.print_outlined,
+                                    size: 18,
+                                    color: _mutedTextColor,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Print',
+                                    style: TextStyle(color: _textColor),
+                                  ),
+                                ],
                               ),
-                              child: Icon(
-                                Icons.calendar_today_outlined,
-                                color: _textColor,
-                                size: 19,
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'pdf',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.picture_as_pdf_outlined,
+                                    size: 18,
+                                    color: _mutedTextColor,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Download PDF',
+                                    style: TextStyle(color: _textColor),
+                                  ),
+                                ],
                               ),
                             ),
-                            onDateSelected: (selection) {
-                              setState(() => selectedDate = selection);
-                              context.read<Datafeed>().fetchsalesreport(
-                                selectedDate: selectedDate,
-                                selectedBranch: _selectedBranch,
-                                productType: _selectedType,
-                                category: _selectedCategory,
-                              );
-                            },
-                          ),
-                        ),
-
-                      if (canSelect)
-                        IconButton(
-                          key: _typeKey,
-                          tooltip: 'Product type: ${_selectedType ?? 'All'}',
-                          icon: Icon(
-                            Icons.inventory_2_outlined,
-                            color: _selectedType != null ? _accent : _textColor,
-                            size: 21,
-                          ),
-                          onPressed: () => _pickType(value),
-                        ),
-                      if (canSelect)
-                        IconButton(
-                          key: _categoryKey,
-                          tooltip: 'Category: ${_selectedCategory ?? 'All'}',
-                          icon: Icon(
-                            Icons.category_outlined,
-                            color: _selectedCategory != null
-                                ? _accent
-                                : _textColor,
-                            size: 21,
-                          ),
-                          onPressed: () => _pickCategory(value),
-                        ),
-
-                      // ),
-                      PopupMenuButton<String>(
-                        tooltip: 'Print / Download',
-                        color: _cardColor,
-                        icon: Icon(
-                          Icons.picture_as_pdf_outlined,
-                          color: _textColor,
-                          size: 20,
-                        ),
-                        itemBuilder: (_) => [
-                          PopupMenuItem<String>(
-                            value: 'print',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.print_outlined,
-                                  size: 18,
-                                  color: _mutedTextColor,
-                                ),
-                                SizedBox(width: 10),
-                                Text('Print'),
-                              ],
+                            PopupMenuItem<String>(
+                              value: 'excel',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.grid_on_outlined,
+                                    size: 18,
+                                    color: _mutedTextColor,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Download Excel',
+                                    style: TextStyle(color: _textColor),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'pdf',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.picture_as_pdf_outlined,
-                                  size: 18,
-                                  color: _mutedTextColor,
-                                ),
-                                SizedBox(width: 10),
-                                Text('Download PDF'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem<String>(
-                            value: 'excel',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.grid_on_outlined,
-                                  size: 18,
-                                  color: _mutedTextColor,
-                                ),
-                                SizedBox(width: 10),
-                                Text('Download Excel'),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onSelected: (selected) async {
-                          try {
-                            switch (selected) {
-                              case 'print':
-                                await _printMain(value, rows, totals);
-                                break;
-                              case 'pdf':
-                                await _downloadMainPdf(value, rows, totals);
-                                break;
-                              case 'excel':
-                                await _downloadMainExcel(value, rows, totals);
-                                break;
+                          ],
+                          onSelected: (selected) async {
+                            try {
+                              switch (selected) {
+                                case 'print':
+                                  await _printMain(value, rows, totals);
+                                  break;
+                                case 'pdf':
+                                  await _downloadMainPdf(value, rows, totals);
+                                  break;
+                                case 'excel':
+                                  await _downloadMainExcel(value, rows, totals);
+                                  break;
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Action failed: $e')),
+                                );
+                              }
                             }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Action failed: $e')),
-                              );
-                            }
-                          }
-                        },
-                      ),
+                          },
+                        ),
+                      ],
                     ],
                   );
                 },
@@ -1380,7 +1673,7 @@ class _SalesReportState extends State<SalesReport> {
           body: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200),
+              constraints: const BoxConstraints(maxWidth: 1600),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,

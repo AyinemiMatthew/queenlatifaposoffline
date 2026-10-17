@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
+import '../widgets/datepicker.dart';
 import 'sales_item_transactions_page.dart';
 import 'sales_report_shared.dart';
 
@@ -11,7 +12,7 @@ class SalesBranchItemsPage extends StatefulWidget {
   final String branchName;
   final String branchLabel;
   final DateTimeRange? dateRange;
-  final ValueChanged<DateTimeRange> onDateChanged;
+  final ValueChanged<DateTimeRange?> onDateChanged;
   final ReportExport onExportReport;
   final ItemTxnExport onExportTxn;
 
@@ -44,28 +45,31 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
   late final String _previousSearch;
   final TextEditingController _search = TextEditingController();
   final ScrollController _vc = ScrollController();
+  final ScrollController _hc = ScrollController();
 
   static const int _rowsPerPage = 10;
 
   static const List<int> _colFlexes = [
     1,
     4,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
     3,
   ];
   static const List<String> _headers = [
     '#',
     'Item',
+    'Qty Sold',
     'Cash Sales',
     'MoMo',
     'Hubtel',
@@ -85,6 +89,8 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
   String? _category;
   bool _loading = true;
   int _page = 0;
+  int? _sortColumn = 2;
+  bool _sortAscending = false;
 
   @override
   void initState() {
@@ -102,6 +108,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
   void dispose() {
     _search.dispose();
     _vc.dispose();
+    _hc.dispose();
     Future.microtask(() => _provider.updateSearch(_previousSearch));
     super.dispose();
   }
@@ -119,31 +126,6 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
     }
     if (!mounted) return;
     setState(() => _loading = false);
-  }
-
-  Future<void> _pickRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: _range,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: Theme.of(context).colorScheme.primary,
-            surface: Theme.of(context).colorScheme.surface,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked == null) return;
-    setState(() {
-      _range = picked;
-      _page = 0;
-    });
-    widget.onDateChanged(picked);
-    await _load();
   }
 
   void _openItem(Map<String, dynamic> m) {
@@ -191,7 +173,11 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
     }
   }
 
-  Widget _miniStat(String title, double value) {
+  String _qty(double value) => value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(2);
+
+  Widget _miniStat(String title, double value, {String? valueText}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -206,7 +192,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
         children: [
           Text(title, style: TextStyle(color: _mutedTextColor, fontSize: 10)),
           Text(
-            srN(value),
+            valueText ?? srN(value),
             style: TextStyle(color: _textColor, fontWeight: FontWeight.bold),
           ),
         ],
@@ -214,8 +200,97 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
     );
   }
 
-  Widget _tipStat(String title, double value, String tip) {
-    return srTip(context, tip, _miniStat(title, value), title: title);
+  Widget _tipStat(String title, double value, String tip, {String? valueText}) {
+    return srTip(
+      context,
+      tip,
+      _miniStat(title, value, valueText: valueText),
+      title: title,
+    );
+  }
+
+  Comparable _sortValue(BranchRow row, int column) {
+    switch (column) {
+      case 1:
+        return row.branchName.toLowerCase();
+      case 2:
+        return row.qty;
+      case 3:
+        return row.cash;
+      case 4:
+        return row.momo;
+      case 5:
+        return row.hubtel;
+      case 6:
+        return row.card;
+      case 7:
+        return row.bank;
+      case 8:
+        return row.cheque;
+      case 9:
+        return row.credit;
+      case 10:
+        return row.totalSales;
+      case 11:
+        return row.returns;
+      case 12:
+        return row.discount;
+      case 13:
+        return row.profit;
+      case 14:
+        return row.cashAtHand;
+      default:
+        return 0;
+    }
+  }
+
+  Widget _sortableHeader(int column) {
+    final active = _sortColumn == column;
+    final numeric = column >= 2;
+
+    return Expanded(
+      flex: _colFlexes[column],
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            if (active) {
+              _sortAscending = !_sortAscending;
+            } else {
+              _sortColumn = column;
+              _sortAscending = true;
+            }
+            _page = 0;
+          });
+        },
+        child: Row(
+          mainAxisAlignment: numeric
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                _headers[column],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: numeric ? TextAlign.right : TextAlign.left,
+                style: TextStyle(
+                  color: _textColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Icon(
+              active
+                  ? (_sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
+                  : Icons.unfold_more,
+              color: active ? _textColor : _mutedTextColor,
+              size: 14,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _mobileTotalsCard(BranchRow totals) {
@@ -263,6 +338,12 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
             children: [
               _tipStat('Cash Sales', totals.cashSales, tips[0]),
               _tipStat('Credit Sales', totals.credit, tips[1]),
+              _tipStat(
+                'Qty Sold',
+                totals.qty,
+                'Quantity sold: ${srN(totals.qty)}',
+                valueText: _qty(totals.qty),
+              ),
               _tipStat('Total Sales', totals.totalSales, tips[2]),
               _tipStat('Returns', totals.returns, tips[3]),
               _tipStat('Discount', totals.discount, tips[4]),
@@ -293,7 +374,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
               style: TextStyle(color: _textColor, fontSize: 13),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 6),
           Expanded(
             flex: _colFlexes[1],
             child: Text(
@@ -307,10 +388,23 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
               ),
             ),
           ),
+          const SizedBox(width: 6),
+          Expanded(
+            flex: _colFlexes[2],
+            child: Text(
+              _qty(r.qty),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: _textColor,
+                fontSize: 13,
+                fontWeight: total ? FontWeight.w800 : FontWeight.w400,
+              ),
+            ),
+          ),
           for (int i = 0; i < values.length; i++) ...[
-            const SizedBox(width: 12),
+            const SizedBox(width: 6),
             Expanded(
-              flex: _colFlexes[i + 2],
+              flex: _colFlexes[i + 3],
               child: srTip(
                 context,
                 tips[i],
@@ -343,67 +437,88 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
     List<BranchRow> rows,
     BranchRow totals,
   ) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: _backgroundColor,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: _headerColor,
-                border: Border(
-                  bottom: BorderSide(color: _borderColor, width: 0.7),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              child: Row(
-                children: [
-                  for (int i = 0; i < _headers.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 12),
-                    Expanded(
-                      flex: _colFlexes[i],
-                      child: Text(
-                        _headers[i],
-                        textAlign: i >= 2 ? TextAlign.right : TextAlign.left,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          letterSpacing: 0.4,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = constraints.maxWidth < 1320
+            ? 1320.0
+            : constraints.maxWidth;
+        return Scrollbar(
+          controller: _hc,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _hc,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: _backgroundColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _headerColor,
+                          border: Border(
+                            bottom: BorderSide(color: _borderColor, width: 0.7),
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 13,
+                        ),
+                        child: Row(
+                          children: [
+                            for (int i = 0; i < _headers.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 6),
+                              if (i == 0)
+                                Expanded(
+                                  flex: _colFlexes[i],
+                                  child: Text(
+                                    _headers[i],
+                                    style: TextStyle(
+                                      color: _textColor,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              else
+                                _sortableHeader(i),
+                            ],
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Expanded(
-              child: Scrollbar(
-                controller: _vc,
-                thumbVisibility: true,
-                child: ListView.builder(
-                  controller: _vc,
-                  padding: EdgeInsets.zero,
-                  itemCount: rows.length,
-                  itemBuilder: (context, index) {
-                    return InkWell(
-                      onTap: () => _openItem(maps[index]),
-                      child: _dataRow(rows[index], index),
-                    );
-                  },
+                      Expanded(
+                        child: Scrollbar(
+                          controller: _vc,
+                          thumbVisibility: true,
+                          child: ListView.builder(
+                            controller: _vc,
+                            padding: EdgeInsets.zero,
+                            itemCount: rows.length,
+                            itemBuilder: (context, index) {
+                              return InkWell(
+                                onTap: () => _openItem(maps[index]),
+                                child: _dataRow(rows[index], index),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      _dataRow(totals, rows.length, total: true),
+                    ],
+                  ),
                 ),
               ),
             ),
-            _dataRow(totals, rows.length, total: true),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -450,9 +565,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                             child: Text(
                               r.branchName,
                               style: TextStyle(
-                                color: _isLightTheme
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Colors.amberAccent,
+                                color: _textColor,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                               ),
@@ -466,6 +579,12 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                         runSpacing: 10,
                         children: [
                           _tipStat('Cash', r.cash, tips[0]),
+                          _tipStat(
+                            'Qty Sold',
+                            r.qty,
+                            'Quantity sold: ${srN(r.qty)}',
+                            valueText: _qty(r.qty),
+                          ),
                           _tipStat('MoMo', r.momo, tips[1]),
                           _tipStat('Hubtel', r.hubtel, tips[2]),
                           _tipStat('Card', r.card, tips[3]),
@@ -493,10 +612,18 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
   @override
   Widget build(BuildContext context) {
     final isSmall = MediaQuery.sizeOf(context).width < 600;
-    final maps = _provider.filterBranchItems(
-      productType: _type,
-      category: _category,
-    );
+    final maps = _provider
+        .filterBranchItems(productType: _type, category: _category)
+        .toList();
+    final sortColumn = _sortColumn;
+    if (sortColumn != null) {
+      maps.sort((a, b) {
+        final aValue = _sortValue(BranchRow.fromItem(a), sortColumn);
+        final bValue = _sortValue(BranchRow.fromItem(b), sortColumn);
+        final comparison = Comparable.compare(aValue, bValue);
+        return _sortAscending ? comparison : -comparison;
+      });
+    }
     final rows = maps.map(BranchRow.fromItem).toList();
     final totals = BranchRow.sum(rows);
     final totalPages = rows.isEmpty
@@ -547,7 +674,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                       color: _mutedTextColor,
                     ),
                     SizedBox(width: 10),
-                    Text('Print'),
+                    Text('Print', style: TextStyle(color: _textColor)),
                   ],
                 ),
               ),
@@ -561,7 +688,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                       color: _mutedTextColor,
                     ),
                     SizedBox(width: 10),
-                    Text('Download PDF'),
+                    Text('Download PDF', style: TextStyle(color: _textColor)),
                   ],
                 ),
               ),
@@ -575,7 +702,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                       color: _mutedTextColor,
                     ),
                     SizedBox(width: 10),
-                    Text('Download Excel'),
+                    Text('Download Excel', style: TextStyle(color: _textColor)),
                   ],
                 ),
               ),
@@ -650,9 +777,16 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                   }),
                 ),
                 const SizedBox(width: 4),
-                InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: _pickRange,
+                ReusableDatePickerWidget(
+                  initialDateRange: _range,
+                  onDateSelected: (selection) async {
+                    setState(() {
+                      _range = selection;
+                      _page = 0;
+                    });
+                    widget.onDateChanged(selection);
+                    await _load();
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -686,6 +820,38 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                       ],
                     ),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  'Best sellers:',
+                  style: TextStyle(
+                    color: _mutedTextColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('By quantity'),
+                  selected: _sortColumn == 2,
+                  onSelected: (_) => setState(() {
+                    _sortColumn = 2;
+                    _sortAscending = false;
+                    _page = 0;
+                  }),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('By sales value'),
+                  selected: _sortColumn == 10,
+                  onSelected: (_) => setState(() {
+                    _sortColumn = 10;
+                    _sortAscending = false;
+                    _page = 0;
+                  }),
                 ),
               ],
             ),

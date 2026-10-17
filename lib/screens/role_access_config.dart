@@ -98,28 +98,30 @@ Map<String, List<String>> getDefaultRoleAccessSelections() {
       Routes.activityChartReg,
       Routes.activityChartView,
       Routes.paymentaccounts,
-     //  Routes.paymentdurationreg,
-     //  Routes.paymentdurationview,
-     //  Routes.creditopenbal,
-     //  Routes.creditopenbalview,
-     //  Routes.creditorpayable,
-     //  Routes.creditorpayableview,
-     //  Routes.debtorlist,
-     //  Routes.debtorBal,
-     //  Routes.debtpayments,
-     //  Routes.debtorBalView,
-     //  Routes.banktransfer,
-     //  Routes.banktransferview,
-     //  Routes.journalEntry,
-     //  Routes.journalView,
-     //  Routes.salesreportsummary,
-     //  Routes.stockreport,
-     //  Routes.staffsalereport,
-     //  Routes.salesregister,
-     // Routes.salesreport,
-     // Routes.uploadreceipt,
-     // Routes.uploadreceiptview,
+      //  Routes.paymentdurationreg,
+      //  Routes.paymentdurationview,
+      //  Routes.creditopenbal,
+      //  Routes.creditopenbalview,
+      //  Routes.creditorpayable,
+      //  Routes.creditorpayableview,
+      //  Routes.debtorlist,
+      //  Routes.debtorBal,
+      //  Routes.debtpayments,
+      //  Routes.debtorBalView,
+      //  Routes.banktransfer,
+      //  Routes.banktransferview,
+      //  Routes.journalEntry,
+      //  Routes.journalView,
+      //  Routes.salesreportsummary,
+      //  Routes.stockreport,
+      //  Routes.staffsalereport,
+      //  Routes.salesregister,
+      // Routes.salesreport,
+      // Routes.uploadreceipt,
+      // Routes.uploadreceiptview,
     ],
+    'warehouse': [Routes.warehousehomescreen],
+    'cashier':[Routes.cashierPage],
   };
 }
 
@@ -153,10 +155,12 @@ List<RoleAccessAction> buildRoleAccessActions(
 String _fallbackRoleKey(String roleKey) {
   if (roleKey.contains('salesmanager')) return 'salesmanager';
   if (roleKey.contains('salesattendance')) return 'salesattendance';
-  if(roleKey.contains('warehouse')) return'warehouse';
+  if (roleKey.contains('warehouse')) return 'warehouse';
+  if (roleKey.contains('cashier')) return 'cashier';
   if (roleKey.contains('operation') || roleKey.contains('officer')) {
     return 'operationsofficer';
   }
+
   if (roleKey.contains('stock')) return 'stockofficer';
   if (roleKey.contains('accountant')) return 'accountant';
   return roleKey;
@@ -493,6 +497,13 @@ final Map<String, Map<String, Object>> _routeMetadata = {
     'badge': 'Report',
     'color': const Color(0xFFF57C00),
   },
+  Routes.cashierPage: {
+    'title': 'Cashier page',
+    'description': 'Cashier page',
+    'icon': Icons.bar_chart,
+    'badge': 'Cashier',
+    'color': const Color(0xFFF57C00),
+  },
 };
 
 class RoleAccessConfigScreen extends StatefulWidget {
@@ -517,14 +528,12 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _RoleOption(value: 'stockofficer', label: 'Stock Officer'),
     _RoleOption(value: 'accountant', label: 'Accountant'),
     _RoleOption(value: 'warehouse', label: 'warehouse'),
+    _RoleOption(value: 'cashier', label: 'Cashier'),
   ];
 
   static const List<_PageOption> _pageOptions = [
     _PageOption(route: Routes.sales, label: 'Sales'),
-    _PageOption(
-      route: Routes.warehousehomescreen,
-      label: 'Warehouse Home Screen',
-    ),
+    _PageOption(route: Routes.warehousehomescreen,label: 'Warehouse Home Screen',),
     _PageOption(route: Routes.salesview, label: 'Sales View'),
     _PageOption(route: Routes.farmerreg, label: 'Farmer Registration'),
     _PageOption(route: Routes.viewfarmers, label: 'View Farmers'),
@@ -532,7 +541,7 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _PageOption(route: Routes.salesregister, label: 'Sales Register'),
     _PageOption(route: Routes.stockrequest, label: 'Stock Requests'),
     _PageOption(route: Routes.stockrequestlist, label: 'Request List'),
-
+    _PageOption(route: Routes.cashierPage, label: 'Cashier page'),
 
     _PageOption(route: Routes.newstock, label: 'Stock Management'),
     _PageOption(route: Routes.stocklisttable, label: 'Stock List Table'),
@@ -552,20 +561,11 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
     _PageOption(route: Routes.activityChartView, label: 'Activity Chart View'),
     _PageOption(route: Routes.paymentaccounts, label: 'Payment Accounts'),
     _PageOption(route: Routes.paymentdurationreg, label: 'Payment Duration'),
-    _PageOption(
-      route: Routes.paymentdurationview,
-      label: 'Payment Duration View',
-    ),
+    _PageOption(route: Routes.paymentdurationview,label: 'Payment Duration View',),
     _PageOption(route: Routes.creditopenbal, label: 'Credit Opening Balance'),
-    _PageOption(
-      route: Routes.creditopenbalview,
-      label: 'Credit Opening Balance View',
-    ),
+    _PageOption(route: Routes.creditopenbalview, label: 'Credit Opening Balance View', ),
     _PageOption(route: Routes.creditorpayable, label: 'Creditors Payable'),
-    _PageOption(
-      route: Routes.creditorpayableview,
-      label: 'Creditors Payable View',
-    ),
+    _PageOption(route: Routes.creditorpayableview,label: 'Creditors Payable View',),
     _PageOption(route: Routes.debtorlist, label: 'Debtors'),
     _PageOption(route: Routes.debtorBal, label: 'Debtor Balance'),
     _PageOption(route: Routes.debtpayments, label: 'Debtor Payments'),
@@ -625,7 +625,7 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
             iconEnabledColor: colorScheme.onSurface,
             style: TextStyle(
               color: colorScheme.onSurface,
-             // fontSize: 18,
+              // fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
             items: _roleOptions
@@ -672,82 +672,101 @@ class _RoleAccessConfigScreenState extends State<RoleAccessConfigScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Choose which pages appear for each access level.',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: ListView(
-                      children: [
-                        for (final page in _pageOptions)
-                          CheckboxListTile(
-                            dense: true,
-                            title: Text(page.label),
-                            subtitle: const Text(''),
-                            value: selectedPages.contains(page.route),
-                            onChanged: (value) {
-                              setState(() {
-                                final current = List<String>.from(
-                                  selectedPages,
-                                );
-                                if (value == true) {
-                                  if (!current.contains(page.route)) {
-                                    current.add(page.route);
-                                  }
-                                } else {
-                                  current.remove(page.route);
-                                }
-                                _selections[_selectedRole] = current;
-                              });
-                            },
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final contentWidth = constraints.maxWidth < 760
+              ? constraints.maxWidth
+              : 760.0;
+
+          return Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: contentWidth,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Choose which pages appear for each access level.',
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
-                        for (final page in selectedPages.where(
-                          (route) => !_pageOptions.any(
-                            (known) => known.route == route,
-                          ),
-                        ))
-                          ListTile(
-                            title: Text(pageLabelForRoute(page)),
-                            subtitle: Text(page),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () {
-                                setState(() {
-                                  final current = List<String>.from(
-                                    selectedPages,
-                                  );
-                                  current.remove(page);
-                                  _selections[_selectedRole] = current;
-                                });
-                              },
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: ListView(
+                              children: [
+                                for (final page in _pageOptions)
+                                  CheckboxListTile(
+                                    dense: true,
+                                    title: Text(page.label),
+                                    subtitle: const Text(''),
+                                    value: selectedPages.contains(page.route),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        final current = List<String>.from(
+                                          selectedPages,
+                                        );
+                                        if (value == true) {
+                                          if (!current.contains(page.route)) {
+                                            current.add(page.route);
+                                          }
+                                        } else {
+                                          current.remove(page.route);
+                                        }
+                                        _selections[_selectedRole] = current;
+                                      });
+                                    },
+                                  ),
+                                for (final page in selectedPages.where(
+                                  (route) => !_pageOptions.any(
+                                    (known) => known.route == route,
+                                  ),
+                                ))
+                                  ListTile(
+                                    title: Text(pageLabelForRoute(page)),
+                                    subtitle: Text(page),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: () {
+                                        setState(() {
+                                          final current = List<String>.from(
+                                            selectedPages,
+                                          );
+                                          current.remove(page);
+                                          _selections[_selectedRole] = current;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
             ),
+          );
+        },
+      ),
     );
   }
-
 
   Future<void> _saveSelections() async {
     setState(() => _isSaving = true);
     final datafeed = context.read<Datafeed>();
     await datafeed.saveRoleAccessSelections(_selections);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Role page selection saved.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: Colors.green,
+        content: Text(
+          'Role page selection saved.',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+    );
     setState(() => _isSaving = false);
     Navigator.pop(context, true);
   }

@@ -1023,8 +1023,8 @@ class _SalesPageState extends State<SalesPage> {
         companyname: datafeed.company,
         branchId: activeBranchId,
         branchName: activeBranchName,
-        branchType: branchtype,
-        pricingtype: branchtype,
+        branchType: datafeed.isSalesPoint ? 'Sales Point' : branchtype,
+        pricingtype: datafeed.isSalesPoint ? 'Sales Point' : branchtype,
         staffPosition: datafeed.staffPosition,
         payments: payments,
         receiptNumber: receiptNumber,
@@ -1120,6 +1120,10 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _printReceipt() async {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final value = Provider.of<Datafeed>(context, listen: false);
+    if (value.isSalesPoint) {
+      await _saveDirectSale();
+      return;
+    }
     final isService =
         (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
@@ -1597,7 +1601,9 @@ class _SalesPageState extends State<SalesPage> {
                                 accesslevel.toLowerCase().trim() ==
                                 'super admin';
                             final canPrint = provider.canPrint;
-                            final posPrint = isSalesBranch || canPrint;
+                            final posPrint =
+                                !provider.isSalesPoint &&
+                                (isSalesBranch || canPrint);
                             return Column(
                               children: [
                                 if (isMobile)

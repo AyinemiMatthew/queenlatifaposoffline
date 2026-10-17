@@ -206,9 +206,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
     final provider = context.read<Datafeed>();
 
     final canSelectDate = provider.isAdminLevel;
-    // provider.accesslevel == 'super admin' ||
-    // provider.accesslevel == 'systemadmin' ||
-    // provider.accesslevel == 'admin';
 
     final receipt = salesview.receiptNumber;
 
@@ -627,11 +624,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
         final filteredSalesview = value.filtersalesview();
 
-        final canSelectDate =
-            value.accesslevel == 'super admin' ||
-            value.accesslevel == 'systemadmin' ||
-            value.accesslevel == 'admin';
-
+        final canSelectDate = value.isAdminLevel;
         return Scaffold(
           backgroundColor: _backgroundColor,
           appBar: PreferredSize(
@@ -818,6 +811,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                           },
                         ),
 
+                      /*
                       if (value.isAdminLevel)
                         PopupMenuButton<SalesTodayView>(
                           tooltip: 'Sales insights',
@@ -854,13 +848,14 @@ class _SalesViewPageState extends State<SalesViewPage> {
                               value: SalesTodayView.payments,
                               child: Text('Payment Breakdown'),
                             ),
-                            PopupMenuItem(
-                              value: SalesTodayView.dailySummary,
-                              child: Text('Sales Summary'),
-                            ),
+                            // PopupMenuItem(
+                            //   value: SalesTodayView.dailySummary,
+                            //   child: Text('Sales Summary'),
+                            // ),
+
                             PopupMenuItem(
                               value: SalesTodayView.staffCollections,
-                              child: Text('Staff Collections & Items'),
+                              child: Text('Staff'),
                             ),
                             PopupMenuItem(
                               value: SalesTodayView.itemsSold,
@@ -868,6 +863,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                             ),
                           ],
                         ),
+                      */
                     ],
                   );
                 },
@@ -902,7 +898,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                             )
                           : LayoutBuilder(
                               builder: (context, constraints) {
-                                final isDesktop = constraints.maxWidth > 700;
+                                final isDesktop = constraints.maxWidth > 800;
 
                                 if (isDesktop) {
                                   return _buildDesktopLayout(
@@ -986,7 +982,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               flex: _colFlexes[1],
               child: GestureDetector(
@@ -1009,11 +1005,13 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 },
                 child: Text(
                   '#$receipt',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: _textColor, fontSize: 13),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               flex: _colFlexes[2],
               child: Text(
@@ -1023,7 +1021,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               flex: _colFlexes[3],
               child: Text(
@@ -1031,7 +1029,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               flex: _colFlexes[4],
               child: Text(
@@ -1039,7 +1037,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             if (canSelectDate) ...[
               Expanded(
                 flex: _colFlexes[5],
@@ -1049,20 +1047,31 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   style: TextStyle(color: _textColor, fontSize: 13),
                 ),
               ),
-              const SizedBox(width: 12),
             ],
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               flex: _colFlexes[6],
+              child: Text(
+                sv.receiptby?.toString().trim().isNotEmpty == true
+                    ? sv.receiptby.toString()
+                    : '-',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _textColor, fontSize: 13),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: _colFlexes[7],
               child: Text(
                 '${nf.format(total)}',
                 textAlign: TextAlign.right,
                 style: TextStyle(color: _textColor, fontSize: 13),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
-              flex: _colFlexes[7],
+              flex: _colFlexes[8],
               child: _salesActionsMenu(context, sv, customerName),
             ),
           ],
@@ -1075,11 +1084,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
     1, // #
     3, // Receipt
     4, // Customer
-    3, // Date
+    2, // Date
     2, // Mode
-    3, // Prev. Balance
-    3, // Total
-    3, // Actions
+    4, // Prev. Balance
+    3, // Received By
+    2, // Total
+    2, // Actions
   ];
 
   Widget _sortableHeaderCell(
@@ -1106,13 +1116,18 @@ class _SalesViewPageState extends State<SalesViewPage> {
               ? MainAxisAlignment.end
               : MainAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: _textColor,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                letterSpacing: 0.4,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(
+                  color: _textColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  letterSpacing: 0.4,
+                ),
               ),
             ),
             if (isSorted)
@@ -1181,7 +1196,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
             child: Row(
               children: [
                 _plainHeaderCell('#', _colFlexes[0]),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _sortableHeaderCell(
                   'Receipt',
                   _colFlexes[1],
@@ -1189,7 +1204,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   (d) => d.receiptNumber ?? '',
                   filteredSalesview,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _sortableHeaderCell(
                   'Customer',
                   _colFlexes[2],
@@ -1197,40 +1212,47 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   (d) => (d.customerName?.toString() ?? '').toLowerCase(),
                   filteredSalesview,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _sortableHeaderCell(
                   'Date',
                   _colFlexes[3],
-                  4,
+                  3,
                   (d) => d.dateymd ?? '',
                   filteredSalesview,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _sortableHeaderCell(
                   'Mode',
                   _colFlexes[4],
-                  5,
+                  4,
                   (d) => d.transMode ?? '',
                   filteredSalesview,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
 
                 if (canSelectDate) ...[
                   _sortableHeaderCell(
                     'Previous Bal(GHS)',
                     _colFlexes[5],
-                    55,
+                    5,
                     (d) => value.previousBalanceByReceipt[d.id] ?? 0.0,
                     filteredSalesview,
                     numeric: true,
                   ),
-                  const SizedBox(width: 12),
                 ],
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 _sortableHeaderCell(
-                  'Total (GHS)',
+                  'Received By',
                   _colFlexes[6],
                   6,
+                  (d) => (d.receiptby ?? '').toLowerCase(),
+                  filteredSalesview,
+                ),
+                const SizedBox(width: 8),
+                _sortableHeaderCell(
+                  'Total (GHS)',
+                  _colFlexes[7],
+                  7,
                   (d) {
                     final itemMap = Map<String, dynamic>.from(d.items);
 
@@ -1249,8 +1271,8 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   filteredSalesview,
                   numeric: true,
                 ),
-                const SizedBox(width: 12),
-                _plainHeaderCell('Actions', _colFlexes[7], centered: true),
+                const SizedBox(width: 8),
+                _plainHeaderCell('Actions', _colFlexes[8], centered: true),
               ],
             ),
           ),

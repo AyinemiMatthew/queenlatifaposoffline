@@ -1652,409 +1652,7 @@ class _ItemRegPageState extends State<ItemRegPage> {
                             ),
                           ),
 
-                          onPressed: _loading
-                              ? null
-                              : () async {
-                                  if (!_formKey.currentState!.validate())
-                                    return;
-                                  setState(() => _loading = true);
-                                  final now = DateTime.now();
-                                  final day = DateFormat('EEEE').format(now);
-                                  final year = now.year.toString();
-                                  final month = '${now.year}.${now.month}';
-                                  final weekNumber =
-                                      ((now
-                                                  .difference(
-                                                    DateTime(now.year, 1, 1),
-                                                  )
-                                                  .inDays) /
-                                              7)
-                                          .floor() +
-                                      1;
-                                  final week = '${now.year}.$weekNumber';
-
-                                  try {
-                                    final datafeed = context.read<Datafeed>();
-                                    final companyId = datafeed.companyid;
-                                    final itemName = _nameController.text
-                                        .trim();
-
-                                    String sanitize(String input) {
-                                      return input
-                                          .trim()
-                                          .toLowerCase()
-                                          .replaceAll(RegExp(r'\s+'), '')
-                                          .replaceAll(
-                                            RegExp(r'[^a-z0-9_]'),
-                                            '',
-                                          );
-                                    }
-
-                                    final docId =
-                                        widget.docId ??
-                                        '${sanitize(companyId)}_${sanitize(itemName)}';
-
-                                    final cleabbarcode =
-                                        (_barcodeController.text.trim().isEmpty
-                                                ? itemName
-                                                : _barcodeController.text
-                                                      .trim())
-                                            .toLowerCase();
-
-                                    // Name duplicate - new items only
-                                    final nameQuery = await _db
-                                        .collection('itemsreg')
-                                        .where(
-                                          'companyid',
-                                          isEqualTo: companyId,
-                                        )
-                                        .where('name', isEqualTo: itemName)
-                                        .limit(1)
-                                        .get();
-
-                                    if (nameQuery.docs.isNotEmpty &&
-                                        nameQuery.docs.first.id != docId) {
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'An item with name "$itemName" already exists for this company',
-                                            ),
-                                            backgroundColor: Colors.red,
-                                            duration: const Duration(
-                                              seconds: 4,
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      setState(() => _loading = false);
-                                      return;
-                                    }
-
-                                    if (cleabbarcode.isNotEmpty) {
-                                      final barcodeQuery = await _db
-                                          .collection('itemsreg')
-                                          .where(
-                                            'companyid',
-                                            isEqualTo: companyId,
-                                          )
-                                          .where(
-                                            'barcode',
-                                            isEqualTo: cleabbarcode,
-                                          )
-                                          .limit(1)
-                                          .get();
-
-                                      if (barcodeQuery.docs.isNotEmpty &&
-                                          barcodeQuery.docs.first.id != docId) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'An item with barcode "$cleabbarcode" already exists',
-                                              ),
-                                              backgroundColor: Colors.red,
-                                              duration: const Duration(
-                                                seconds: 4,
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                        setState(() => _loading = false);
-                                        return;
-                                      }
-                                    }
-
-                                    final docRef = _db
-                                        .collection('itemsreg')
-                                        .doc(docId);
-                                    final imageUrl = await uploadLogo(docId);
-
-                                    List<Mode> modes = List<Mode>.from(
-                                      widget.item?.modes ?? [],
-                                    );
-                                    final double boxqty =
-                                        double.tryParse(
-                                          _boxQtyController.text,
-                                        ) ??
-                                        0;
-
-                                    void upsertMode(String id, Mode newMode) {
-                                      final index = modes.indexWhere(
-                                        (m) => m.id == id,
-                                      );
-                                      if (index != -1) {
-                                        modes[index] = newMode;
-                                      } else {
-                                        modes.add(newMode);
-                                      }
-                                    }
-
-                                    void removeMode(String id) =>
-                                        modes.removeWhere((m) => m.id == id);
-
-                                    final bool hasBoxQuantity = boxqty >= 1;
-                                    final businessType = datafeed.companytype
-                                        .toLowerCase()
-                                        .trim();
-                                    final bool supportsRetail =
-                                        businessType != 'wholesale';
-                                    final bool supportsWholesale =
-                                        businessType != 'retail';
-                                    final bool wantSingle =
-                                        hasBoxQuantity && supportsRetail;
-                                    final bool wantCartonSet =
-                                        hasBoxQuantity && supportsWholesale;
-
-                                    final String cp = _costController.text
-                                        .trim();
-                                    final String rp = _retail_price.text.trim();
-                                    final String boxPrice =
-                                        _wholesalePriceController.text.trim();
-                                    final String supplierPrice =
-                                        _supplierPriceController.text.trim();
-
-                                    if (wantSingle) {
-                                      upsertMode(
-                                        "single",
-                                        Mode(
-                                          id: "single",
-                                          name: "Single",
-                                          qty: "1",
-                                          cp: cp,
-                                          rp: rp,
-                                          wp: boxqty == 1 ? boxPrice : rp,
-                                          sp: boxqty == 1 ? supplierPrice : rp,
-                                        ),
-                                      );
-                                    } else {
-                                      removeMode("single");
-                                    }
-
-                                    if (wantCartonSet) {
-                                      upsertMode(
-                                        "carton",
-                                        Mode(
-                                          id: "carton",
-                                          name: "Carton",
-                                          qty: _boxQtyController.text.trim(),
-                                          cp: cp,
-                                          rp: boxqty > 1 ? boxPrice : rp,
-                                          wp: boxPrice,
-                                          sp: supplierPrice,
-                                        ),
-                                      );
-                                    } else {
-                                      removeMode("carton");
-                                    }
-
-                                    if (hasBoxQuantity && _enableBoxPricing) {
-                                      if (pricingStep >= 1 &&
-                                          _halfboxqty_controller
-                                              .text
-                                              .isNotEmpty &&
-                                          _halfboxprice_controller
-                                              .text
-                                              .isNotEmpty) {
-                                        upsertMode(
-                                          "half",
-                                          Mode(
-                                            id: "half",
-                                            name: "Half Carton",
-                                            qty: _halfboxqty_controller.text
-                                                .trim(),
-                                            cp: cp,
-                                            rp: _halfboxprice_controller.text
-                                                .trim(),
-                                            wp: _halfboxprice_controller.text
-                                                .trim(),
-                                            sp: _halfboxprice_controller.text
-                                                .trim(),
-                                          ),
-                                        );
-                                      } else {
-                                        removeMode("half");
-                                      }
-
-                                      if (pricingStep >= 2 &&
-                                          _quarterqty_controller
-                                              .text
-                                              .isNotEmpty &&
-                                          _quarterprice_controller
-                                              .text
-                                              .isNotEmpty) {
-                                        upsertMode(
-                                          "quarter",
-                                          Mode(
-                                            id: "quarter",
-                                            name: "Quarter Carton",
-                                            qty: _quarterqty_controller.text
-                                                .trim(),
-                                            cp: cp,
-                                            rp: _quarterprice_controller.text
-                                                .trim(),
-                                            wp: _quarterprice_controller.text
-                                                .trim(),
-                                            sp: _quarterprice_controller.text
-                                                .trim(),
-                                          ),
-                                        );
-                                      } else {
-                                        removeMode("quarter");
-                                      }
-
-                                      if (pricingStep >= 3 &&
-                                          _packQtyController.text.isNotEmpty &&
-                                          _packprice_controller
-                                              .text
-                                              .isNotEmpty) {
-                                        upsertMode(
-                                          "pack",
-                                          Mode(
-                                            id: "pack",
-                                            name: "Pack",
-                                            qty: _packQtyController.text.trim(),
-                                            cp: cp,
-                                            rp: _packprice_controller.text
-                                                .trim(),
-                                            wp: _packprice_controller.text
-                                                .trim(),
-                                            sp: _packprice_controller.text
-                                                .trim(),
-                                          ),
-                                        );
-                                      } else {
-                                        removeMode("pack");
-                                      }
-                                    } else {
-                                      removeMode("half");
-                                      removeMode("quarter");
-                                      removeMode("pack");
-                                    }
-
-                                    Map<String, dynamic> data;
-
-                                    if (widget.docId == null) {
-                                      // NEW ITEM
-                                      final item = ItemModel(
-                                        id: docId,
-                                        name: itemName,
-                                        barcode: cleabbarcode,
-                                        cp: _costController.text.trim(),
-                                        retailmarkup: '',
-                                        wholesalemarkup: '',
-                                        retailprice: '',
-                                        wholesaleprice: '',
-                                        producttype: _productType ?? '',
-                                        pricingmode: false,
-                                        pcategory: _productCategory ?? '',
-                                        warehouse: '',
-                                        openingstock: '',
-                                        company: datafeed.company,
-                                        companyid: datafeed.companyid,
-                                        imageurl: imageUrl ?? '',
-                                        modes: modes,
-                                        createdat: DateTime.now(),
-                                        updatedby: null,
-                                        updatedat: null,
-                                        wminqty:
-                                            _wholesaleMinQtyController.text,
-                                        sminqty: _supplierMinQtyController.text,
-                                        staff: datafeed.staff,
-                                        modemore: _enableBoxPricing,
-                                        deletedat: null,
-                                        deletedby: null,
-                                        day: day,
-                                        week: week,
-                                        month: month,
-                                        year: year,
-                                        shelfnumber:
-                                            _shelfnumberController.text,
-                                      );
-
-                                      data = item.toMap();
-                                      data['createdat'] =
-                                          FieldValue.serverTimestamp();
-                                      await docRef.set(
-                                        data,
-                                        SetOptions(merge: true),
-                                      );
-                                    } else {
-                                      // EDIT
-                                      data = {
-                                        'name': itemName,
-                                        'barcode': cleabbarcode,
-                                        'cp': _costController.text.trim(),
-                                        'producttype': _productType ?? '',
-                                        'pcategory': _productCategory ?? '',
-                                        'imageurl': imageUrl ?? '',
-                                        'modes': {
-                                          for (var m in modes) m.id: m.toMap(),
-                                        },
-                                        'wminqty':
-                                            _wholesaleMinQtyController.text,
-                                        'sminqty':
-                                            _supplierMinQtyController.text,
-                                        'modemore': _enableBoxPricing,
-                                        'updatedat':
-                                            FieldValue.serverTimestamp(),
-                                        'updatedby': datafeed.staff,
-                                        'shelfnumber':
-                                            _shelfnumberController.text,
-                                      };
-                                      await docRef.update(data);
-                                    }
-
-                                    if (widget.docId == null) {
-                                      _clearAllFields();
-                                    }
-
-                                    if (mounted) {
-                                      final theme = Theme.of(context);
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            widget.docId == null
-                                                ? 'Item saved successfully!'
-                                                : 'Item updated successfully!',
-                                            style: TextStyle(
-                                              color:
-                                                  theme.colorScheme.onPrimary,
-                                            ),
-                                          ),
-                                          backgroundColor: Colors.green,
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      final theme = Theme.of(context);
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Error: $e',
-                                            style: TextStyle(
-                                              color:
-                                                  theme.colorScheme.onSurface,
-                                            ),
-                                          ),
-                                          backgroundColor: Colors.red,
-                                          duration: const Duration(seconds: 4),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                  setState(() => _loading = false);
-                                },
+                          onPressed: _loading ? null : _saveItem,
                           child: _loading
                               ? const CircularProgressIndicator(
                                   color: Colors.white,
@@ -2270,6 +1868,8 @@ class _ItemRegPageState extends State<ItemRegPage> {
     return TextFormField(
       enabled: enabled,
       controller: controller,
+      textInputAction: TextInputAction.done,
+      onFieldSubmitted: (_) => _saveItem(),
 
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
@@ -2309,6 +1909,8 @@ class _ItemRegPageState extends State<ItemRegPage> {
     return TextFormField(
       controller: controller,
       enabled: enabled,
+      textInputAction: TextInputAction.done,
+      onFieldSubmitted: (_) => _saveItem(),
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
@@ -2367,6 +1969,314 @@ class _ItemRegPageState extends State<ItemRegPage> {
         borderSide: BorderSide(color: colorScheme.secondary, width: 1.5),
       ),
     );
+  }
+
+  Future<void> _saveItem() async {
+    if (_loading) return;
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
+    final now = DateTime.now();
+    final day = DateFormat('EEEE').format(now);
+    final year = now.year.toString();
+    final month = '${now.year}.${now.month}';
+    final weekNumber =
+        ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
+    final week = '${now.year}.$weekNumber';
+
+    try {
+      final datafeed = context.read<Datafeed>();
+      final companyId = datafeed.companyid;
+      final itemName = _nameController.text.trim();
+
+      String sanitize(String input) {
+        return input
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'\s+'), '')
+            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+      }
+
+      final docId =
+          widget.docId ?? '${sanitize(companyId)}_${sanitize(itemName)}';
+
+      final cleabbarcode =
+          (_barcodeController.text.trim().isEmpty
+                  ? itemName
+                  : _barcodeController.text.trim())
+              .toLowerCase();
+
+      // Name duplicate - new items only
+      final nameQuery = await _db
+          .collection('itemsreg')
+          .where('companyid', isEqualTo: companyId)
+          .where('name', isEqualTo: itemName)
+          .limit(1)
+          .get();
+
+      if (nameQuery.docs.isNotEmpty && nameQuery.docs.first.id != docId) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'An item with name "$itemName" already exists for this company',
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        setState(() => _loading = false);
+        return;
+      }
+
+      if (cleabbarcode.isNotEmpty) {
+        final barcodeQuery = await _db
+            .collection('itemsreg')
+            .where('companyid', isEqualTo: companyId)
+            .where('barcode', isEqualTo: cleabbarcode)
+            .limit(1)
+            .get();
+
+        if (barcodeQuery.docs.isNotEmpty &&
+            barcodeQuery.docs.first.id != docId) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'An item with barcode "$cleabbarcode" already exists',
+                ),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+          setState(() => _loading = false);
+          return;
+        }
+      }
+
+      final docRef = _db.collection('itemsreg').doc(docId);
+      final imageUrl = await uploadLogo(docId);
+
+      List<Mode> modes = List<Mode>.from(widget.item?.modes ?? []);
+      final double boxqty = double.tryParse(_boxQtyController.text) ?? 0;
+
+      void upsertMode(String id, Mode newMode) {
+        final index = modes.indexWhere((m) => m.id == id);
+        if (index != -1) {
+          modes[index] = newMode;
+        } else {
+          modes.add(newMode);
+        }
+      }
+
+      void removeMode(String id) => modes.removeWhere((m) => m.id == id);
+
+      final bool hasBoxQuantity = boxqty >= 1;
+      final businessType = datafeed.companytype.toLowerCase().trim();
+      final bool supportsRetail = businessType != 'wholesale';
+      final bool supportsWholesale = businessType != 'retail';
+      final bool wantSingle = hasBoxQuantity && supportsRetail;
+      final bool wantCartonSet = hasBoxQuantity && supportsWholesale;
+
+      final String cp = _costController.text.trim();
+      final String rp = _retail_price.text.trim();
+      final String boxPrice = _wholesalePriceController.text.trim();
+      final String supplierPrice = _supplierPriceController.text.trim();
+
+      if (wantSingle) {
+        upsertMode(
+          "single",
+          Mode(
+            id: "single",
+            name: "Single",
+            qty: "1",
+            cp: cp,
+            rp: rp,
+            wp: boxqty == 1 ? boxPrice : rp,
+            sp: boxqty == 1 ? supplierPrice : rp,
+          ),
+        );
+      } else {
+        removeMode("single");
+      }
+
+      if (wantCartonSet) {
+        upsertMode(
+          "carton",
+          Mode(
+            id: "carton",
+            name: "Carton",
+            qty: _boxQtyController.text.trim(),
+            cp: cp,
+            rp: boxqty > 1 ? boxPrice : rp,
+            wp: boxPrice,
+            sp: supplierPrice,
+          ),
+        );
+      } else {
+        removeMode("carton");
+      }
+
+      if (hasBoxQuantity && _enableBoxPricing) {
+        if (pricingStep >= 1 &&
+            _halfboxqty_controller.text.isNotEmpty &&
+            _halfboxprice_controller.text.isNotEmpty) {
+          upsertMode(
+            "half",
+            Mode(
+              id: "half",
+              name: "Half Carton",
+              qty: _halfboxqty_controller.text.trim(),
+              cp: cp,
+              rp: _halfboxprice_controller.text.trim(),
+              wp: _halfboxprice_controller.text.trim(),
+              sp: _halfboxprice_controller.text.trim(),
+            ),
+          );
+        } else {
+          removeMode("half");
+        }
+
+        if (pricingStep >= 2 &&
+            _quarterqty_controller.text.isNotEmpty &&
+            _quarterprice_controller.text.isNotEmpty) {
+          upsertMode(
+            "quarter",
+            Mode(
+              id: "quarter",
+              name: "Quarter Carton",
+              qty: _quarterqty_controller.text.trim(),
+              cp: cp,
+              rp: _quarterprice_controller.text.trim(),
+              wp: _quarterprice_controller.text.trim(),
+              sp: _quarterprice_controller.text.trim(),
+            ),
+          );
+        } else {
+          removeMode("quarter");
+        }
+
+        if (pricingStep >= 3 &&
+            _packQtyController.text.isNotEmpty &&
+            _packprice_controller.text.isNotEmpty) {
+          upsertMode(
+            "pack",
+            Mode(
+              id: "pack",
+              name: "Pack",
+              qty: _packQtyController.text.trim(),
+              cp: cp,
+              rp: _packprice_controller.text.trim(),
+              wp: _packprice_controller.text.trim(),
+              sp: _packprice_controller.text.trim(),
+            ),
+          );
+        } else {
+          removeMode("pack");
+        }
+      } else {
+        removeMode("half");
+        removeMode("quarter");
+        removeMode("pack");
+      }
+
+      Map<String, dynamic> data;
+
+      if (widget.docId == null) {
+        // NEW ITEM
+        final item = ItemModel(
+          id: docId,
+          name: itemName,
+          barcode: cleabbarcode,
+          cp: _costController.text.trim(),
+          retailmarkup: '',
+          wholesalemarkup: '',
+          retailprice: '',
+          wholesaleprice: '',
+          producttype: _productType ?? '',
+          pricingmode: false,
+          pcategory: _productCategory ?? '',
+          warehouse: '',
+          openingstock: '',
+          company: datafeed.company,
+          companyid: datafeed.companyid,
+          imageurl: imageUrl ?? '',
+          modes: modes,
+          createdat: DateTime.now(),
+          updatedby: null,
+          updatedat: null,
+          wminqty: _wholesaleMinQtyController.text,
+          sminqty: _supplierMinQtyController.text,
+          staff: datafeed.staff,
+          modemore: _enableBoxPricing,
+          deletedat: null,
+          deletedby: null,
+          day: day,
+          week: week,
+          month: month,
+          year: year,
+          shelfnumber: _shelfnumberController.text,
+        );
+
+        data = item.toMap();
+        data['createdat'] = FieldValue.serverTimestamp();
+        await docRef.set(data, SetOptions(merge: true));
+      } else {
+        // EDIT
+        data = {
+          'name': itemName,
+          'barcode': cleabbarcode,
+          'cp': _costController.text.trim(),
+          'producttype': _productType ?? '',
+          'pcategory': _productCategory ?? '',
+          'imageurl': imageUrl ?? '',
+          'modes': {for (var m in modes) m.id: m.toMap()},
+          'wminqty': _wholesaleMinQtyController.text,
+          'sminqty': _supplierMinQtyController.text,
+          'modemore': _enableBoxPricing,
+          'updatedat': FieldValue.serverTimestamp(),
+          'updatedby': datafeed.staff,
+          'shelfnumber': _shelfnumberController.text,
+        };
+        await docRef.update(data);
+      }
+
+      if (widget.docId == null) {
+        _clearAllFields();
+      }
+
+      if (mounted) {
+        final theme = Theme.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.docId == null
+                  ? 'Item saved successfully!'
+                  : 'Item updated successfully!',
+              style: TextStyle(color: theme.colorScheme.onPrimary),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final theme = Theme.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: $e',
+              style: TextStyle(color: theme.colorScheme.onSurface),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+    setState(() => _loading = false);
   }
 
   @override

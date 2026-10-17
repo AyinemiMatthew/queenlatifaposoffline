@@ -23,7 +23,7 @@ import '../providers/SalesProvider.dart';
 import 'customerselectiondialog.dart';
 import 'invoice1.dart';
 import 'receipt_formatter.dart';
-import 'receipt_formaterA4.dart';
+
 
 class CustomerInfoDialog {
   static Future<void> show({
@@ -62,6 +62,7 @@ class CustomerInfoDialog {
     bool canPrint = datafeed.canPrint;
 
     final allowed = datafeed.allowedPaymentMethods;
+    final isSalesPoint = datafeed.isSalesPoint;
     String paymentMethod = allowed.isNotEmpty ? allowed.first : '';
     final totalDiscount = salesProvider.calculateDiscountTotal();
     double totalAmount = salesProvider.calculateTaxableTotal();
@@ -75,6 +76,8 @@ class CustomerInfoDialog {
     String selectedMomoProvider = 'Merchant';
     String paymentStatus = 'pending';
     final isSalesBranch = datafeed.branchtype == "Sales Branch";
+    final shouldCollectPayment =
+        !datafeed.isSalesPoint && (canPrint || isSalesBranch);
     double paidAmount = 0.0;
     double newBalance = 0.0;
     String printedBy = '';
@@ -87,7 +90,7 @@ class CustomerInfoDialog {
     bool reciepted = false;
     bool status = false;
     bool isSaving = false;
-    bool isSavingA4 = false;
+
     Timestamp? printedAt;
     Timestamp? receiptAt;
 
@@ -374,6 +377,10 @@ class CustomerInfoDialog {
       final name = nameController.text.trim();
       final phone = phoneController.text.trim();
 
+      if (isSalesPoint && selectedCreditCustomer == null) {
+        showError('Select a credit customer');
+        return false;
+      }
       if (name.isEmpty) {
         showError('Enter name');
         return false;
@@ -646,7 +653,7 @@ class CustomerInfoDialog {
                 : <String, dynamic>{};
             final recordedPaymentMethod =
                 paymentMethod == 'momo' &&
-                    canPrint &&
+                    shouldCollectPayment &&
                     selectedMomoProvider == 'Hubtel'
                 ? 'hubtel'
                 : paymentMethod;
@@ -666,7 +673,8 @@ class CustomerInfoDialog {
                     setState(() => isSaving = false);
                     return;
                   }
-                  if (canPrint && selectedMomoProvider == 'Hubtel') {
+                  if (shouldCollectPayment &&
+                      selectedMomoProvider == 'Hubtel') {
                     final hubtelAmount = await HubtelPayment(
                       phoneNumber: phoneController.text.trim(),
                       networkType: selectedMomoNetwork!,
@@ -689,7 +697,7 @@ class CustomerInfoDialog {
                       );
                     }
                   }
-                  if (canPrint || isSalesBranch) {
+                  if (shouldCollectPayment) {
                     accountName = selectedMomoNetwork ?? 'MTN';
                     accountNumber = phoneController.text.trim();
                     reference = phoneController.text.trim();
@@ -702,7 +710,7 @@ class CustomerInfoDialog {
                     setState(() => isSaving = false);
                     return;
                   }
-                  if (canPrint || isSalesBranch) {
+                  if (shouldCollectPayment) {
                     accountName = 'card';
                     accountNumber = 'card';
                     reference = referenceController.text.trim();
@@ -716,7 +724,7 @@ class CustomerInfoDialog {
                     setState(() => isSaving = false);
                     return;
                   }
-                  if (canPrint || isSalesBranch) {
+                  if (shouldCollectPayment) {
                     accountName = 'bank';
                     accountNumber = 'bank_transfer';
                     reference = referenceController.text.trim();
@@ -768,7 +776,7 @@ class CustomerInfoDialog {
                             selectedCreditCustomer?['phone'] ??
                             '')
                         .toString();
-                customerType = 'credit';
+                customerType = 'Credit';
 
                 final formatter = NumberFormat.currency(
                   locale: 'en_GH',
@@ -799,12 +807,21 @@ class CustomerInfoDialog {
                 print("SMS Record: ${datafeed.companyid},$smsCreditbalance");
                 await db.collection('sms_logs').add(smsRecord);
               } else {
-                customerName = nameController.text.trim();
-                customerPhone = phoneController.text.trim();
-                customerType = 'cash';
+                customerName =
+                    (selectedCreditCustomer?['name'] ??
+                            nameController.text.trim())
+                        .toString();
+                customerPhone =
+                    (selectedCreditCustomer?['contact'] ??
+                            selectedCreditCustomer?['phone'] ??
+                            phoneController.text.trim())
+                        .toString();
+                customerType = 'Cash';
                 newBalance = 0.0;
                 customerId =
-                    '${datafeed.companyid.toLowerCase()}_${phoneController.text.trim()}';
+                    (selectedCreditCustomer?['id'] ??
+                            '${datafeed.companyid.toLowerCase()}_$customerPhone')
+                        .toString();
                 final existingDoc = datafeed.db.collection('customers');
                 final ref = existingDoc.doc(customerId).get();
 
@@ -853,7 +870,7 @@ class CustomerInfoDialog {
               changeAmount = 0;
               paidAmount = totalAmount;
               //  if ((canPrint || isSalesBranch) && !isCreditNow)
-              if ((canPrint || isSalesBranch) && !isCreditNow) {
+              if (shouldCollectPayment && !isCreditNow) {
                 if (paymentMethod == 'cash') {
                   payments.add(
                     PaymentMethodModel(
@@ -971,7 +988,9 @@ class CustomerInfoDialog {
                 branchType: datafeed.isSalesPoint
                     ? 'Sales Point'
                     : resolvedBranchType,
-                pricingtype: resolvedBranchType,
+                pricingtype: datafeed.isSalesPoint
+                    ? 'Sales Point'
+                    : resolvedBranchType,
                 staffPosition: datafeed.staffPosition,
                 payments: paymentsMap,
                 receiptNumber: receiptNumber,
@@ -992,7 +1011,7 @@ class CustomerInfoDialog {
                 printedby: printedBy,
                 printedat: printedAt,
                 staffemail: datafeed.staffemail,
-                receiptbyemail: datafeed.staffemail,
+                receiptbyemail: receiptBy.isEmpty ? '' : datafeed.staffemail,
                 dateymd: formattedDate,
                 stockCheckedAt: Timestamp.fromDate(DateTime.now()),
                 timestamp: timestamp,
@@ -1050,7 +1069,7 @@ class CustomerInfoDialog {
                 }
               }
               //  canPrint || isSalesBranch || isCreditNow
-              if (canPrint) {
+              if (canPrint && !datafeed.isSalesPoint) {
                 final receiptData = ReceiptData(
                   cashier: datafeed.staff,
                   barcode: receiptNumber,
@@ -1263,8 +1282,6 @@ class CustomerInfoDialog {
           }
 
           Widget buildMomoFields() {
-            if (!canPrint) return const SizedBox();
-
             Widget buildProviderSelector() {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1747,11 +1764,44 @@ class CustomerInfoDialog {
                     icon: Icon(Icons.search),
                     label: Text(
                       selectedCreditCustomer == null
-                          ? 'Select Customer (Credit)'
+                          ? (isSalesPoint
+                                ? 'Select Customer'
+                                : 'Select Customer (Credit)')
                           : 'Change Customer',
                     ),
                   ),
                 ),
+                if (isSalesPoint && selectedCreditCustomer != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (selectedCreditCustomer?['name'] ?? '').toString(),
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Phone: ${(selectedCreditCustomer?['contact'] ?? selectedCreditCustomer?['phone'] ?? '').toString()}',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 if (canPrint || isSalesBranch) ...[
                   TextFormField(

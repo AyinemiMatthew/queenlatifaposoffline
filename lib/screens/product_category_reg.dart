@@ -16,6 +16,8 @@ class ProductCategoryReg extends StatefulWidget {
 class _ProductCategoryRegState extends State<ProductCategoryReg> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _categorynameController = TextEditingController();
+  bool _isSaving = false;
+
   @override
   void initState() {
     super.initState();
@@ -23,6 +25,12 @@ class _ProductCategoryRegState extends State<ProductCategoryReg> {
     if (widget.category != null) {
       _categorynameController.text = widget.category!.productname;
     }
+  }
+
+  @override
+  void dispose() {
+    _categorynameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -71,7 +79,9 @@ class _ProductCategoryRegState extends State<ProductCategoryReg> {
                               decoration: InputDecoration(
                                 labelText: 'Category Name',
                                 labelStyle: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -79,13 +89,17 @@ class _ProductCategoryRegState extends State<ProductCategoryReg> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                 ),
                                 fillColor: Theme.of(
@@ -108,7 +122,7 @@ class _ProductCategoryRegState extends State<ProductCategoryReg> {
                                   width: 200,
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
+                                      backgroundColor: colorScheme.primary,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 16,
                                       ),
@@ -116,68 +130,113 @@ class _ProductCategoryRegState extends State<ProductCategoryReg> {
                                         borderRadius: BorderRadius.circular(14),
                                       ),
                                     ),
-                                    onPressed: () async {
-                                      if (!_formKey.currentState!.validate())
-                                        return;
+                                    onPressed: _isSaving
+                                        ? null
+                                        : () async {
+                                            if (_isSaving) return;
+                                            if (!_formKey.currentState!
+                                                .validate()) {
+                                              return;
+                                            }
 
-                                      try {
-                                        final category = Productcategorymodel(
-                                          id: widget.category?.id ?? '',
-                                          productname: _categorynameController
-                                              .text
-                                              .trim(),
-                                          staff: '',
-                                          companyid: value.companyid,
-                                          companyemail: value.companyemail,
-                                          date: DateTime.now(),
-                                          updatedat: DateTime.now(),
-                                          deletedat: DateTime.now(),
-                                          updatedby: '',
-                                          deletedby: '',
-                                        );
+                                            final messenger =
+                                                ScaffoldMessenger.of(context);
+                                            final navigator = Navigator.of(
+                                              context,
+                                            );
+                                            setState(() => _isSaving = true);
+                                            try {
+                                              final category =
+                                                  Productcategorymodel(
+                                                    id:
+                                                        widget.category?.id ??
+                                                        '',
+                                                    productname:
+                                                        _categorynameController
+                                                            .text
+                                                            .trim(),
+                                                    staff: '',
+                                                    companyid: value.companyid,
+                                                    companyemail:
+                                                        value.companyemail,
+                                                    date: DateTime.now(),
+                                                    updatedat: DateTime.now(),
+                                                    deletedat: DateTime.now(),
+                                                    updatedby: '',
+                                                    deletedby: '',
+                                                  );
 
-                                        await value.addOrUpdateCategory(
-                                          category,
-                                        );
+                                              await value.addOrUpdateCategory(
+                                                category,
+                                              );
 
-                                        if (widget.category != null) {
-                                          Navigator.pop(context);
-                                        }
+                                              if (!mounted) return;
 
-                                        _categorynameController.clear();
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    widget.category != null
+                                                        ? 'Category updated successfully'
+                                                        : 'Category saved successfully',
+                                                  ),
+                                                  backgroundColor:
+                                                      colorScheme.primary,
+                                                ),
+                                              );
 
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              widget.category != null
-                                                  ? 'Category updated successfully'
-                                                  : 'Category saved successfully',
+                                              if (widget.category != null) {
+                                                navigator.pop();
+                                              } else {
+                                                _categorynameController.clear();
+                                              }
+                                            } catch (e) {
+                                              if (!mounted) return;
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Operation failed: $e',
+                                                  ),
+                                                  backgroundColor:
+                                                      colorScheme.error,
+                                                ),
+                                              );
+                                            } finally {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _isSaving = false,
+                                                );
+                                              }
+                                            }
+                                          },
+
+                                    child: _isSaving
+                                        ? Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color:
+                                                          colorScheme.onPrimary,
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              const Text('Saving...'),
+                                            ],
+                                          )
+                                        : Text(
+                                            widget.category != null
+                                                ? "Update"
+                                                : "Add",
+                                            style: TextStyle(
+                                              color: colorScheme.onPrimary,
                                             ),
-                                            backgroundColor: Colors.green,
                                           ),
-                                        );
-                                      } catch (e) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Operation failed: $e',
-                                            ),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
-                                    },
-
-                                    child: Text(
-                                      widget.category != null
-                                          ? "Update"
-                                          : "Add",
-                                      style: TextStyle(color: Colors.white),
-                                    ),
                                   ),
                                 ),
                                 SizedBox(

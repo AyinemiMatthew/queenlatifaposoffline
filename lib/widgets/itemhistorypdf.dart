@@ -9,23 +9,27 @@ import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as xls;
 import 'package:file_saver/file_saver.dart';
 
-
 Future<pw.Document> _buildItemHistoryPdfDoc({
   required List<dynamic> entries,
   required String itemName,
   required String dateLabel,
   String companyName = '',
 }) async {
-  final pdf =
-  pw.Document(title: 'Stock History - $itemName', author: companyName);
+  final pdf = pw.Document(
+    title: 'Stock History - $itemName',
+    author: companyName,
+  );
 
-  final regular =
-  pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
-  final bold =
-  pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+  final regular = pw.Font.ttf(
+    await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
+  );
+  final bold = pw.Font.ttf(
+    await rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
+  );
 
   final now = DateTime.now();
   final money = NumberFormat('#,##0.00');
+  final quantityFormat = NumberFormat('#,##0.########');
 
   const headerBg = PdfColors.white;
   const positive = PdfColor.fromInt(0xFF27AE60);
@@ -42,13 +46,13 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
   }
 
   pw.Widget cell(
-      String text, {
-        bool head = false,
-        bool isBold = false,
-        bool right = true,
-        PdfColor? color,
-        double? size,
-      }) {
+    String text, {
+    bool head = false,
+    bool isBold = false,
+    bool right = true,
+    PdfColor? color,
+    double? size,
+  }) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 3),
       child: pw.Text(
@@ -63,20 +67,28 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
     );
   }
 
-  pw.Widget infoRow(String label, String val,
-      {bool end = false, PdfColor? valColor}) {
+  pw.Widget infoRow(
+    String label,
+    String val, {
+    bool end = false,
+    PdfColor? valColor,
+  }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 5),
       child: pw.Row(
-        mainAxisAlignment:
-        end ? pw.MainAxisAlignment.end : pw.MainAxisAlignment.start,
+        mainAxisAlignment: end
+            ? pw.MainAxisAlignment.end
+            : pw.MainAxisAlignment.start,
         children: [
           pw.Text('$label:  ', style: pw.TextStyle(font: bold, fontSize: 10)),
-          pw.Text(val,
-              style: pw.TextStyle(
-                  font: regular,
-                  fontSize: 10,
-                  color: valColor ?? PdfColors.black)),
+          pw.Text(
+            val,
+            style: pw.TextStyle(
+              font: regular,
+              fontSize: 10,
+              color: valColor ?? PdfColors.black,
+            ),
+          ),
         ],
       ),
     );
@@ -154,12 +166,18 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
               pw.Text(
                 'Generated: ${DateFormat('dd MMM yyyy, hh:mm a').format(now)}',
                 style: pw.TextStyle(
-                    font: regular, fontSize: 9, color: PdfColors.grey500),
+                  font: regular,
+                  fontSize: 9,
+                  color: PdfColors.grey500,
+                ),
               ),
               pw.Text(
                 'Page ${ctx.pageNumber} of ${ctx.pagesCount}',
                 style: pw.TextStyle(
-                    font: regular, fontSize: 9, color: PdfColors.grey500),
+                  font: regular,
+                  fontSize: 9,
+                  color: PdfColors.grey500,
+                ),
               ),
             ],
           ),
@@ -177,16 +195,15 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
                   companyName.toUpperCase(),
                   style: pw.TextStyle(font: bold, fontSize: 22),
                 ),
-
-
               ],
             ),
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
-                pw.Text('STOCK HISTORY REPORT',
-                    style: pw.TextStyle(font: bold, fontSize: 18)),
-
+                pw.Text(
+                  'STOCK HISTORY REPORT',
+                  style: pw.TextStyle(font: bold, fontSize: 18),
+                ),
               ],
             ),
           ],
@@ -209,11 +226,19 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  infoRow('Stock In', '+${totalIn.toStringAsFixed(0)} pcs',
-                      end: true, valColor: positive),
-                  infoRow('Stock Out', '-${totalOut.toStringAsFixed(0)} pcs',
-                      end: true, valColor: negative),
-                // infoRow('Total Value', 'GHS ${money.format(totalValue)}', end: true),
+                  infoRow(
+                    'Stock In',
+                    '+${quantityFormat.format(totalIn)} pcs',
+                    end: true,
+                    valColor: positive,
+                  ),
+                  infoRow(
+                    'Stock Out',
+                    '-${quantityFormat.format(totalOut)} pcs',
+                    end: true,
+                    valColor: negative,
+                  ),
+                  // infoRow('Total Value', 'GHS ${money.format(totalValue)}', end: true),
                 ],
               ),
             ),
@@ -236,7 +261,7 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
             ...entries.asMap().entries.map((e) {
               final t = e.value;
               final sign = t.sign as String;
-              final qtyStr = '$sign${(t.qty as double).toStringAsFixed(0)}';
+              final qtyStr = '$sign${quantityFormat.format(t.qty as double)}';
 
               return pw.TableRow(
                 decoration: const pw.BoxDecoration(color: PdfColors.white),
@@ -244,9 +269,11 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
                   cell('${e.key + 1}', right: false),
                   cell(fmtDate(t.date), right: false, size: 6.5),
                   cell(t.type as String, right: false),
-                  cell(qtyStr,
-                      isBold: true,
-                      color: sign == '+' ? positive : negative),
+                  cell(
+                    qtyStr,
+                    isBold: true,
+                    color: sign == '+' ? positive : negative,
+                  ),
                   cell((t.price as double).toStringAsFixed(2)),
                   cell((t.total as double).toStringAsFixed(2), isBold: true),
                   cell(t.mode as String, right: false),
@@ -268,12 +295,12 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
 /// Opens the OS print / share dialog (the person can print or "Save as PDF"
 /// from there). Works on every platform via the `printing` package.
 Future<void> printItemHistory(
-    BuildContext context, {
-      required List<dynamic> entries,
-      required String itemName,
-      required String dateLabel,
-      String companyName = '',
-    }) async {
+  BuildContext context, {
+  required List<dynamic> entries,
+  required String itemName,
+  required String dateLabel,
+  String companyName = '',
+}) async {
   final pdf = await _buildItemHistoryPdfDoc(
     entries: entries,
     itemName: itemName,
@@ -323,6 +350,8 @@ Future<void> exportItemHistoryExcel({
   required String dateLabel,
   String companyName = '',
 }) async {
+  final quantityFormat = NumberFormat('#,##0.########');
+
   String fmtDate(dynamic ts) {
     if (ts == null) return '';
     try {
@@ -347,8 +376,9 @@ Future<void> exportItemHistoryExcel({
   // --- Title block ---
   sheet.appendRow([xls.TextCellValue(companyName.toUpperCase())]);
   sheet
-      .cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
-      .cellStyle = titleStyle;
+          .cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .cellStyle =
+      titleStyle;
   sheet.appendRow([xls.TextCellValue('STOCK HISTORY REPORT')]);
   sheet.appendRow([xls.TextCellValue('Item: $itemName')]);
   sheet.appendRow([xls.TextCellValue('Period: $dateLabel')]);
@@ -372,9 +402,14 @@ Future<void> exportItemHistoryExcel({
   final headerRowIdx = sheet.maxRows - 1;
   for (int c = 0; c < headers.length; c++) {
     sheet
-        .cell(xls.CellIndex.indexByColumnRow(
-        columnIndex: c, rowIndex: headerRowIdx))
-        .cellStyle = headerStyle;
+            .cell(
+              xls.CellIndex.indexByColumnRow(
+                columnIndex: c,
+                rowIndex: headerRowIdx,
+              ),
+            )
+            .cellStyle =
+        headerStyle;
   }
 
   // --- Data rows ---
@@ -387,7 +422,7 @@ Future<void> exportItemHistoryExcel({
       xls.IntCellValue(i + 1),
       xls.TextCellValue(fmtDate(t.date)),
       xls.TextCellValue(t.type as String),
-      xls.TextCellValue('$sign${qty.toStringAsFixed(0)}'),
+      xls.TextCellValue('$sign${quantityFormat.format(qty)}'),
       xls.DoubleCellValue((t.price as double)),
       xls.DoubleCellValue((t.total as double)),
       xls.TextCellValue(t.mode as String),

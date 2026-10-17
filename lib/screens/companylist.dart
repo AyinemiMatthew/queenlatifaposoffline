@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:provider/provider.dart';
 
 import 'companyreg.dart';
 
@@ -117,8 +119,17 @@ class CompanyListPage extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                CompanyRegPage(docId: doc.id, data: data),
+                            builder: (_) => CompanyRegPage(
+                              docId: doc.id,
+                              data: data,
+                              isSystemAdmin:
+                                  context
+                                      .read<Datafeed>()
+                                      .accesslevel
+                                      .toLowerCase()
+                                      .trim() ==
+                                  'systemadmin',
+                            ),
                           ),
                         );
                       },

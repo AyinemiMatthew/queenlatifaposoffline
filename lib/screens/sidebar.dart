@@ -95,9 +95,13 @@ class Sidebar extends StatelessWidget {
 
         return Drawer(
           backgroundColor: colorScheme.surface,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent,
+            ),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
               DrawerHeader(
                 decoration: BoxDecoration(color: colorScheme.surface),
                 child: Column(
@@ -145,7 +149,7 @@ class Sidebar extends StatelessWidget {
                 ),
 
               if (isAdmin) ...[
-                if (value.hasFeature('user_management')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -155,7 +159,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('register_staff'))
                         ListTile(
                           leading: Icon(
                             Icons.person_add,
@@ -169,7 +172,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.staffreg);
                           },
                         ),
-                      if (value.hasFeature('view_staff'))
                         ListTile(
                           leading: Icon(
                             Icons.people_outline,
@@ -183,7 +185,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.staffView);
                           },
                         ),
-                      if (value.hasFeature('role_access_config'))
                         ListTile(
                           leading: Icon(
                             Icons.admin_panel_settings,
@@ -318,7 +319,7 @@ class Sidebar extends StatelessWidget {
                   ),
                   Divider(color: colorScheme.outlineVariant),
                 ],
-                if (value.hasFeature('item')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -331,7 +332,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('item_category'))
                         ListTile(
                           leading: Icon(
                             Icons.category,
@@ -345,7 +345,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.productcatereg);
                           },
                         ),
-                      if (value.hasFeature('register_item'))
                         ListTile(
                           leading: Icon(
                             Icons.add_box,
@@ -361,7 +360,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.itemreg);
                           },
                         ),
-                      if (value.hasFeature('view_item'))
                         ListTile(
                           leading: Icon(
                             Icons.view_list,
@@ -377,7 +375,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.itemlist);
                           },
                         ),
-                      if (value.hasFeature('branch_price'))
                         ListTile(
                           leading: Icon(
                             Icons.price_change,
@@ -393,7 +390,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.branchprice);
                           },
                         ),
-                      if (value.hasFeature('print_barcode'))
                         ListTile(
                           leading: Icon(
                             Icons.qr_code_2,
@@ -409,7 +405,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.printbarcodes);
                           },
                         ),
-                      if (value.hasFeature('bundle_item'))
                         ListTile(
                           leading: Icon(
                             Icons.redeem,
@@ -425,7 +420,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.bundlesale);
                           },
                         ),
-                      if (value.hasFeature('view_bundle'))
                         ListTile(
                           leading: Icon(
                             Icons.sync_alt,
@@ -441,7 +435,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.bundlesaleview);
                           },
                         ),
-                      if (value.hasFeature('item_balance_sync'))
                         ListTile(
                           leading: Icon(
                             Icons.cached,
@@ -460,7 +453,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('synczero'))
                         ListTile(
                           leading: Icon(
                             Icons.sync,
@@ -482,7 +474,7 @@ class Sidebar extends StatelessWidget {
                 ],
 
                 // Stock Management
-                if (value.hasFeature('stock_management')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -492,7 +484,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('new_stock_entry'))
                         ListTile(
                           leading: Icon(
                             Icons.post_add,
@@ -506,7 +497,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.newstock);
                           },
                         ),
-                      if (value.hasFeature('view_stock_entries'))
                         ListTile(
                           leading: Icon(
                             Icons.fact_check,
@@ -520,7 +510,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.stocklisttable);
                           },
                         ),
-                      // if(value.hasFeature('view_stock'))
                       // ListTile(
                       //   leading: Icon(
                       //     Icons.add_business,
@@ -534,7 +523,6 @@ class Sidebar extends StatelessWidget {
                       //     Navigator.pushNamed(context, Routes.stocklist);
                       //   },
                       // ),
-                      if (value.hasFeature('view_transfers'))
                         ListTile(
                           leading: Icon(
                             Icons.local_shipping,
@@ -548,7 +536,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.transfers);
                           },
                         ),
-                      if (value.hasFeature('view_transfer_list'))
                         ListTile(
                           leading: Icon(
                             Icons.swap_horiz,
@@ -562,7 +549,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.transferlist);
                           },
                         ),
-                      if (value.hasFeature('view_stock_transfers'))
                         // ListTile(
                         //   leading: Icon(
                         //     Icons.add_business,
@@ -642,7 +628,6 @@ class Sidebar extends StatelessWidget {
                       //     Navigator.pushNamed(context, Routes.stocksupply);
                       //   },
                       // ),
-                      if (value.hasFeature('purchase_returns'))
                         ListTile(
                           leading: Icon(
                             Icons.assignment_return,
@@ -659,7 +644,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('view_purchase_returns'))
                         ListTile(
                           leading: Icon(
                             Icons.history,
@@ -676,7 +660,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('warehouse_supply'))
                         ListTile(
                           leading: Icon(
                             Icons.warehouse_outlined,
@@ -706,7 +689,6 @@ class Sidebar extends StatelessWidget {
                       //     Navigator.pushNamed(context, Routes.transactionsupplyreport);
                       //   },
                       // ),
-                      if (value.hasFeature('deleted_stock'))
                         ListTile(
                           leading: Icon(
                             Icons.delete_sweep,
@@ -753,7 +735,7 @@ class Sidebar extends StatelessWidget {
                 ],
 
                 // Transactions
-                if (value.hasFeature('transactions')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -766,7 +748,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('sales'))
                         ListTile(
                           leading: Icon(
                             Icons.point_of_sale,
@@ -782,7 +763,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.sales);
                           },
                         ),
-                      if (value.hasFeature('cashier'))
                         ListTile(
                           leading: Icon(
                             Icons.payments,
@@ -798,7 +778,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.cashierPage);
                           },
                         ),
-                      if (value.hasFeature('sales_view'))
                         ListTile(
                           leading: Icon(
                             Icons.manage_search,
@@ -814,7 +793,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.salesview);
                           },
                         ),
-                      if (value.hasFeature('close_sale'))
                         ListTile(
                           leading: Icon(
                             Icons.task_alt,
@@ -830,7 +808,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.closesale);
                           },
                         ),
-                      if (value.hasFeature('discount'))
                         ListTile(
                           leading: Icon(
                             Icons.discount,
@@ -849,7 +826,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('discount_view'))
                         ListTile(
                           leading: Icon(
                             Icons.loyalty,
@@ -890,7 +866,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-                if (value.hasFeature('account')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -903,7 +879,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('chart_of_accounts'))
                         ListTile(
                           leading: Icon(
                             Icons.account_tree,
@@ -917,7 +892,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.coa);
                           },
                         ),
-                      if (value.hasFeature('activity_chart'))
                         ListTile(
                           leading: Icon(
                             Icons.insights,
@@ -934,7 +908,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('payment_accounts'))
                         ListTile(
                           leading: Icon(
                             Icons.credit_card,
@@ -951,7 +924,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('payment_duration'))
                         ListTile(
                           leading: Icon(
                             Icons.event,
@@ -968,7 +940,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('creditor_openbal'))
                         ListTile(
                           leading: Icon(
                             Icons.money_off,
@@ -982,7 +953,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.creditopenbal);
                           },
                         ),
-                      if (value.hasFeature('creditor_openbalview'))
                         ListTile(
                           leading: Icon(
                             Icons.summarize,
@@ -999,7 +969,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('creditor_payable'))
                         ListTile(
                           leading: Icon(
                             Icons.outbound,
@@ -1016,7 +985,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('view_account_payable'))
                         ListTile(
                           leading: Icon(
                             Icons.assignment,
@@ -1033,7 +1001,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('receivables'))
                         ListTile(
                           leading: Icon(
                             Icons.request_quote,
@@ -1047,7 +1014,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.debtorlist);
                           },
                         ),
-                      if (value.hasFeature('receivables'))
                         ListTile(
                           leading: Icon(
                             Icons.price_check,
@@ -1064,7 +1030,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('view_receivables'))
                         ListTile(
                           leading: Icon(
                             Icons.assignment_turned_in,
@@ -1078,7 +1043,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.debtpayments);
                           },
                         ),
-                      if (value.hasFeature('debtor_bal'))
                         ListTile(
                           leading: Icon(
                             Icons.person_search,
@@ -1092,7 +1056,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.debtorBal);
                           },
                         ),
-                      if (value.hasFeature('bank_transfer'))
                         ListTile(
                           leading: Icon(
                             Icons.currency_exchange,
@@ -1106,7 +1069,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.banktransfer);
                           },
                         ),
-                      if (value.hasFeature('banktransferview'))
                         ListTile(
                           leading: Icon(
                             Icons.manage_history,
@@ -1123,7 +1085,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('journal_entry'))
                         ListTile(
                           leading: Icon(
                             Icons.menu_book,
@@ -1137,7 +1098,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.journalEntry);
                           },
                         ),
-                      if (value.hasFeature('journal_view'))
                         ListTile(
                           leading: Icon(
                             Icons.article,
@@ -1156,7 +1116,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-                if (value.hasFeature('expenses')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -1169,7 +1129,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('entry_expense'))
                         ListTile(
                           leading: Icon(
                             Icons.paid,
@@ -1185,7 +1144,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.expense);
                           },
                         ),
-                      if (value.hasFeature('view_expense'))
                         ListTile(
                           leading: Icon(
                             Icons.receipt,
@@ -1206,7 +1164,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-                if (value.hasFeature('reports')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -1219,7 +1177,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('stock_report'))
                         ListTile(
                           leading: Icon(
                             Icons.analytics,
@@ -1236,7 +1193,6 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      if (value.hasFeature('sales_report'))
                         ListTile(
                           leading: Icon(
                             Icons.query_stats,
@@ -1253,7 +1209,6 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      if (value.hasFeature('general_ledger'))
                         ListTile(
                           leading: Icon(
                             Icons.account_balance,
@@ -1269,7 +1224,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.generalledger);
                           },
                         ),
-                      if (value.hasFeature('profit_and_loss'))
                         ListTile(
                           leading: Icon(
                             Icons.trending_up,
@@ -1286,7 +1240,6 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      if (value.hasFeature('sales_invoice'))
                         ListTile(
                           leading: Icon(
                             Icons.description,
@@ -1303,7 +1256,6 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      if (value.hasFeature('debtor_report'))
                         ListTile(
                           leading: Icon(
                             Icons.account_balance_wallet,
@@ -1355,7 +1307,7 @@ class Sidebar extends StatelessWidget {
                 ],
 
                 // Damages & Sales Returns
-                if (value.hasFeature('damages')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -1365,7 +1317,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('register_damage'))
                         ListTile(
                           leading: Icon(
                             Icons.broken_image,
@@ -1381,7 +1332,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.damages);
                           },
                         ),
-                      if (value.hasFeature('damagelist'))
                         ListTile(
                           leading: Icon(
                             Icons.playlist_remove,
@@ -1402,7 +1352,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-                if (value.hasFeature('sales_return')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -1412,7 +1362,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('return_sales'))
                         ListTile(
                           leading: Icon(
                             Icons.list_alt,
@@ -1428,7 +1377,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.salesreturn);
                           },
                         ),
-                      if (value.hasFeature('sales_return_view'))
                         ListTile(
                           leading: Icon(
                             Icons.list,
@@ -1452,7 +1400,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-                if (value.hasFeature('uploads')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -1465,7 +1413,6 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     children: [
-                      if (value.hasFeature('receipt_upload'))
                         ListTile(
                           leading: Icon(
                             Icons.folder_open,
@@ -1481,7 +1428,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.uploadreceipt);
                           },
                         ),
-                      if (value.hasFeature('receipt_upload_view'))
                         ListTile(
                           leading: Icon(
                             Icons.receipt_long_outlined,
@@ -1505,7 +1451,7 @@ class Sidebar extends StatelessWidget {
                   Divider(color: colorScheme.outlineVariant),
                 ],
 
-                if (value.hasFeature('system_setup')) ...[
+                ...[
                   ExpansionTile(
                     iconColor: colorScheme.onSurface,
                     collapsedIconColor: colorScheme.onSurface,
@@ -1535,7 +1481,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('supplier_registration'))
                         ListTile(
                           leading: Icon(
                             Icons.storefront,
@@ -1549,7 +1494,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.supplierreg);
                           },
                         ),
-                      if (value.hasFeature('branch_registration'))
                         ListTile(
                           leading: Icon(
                             Icons.add_location_alt,
@@ -1563,7 +1507,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.branchreg);
                           },
                         ),
-                      if (value.hasFeature('return_damage_reasons'))
                         ListTile(
                           leading: Icon(
                             Icons.edit_note,
@@ -1578,7 +1521,6 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      if (value.hasFeature('add_community'))
                         ListTile(
                           leading: Icon(
                             Icons.add,
@@ -1595,7 +1537,6 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      if (value.hasFeature('sms_setup'))
                         ListTile(
                           leading: Icon(
                             Icons.sms,
@@ -1648,7 +1589,7 @@ class Sidebar extends StatelessWidget {
                 ],
 
                 //SMS Management
-                if (value.hasFeature('sms-management')) ...[
+                ...[
                   ListTile(
                     leading: Icon(Icons.campaign, color: colorScheme.onSurface),
                     title: Text(
@@ -1674,7 +1615,8 @@ class Sidebar extends StatelessWidget {
                   },
                 ),
               ],
-            ],
+              ],
+            ),
           ),
         );
       },

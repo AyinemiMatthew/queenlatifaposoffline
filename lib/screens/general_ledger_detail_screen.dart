@@ -26,6 +26,7 @@ class GeneralLedgerDetailScreen extends StatefulWidget {
 
 class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
   final _searchController = TextEditingController();
+  final _horizontalController = ScrollController();
   String _query = '';
 
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
@@ -47,6 +48,7 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _horizontalController.dispose();
     super.dispose();
   }
 
@@ -209,12 +211,15 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
     final widths = widget.accountStatement
         ? const [55.0, 150.0, 360.0, 130.0, 130.0, 140.0]
         : const [55.0, 150.0, 300.0, 150.0, 130.0, 130.0, 140.0];
+    final tableWidth = widths.reduce((a, b) => a + b) + 24;
     return Scrollbar(
+      controller: _horizontalController,
       thumbVisibility: true,
       child: SingleChildScrollView(
+        controller: _horizontalController,
         scrollDirection: Axis.horizontal,
         child: SizedBox(
-          width: widths.reduce((a, b) => a + b),
+          width: tableWidth,
           child: Column(
             children: [
               Container(

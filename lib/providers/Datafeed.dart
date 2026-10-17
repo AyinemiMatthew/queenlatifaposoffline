@@ -11,6 +11,8 @@ import 'package:universal_io/io.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:kologsoft/models/paymentdurationmodel.dart';
@@ -114,7 +116,11 @@ class Datafeed extends ChangeNotifier {
 
   Future<void> setDashboardPeriod(String period) async {
     if (!dashboardPeriods.contains(period)) {
-      throw ArgumentError.value(period, 'period', 'Unsupported dashboard period');
+      throw ArgumentError.value(
+        period,
+        'period',
+        'Unsupported dashboard period',
+      );
     }
     final prefs = await SharedPreferences.getInstance();
     final previousPeriod = dashboardPeriod;
@@ -135,9 +141,15 @@ class Datafeed extends ChangeNotifier {
   DateTimeRange _dashboardPeriodRange() {
     final now = DateTime.now();
     if (dashboardPeriod == 'weekly') {
-      final start = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: now.weekday - DateTime.monday));
-      return DateTimeRange(start: start, end: start.add(const Duration(days: 7)));
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: now.weekday - DateTime.monday));
+      return DateTimeRange(
+        start: start,
+        end: start.add(const Duration(days: 7)),
+      );
     }
     if (dashboardPeriod == 'monthly') {
       final start = DateTime(now.year, now.month);
@@ -174,7 +186,10 @@ class Datafeed extends ChangeNotifier {
     return db
         .collection('salesSummary')
         .where('companyid', isEqualTo: companyid)
-        .where('summarydate', isGreaterThanOrEqualTo: _dashboardDateString(range.start))
+        .where(
+          'summarydate',
+          isGreaterThanOrEqualTo: _dashboardDateString(range.start),
+        )
         .where('summarydate', isLessThan: _dashboardDateString(range.end))
         .snapshots()
         .map((snapshot) {
@@ -185,8 +200,9 @@ class Datafeed extends ChangeNotifier {
           double debtPaymentsMomo = 0;
           final branchTotals = <String, double>{};
           final items = <String, Map<String, dynamic>>{};
-          final branchIdFilter =
-              accesslevel.toLowerCase() == 'super admin' ? null : branchid;
+          final branchIdFilter = accesslevel.toLowerCase() == 'super admin'
+              ? null
+              : branchid;
 
           for (final doc in snapshot.docs) {
             final branches = doc.data()['branchSummary'];
@@ -199,8 +215,9 @@ class Datafeed extends ChangeNotifier {
               if (entry.value is! Map) continue;
               final branch = Map<String, dynamic>.from(entry.value as Map);
               final branchName = (branch['branchName'] ?? entry.key).toString();
-              final branchSales =
-                  toDouble(branch['branchsales_value'] ?? branch['sales_value']);
+              final branchSales = toDouble(
+                branch['branchsales_value'] ?? branch['sales_value'],
+              );
               final branchCredit = toDouble(branch['credit']);
               sales += branchSales;
               cash += branchSales - branchCredit;
@@ -1335,7 +1352,6 @@ class Datafeed extends ChangeNotifier {
           })
           .whereType<SalesModel>()
           .toList();
-
     } catch (e) {
       print("Error fetching Sales view: $e");
     } finally {
@@ -3018,7 +3034,7 @@ class Datafeed extends ChangeNotifier {
 
     return stockreport.where((s) {
       final balance = double.tryParse(s['balance_cd'].toString()) ?? 0;
-      print(stockreport);
+
       // Only include records with 0 balance
       if (balance != 0) return false;
 
@@ -3920,6 +3936,7 @@ class Datafeed extends ChangeNotifier {
         'amount': data['totalamount'] ?? 0,
         'amountPaid': data['amountPaid'] ?? 0,
         'discount': data['discount'] ?? 0,
+        'transMode': data['transMode'] ?? '',
         'payment': data['transMode'] ?? '',
         'paymentMethods': methodLabel(data['payments']),
         'payments': data['payments'] is List ? data['payments'] : <dynamic>[],
@@ -3954,6 +3971,7 @@ class Datafeed extends ChangeNotifier {
         'amount': data['amount'] ?? 0,
         'amountPaid': data['amount'] ?? 0,
         'discount': 0,
+        'transMode': 'Debt Payment',
         'payment': data['paymentmethod'] ?? '',
         'paymentMethods': methodLabel(data['payments']),
         'payments': data['payments'] is List ? data['payments'] : <dynamic>[],
@@ -4574,25 +4592,43 @@ class Datafeed extends ChangeNotifier {
     try {
       final user = auth.currentUser;
       if (user == null) throw Exception('No user logged in');
+      final email = user.email;
+      if (email == null || email.isEmpty) {
+        throw Exception('The signed-in account does not have an email address');
+      }
 
-      // Re-authenticate user with current password
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: currentPassword,
-      );
+      await (() async {
+        User userToUpdate = user;
+        if (defaultTargetPlatform == TargetPlatform.windows) {
+          // The Windows firebase_auth plugin does not complete successful
+          // reauthenticateWithCredential calls, so sign in again instead.
+          final credential = await auth.signInWithEmailAndPassword(
+            email: email,
+            password: currentPassword,
+          );
+          userToUpdate = credential.user ?? user;
+        } else {
+          final credential = EmailAuthProvider.credential(
+            email: email,
+            password: currentPassword,
+          );
+          await user.reauthenticateWithCredential(credential);
+        }
 
-      await user.reauthenticateWithCredential(credential);
-
-      // Change password
-      await user.updatePassword(newPassword);
+        await userToUpdate.updatePassword(newPassword);
+      })().timeout(const Duration(seconds: 20));
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'wrong-password') {
+      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
         throw Exception('Current password is incorrect');
       } else if (e.code == 'weak-password') {
         throw Exception('New password is too weak');
       } else {
         throw Exception(e.message ?? 'Failed to change password');
       }
+    } on TimeoutException {
+      throw Exception(
+        'Password change timed out. Check your internet connection and try again.',
+      );
     } catch (e) {
       throw Exception('Failed to change password: $e');
     }
@@ -4823,7 +4859,7 @@ class Datafeed extends ChangeNotifier {
         } else {
           throw Exception("Company data not found");
         }
-        // print("Data: ${currentStaff!.toMap()}");
+
         // Save to SharedPreferences
         spref.setString('email', currentStaff!.email);
         spref.setString('accesslevel', currentStaff!.accesslevel);
@@ -4893,8 +4929,6 @@ class Datafeed extends ChangeNotifier {
       });
       await getdata();
 
-      // Sync items cache after successful login
-      //_syncItemsCache();
       initStockCheckListener();
       initReorderListener();
       initReceiptNumberingListener();
@@ -5186,7 +5220,6 @@ class Datafeed extends ChangeNotifier {
       salesWarehouseIds = spref.getStringList('salesWarehouseIds') ?? [];
       subscriptionTier = spref.getString('subscriptionTier') ?? 'starter';
       await loadFromPrefs();
-      await loadTierFeatures();
       //print(salesWarehouseIds);
       if ((salesWarehouseId == null || salesWarehouseId!.isEmpty) &&
           salesWarehouseIds.isNotEmpty) {
@@ -5331,11 +5364,7 @@ class Datafeed extends ChangeNotifier {
     final role = normalizedAccessLevelNoSpaces;
     if (role.contains('cashier')) {
       return Routes.cashierPage;
-    }
-    else if(role=='warehouse'){
-      return Routes.warehousehomescreen;
-    }
-    else if (role == 'salesattendance' ||
+    } else if (role == 'salesattendance' ||
         role == 'salesmanager' ||
         role.contains('operations') ||
         role.contains('stockofficer') ||
@@ -9904,130 +9933,6 @@ class Datafeed extends ChangeNotifier {
         });
   }
 
-  static const Map<String, List<String>> _defaultTierFeatures = {
-    'starter': ['sales', 'sales_register', 'stock_report'],
-
-    'professional': [
-      'sales',
-      'sales_register',
-      'stock_report',
-      'staff_sales_report',
-      'category_sales_report',
-      'supplier_report',
-      'payment_report',
-      'creditor_payable',
-      'discount_codes',
-      'bundle_management',
-      'sales_return',
-      'stock_transfer',
-      'thermal_printing',
-      'hubtel_payment',
-      'momo_payment',
-    ],
-
-    'enterprise': [
-      'sales',
-      'sales_register',
-      'stock_report',
-      'staff_sales_report',
-      'category_sales_report',
-      'supplier_report',
-      'payment_report',
-      'creditor_payable',
-      'discount_codes',
-      'bundle_management',
-      'sales_return',
-      'stock_transfer',
-      'thermal_printing',
-      'hubtel_payment',
-      'momo_payment',
-      'general_ledger',
-      'profit_and_loss',
-      'multi_company',
-      'bulk_stock_sync',
-      'stock_checked',
-    ],
-  };
-
-  Map<String, List<String>> tierFeatureSelections = {};
-  bool tierFeaturesLoading = false;
-  bool tierFeaturesError = false;
-
-  Future<void> loadTierFeatures({bool force = false}) async {
-    final spref = await SharedPreferences.getInstance();
-    if (tierFeaturesLoading) return;
-    if (tierFeatureSelections.isNotEmpty && !force) return;
-
-    tierFeaturesLoading = true;
-    tierFeaturesError = false;
-    notifyListeners();
-
-    try {
-      final snap = await db
-          .collection('tier_features')
-          .get(const GetOptions(source: Source.serverAndCache));
-
-      final loaded = <String, List<String>>{};
-
-      for (final doc in snap.docs) {
-        final features = (doc.data()['features'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList();
-        loaded[doc.id] = features;
-      }
-
-      for (final entry in _defaultTierFeatures.entries) {
-        loaded.putIfAbsent(entry.key, () => entry.value);
-      }
-
-      tierFeatureSelections = loaded;
-
-      await spref.setStringList(
-        'tierFeatureSelections',
-        tierFeatureSelections.entries
-            .map((e) => '${e.key}:${e.value.join(',')}')
-            .toList(),
-      );
-      tierFeaturesLoading = false;
-      tierFeaturesError = false;
-      notifyListeners();
-    } catch (e) {
-      tierFeatureSelections = Map<String, List<String>>.from(
-        _defaultTierFeatures,
-      );
-      tierFeaturesLoading = false;
-      tierFeaturesError = true;
-      notifyListeners();
-    }
-  }
-
-  Future<void> saveTierFeatures(String tier, List<String> features) async {
-    final spref = await SharedPreferences.getInstance();
-    await db.collection('tier_features').doc(tier).set({
-      'features': features,
-      'updatedAt': DateTime.now().toIso8601String(),
-      'updatedBy': staff,
-    }, SetOptions(merge: true));
-
-    tierFeatureSelections[tier] = features;
-
-    spref.setStringList(
-      'tierFeatureSelections',
-      tierFeatureSelections.entries
-          .map((e) => '${e.key}:${e.value.join(',')}')
-          .toList(),
-    );
-    notifyListeners();
-  }
-
-  bool hasFeature(String featureKey) {
-    final features =
-        tierFeatureSelections[subscriptionTier] ??
-        _defaultTierFeatures[subscriptionTier] ??
-        [];
-    return features.contains(featureKey);
-  }
-
   void listenToStaffChanges() {
     _staffDocSub?.cancel();
     if (staffemail.isEmpty) return;
@@ -10198,8 +10103,7 @@ class Datafeed extends ChangeNotifier {
           if (it is! Map) continue;
           final t = (it['producttype'] ?? '').toString().trim();
           final c = (it['pcategory'] ?? it['category'] ?? '').toString().trim();
-          print(c);
-          print(t);
+
           if (t.isNotEmpty) types.add(t);
           if (c.isNotEmpty) cats.add(c);
         }
@@ -10585,7 +10489,7 @@ class Datafeed extends ChangeNotifier {
 
       final staffSummary =
           doc.data()!['staffSummary'] as Map<String, dynamic>? ?? {};
-      print(staffSummary);
+
       for (final branchEntry in staffSummary.entries) {
         final branchMap = branchEntry.value;
         if (branchMap is! Map) continue;
@@ -10712,7 +10616,10 @@ class Datafeed extends ChangeNotifier {
           '${d.month.toString().padLeft(2, '0')}-'
           '${d.day.toString().padLeft(2, '0')}';
 
-      Query query = db.collection('sales').where('isreturned',isEqualTo: false).where('companyId', isEqualTo: companyid);
+      Query query = db
+          .collection('sales')
+          .where('isreturned', isEqualTo: false)
+          .where('companyId', isEqualTo: companyid);
       final branch = isAdminLevel ? branchId : branchid;
       if (!isAdminLevel && (branch == null || branch.trim().isEmpty)) {
         throw StateError('Cannot load unprinted receipts without a branch.');
@@ -10724,16 +10631,18 @@ class Datafeed extends ChangeNotifier {
       query = query
           .where('dateymd', isGreaterThanOrEqualTo: ymd(start))
           .where('dateymd', isLessThanOrEqualTo: ymd(end))
-          .where('isreturned',isEqualTo: false)
+          .where('isreturned', isEqualTo: false)
           .orderBy('dateymd', descending: true);
 
       final snap = await query.get();
 
-      unprintedSales = snap.docs.where((d) {
+      unprintedSales = snap.docs
+          .where((d) {
             final m = d.data() as Map<String, dynamic>;
             final printedBy = (m['printedby'] ?? '').toString().trim();
             return m['printed'] != true && printedBy.isEmpty;
-          }).map((d) {
+          })
+          .map((d) {
             try {
               return SalesModel.fromSnapshot(d);
             } catch (e) {
@@ -10779,8 +10688,7 @@ class Datafeed extends ChangeNotifier {
     if (companyid.isEmpty) return;
     _receiptNumberingSub?.cancel();
     try {
-      _receiptNumberingSub = db
-          .collection('settings')
+      _receiptNumberingSub = db.collection('settings')
           .doc('receipt_numbering_config_$companyid')
           .snapshots()
           .listen(

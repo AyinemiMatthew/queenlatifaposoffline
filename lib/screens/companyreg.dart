@@ -60,6 +60,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   int _currentStep = 0;
   final List<String> _stepLabels = const ["Company", "Owner", "Setup", "Plan"];
   String _selectedPlan = "free_trial";
+  Map<String, Map<String, dynamic>> _planUsageLimits = {};
 
   // Payment
   String _paymentMethod = "momo";
@@ -77,7 +78,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'name': 'Free Trial',
       'price': 'GHS 0',
       'priceNote': '10 days · No card needed',
-      'features': ['All core features', 'Up to 5 users · 1 property'],
       'popular': false,
       'amount': 0.0,
     },
@@ -87,7 +87,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'name': 'Starter',
       'price': 'GHS 1,000/mo',
       'priceNote': '≈ USD 63 · +GHS 3k setup',
-      'features': ['Up to 10 users · 1-3 properties', 'SMS + Email + POS'],
       'popular': false,
       'amount': 1000.0,
     },
@@ -97,7 +96,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'name': 'Professional',
       'price': 'GHS 2,000/mo',
       'priceNote': '≈ USD 125 · +GHS 3k setup',
-      'features': ['Up to 20 users · 10 properties', 'AI Reports + Analytics'],
       'popular': true,
       'amount': 2000.0,
     },
@@ -107,7 +105,6 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       'name': 'Enterprise',
       'price': 'GHS 4,000/mo',
       'priceNote': '≈ USD 250 · +GHS 3k setup',
-      'features': ['Unlimited users · 20+ properties', 'Dedicated support'],
       'popular': false,
       'amount': 4000.0,
     },
@@ -127,6 +124,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   @override
   void initState() {
     super.initState();
+    _loadPlanUsageLimits();
     if (widget.data != null) {
       final d = widget.data!;
       _companyController.text = d['company'] ?? '';
@@ -144,7 +142,10 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       }
 
       _branchType = d['type'] ?? 'retail';
-      _mode = d['branch'] ?? 'Main';
+      final branchMode = d['branch']?.toString().toLowerCase();
+      _mode = branchMode == 'single' || branchMode == 'multiple'
+          ? branchMode
+          : 'single';
       _existingLogoUrl = d['logo'];
 
       // VAT fields
@@ -153,6 +154,32 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
       _vatEnabled = d['vatEnabled'] ?? false;
       _selectedPlan = d['plan'] ?? d['subscriptionTier'] ?? 'free_trial';
     }
+  }
+
+  Future<void> _loadPlanUsageLimits() async {
+    try {
+      final limits = <String, Map<String, dynamic>>{};
+      await Future.wait(
+        _plans.map((plan) async {
+          final id = plan['id'] as String;
+          final doc = await _db
+              .collection('subscription_usage_limits')
+              .doc(id)
+              .get();
+          if (doc.exists) limits[id] = doc.data() ?? {};
+        }),
+      );
+      if (mounted) setState(() => _planUsageLimits = limits);
+    } catch (error) {
+      debugPrint('Unable to load subscription usage limits: $error');
+    }
+  }
+
+  String _planUsageLimitText(String planId, String field, String label) {
+    final value = _planUsageLimits[planId]?[field];
+    if (value == null) return '$label: Not set';
+    final limit = value is num ? value.toInt() : int.tryParse(value.toString());
+    return limit == null ? '$label: Not set' : '$label: $limit / month';
   }
 
   String _normalizeDomain(String input) {
@@ -1197,6 +1224,7 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
   Widget _buildPlanCard(Map<String, dynamic> plan) {
     final bool isSelected = _selectedPlan == plan['id'];
     final bool isPopular = plan['popular'] == true;
+    final planId = plan['id'] as String;
 
     Color iconColor;
     switch (plan['id'] as String) {
@@ -1280,7 +1308,15 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                for (final f in (plan['features'] as List))
+                for (final f in [
+                  'All menus and pages included',
+                  _planUsageLimitText(planId, 'monthlyReads', 'Monthly reads'),
+                  _planUsageLimitText(
+                    planId,
+                    'monthlyWrites',
+                    'Monthly writes',
+                  ),
+                ])
                   Padding(
                     padding: const EdgeInsets.only(bottom: 3),
                     child: Text(

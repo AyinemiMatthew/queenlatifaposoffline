@@ -6,11 +6,13 @@ typedef OnDateRangeSelected = void Function(DateTimeRange? selectedRange);
 class ReusableDatePickerWidget extends StatefulWidget {
   final OnDateRangeSelected onDateSelected;
   final Widget child;
+  final DateTimeRange? initialDateRange;
 
   const ReusableDatePickerWidget({
     Key? key,
     required this.onDateSelected,
     required this.child,
+    this.initialDateRange,
   }) : super(key: key);
 
   @override
@@ -19,10 +21,15 @@ class ReusableDatePickerWidget extends StatefulWidget {
 }
 
 class _ReusableDatePickerWidgetState extends State<ReusableDatePickerWidget> {
-  DateTimeRange _selectedRange = DateTimeRange(
-    start: DateTime.now().subtract(const Duration(days: 0)),
-    end: DateTime.now(),
-  );
+  late DateTimeRange _selectedRange;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedRange =
+        widget.initialDateRange ?? DateTimeRange(start: now, end: now);
+  }
 
   void _openDatePicker() {
     DateTimeRange tempRange = _selectedRange;

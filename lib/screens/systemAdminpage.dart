@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/screens/systemadminregcompany.dart';
-import 'package:kologsoft/screens/tierfeature.dart';
+import 'package:kologsoft/screens/subscription_usage_limits.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -181,315 +181,322 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                 vertical: 24,
               ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Form(
-                    key: formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.1),
+                constraints: BoxConstraints(
+                  maxWidth: 420,
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.lock_reset,
+                                  color: colorScheme.onPrimary,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Change Password',
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Update your account password',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          TextFormField(
+                            controller: currentPasswordController,
+                            obscureText: !showCurrentPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Current Password',
+                              prefixIcon: Icon(
+                                Icons.lock_outline,
+                                color: colorScheme.onPrimary,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  showCurrentPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                color: colorScheme.onPrimary,
+                                onPressed: () {
+                                  setState(() {
+                                    showCurrentPassword = !showCurrentPassword;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(
-                                Icons.lock_reset,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                  width: 1.4,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceVariant,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter current password';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: newPasswordController,
+                            obscureText: !showNewPassword,
+                            decoration: InputDecoration(
+                              labelText: 'New Password',
+                              prefixIcon: Icon(
+                                Icons.lock,
                                 color: colorScheme.onPrimary,
-                                size: 28,
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Change Password',
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Update your account password',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        TextFormField(
-                          controller: currentPasswordController,
-                          obscureText: !showCurrentPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Current Password',
-                            prefixIcon: Icon(
-                              Icons.lock_outline,
-                              color: colorScheme.onPrimary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                showCurrentPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              color: colorScheme.onPrimary,
-                              onPressed: () {
-                                setState(() {
-                                  showCurrentPassword = !showCurrentPassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.primary,
-                                width: 1.4,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: colorScheme.surfaceVariant,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter current password';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: newPasswordController,
-                          obscureText: !showNewPassword,
-                          decoration: InputDecoration(
-                            labelText: 'New Password',
-                            prefixIcon: Icon(
-                              Icons.lock,
-                              color: colorScheme.onPrimary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                showNewPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              color: colorScheme.onSurfaceVariant,
-                              onPressed: () {
-                                setState(() {
-                                  showNewPassword = !showNewPassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.primary,
-                                width: 1.4,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: colorScheme.surfaceVariant,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                            helperText: 'Must be at least 6 characters',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter new password';
-                            }
-                            if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: confirmPasswordController,
-                          obscureText: !showConfirmPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Confirm New Password',
-                            prefixIcon: Icon(
-                              Icons.lock,
-                              color: colorScheme.onPrimary,
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                showConfirmPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              color: colorScheme.onSurfaceVariant,
-                              onPressed: () {
-                                setState(() {
-                                  showConfirmPassword = !showConfirmPassword;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.primary,
-                                width: 1.4,
-                              ),
-                            ),
-                            filled: true,
-                            fillColor: colorScheme.surfaceVariant,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 16,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please confirm password';
-                            }
-                            if (value != newPasswordController.text) {
-                              return 'Passwords do not match';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
-                              onPressed: isLoading
-                                  ? null
-                                  : () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  showNewPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                color: colorScheme.onSurfaceVariant,
+                                onPressed: () {
+                                  setState(() {
+                                    showNewPassword = !showNewPassword;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.outlineVariant,
                                 ),
                               ),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(color: Colors.white),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                  width: 1.4,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceVariant,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
+                              helperText: 'Must be at least 6 characters',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter new password';
+                              }
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: confirmPasswordController,
+                            obscureText: !showConfirmPassword,
+                            decoration: InputDecoration(
+                              labelText: 'Confirm New Password',
+                              prefixIcon: Icon(
+                                Icons.lock,
+                                color: colorScheme.onPrimary,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  showConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                color: colorScheme.onSurfaceVariant,
+                                onPressed: () {
+                                  setState(() {
+                                    showConfirmPassword = !showConfirmPassword;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: colorScheme.primary,
+                                  width: 1.4,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: colorScheme.surfaceVariant,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            FilledButton(
-                              onPressed: isLoading
-                                  ? null
-                                  : () async {
-                                      if (formKey.currentState!.validate()) {
-                                        setState(() => isLoading = true);
-                                        try {
-                                          await datafeed.changePassword(
-                                            currentPasswordController.text,
-                                            newPasswordController.text,
-                                          );
-                                          if (context.mounted) {
-                                            Navigator.pop(context);
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Password changed successfully',
-                                                  style: TextStyle(
-                                                    color: ColorScheme.of(
-                                                      context,
-                                                    ).onPrimary,
-                                                  ),
-                                                ),
-                                                backgroundColor: Colors.green,
-                                              ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm password';
+                              }
+                              if (value != newPasswordController.text) {
+                                return 'Passwords do not match';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              FilledButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () async {
+                                        if (formKey.currentState!.validate()) {
+                                          setState(() => isLoading = true);
+                                          try {
+                                            await datafeed.changePassword(
+                                              currentPasswordController.text,
+                                              newPasswordController.text,
                                             );
-                                          }
-                                        } catch (e) {
-                                          setState(() => isLoading = false);
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Error: $e',
-                                                  style: TextStyle(
-                                                    color: ColorScheme.of(
-                                                      context,
-                                                    ).onPrimary,
+                                            if (context.mounted) {
+                                              Navigator.pop(context);
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Password changed successfully',
+                                                    style: TextStyle(
+                                                      color: ColorScheme.of(
+                                                        context,
+                                                      ).onPrimary,
+                                                    ),
                                                   ),
+                                                  backgroundColor: Colors.green,
                                                 ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
+                                              );
+                                            }
+                                          } catch (e) {
+                                            setState(() => isLoading = false);
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Error: $e',
+                                                    style: TextStyle(
+                                                      color: ColorScheme.of(
+                                                        context,
+                                                      ).onPrimary,
+                                                    ),
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
                                           }
                                         }
-                                      }
-                                    },
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
+                                      },
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                                child: isLoading
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Update Password'),
                               ),
-                              child: isLoading
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Update Password'),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -510,59 +517,50 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final appBarForeground =
+            theme.appBarTheme.foregroundColor ?? colorScheme.onSurface;
         return Scaffold(
           appBar: AppBar(
             title: const Text('System Admin - Companies'),
             actions: [
-              // ListTile(
-              // 	leading: const Icon(
-              // 		Icons.tune,
-              // 		color: Colors.white,
-              // 	),
-              // 	title: const Text(
-              // 		'Subscription Tiers',
-              // 		style: TextStyle(color: Colors.white),
-              // 	),
-              // 	onTap: () {
-              // 		Navigator.push(
-              // 			context,
-              // 			MaterialPageRoute(builder: (_) => const TierFeatureConfigScreen()),
-              // 		);
-              // 	},
-              // ),
-              const Divider(color: Colors.white24),
+              Divider(color: colorScheme.outlineVariant),
 
               PopupMenuButton<String>(
                 icon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircleAvatar(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: colorScheme.primary,
                       radius: 16,
                       child: Text(
                         value.staff.isNotEmpty
                             ? value.staff[0].toUpperCase()
                             : 'U',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: colorScheme.onPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (screenWidth > 600)
-                      Text(
-                        value.staff.isNotEmpty ? value.staff : 'User',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: screenWidth > 600 ? 180 : 100,
                       ),
+                      child: Text(
+                        value.staff.isNotEmpty ? value.staff : 'User',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 14, color: appBarForeground),
+                      ),
+                    ),
                     const Icon(Icons.arrow_drop_down),
                   ],
                 ),
                 offset: const Offset(0, 50),
-                color: Colors.white,
+                color: colorScheme.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -574,10 +572,10 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                       children: [
                         Text(
                           value.staff.isNotEmpty ? value.staff : 'User',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Colors.black87,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                         if (value.staffemail.isNotEmpty)
@@ -585,10 +583,10 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                             value.staffemail,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        const Divider(),
+                        Divider(color: colorScheme.outlineVariant),
                       ],
                     ),
                   ),
@@ -599,12 +597,12 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                         Icon(
                           Icons.person_outline,
                           size: 20,
-                          color: Colors.green,
+                          color: colorScheme.primary,
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'My Profile',
-                          style: TextStyle(color: Colors.black87),
+                          style: TextStyle(color: colorScheme.onSurface),
                         ),
                       ],
                     ),
@@ -613,11 +611,15 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                     value: 'password',
                     child: Row(
                       children: [
-                        Icon(Icons.lock_outline, size: 20, color: Colors.blue),
+                        Icon(
+                          Icons.lock_outline,
+                          size: 20,
+                          color: colorScheme.primary,
+                        ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Change Password',
-                          style: TextStyle(color: Colors.black87),
+                          style: TextStyle(color: colorScheme.onSurface),
                         ),
                       ],
                     ),
@@ -626,33 +628,33 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                   PopupMenuItem<String>(
                     value: 'register_company',
                     child: Row(
-                      children: const [
+                      children: [
                         Icon(
                           Icons.business_outlined,
                           size: 20,
-                          color: Colors.green,
+                          color: colorScheme.primary,
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
                           'Register Company',
-                          style: TextStyle(color: Colors.black87),
+                          style: TextStyle(color: colorScheme.onSurface),
                         ),
                       ],
                     ),
                   ),
                   PopupMenuItem<String>(
-                    value: 'Subscription Tiers',
+                    value: 'Plan Usage Limits',
                     child: Row(
-                      children: const [
+                      children: [
                         Icon(
                           Icons.business_outlined,
                           size: 20,
-                          color: Colors.green,
+                          color: colorScheme.primary,
                         ),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
-                          'Subscription Tiers',
-                          style: TextStyle(color: Colors.black87),
+                          'Plan Usage Limits',
+                          style: TextStyle(color: colorScheme.onSurface),
                         ),
                       ],
                     ),
@@ -661,11 +663,11 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                     value: 'logout',
                     child: Row(
                       children: [
-                        const Icon(Icons.logout, size: 20, color: Colors.red),
+                        Icon(Icons.logout, size: 20, color: colorScheme.error),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Logout',
-                          style: TextStyle(color: Colors.red),
+                          style: TextStyle(color: colorScheme.error),
                         ),
                       ],
                     ),
@@ -685,11 +687,11 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
                         builder: (context) => const CompanyRegPageAdmin(),
                       ),
                     );
-                  } else if (selectedValue == 'Subscription Tiers') {
+                  } else if (selectedValue == 'Plan Usage Limits') {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const TierFeatureConfigScreen(),
+                        builder: (_) => const SubscriptionUsageLimitsScreen(),
                       ),
                     );
                   }
@@ -697,121 +699,151 @@ class _SystemAdminPageState extends State<SystemAdminPage> {
               ),
             ],
           ),
-          body: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? Center(child: Text('Error: $_error'))
-              : _companies.isEmpty
-              ? const Center(child: Text('No companies'))
-              : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _companies.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final doc = _companies[index];
-                    final data = doc.data() as Map<String, dynamic>? ?? {};
-                    final companyName = data['company'] ?? doc.id;
-                    final companyId = data['companyid'] ?? data['id'] ?? doc.id;
-                    final companyemail = data['email'] ?? '';
-                    final address = data['address'] ?? '';
-                    final name = data['name'] ?? '';
-                    final phone = data['phone'] ?? '';
-                    return Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        leading: CircleAvatar(
-                          child: Text(
-                            (companyName as String).isNotEmpty
-                                ? companyName[0].toUpperCase()
-                                : '?',
-                          ),
-                        ),
-                        title: Text(companyName),
-                        subtitle: (_loadingUpdates)
-                            ? const Text('Loading status...')
-                            : Builder(
-                                builder: (context) {
-                                  final last =
-                                      _companyLastUpdate[companyId.toString()];
-                                  final status = _statusFromLastUpdate(last);
-                                  final label = status['label'] as String;
-                                  final color = status['color'] as Color;
-                                  final lastStr = last != null
-                                      ? DateFormat(
-                                          'yyyy-MM-dd HH:mm:ss',
-                                        ).format(last)
-                                      : '—';
-                                  return Wrap(
-                                    children: [
-                                      Container(
-                                        width: 10,
-                                        height: 10,
-                                        decoration: BoxDecoration(
-                                          color: color,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(label),
-                                      const SizedBox(width: 12),
-                                      const Icon(Icons.access_time, size: 14),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        lastStr,
-                                        softWrap: true,
-                                        maxLines: 2,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                        trailing: Wrap(
-                          //	mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.amber),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => CompanyRegPage(
-                                      docId: doc.id,
-                                      data: data,
-                                    ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final contentWidth = constraints.maxWidth < 1000
+                  ? constraints.maxWidth
+                  : 1000.0;
+
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: contentWidth,
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _error != null
+                      ? Center(child: Text('Error: $_error'))
+                      : _companies.isEmpty
+                      ? const Center(child: Text('No companies'))
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(20),
+                          itemCount: _companies.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final doc = _companies[index];
+                            final data =
+                                doc.data() as Map<String, dynamic>? ?? {};
+                            final companyName = data['company'] ?? doc.id;
+                            final companyId =
+                                data['companyid'] ?? data['id'] ?? doc.id;
+                            final companyemail = data['email'] ?? '';
+                            final name = data['name'] ?? '';
+                            final phone = data['phone'] ?? '';
+                            return Card(
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: CircleAvatar(
+                                  child: Text(
+                                    (companyName as String).isNotEmpty
+                                        ? companyName[0].toUpperCase()
+                                        : '?',
                                   ),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.open_in_new),
-                              onPressed: () async {
-                                final datafeed = context.read<Datafeed>();
-                                await datafeed.loginAsCompanyAdmin(
-                                  companyId: companyId.toString(),
-                                  companyName: companyName,
-                                  companyEmailVal: companyemail,
-                                  companyPhoneVal: phone,
-                                  staffName: name,
-                                );
-                                if (context.mounted) {
-                                  Navigator.pushNamedAndRemoveUntil(
-                                    context,
-                                    Routes.home,
-                                    (route) => false,
-                                  );
-                                }
-                              },
-                            ),
-                          ],
+                                ),
+                                title: Text(companyName),
+                                subtitle: (_loadingUpdates)
+                                    ? const Text('Loading status...')
+                                    : Builder(
+                                        builder: (context) {
+                                          final last =
+                                              _companyLastUpdate[companyId
+                                                  .toString()];
+                                          final status = _statusFromLastUpdate(
+                                            last,
+                                          );
+                                          final label =
+                                              status['label'] as String;
+                                          final color =
+                                              status['color'] as Color;
+                                          final lastStr = last != null
+                                              ? DateFormat(
+                                                  'yyyy-MM-dd HH:mm:ss',
+                                                ).format(last)
+                                              : '—';
+                                          return Wrap(
+                                            children: [
+                                              Container(
+                                                width: 10,
+                                                height: 10,
+                                                decoration: BoxDecoration(
+                                                  color: color,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(label),
+                                              const SizedBox(width: 12),
+                                              const Icon(
+                                                Icons.access_time,
+                                                size: 14,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                lastStr,
+                                                softWrap: true,
+                                                maxLines: 2,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                trailing: Wrap(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.amber,
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => CompanyRegPage(
+                                              docId: doc.id,
+                                              data: data,
+                                              isSystemAdmin: true,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.open_in_new),
+                                      onPressed: () async {
+                                        final datafeed = context
+                                            .read<Datafeed>();
+                                        await datafeed.loginAsCompanyAdmin(
+                                          companyId: companyId.toString(),
+                                          companyName: companyName,
+                                          companyEmailVal: companyemail,
+                                          companyPhoneVal: phone,
+                                          staffName: name,
+                                        );
+                                        if (context.mounted) {
+                                          Navigator.pushNamedAndRemoveUntil(
+                                            context,
+                                            Routes.home,
+                                            (route) => false,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    );
-                  },
                 ),
+              );
+            },
+          ),
         );
       },
     );

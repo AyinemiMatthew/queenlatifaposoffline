@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -7,8 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../providers/StockProvider.dart';
-
-
 
 class StockSupply extends StatefulWidget {
   final String? requestId;
@@ -26,7 +23,8 @@ class StockSupply extends StatefulWidget {
   State<StockSupply> createState() => _StockSupplyState();
 }
 
-class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStateMixin {
+class _StockSupplyState extends State<StockSupply>
+    with SingleTickerProviderStateMixin {
   String _searchQuery = '';
 
   // Supply Tracking
@@ -36,7 +34,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
 
   // UI State
   String _selectedFilter = 'Pending';
-  final List<String> _filters = ['All', 'Pending','Partial', 'Complete'];
+  final List<String> _filters = ['All', 'Pending', 'Partial', 'Complete'];
 
   // Mobile State
   bool _isMobileView = false;
@@ -46,7 +44,6 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   DateTime? _endDate;
   bool _isDateRangeActive = false;
   @override
-
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
@@ -58,9 +55,12 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         stock.notes = _notesController.text;
       });
 
-
       if (widget.requestId != null && widget.requestData != null) {
-        stock.selectRequest(widget.requestId!, widget.requestData!, widget.selectedRequestStatus ?? 'pending');
+        stock.selectRequest(
+          widget.requestId!,
+          widget.requestData!,
+          widget.selectedRequestStatus ?? 'pending',
+        );
       }
     });
   }
@@ -69,11 +69,17 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   void dispose() {
     _notesController.dispose();
     _tabController.dispose();
-    for (final controller in _supcontrollers.values) { controller.dispose(); }
+    for (final controller in _supcontrollers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  void _selectRequest(String id, Map<String, dynamic> request, String requeststatus) {
+  void _selectRequest(
+    String id,
+    Map<String, dynamic> request,
+    String requeststatus,
+  ) {
     final stock = Provider.of<StockProvider>(context, listen: false);
     stock.selectRequest(id, request, requeststatus);
     setState(() {
@@ -83,7 +89,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
     });
   }
 
-//  date range picker
+  //  date range picker
   Future<void> _showDateRangePicker() async {
     final DateTime? start = await showDatePicker(
       context: context,
@@ -91,17 +97,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Color(0xFF22304A),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 
@@ -112,17 +108,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         firstDate: start,
         lastDate: DateTime.now(),
         builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.dark(
-                primary: Colors.blue,
-                onPrimary: Colors.white,
-                surface: Color(0xFF22304A),
-                onSurface: Colors.white,
-              ),
-            ),
-            child: child!,
-          );
+          return Theme(data: Theme.of(context), child: child!);
         },
       );
 
@@ -136,14 +122,17 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         // Apply date filter to your requests
         if (_startDate == null || _endDate == null) return;
         final stock = Provider.of<StockProvider>(context, listen: false);
-        stock.subscribePendingRequests(startDate:_startDate ,endDate:_endDate);
+        stock.subscribePendingRequests(
+          startDate: _startDate,
+          endDate: _endDate,
+        );
         // Show date range badge
         _showDateRangeBadge();
       }
     }
   }
 
-// clear the date range
+  // clear the date range
   void _clearDateRange() {
     setState(() {
       _startDate = null;
@@ -159,23 +148,29 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
     _showSuccessSnackBar('Date filters cleared');
   }
 
-// show a date range badge
+  // show a date range badge
   void _showDateRangeBadge() {
     if (_startDate == null || _endDate == null) return;
 
+    final colors = Theme.of(context).colorScheme;
     final dateFormat = DateFormat('dd MMM yyyy');
-    final message = 'Showing: ${dateFormat.format(_startDate!)} - ${dateFormat.format(_endDate!)}';
+    final message =
+        'Showing: ${dateFormat.format(_startDate!)} - ${dateFormat.format(_endDate!)}';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.date_range, color: Colors.white, size: 20),
+            Icon(
+              Icons.date_range,
+              color: colors.onSecondaryContainer,
+              size: 20,
+            ),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
         ),
-        backgroundColor: Colors.blue.shade800,
+        backgroundColor: colors.secondaryContainer,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         duration: const Duration(seconds: 3),
@@ -191,28 +186,26 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
 
       final confirm = await showDialog<bool>(
         context: context,
-        builder: (ctx) =>
-            AlertDialog(
-              title: const Text('Confirm Save'),
-              content: const Text(
-                'Are you sure you want to save this supply record?\n'
-                    'Once saved, records cannot be changed.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Save'),
-                ),
-              ],
+        builder: (ctx) => AlertDialog(
+          title: const Text('Confirm Save'),
+          content: const Text(
+            'Are you sure you want to save this supply record?\n'
+            'Once saved, records cannot be changed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
             ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       );
 
       if (confirm != true) return;
-
 
       try {
         await stock.submitSupply();
@@ -275,87 +268,96 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
     final screenWidth = MediaQuery.of(context).size.width;
     _isMobileView = screenWidth < 900;
 
     return Scaffold(
-        backgroundColor: const Color(0xFF0A1A2F),
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: const Color(0xFF0D2A3C),
-          title: _isMobileView
-              ? const Text(
-            'Stock Supply',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          )
-              : Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade800.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(10),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: colors.surface,
+        title: _isMobileView
+            ? Text(
+                'Stock Supply',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colors.onSurface,
                 ),
-                child: const Icon(Icons.inventory_2, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 12),
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              )
+            : Row(
                 children: [
-                  Text(
-                    'Stock Supply',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: colors.secondaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.inventory_2,
+                      color: colors.onSecondaryContainer,
+                      size: 24,
                     ),
                   ),
-                  Text(
-                    'Fulfill warehouse requests',
-                    style: TextStyle(fontSize: 12, color: Colors.white70),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Stock Supply',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: colors.onSurface,
+                        ),
+                      ),
+                      Text(
+                        'Fulfill warehouse requests',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          actions: _buildAppBarActions(),
-          bottom: _isMobileView && stock.selectedRequest != null && !_showRequestList
-              ? TabBar(
-            controller: _tabController,
-            indicatorColor: Colors.blue,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            tabs: const [
-              Tab(text: 'Items'),
-              Tab(text: 'Details'),
-            ],
-          )
-              : null,
-        ),
-        body: Form(
-          key: _supplyFormKey,
-          child: _isMobileView ? _buildMobileLayout() : _buildDesktopLayout(),
-        )
-
+        actions: _buildAppBarActions(),
+        bottom:
+            _isMobileView && stock.selectedRequest != null && !_showRequestList
+            ? TabBar(
+                controller: _tabController,
+                indicatorColor: colors.primary,
+                labelColor: colors.onSurface,
+                unselectedLabelColor: colors.onSurfaceVariant,
+                tabs: const [
+                  Tab(text: 'Items'),
+                  Tab(text: 'Details'),
+                ],
+              )
+            : null,
+      ),
+      body: Form(
+        key: _supplyFormKey,
+        child: _isMobileView ? _buildMobileLayout() : _buildDesktopLayout(),
+      ),
     );
   }
 
   List<Widget> _buildAppBarActions() {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
     final actions = <Widget>[
       if (stock.selectedRequest != null && _isMobileView)
         IconButton(
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: colors.onSurface.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.white70),
+            child: Icon(Icons.arrow_back, color: colors.onSurfaceVariant),
           ),
           onPressed: _resetSupply,
           tooltip: 'Back to requests',
@@ -365,10 +367,10 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: colors.onSurface.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.close, color: Colors.white70),
+            child: Icon(Icons.close, color: colors.onSurfaceVariant),
           ),
           onPressed: _resetSupply,
           tooltip: 'Cancel supply',
@@ -379,13 +381,15 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: _isDateRangeActive
-                ? Colors.blue.shade800.withOpacity(0.3)
-                : Colors.white.withOpacity(0.1),
+                ? colors.secondaryContainer
+                : colors.onSurface.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             Icons.calendar_month,
-            color: _isDateRangeActive ? Colors.blue.shade300 : Colors.white70,
+            color: _isDateRangeActive
+                ? colors.onSecondaryContainer
+                : colors.onSurfaceVariant,
           ),
         ),
         onPressed: _showDateRangePicker,
@@ -396,10 +400,10 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: colors.onSurface.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.refresh, color: Colors.white70),
+            child: Icon(Icons.refresh, color: colors.onSurfaceVariant),
           ),
           onPressed: stock.subscribePendingRequests,
           tooltip: 'Refresh',
@@ -422,18 +426,17 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         if (stock.selectedRequest != null)
           _buildSupplyPanel()
         else
-          Expanded(child: _buildEmptyState(),)
+          Expanded(child: _buildEmptyState()),
       ],
     );
   }
 
   Widget _buildMobileLayout() {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
 
     if (stock.isLoading && stock.pendingRequests.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.blue),
-      );
+      return Center(child: CircularProgressIndicator(color: colors.primary));
     }
 
     if (stock.selectedRequest != null && !_showRequestList) {
@@ -444,9 +447,14 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
 
   Widget _buildMobileSupplyPanel() {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
     final items = stock.selectedRequest!['items'] as List;
-    double? dbsupplyPercentage = double.tryParse(stock.selectedRequest!['supplypercentage']?.toString() ?? '0');
-    final supplyPercentage = (stock.calculateSupplyPercentage() > 0 ? stock.calculateSupplyPercentage() : dbsupplyPercentage)!;
+    double? dbsupplyPercentage = double.tryParse(
+      stock.selectedRequest!['supplypercentage']?.toString() ?? '0',
+    );
+    final supplyPercentage = (stock.calculateSupplyPercentage() > 0
+        ? stock.calculateSupplyPercentage()
+        : dbsupplyPercentage)!;
 
     return Column(
       children: [
@@ -454,10 +462,8 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF102433),
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
-            ),
+            color: colors.surface,
+            border: Border(bottom: BorderSide(color: colors.outlineVariant)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +473,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade900.withOpacity(0.3),
+                    color: colors.secondaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -476,10 +482,10 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Supply Progress',
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: colors.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
@@ -491,11 +497,12 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                                     borderRadius: BorderRadius.circular(4),
                                     child: LinearProgressIndicator(
                                       value: supplyPercentage / 100,
-                                      backgroundColor: Colors.white.withOpacity(0.1),
+                                      backgroundColor: colors.onSurface
+                                          .withOpacity(0.1),
                                       valueColor: AlwaysStoppedAnimation(
                                         supplyPercentage == 100
                                             ? Colors.green
-                                            : Colors.blue,
+                                            : colors.primary,
                                       ),
                                       minHeight: 6,
                                     ),
@@ -507,7 +514,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                                   style: TextStyle(
                                     color: supplyPercentage == 100
                                         ? Colors.green.shade300
-                                        : Colors.blue.shade300,
+                                        : colors.primary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -544,10 +551,8 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF0D2A3C),
-            border: Border(
-              top: BorderSide(color: Colors.white.withOpacity(0.1)),
-            ),
+            color: colors.surface,
+            border: Border(top: BorderSide(color: colors.outlineVariant)),
           ),
           child: SafeArea(
             child: Row(
@@ -556,72 +561,80 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                   child: OutlinedButton(
                     onPressed: _resetSupply,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      side: BorderSide(color: colors.outline),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                if (stock.selectedRequestStatus=='pending')
+                if (stock.selectedRequestStatus == 'pending')
                   SizedBox(
                     width: 150,
                     child: ElevatedButton(
-                      onPressed: stock.isLoading ? null :()async{
-                        try{
-                          await _submitSupply();
-                        } catch (e) {
-                          _showErrorSnackBar('Error submitting supply: $e');
-                        }
-
-                      },
+                      onPressed: stock.isLoading
+                          ? null
+                          : () async {
+                              try {
+                                await _submitSupply();
+                              } catch (e) {
+                                _showErrorSnackBar(
+                                  'Error submitting supply: $e',
+                                );
+                              }
+                            },
 
                       style: ElevatedButton.styleFrom(
                         backgroundColor: supplyPercentage == 100
-                            ? Colors.green.shade700
-                            : Colors.blue.shade700,
+                            ? colors.primary
+                            : colors.secondary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       child: stock.isLoading
-                          ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  colors.onPrimary,
+                                ),
+                              ),
+                            )
                           : Text(
-                        (supplyPercentage == 100 ? 'Complete Supply ' : 'Partial Supply'),
-                        style: const TextStyle(color: Colors.white),
-                      ),
+                              (supplyPercentage == 100
+                                  ? 'Complete Supply '
+                                  : 'Partial Supply'),
+                              style: TextStyle(color: colors.onPrimary),
+                            ),
                     ),
                   ),
 
-                if (stock.selectedRequestStatus!='pending')
+                if (stock.selectedRequestStatus != 'pending')
                   SizedBox(
                     width: 150,
                     child: OutlinedButton.icon(
-                      onPressed: ()async {
+                      onPressed: () async {
                         try {
                           await generateInvoicePdf(stock.selectedRequest!);
                         } catch (e) {
                           _showErrorSnackBar('Error generating PDF: $e');
-
                         }
                       },
                       icon: const Icon(Icons.print),
                       label: const Text('PRINT'),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.lightBlue),
-                        foregroundColor: Colors.lightBlue,
+                        side: BorderSide(color: colors.primary),
+                        foregroundColor: colors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -629,7 +642,6 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                       ),
                     ),
                   ),
-
               ],
             ),
           ),
@@ -639,6 +651,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   }
 
   Widget _buildMobileItemsTab(List items) {
+    final colors = Theme.of(context).colorScheme;
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: items.length,
@@ -647,173 +660,181 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         final stock = Provider.of<StockProvider>(context);
         final item = items[index];
         final itemId = item['itemid'] ?? '';
-        final dbstatus=item['supplystatus'];
-        final requestedQty = (item['requestedquantity'] as num?)?.toDouble() ?? 0;
-        final previousSupply = (item['suppliedquantity'] as num?)?.toDouble() ?? 0;
+        final dbstatus = item['supplystatus'];
+        final requestedQty =
+            (item['requestedquantity'] as num?)?.toDouble() ?? 0;
+        final previousSupply =
+            (item['suppliedquantity'] as num?)?.toDouble() ?? 0;
         final suppliedData = stock.supplyItems?[itemId];
         final rawsupply = suppliedData?['supplied'];
         final status = suppliedData?['status'] ?? item['supplystatus'];
-        final controllerid="${stock.selectedRequestId}${itemId}";
+        final controllerid = "${stock.selectedRequestId}${itemId}";
         double suppliedQty;
         if (dbstatus == 'pending') {
           suppliedQty = rawsupply ?? requestedQty;
         } else {
           suppliedQty = previousSupply;
         }
-        _supcontrollers[controllerid] ??= TextEditingController( text: suppliedQty.toStringAsFixed(0) );
+        _supcontrollers[controllerid] ??= TextEditingController(
+          text: suppliedQty.toStringAsFixed(0),
+        );
 
-        return Container (
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child:Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade900.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.inventory_2,
-                          color: Colors.white70,
-                          size: 20,
-                        ),
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colors.secondaryContainer,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                      child: Icon(
+                        Icons.inventory_2,
+                        color: colors.onSecondaryContainer,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item['item'] ?? '',
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (item['barcode'] != null) ...[
+                            const SizedBox(height: 4),
                             Text(
-                              item['item'] ?? '',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
+                              'Barcode: ${item['barcode']}',
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 12,
                               ),
                             ),
-                            if (item['barcode'] != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'Barcode: ${item['barcode']}',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
-                                  fontSize: 12,
+                          ],
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.secondaryContainer,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              item['mode'] ?? '',
+                              style: TextStyle(
+                                color: colors.onSecondaryContainer,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildStatusBadge(status),
+                  ],
+                ),
+                Divider(color: colors.outlineVariant, height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Requested Quantity',
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            requestedQty.toStringAsFixed(0),
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Supply Quantity',
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  height: 45,
+                                  decoration: BoxDecoration(
+                                    color: colors.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: suppliedQty > 0
+                                          ? colors.primary
+                                          : colors.outline,
+                                    ),
+                                  ),
+                                  child: buildSupplyField(
+                                    controller: _supcontrollers[controllerid]!,
+                                    requestedQty: requestedQty,
+                                    suppliedQty: suppliedQty,
+                                    itemId: itemId,
+                                    onUpdate:
+                                        (
+                                          String itemId,
+                                          double requestedQty,
+                                          double suppliedQty,
+                                        ) {
+                                          stock.updateSupplyQuantity(
+                                            itemId,
+                                            requestedQty,
+                                            suppliedQty,
+                                          );
+                                        },
+                                    dbstatus: dbstatus,
+                                  ),
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade900.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                item['mode'] ?? '',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      _buildStatusBadge(status),
-                    ],
-                  ),
-                  const Divider(
-                    color: Colors.white24,
-                    height: 24,
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Requested Quantity',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              requestedQty.toStringAsFixed(0),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Supply Quantity',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                      height: 45,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF1E3A5A),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: suppliedQty > 0
-                                              ? Colors.blue.shade400
-                                              : Colors.white.withOpacity(0.2),
-                                        ),
-                                      ),
-                                      child: buildSupplyField(
-
-                                          controller: _supcontrollers[controllerid]!,
-                                          requestedQty: requestedQty,
-                                          suppliedQty: suppliedQty,
-                                          itemId: itemId,
-                                          onUpdate: (String itemId, double requestedQty, double suppliedQty) {
-                                            stock.updateSupplyQuantity(itemId, requestedQty, suppliedQty);
-                                          },dbstatus:dbstatus)
-
-                                  ),
-                                ),
-
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),)
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -821,6 +842,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
 
   Widget _buildMobileDetailsTab() {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -829,23 +851,21 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
+              border: Border.all(color: colors.outlineVariant),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                    Icon(Icons.info_outline, color: colors.primary, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Supply Information',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colors.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -855,23 +875,19 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 const SizedBox(height: 12),
                 TextField(
                   controller: _notesController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colors.onSurface),
                   maxLines: 3,
                   decoration: InputDecoration(
                     labelText: 'Notes',
-                    labelStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                    ),
+                    labelStyle: TextStyle(color: colors.onSurfaceVariant),
                     hintText: 'Add any additional notes...',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                    prefixIcon: const Icon(
+                    hintStyle: TextStyle(color: colors.onSurfaceVariant),
+                    prefixIcon: Icon(
                       Icons.note,
-                      color: Colors.white70,
+                      color: colors.onSurfaceVariant,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFF1E3A5A),
+                    fillColor: colors.surfaceContainerHighest,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
@@ -888,23 +904,21 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
+              border: Border.all(color: colors.outlineVariant),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.summarize, color: Colors.blue, size: 20),
+                    Icon(Icons.summarize, color: colors.primary, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Request Summary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colors.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -925,7 +939,9 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 _buildInfoRow(
                   'Request Date',
                   _formatDate(
-                    (stock.selectedRequest!['createdat'] as Timestamp?)?.toDate() ?? DateTime.now(),
+                    (stock.selectedRequest!['createdat'] as Timestamp?)
+                            ?.toDate() ??
+                        DateTime.now(),
                   ),
                   Icons.calendar_today,
                 ),
@@ -934,7 +950,6 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                   '${stock.selectedRequest!['items']?.length ?? 0} items',
                   Icons.inventory,
                 ),
-
               ],
             ),
           ),
@@ -945,23 +960,21 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D2A3C),
+              color: colors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
+              border: Border.all(color: colors.outlineVariant),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.inventory_2, color: Colors.green, size: 20),
+                    Icon(Icons.inventory_2, color: colors.primary, size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Supply Summary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colors.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -981,7 +994,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                   Icons.pie_chart,
                   valueColor: stock.calculateSupplyPercentage() == 100
                       ? Colors.green
-                      : Colors.blue,
+                      : Theme.of(context).colorScheme.primary,
                 ),
                 _buildInfoRow(
                   'Status',
@@ -997,33 +1010,31 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildInfoRow(String label, String value, IconData icon, {
+  Widget _buildInfoRow(
+    String label,
+    String value,
+    IconData icon, {
     Color? valueColor,
     bool highlight = false,
   }) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: Colors.white.withOpacity(0.5),
-          ),
+          Icon(icon, size: 16, color: colors.onSurfaceVariant),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontSize: 13,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              color: valueColor ?? (highlight ? Colors.blue.shade300 : Colors.white),
+              color:
+                  valueColor ?? (highlight ? colors.primary : colors.onSurface),
               fontSize: 13,
               fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
             ),
@@ -1039,13 +1050,15 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
     required double suppliedQty,
     required String itemId,
     required String dbstatus,
-    required void Function(String itemId, double requestedQty, double safeQty) onUpdate,
+    required void Function(String itemId, double requestedQty, double safeQty)
+    onUpdate,
   }) {
+    final colors = Theme.of(context).colorScheme;
     return TextFormField(
-      enabled: dbstatus=='pending',
+      enabled: dbstatus == 'pending',
       controller: controller,
       autovalidateMode: AutovalidateMode.onUserInteraction,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      style: TextStyle(color: colors.onSurface, fontSize: 14),
       textAlign: TextAlign.center,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
@@ -1068,7 +1081,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
       },
       decoration: InputDecoration(
         filled: true,
-        fillColor: const Color(0xFF1E3A5A),
+        fillColor: colors.surfaceContainerHighest,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,
@@ -1081,19 +1094,25 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
 
   Widget _buildRequestsPanel() {
     final stock = context.watch<StockProvider>();
+    final colors = Theme.of(context).colorScheme;
 
     final filteredRequests = stock.pendingRequests.where((request) {
-      if (_selectedFilter != 'All' && request['status'] != _selectedFilter.toLowerCase()) {
+      if (_selectedFilter != 'All' &&
+          request['status'] != _selectedFilter.toLowerCase()) {
         return false;
       }
 
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
-        final warehouse = (request['warehousename'] ?? '').toString().toLowerCase();
+        final warehouse = (request['warehousename'] ?? '')
+            .toString()
+            .toLowerCase();
         final branch = (request['branch'] ?? '').toString().toLowerCase();
         final stats = (request['status'] ?? '').toString().toLowerCase();
 
-        return warehouse.contains(query) || branch.contains(query) || stats.contains(query);
+        return warehouse.contains(query) ||
+            branch.contains(query) ||
+            stats.contains(query);
       }
 
       return true;
@@ -1107,20 +1126,14 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         final bool isTablet = width >= 700 && width < 1100;
         final bool isDesktop = width >= 1100;
 
-        final panelWidth = isDesktop
-            ? 380.0
-            : double.infinity;
+        final panelWidth = isDesktop ? 380.0 : double.infinity;
 
         return Container(
           width: panelWidth,
           decoration: BoxDecoration(
-            color: const Color(0xFF102433),
+            color: colors.surface,
             border: isDesktop
-                ? Border(
-              right: BorderSide(
-                color: Colors.white.withOpacity(0.1),
-              ),
-            )
+                ? Border(right: BorderSide(color: colors.outlineVariant))
                 : null,
           ),
           child: Column(
@@ -1130,9 +1143,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border(
-                    bottom: BorderSide(
-                      color: Colors.white.withOpacity(0.1),
-                    ),
+                    bottom: BorderSide(color: colors.outlineVariant),
                   ),
                 ),
                 child: Column(
@@ -1140,15 +1151,14 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                   children: [
                     // Title + Count
                     Row(
-                      mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Pending Requests',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: colors.onSurface,
                           ),
                         ),
                         Container(
@@ -1157,14 +1167,13 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.blue.shade900,
-                            borderRadius:
-                            BorderRadius.circular(20),
+                            color: colors.secondaryContainer,
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '${filteredRequests.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: colors.onSecondaryContainer,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1179,35 +1188,28 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                     TextField(
                       onChanged: (value) =>
                           setState(() => _searchQuery = value),
-                      style:
-                      const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colors.onSurface),
                       decoration: InputDecoration(
                         hintText: 'Search requests...',
-                        hintStyle: TextStyle(
-                          color:
-                          Colors.white.withOpacity(0.5),
-                        ),
-                        prefixIcon: const Icon(
+                        hintStyle: TextStyle(color: colors.onSurfaceVariant),
+                        prefixIcon: Icon(
                           Icons.search,
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                         ),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
-                          icon: const Icon(
-                            Icons.clear,
-                            color: Colors.white70,
-                          ),
-                          onPressed: () =>
-                              setState(() =>
-                              _searchQuery = ''),
-                        )
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _searchQuery = ''),
+                              )
                             : null,
                         filled: true,
-                        fillColor:
-                        const Color(0xFF1E3A5A),
+                        fillColor: colors.surfaceContainerHighest,
                         border: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -1220,35 +1222,28 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                       spacing: 8,
                       runSpacing: 8,
                       children: _filters.map((filter) {
-                        final isSelected =
-                            _selectedFilter == filter;
+                        final isSelected = _selectedFilter == filter;
 
                         return FilterChip(
                           label: Text(filter),
                           selected: isSelected,
                           onSelected: (_) {
-                            setState(() =>
-                            _selectedFilter = filter);
+                            setState(() => _selectedFilter = filter);
                           },
-                          backgroundColor:
-                          const Color(0xFF1E3A5A),
-                          selectedColor:
-                          Colors.blue.shade800,
-                          checkmarkColor: Colors.white,
+                          backgroundColor: colors.surfaceContainerHighest,
+                          selectedColor: colors.secondaryContainer,
+                          checkmarkColor: colors.onSecondaryContainer,
                           labelStyle: TextStyle(
                             color: isSelected
-                                ? Colors.white
-                                : Colors.white70,
+                                ? colors.onSecondaryContainer
+                                : colors.onSurfaceVariant,
                             fontSize: 12,
                           ),
-                          shape:
-                          RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                             side: BorderSide.none,
                           ),
                         );
-
                       }).toList(),
                     ),
                   ],
@@ -1259,25 +1254,39 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
               if (_startDate != null && _endDate != null)
                 Container(
                   margin: const EdgeInsets.only(top: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade900.withOpacity(0.3),
+                    color: colors.secondaryContainer,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.blue.shade700.withOpacity(0.3)),
+                    border: Border.all(color: colors.secondary),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.date_range, size: 14, color: Colors.blue),
+                      Icon(
+                        Icons.date_range,
+                        size: 14,
+                        color: colors.onSecondaryContainer,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         '${DateFormat('dd/MM/yy').format(_startDate!)} - ${DateFormat('dd/MM/yy').format(_endDate!)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: TextStyle(
+                          color: colors.onSecondaryContainer,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: _clearDateRange,
-                        child: const Icon(Icons.close, size: 14, color: Colors.blue),
+                        child: Icon(
+                          Icons.close,
+                          size: 14,
+                          color: colors.onSecondaryContainer,
+                        ),
                       ),
                     ],
                   ),
@@ -1287,19 +1296,17 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 child: filteredRequests.isEmpty
                     ? _buildEmptyState()
                     : ListView.separated(
-                  padding:
-                  const EdgeInsets.all(16),
-                  itemCount: filteredRequests.length,
-                  separatorBuilder: (_, __) =>
-                  const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final request =
-                    filteredRequests[index];
-                    final isSelected = stock.selectedRequestId == request['id'];
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filteredRequests.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final request = filteredRequests[index];
+                          final isSelected =
+                              stock.selectedRequestId == request['id'];
 
-                    return _buildRequestCard(request, isSelected,);
-                  },
-                ),
+                          return _buildRequestCard(request, isSelected);
+                        },
+                      ),
               ),
             ],
           ),
@@ -1309,10 +1316,12 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   }
 
   Widget _buildRequestCard(Map<String, dynamic> request, bool isSelected) {
+    final colors = Theme.of(context).colorScheme;
     final items = request['items'] as List? ?? [];
     final totalItems = items.length;
     final supplyStatus = request['status'] ?? 'pending';
-    final date = (request['createdat'] as Timestamp?)?.toDate() ?? DateTime.now();
+    final date =
+        (request['createdat'] as Timestamp?)?.toDate() ?? DateTime.now();
 
     Color getStatusColor() {
       switch (supplyStatus) {
@@ -1321,7 +1330,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         case 'partial':
           return Colors.orange;
         case 'processing':
-          return Colors.blue;
+          return colors.primary;
         default:
           return Colors.grey;
       }
@@ -1333,20 +1342,18 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         decoration: BoxDecoration(
           gradient: isSelected
               ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade800.withOpacity(0.3),
-              Colors.blue.shade900.withOpacity(0.3),
-            ],
-          )
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colors.secondaryContainer,
+                    colors.secondaryContainer.withOpacity(0.75),
+                  ],
+                )
               : null,
-          color: isSelected ? null : const Color(0xFF0D2A3C),
+          color: isSelected ? null : colors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected
-                ? Colors.blue.shade400
-                : Colors.white.withOpacity(0.1),
+            color: isSelected ? colors.primary : colors.outlineVariant,
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1376,8 +1383,8 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                       children: [
                         Text(
                           request['warehousename'] ?? 'Unknown',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: colors.onSurface,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1386,7 +1393,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                         Text(
                           '${request['branch'] ?? 'Branch'} • ${_formatDate(date)}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: colors.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -1422,22 +1429,23 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 children: [
                   Text(
                     '$totalItems items',
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
                       fontSize: 13,
                     ),
                   ),
                   Text(
                     'GHS ${(request['gross'] ?? 0).toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colors.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              if (supplyStatus == 'partial' && request['supplyPercentage'] != null)
+              if (supplyStatus == 'partial' &&
+                  request['supplyPercentage'] != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: Column(
@@ -1449,14 +1457,14 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                           Text(
                             'Supply Progress',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: colors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                           ),
                           Text(
                             '${request['supplyPercentage']?.toStringAsFixed(0) ?? 0}%',
                             style: TextStyle(
-                              color: Colors.orange.shade300,
+                              color: colors.tertiary,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1468,10 +1476,8 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: (request['supplyPercentage'] ?? 0) / 100,
-                          backgroundColor: Colors.white.withOpacity(0.1),
-                          valueColor: AlwaysStoppedAnimation(
-                            getStatusColor(),
-                          ),
+                          backgroundColor: colors.onSurface.withOpacity(0.1),
+                          valueColor: AlwaysStoppedAnimation(getStatusColor()),
                           minHeight: 4,
                         ),
                       ),
@@ -1487,13 +1493,18 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
 
   Widget _buildSupplyPanel() {
     final stock = Provider.of<StockProvider>(context);
+    final colors = Theme.of(context).colorScheme;
     final items = stock.selectedRequest!['items'] as List;
-    double? dbsupplyPercentage = double.tryParse(stock.selectedRequest!['supplypercentage']?.toString() ?? '0');
-    final supplyPercentage = (stock.calculateSupplyPercentage() > 0 ? stock.calculateSupplyPercentage() : dbsupplyPercentage)!;
+    double? dbsupplyPercentage = double.tryParse(
+      stock.selectedRequest!['supplypercentage']?.toString() ?? '0',
+    );
+    final supplyPercentage = (stock.calculateSupplyPercentage() > 0
+        ? stock.calculateSupplyPercentage()
+        : dbsupplyPercentage)!;
 
     return Expanded(
       child: Container(
-        color: const Color(0xFF0F1E2E),
+        color: colors.surface,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1502,7 +1513,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  bottom: BorderSide(color: colors.outlineVariant),
                 ),
               ),
               child: Column(
@@ -1516,12 +1527,12 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade800.withOpacity(0.3),
+                              color: colors.secondaryContainer,
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.receipt_long,
-                              color: Colors.white,
+                              color: colors.onSecondaryContainer,
                               size: 24,
                             ),
                           ),
@@ -1532,38 +1543,41 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.store,
                                     size: 14,
-                                    color: Colors.white70,
+                                    color: colors.onSurfaceVariant,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    stock.selectedRequest!['warehousename'] ?? '',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
+                                    stock.selectedRequest!['warehousename'] ??
+                                        '',
+                                    style: TextStyle(
+                                      color: colors.onSurfaceVariant,
                                       fontSize: 14,
                                     ),
                                   ),
                                   Container(
                                     width: 4,
                                     height: 4,
-                                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: colors.outline,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
-                                  const Icon(
+                                  Icon(
                                     Icons.business,
                                     size: 14,
-                                    color: Colors.white70,
+                                    color: colors.onSurfaceVariant,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     stock.selectedRequest!['branch'] ?? '',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
+                                    style: TextStyle(
+                                      color: colors.onSurfaceVariant,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -1580,11 +1594,9 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade900.withOpacity(0.3),
+                        color: colors.secondaryContainer,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.blue.shade700.withOpacity(0.3),
-                        ),
+                        border: Border.all(color: colors.secondary),
                       ),
                       child: Row(
                         children: [
@@ -1592,10 +1604,10 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Overall Supply Progress',
                                   style: TextStyle(
-                                    color: Colors.white70,
+                                    color: colors.onSurfaceVariant,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -1607,11 +1619,12 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                                         borderRadius: BorderRadius.circular(6),
                                         child: LinearProgressIndicator(
                                           value: supplyPercentage / 100,
-                                          backgroundColor: Colors.white.withOpacity(0.1),
+                                          backgroundColor: colors.onSurface
+                                              .withOpacity(0.1),
                                           valueColor: AlwaysStoppedAnimation(
                                             supplyPercentage == 100
                                                 ? Colors.green
-                                                : Colors.blue,
+                                                : colors.primary,
                                           ),
                                           minHeight: 8,
                                         ),
@@ -1623,7 +1636,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                                       style: TextStyle(
                                         color: supplyPercentage == 100
                                             ? Colors.green.shade300
-                                            : Colors.blue.shade300,
+                                            : colors.primary,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -1648,276 +1661,298 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Request Items',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colors.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 16),
                     Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0D2A3C),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: Column(
+                        children: [
+                          // Table Header
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerHighest,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(16),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    'Item',
+                                    style: TextStyle(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 1,
+                                  child: Text(
+                                    'Mode',
+                                    style: TextStyle(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 1,
+                                  child: Text(
+                                    'Requested',
+                                    style: TextStyle(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Supply Quantity',
+                                    style: TextStyle(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 1,
+                                  child: Text(
+                                    'Status',
+                                    style: TextStyle(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        child:  Column(
-                          children: [
-                            // Table Header
-                            Container(
+
+                          // Table Body
+                          ...items.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final itemId = item['itemid'] ?? '';
+                            final dbstatus = item['supplystatus'];
+                            final requestedQty =
+                                (item['requestedquantity'] as num?)
+                                    ?.toDouble() ??
+                                0;
+                            final previousSupply =
+                                (item['suppliedquantity'] as num?)
+                                    ?.toDouble() ??
+                                0;
+                            final suppliedData = stock.supplyItems[itemId];
+                            final rawsupply = suppliedData?['supplied'];
+                            final status =
+                                suppliedData?['status'] ??
+                                item['supplystatus'] ??
+                                "no stock";
+                            final controllerids =
+                                "${stock.selectedRequestId}${itemId}";
+                            double suppliedQty;
+                            if (dbstatus == 'pending') {
+                              suppliedQty = rawsupply ?? requestedQty;
+                            } else {
+                              suppliedQty = previousSupply;
+                            }
+                            _supcontrollers[controllerids] ??=
+                                TextEditingController(
+                                  text: suppliedQty.toStringAsFixed(0),
+                                );
+
+                            return Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
-                                vertical: 16,
+                                vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5A),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16),
-                                ),
+                                border: index < items.length - 1
+                                    ? Border(
+                                        bottom: BorderSide(
+                                          color: colors.outlineVariant,
+                                        ),
+                                      )
+                                    : null,
                               ),
-                              child: const Row(
+                              child: Row(
                                 children: [
                                   Expanded(
                                     flex: 3,
-                                    child: Text(
-                                      'Item',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item['item'] ?? '',
+                                          style: TextStyle(
+                                            color: colors.onSurface,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        if (item['barcode'] != null)
+                                          Text(
+                                            'Barcode: ${item['barcode']}',
+                                            style: TextStyle(
+                                              color: colors.onSurfaceVariant,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 1,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.secondaryContainer,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        item['mode'] ?? '',
+                                        style: TextStyle(
+                                          color: colors.onSecondaryContainer,
+                                          fontSize: 12,
+                                        ),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ),
                                   ),
                                   Expanded(
                                     flex: 1,
                                     child: Text(
-                                      'Mode',
+                                      requestedQty.toStringAsFixed(0),
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: colors.onSurface,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 1,
-                                    child: Text(
-                                      'Requested',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
                                       ),
                                       textAlign: TextAlign.right,
                                     ),
                                   ),
                                   Expanded(
                                     flex: 2,
-                                    child: Text(
-                                      'Supply Quantity',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                      textAlign: TextAlign.right,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Container(
+                                          width: 100,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color:
+                                                colors.surfaceContainerHighest,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: suppliedQty > 0
+                                                  ? colors.primary
+                                                  : colors.outline,
+                                            ),
+                                          ),
+                                          child: buildSupplyField(
+                                            controller:
+                                                _supcontrollers[controllerids]!,
+                                            requestedQty: requestedQty,
+                                            suppliedQty: suppliedQty,
+                                            itemId: itemId,
+                                            onUpdate:
+                                                (
+                                                  String itemId,
+                                                  double requestedQty,
+                                                  double suppliedQty,
+                                                ) {
+                                                  stock.updateSupplyQuantity(
+                                                    itemId,
+                                                    requestedQty,
+                                                    suppliedQty,
+                                                  );
+                                                },
+                                            dbstatus: dbstatus,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Expanded(
                                     flex: 1,
-                                    child: Text(
-                                      'Status',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                      textAlign: TextAlign.center,
+                                    child: Center(
+                                      child: _buildStatusBadge(status),
                                     ),
                                   ),
                                 ],
                               ),
+                            );
+                          }).toList(),
+
+                          // Footer
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerLow,
+                              borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(16),
+                              ),
+                              border: Border(
+                                top: BorderSide(color: colors.outlineVariant),
+                              ),
                             ),
-
-                            // Table Body
-                            ...items.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final item = entry.value;
-                              final itemId = item['itemid'] ?? '';
-                              final dbstatus = item['supplystatus'];
-                              final requestedQty = (item['requestedquantity'] as num?)?.toDouble() ?? 0;
-                              final previousSupply = (item['suppliedquantity'] as num?)?.toDouble() ?? 0;
-                              final suppliedData = stock.supplyItems[itemId];
-                              final rawsupply = suppliedData?['supplied'];
-                              final status = suppliedData?['status'] ?? item['supplystatus'] ?? "no stock";
-                              final controllerids="${stock.selectedRequestId}${itemId}";
-                              double suppliedQty;
-                              if (dbstatus == 'pending') {
-                                suppliedQty = rawsupply ?? requestedQty;
-                              } else {
-                                suppliedQty = previousSupply;
-                              }
-                              _supcontrollers[controllerids] ??= TextEditingController( text: suppliedQty.toStringAsFixed(0) );
-
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: index < items.length - 1
-                                      ? Border(
-                                    bottom: BorderSide(
-                                      color: Colors.white.withOpacity(0.1),
-                                    ),
-                                  )
-                                      : null,
-                                ),
-                                child: Row(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
                                   children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item['item'] ?? '',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          if (item['barcode'] != null)
-                                            Text(
-                                              'Barcode: ${item['barcode']}',
-                                              style: TextStyle(
-                                                color: Colors.white.withOpacity(0.5),
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
+                                    Icon(
+                                      Icons.inventory,
+                                      color: colors.onSurfaceVariant,
+                                      size: 16,
                                     ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue.shade900.withOpacity(0.3),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          item['mode'] ?? '',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        requestedQty.toStringAsFixed(0),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        textAlign: TextAlign.right,
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          Container(
-                                              width: 100,
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF1E3A5A),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(
-                                                  color: suppliedQty > 0
-                                                      ? Colors.blue.shade400
-                                                      : Colors.white.withOpacity(0.2),
-                                                ),
-                                              ),
-                                              child: buildSupplyField(
-                                                  controller: _supcontrollers[controllerids]!,
-                                                  requestedQty: requestedQty,
-                                                  suppliedQty: suppliedQty,
-                                                  itemId: itemId,
-                                                  onUpdate: (String itemId, double requestedQty, double suppliedQty) {
-                                                    stock.updateSupplyQuantity(itemId, requestedQty, suppliedQty);
-                                                  },dbstatus:dbstatus
-                                              )
-
-                                          ),
-
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Center(
-                                        child: _buildStatusBadge(status),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${items.length} items',
+                                      style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 13,
                                       ),
                                     ),
                                   ],
                                 ),
-                              );
-                            }).toList(),
-
-                            // Footer
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E3A5A).withOpacity(0.5),
-                                borderRadius: const BorderRadius.vertical(
-                                  bottom: Radius.circular(16),
-                                ),
-                                border: Border(
-                                  top: BorderSide(
-                                    color: Colors.white.withOpacity(0.1),
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.inventory,
-                                        color: Colors.white70,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${items.length} items',
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                              ],
                             ),
-                          ],
-                        )
+                          ),
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 24),
@@ -1926,11 +1961,9 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D2A3C),
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
-                        ),
+                        border: Border.all(color: colors.outlineVariant),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1938,23 +1971,23 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                           const SizedBox(height: 12),
                           TextField(
                             controller: _notesController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: colors.onSurface),
                             maxLines: 3,
                             decoration: InputDecoration(
                               labelText: 'Notes',
                               labelStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: colors.onSurfaceVariant,
                               ),
                               hintText: 'Add any additional notes...',
                               hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.3),
+                                color: colors.onSurfaceVariant,
                               ),
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.note,
-                                color: Colors.white70,
+                                color: colors.onSurfaceVariant,
                               ),
                               filled: true,
-                              fillColor: const Color(0xFF1E3A5A),
+                              fillColor: colors.surfaceContainerHighest,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
@@ -1973,10 +2006,8 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D2A3C),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withOpacity(0.1)),
-                ),
+                color: colors.surface,
+                border: Border(top: BorderSide(color: colors.outlineVariant)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -1984,7 +2015,7 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                   OutlinedButton(
                     onPressed: _resetSupply,
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      side: BorderSide(color: colors.outline),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 14,
@@ -1993,65 +2024,72 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Cancel',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  if (stock.selectedRequestStatus=='pending')
-
+                  if (stock.selectedRequestStatus == 'pending')
                     SizedBox(
                       width: 150,
                       child: ElevatedButton(
-                        onPressed: stock.isLoading ? null :()async{
-                          try{
-                            await _submitSupply();
-                          } catch (e) {
-                            _showErrorSnackBar('Error submitting supply: $e');
-                          }
-
-                        },
+                        onPressed: stock.isLoading
+                            ? null
+                            : () async {
+                                try {
+                                  await _submitSupply();
+                                } catch (e) {
+                                  _showErrorSnackBar(
+                                    'Error submitting supply: $e',
+                                  );
+                                }
+                              },
 
                         style: ElevatedButton.styleFrom(
                           backgroundColor: supplyPercentage == 100
-                              ? Colors.green.shade700
-                              : Colors.blue.shade700,
+                              ? colors.primary
+                              : colors.secondary,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: stock.isLoading
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    colors.onPrimary,
+                                  ),
+                                ),
+                              )
                             : Text(
-                          (supplyPercentage == 100 ? 'Complete Supply ' : 'Partial Supply'),
-                          style: const TextStyle(color: Colors.white),
-                        ),
+                                (supplyPercentage == 100
+                                    ? 'Complete Supply '
+                                    : 'Partial Supply'),
+                                style: TextStyle(color: colors.onPrimary),
+                              ),
                       ),
                     ),
-                  if (stock.selectedRequestStatus!='pending')
+                  if (stock.selectedRequestStatus != 'pending')
                     SizedBox(
                       width: 150,
                       child: OutlinedButton.icon(
-                        onPressed: ()async {
+                        onPressed: () async {
                           try {
                             await generateInvoicePdf(stock.selectedRequest!);
                           } catch (e) {
                             _showErrorSnackBar('Error generating PDF: $e');
-
                           }
                         },
                         icon: const Icon(Icons.print),
                         label: const Text('PRINT'),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.lightBlue),
-                          foregroundColor: Colors.lightBlue,
+                          side: BorderSide(color: colors.primary),
+                          foregroundColor: colors.primary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -2059,7 +2097,6 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
                         ),
                       ),
                     ),
-
                 ],
               ),
             ),
@@ -2070,46 +2107,45 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   }
 
   Widget _buildEmptyState() {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-        color: const Color(0xFF0F1E2E),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.inventory_2_outlined,
-                size: 64,
-                color: Colors.white24,
-              ),
+      color: colors.surface,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHighest,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'No Request Selected',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Icon(
+              Icons.inventory_2_outlined,
+              size: 64,
+              color: colors.onSurfaceVariant,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Select a request from the left panel to start supplying',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.5),
-                fontSize: 14,
-              ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No Request Selected',
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        )
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Select a request from the left panel to start supplying',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildStatusBadge(String status) {
+    final colors = Theme.of(context).colorScheme;
     Color color;
     IconData icon;
 
@@ -2123,11 +2159,11 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
         icon = Icons.pending;
         break;
       case 'no stock':
-        color = Colors.redAccent;
+        color = colors.error;
         icon = Icons.remove_circle;
         break;
       default:
-        color = Colors.grey;
+        color = colors.onSurfaceVariant;
         icon = Icons.schedule;
     }
 
@@ -2175,15 +2211,16 @@ class _StockSupplyState extends State<StockSupply> with SingleTickerProviderStat
   }
 
   Color _getStatusColor(String status) {
+    final colors = Theme.of(context).colorScheme;
     switch (status) {
       case 'completed':
         return Colors.green;
       case 'partial':
         return Colors.orange;
       case 'processing':
-        return Colors.blue;
+        return colors.primary;
       default:
-        return Colors.grey;
+        return colors.onSurfaceVariant;
     }
   }
 
@@ -2205,9 +2242,9 @@ class MaxValueInputFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue,
-      TextEditingValue newValue,
-      ) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final text = newValue.text;
     final value = double.tryParse(text);
 

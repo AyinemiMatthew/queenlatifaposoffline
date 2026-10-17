@@ -11,6 +11,8 @@ class _DetailColumn {
   const _DetailColumn(this.label, this.width);
 }
 
+enum _HistoryColumn { entryDate, recordId }
+
 class StockItemHistoryPage extends StatefulWidget {
   final String itemId;
   final String itemName;
@@ -44,10 +46,13 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
   final ScrollController _hc = ScrollController();
 
   static const int _rowsPerPage = 10;
+  final NumberFormat _quantityFormat = NumberFormat('#,##0.########');
 
   int _page = 0;
   bool _loading = true;
   bool _searchExpanded = false;
+  bool _showEntryDate = false;
+  bool _showRecordId = false;
 
   ColorScheme get _colors => Theme.of(context).colorScheme;
   Color get _surfaceColor => _colors.surface;
@@ -264,7 +269,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${t.sign}${t.qty.toStringAsFixed(0)} pcs',
+                      '${t.sign}${_quantityFormat.format(t.qty)} pcs',
                       style: TextStyle(
                         color: _signColor(t.sign),
                         fontWeight: FontWeight.bold,
@@ -282,7 +287,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${t.sign}${cartonqty.toStringAsFixed(0)} Carton',
+                  '${t.sign}${_quantityFormat.format(cartonqty)} Carton',
                   style: TextStyle(
                     color: _signColor(t.sign),
                     fontWeight: FontWeight.bold,
@@ -300,6 +305,8 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                   runSpacing: 8,
                   children: [
                     _ageDetail('Last Stocked', _lastStockedLabel()),
+                    if (_showEntryDate)
+                      _ageDetail('Entry Date', t.invoiceDate ?? '-'),
                     _ageDetail(
                       'Stock Age',
                       _elapsedSince(widget.lastStockDate),
@@ -310,7 +317,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                     ),
                   ],
                 ),
-                if (t.transactionid.isNotEmpty)
+                if (_showRecordId && t.transactionid.isNotEmpty)
                   Text(
                     'Ref: ${t.transactionid}',
                     style: TextStyle(color: _secondaryTextColor, fontSize: 11),
@@ -342,7 +349,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
 
           final detailColumns = <_DetailColumn>[
             const _DetailColumn('#', 30),
-            const _DetailColumn('Entry Date', 130),
+            if (_showEntryDate) const _DetailColumn('Entry Date', 130),
             const _DetailColumn('Txn Date', 90),
             const _DetailColumn('Last Stocked', 100),
             const _DetailColumn('Stock Age', 90),
@@ -354,7 +361,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
             const _DetailColumn('Total', 80),
             const _DetailColumn('Mode', 80),
             const _DetailColumn('Staff', 60),
-            const _DetailColumn('Record ID', 90),
+            if (_showRecordId) const _DetailColumn('Record ID', 90),
           ];
 
           final double contentWidth =
@@ -432,13 +439,14 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                                   fontSize: 12,
                                 ),
                               ),
-                              Text(
-                                dateStr,
-                                style: TextStyle(
-                                  color: _textColor,
-                                  fontSize: 12,
+                              if (_showEntryDate)
+                                Text(
+                                  dateStr,
+                                  style: TextStyle(
+                                    color: _textColor,
+                                    fontSize: 12,
+                                  ),
                                 ),
-                              ),
                               Text(
                                 invoiceDateStr,
                                 style: TextStyle(
@@ -488,7 +496,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                               ),
                               if (isKS008)
                                 Text(
-                                  '${t.sign}${cartonqty.toStringAsFixed(0)}',
+                                  '${t.sign}${_quantityFormat.format(cartonqty)}',
                                   style: TextStyle(
                                     color: _signColor(t.sign),
                                     fontWeight: FontWeight.bold,
@@ -496,7 +504,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                                   ),
                                 ),
                               Text(
-                                '${t.sign}${t.qty.toStringAsFixed(0)}',
+                                '${t.sign}${_quantityFormat.format(t.qty)}',
                                 style: TextStyle(
                                   color: _signColor(t.sign),
                                   fontWeight: FontWeight.bold,
@@ -532,15 +540,16 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                                   fontSize: 12,
                                 ),
                               ),
-                              Text(
-                                t.transactionid.isNotEmpty
-                                    ? t.transactionid
-                                    : '-',
-                                style: TextStyle(
-                                  color: _secondaryTextColor,
-                                  fontSize: 11,
+                              if (_showRecordId)
+                                Text(
+                                  t.transactionid.isNotEmpty
+                                      ? t.transactionid
+                                      : '-',
+                                  style: TextStyle(
+                                    color: _secondaryTextColor,
+                                    fontSize: 11,
+                                  ),
                                 ),
-                              ),
                             ];
 
                             return Padding(
@@ -754,6 +763,31 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                       companyName: datafeed.company,
                     ),
                   ),
+                ),
+                PopupMenuButton<_HistoryColumn>(
+                  tooltip: 'Show or hide columns',
+                  icon: const Icon(Icons.view_column_outlined, size: 20),
+                  onSelected: (column) {
+                    setState(() {
+                      if (column == _HistoryColumn.entryDate) {
+                        _showEntryDate = !_showEntryDate;
+                      } else {
+                        _showRecordId = !_showRecordId;
+                      }
+                    });
+                  },
+                  itemBuilder: (context) => [
+                    CheckedPopupMenuItem<_HistoryColumn>(
+                      value: _HistoryColumn.entryDate,
+                      checked: _showEntryDate,
+                      child: const Text('Entry Date'),
+                    ),
+                    CheckedPopupMenuItem<_HistoryColumn>(
+                      value: _HistoryColumn.recordId,
+                      checked: _showRecordId,
+                      child: const Text('Record ID'),
+                    ),
+                  ],
                 ),
                 IconButton(
                   tooltip: 'Download Excel',

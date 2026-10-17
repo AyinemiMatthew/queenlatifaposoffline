@@ -41,6 +41,8 @@ class _StockReportPageState extends State<StockReportPage> {
       _isLightTheme ? Colors.grey.shade300 : AppColors.border;
   Color get _cardBorderColor =>
       _isLightTheme ? Colors.grey.shade300 : AppColors.cardBorder;
+  Color get _alternateRowColor =>
+      _isLightTheme ? Colors.grey.shade50 : AppColors.surfaceLight;
 
   Datafeed? _datafeed;
   DateTimeRange? _selectedDateRange;
@@ -992,15 +994,15 @@ class _StockReportPageState extends State<StockReportPage> {
                                     ),
                                   Expanded(
                                     child: _footerStat(
-                                      'Value@CP',
-                                      _nf.format(stockTotal),
+                                      'Total Cost Value',
+                                      _formatMoney(stockTotal),
                                       dense: compactFooter,
                                     ),
                                   ),
                                   Expanded(
                                     child: _footerStat(
-                                      'Value@SP',
-                                      _nf.format(sellTotal),
+                                      'Total Selling Value',
+                                      _formatMoney(sellTotal),
                                       dense: compactFooter,
                                     ),
                                   ),
@@ -1087,10 +1089,10 @@ class _StockReportPageState extends State<StockReportPage> {
       if (selectedBranch != null)
         const _StockColumn('Transfer. Out', 70, numeric: true),
 
-      const _StockColumn('Pcs Bal', 70, numeric: true),
-      const _StockColumn('Ctns Bal', 70, numeric: true),
-      const _StockColumn('Value@CP', 90, numeric: true),
-      const _StockColumn('Value@SP', 90, numeric: true),
+      const _StockColumn('Pieces Balance', 95, numeric: true),
+      const _StockColumn('Cartons Balance', 105, numeric: true),
+      const _StockColumn('Cost Value', 110, numeric: true),
+      const _StockColumn('Selling Value', 115, numeric: true),
     ];
   }
 
@@ -1263,23 +1265,19 @@ class _StockReportPageState extends State<StockReportPage> {
           style: TextStyle(color: _textSecondaryColor),
         ),
 
+      _stockBalanceCell(balanceCd),
       Text(
-        _formatNumber(balanceCd),
+        _formatNumber(cartonQtyBal),
         textAlign: TextAlign.right,
         style: TextStyle(color: _textSecondaryColor),
       ),
       Text(
-        cartonQtyBal > 0 ? '${_formatNumber(cartonQtyBal)} ' : '_',
-        textAlign: TextAlign.right,
-        style: TextStyle(color: _textSecondaryColor),
-      ),
-      Text(
-        _nf.format(_num(item['stock_value'])),
+        _formatMoney(item['stock_value']),
         textAlign: TextAlign.right,
         style: TextStyle(color: _textPrimaryColor),
       ),
       Text(
-        _nf.format(_num(item['selling_value'])),
+        _formatMoney(item['selling_value']),
         textAlign: TextAlign.right,
         style: TextStyle(color: _textPrimaryColor),
       ),
@@ -1297,7 +1295,7 @@ class _StockReportPageState extends State<StockReportPage> {
       child: Container(
         constraints: const BoxConstraints(minHeight: 44, maxHeight: 60),
         alignment: Alignment.center,
-        color: _surfaceColor,
+        color: index.isEven ? _surfaceColor : _alternateRowColor,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
@@ -1370,14 +1368,7 @@ class _StockReportPageState extends State<StockReportPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      'Balance: ${_formatNumber(balanceCd)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: _textSecondaryColor,
-                      ),
-                    ),
+                    _stockBalanceCell(balanceCd, label: 'Balance', large: true),
                     const SizedBox(height: 2),
                     Text(
                       'Carton: ${_formatNumber(cartonQtyBal)}',
@@ -1409,8 +1400,11 @@ class _StockReportPageState extends State<StockReportPage> {
                 _miniStat2("Transfer In", transferIn),
                 _miniStat2("Carton", cartonQtyBal),
 
-                _miniStat2("Value@CP", _nf.format(_num(item['stock_value']))),
-                _miniStat2("Value@SP", _nf.format(_num(item['selling_value']))),
+                _miniStat2("Cost Value", _formatMoney(item['stock_value'])),
+                _miniStat2(
+                  "Selling Value",
+                  _formatMoney(item['selling_value']),
+                ),
               ],
             ),
           ],
@@ -1511,9 +1505,9 @@ class _StockReportPageState extends State<StockReportPage> {
                                 fontSize: 12,
                               ),
                             )
-                          : columns[i].label == 'Value@CP'
+                          : columns[i].label == 'Cost Value'
                           ? Text(
-                              _nf.format(stockTotal),
+                              _formatMoney(stockTotal),
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1521,9 +1515,9 @@ class _StockReportPageState extends State<StockReportPage> {
                                 fontSize: 13,
                               ),
                             )
-                          : columns[i].label == 'Value@SP'
+                          : columns[i].label == 'Selling Value'
                           ? Text(
-                              _nf.format(sellTotal),
+                              _formatMoney(sellTotal),
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1562,6 +1556,74 @@ class _StockReportPageState extends State<StockReportPage> {
     );
   }
 
+  Widget _stockBalanceCell(dynamic value, {String? label, bool large = false}) {
+    final balance = _num(value);
+    final textStyle = TextStyle(
+      fontSize: large ? 16 : 12,
+      fontWeight: FontWeight.bold,
+      color: _textSecondaryColor,
+    );
+
+    if (balance >= 0) {
+      return Text(
+        '${label == null ? '' : '$label: '}${_formatNumber(balance)}',
+        textAlign: TextAlign.right,
+        style: textStyle,
+      );
+    }
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Tooltip(
+        message:
+            'Negative stock may indicate sales were recorded before stock was received. Check pending stock-in or stock adjustments.',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (label != null)
+              Text(
+                '$label: ',
+                style: textStyle.copyWith(
+                  fontSize: large ? 13 : 11,
+                  color: _textSecondaryColor,
+                ),
+              ),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: large ? 8 : 5,
+                vertical: large ? 4 : 2,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: large ? 16 : 13,
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    _formatNumber(balance),
+                    textAlign: TextAlign.right,
+                    style: textStyle.copyWith(
+                      fontSize: large ? 16 : 12,
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   String _getSortDisplayName() {
     switch (_sortBy) {
       case 'name':
@@ -1582,6 +1644,11 @@ class _StockReportPageState extends State<StockReportPage> {
           : number.toStringAsFixed(1);
     }
     return number.toString();
+  }
+
+  String _formatMoney(dynamic value) {
+    final amount = _num(value);
+    return 'GHS ${_nf.format(amount.abs() < 0.005 ? 0 : amount)}';
   }
 
   void showStockTransactionsDialog(

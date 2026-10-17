@@ -352,10 +352,44 @@ class _StaffViewState extends State<StaffView> {
                                           );
                                           return;
                                         }
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (dialogContext) => AlertDialog(
+                                            title: const Text(
+                                              'Delete Staff Account',
+                                            ),
+                                            content: Text(
+                                              'Are you sure you want to delete ${acc.name} (${acc.email})? This action cannot be undone.',
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(
+                                                  dialogContext,
+                                                ).pop(false),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              FilledButton(
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor:
+                                                      colorScheme.error,
+                                                  foregroundColor:
+                                                      colorScheme.onError,
+                                                ),
+                                                onPressed: () => Navigator.of(
+                                                  dialogContext,
+                                                ).pop(true),
+                                                child: const Text('Delete'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (!mounted || confirm != true) return;
+
                                         await db
                                             .collection('staff')
                                             .doc(acc.email)
                                             .delete();
+                                        _refreshStaffs();
                                       },
                                       child: const Icon(
                                         Icons.delete_forever,
