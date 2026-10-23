@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/sales_summary.dart';
 import '../providers/Datafeed.dart';
 
 class WorkPlaceWidget extends StatefulWidget {
@@ -18,12 +19,8 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
     final datafeed = context.watch<Datafeed>();
     final colorScheme = Theme.of(context).colorScheme;
     final isLight = Theme.of(context).brightness == Brightness.light;
-    final salesColor = isLight
-        ? const Color(0xFF167D3D)
-        : Colors.greenAccent;
-    final creditColor = isLight
-        ? const Color(0xFFB42318)
-        : Colors.redAccent;
+    final salesColor = isLight ? const Color(0xFF167D3D) : Colors.greenAccent;
+    final creditColor = isLight ? const Color(0xFFB42318) : Colors.redAccent;
     return Container(
       width: widget.cwidth,
       height: 235,
@@ -49,7 +46,7 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Total Sales",
+                "Total Sales — ${datafeed.dashboardPeriodLabel}",
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontSize: 14,
@@ -63,32 +60,27 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(4.0),
-                  child: Icon(
-                    Icons.shopping_cart,
-                    color: salesColor,
-                    size: 16,
-                  ),
+                  child: Icon(Icons.shopping_cart, color: salesColor, size: 16),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          StreamBuilder<PeriodDashboardSummary>(
-            stream: datafeed.periodDashboardSummaryStream(),
+          StreamBuilder<double>(
+            stream: datafeed.dashboardTotalSalesStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return Text(
-                  'Unable to load ${datafeed.dashboardPeriodLabel} sales: ${snapshot.error}',
+                  'Unable to load ${datafeed.dashboardPeriodLabel} sales: '
+                  '${snapshot.error}',
                   style: const TextStyle(color: Colors.red),
                 );
               }
-              final cashTotal = snapshot.hasData
-                  ? snapshot.data!.cash.toStringAsFixed(2)
-                  : '0.00';
-              final creditTotal = snapshot.hasData
-                  ? snapshot.data!.credit.toStringAsFixed(2)
-                  : '0.00';
-              final salesTotal = snapshot.data?.sales ?? 0;
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final salesTotal = snapshot.data!;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -102,128 +94,169 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                       ),
                     ),
                   ),
-                  Text(
-                    "${datafeed.dashboardPeriodLabel} Sales",
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 14,
-                    ),
+                  const SizedBox(height: 6),
+                  StreamBuilder<SalesSummary>(
+                    stream: datafeed.StodayTotalsStream(),
+                    builder: (context, dailySnapshot) {
+                      if (dailySnapshot.hasError) {
+                        return Text(
+                          "Unable to load today's cash and credit sales: "
+                          '${dailySnapshot.error}',
+                          style: const TextStyle(color: Colors.red),
+                        );
+                      }
+                      if (!dailySnapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final cashTotal = dailySnapshot.data!.cash;
+                      final creditTotal = dailySnapshot.data!.credit;
+                      final salesToday = dailySnapshot.data!.totalToday;
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Sales Today',
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                'GHS ${NumberFormat('#,##0.00').format(salesToday)}',
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: salesColor.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: salesColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "GHS ${NumberFormat('#,##0.00').format(cashTotal)}",
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      "Cash Sales",
+                                      style: TextStyle(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                right: -6,
+                                bottom: -6,
+                                child: Container(
+                                  height: 20,
+                                  width: 20,
+                                  decoration: BoxDecoration(
+                                    color: salesColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.bookmark_added_outlined,
+                                      color: Colors.white,
+                                      size: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: creditColor.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: creditColor,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "Credit Sales",
+                                      style: TextStyle(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      "GHS ${NumberFormat('#,##0.00').format(creditTotal)}",
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                right: -6,
+                                bottom: -6,
+                                child: Container(
+                                  height: 20,
+                                  width: 20,
+                                  decoration: BoxDecoration(
+                                    color: creditColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      "!",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 4),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: salesColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: salesColor,
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              //"GHS ${NumberFormat('#,##0.00').format(cashTotal)}",
-                              "GHS ${cashTotal}",
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              "Cash Sales",
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: -6,
-                        bottom: -6,
-                        child: Container(
-                          height: 20,
-                          width: 20,
-                          decoration: BoxDecoration(
-                            color: salesColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.bookmark_added_outlined,
-                              color: Colors.white,
-                              size: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: creditColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: creditColor, width: 1),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "Credit Sales",
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              // "GHS ${NumberFormat('#,##0.00').format(creditTotal)}",
-                              "GHS $creditTotal",
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: -6,
-                        bottom: -6,
-                        child: Container(
-                          height: 20,
-                          width: 20,
-                          decoration: BoxDecoration(
-                            color: creditColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Center(
-                            child: Text(
-                              "!",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+
                 ],
               );
             },

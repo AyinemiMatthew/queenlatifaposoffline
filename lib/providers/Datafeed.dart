@@ -101,8 +101,14 @@ class Datafeed extends ChangeNotifier {
   int companystockreorderbal = 0;
   int companyfinishedstock = 0;
   int companyavailablestock = 0;
-  static const List<String> dashboardPeriods = ['yearly', 'monthly', 'weekly'];
-  String dashboardPeriod = 'yearly';
+  static const List<String> dashboardPeriods = [
+    'all-time',
+    'yearly',
+    'monthly',
+    'weekly',
+  ];
+  String dashboardPeriod = 'all-time';
+  DateTime dashboardMonth = DateTime(DateTime.now().year, DateTime.now().month);
   SalesImportService get salesImport => _salesImport ??= SalesImportService();
 
   Future<void> loadDashboardPeriod() async {
@@ -110,8 +116,15 @@ class Datafeed extends ChangeNotifier {
     final saved = prefs.getString('dashboard_period_$companyid');
     if (saved != null && dashboardPeriods.contains(saved)) {
       dashboardPeriod = saved;
-      notifyListeners();
     }
+    final savedMonth = prefs.getString('dashboard_month_$companyid');
+    if (savedMonth != null) {
+      final parsedMonth = DateTime.tryParse('$savedMonth-01');
+      if (parsedMonth != null) {
+        dashboardMonth = DateTime(parsedMonth.year, parsedMonth.month);
+      }
+    }
+    notifyListeners();
   }
 
   Future<void> setDashboardPeriod(String period) async {
@@ -135,8 +148,31 @@ class Datafeed extends ChangeNotifier {
     notifyListeners();
   }
 
-  String get dashboardPeriodLabel =>
-      '${dashboardPeriod[0].toUpperCase()}${dashboardPeriod.substring(1)}';
+  Future<void> setDashboardMonth(DateTime month) async {
+    final selectedMonth = DateTime(month.year, month.month);
+    final prefs = await SharedPreferences.getInstance();
+    final previousMonth = dashboardMonth;
+    dashboardMonth = selectedMonth;
+    try {
+      await prefs.setString(
+        'dashboard_month_$companyid',
+        DateFormat('yyyy-MM').format(selectedMonth),
+      );
+    } catch (_) {
+      dashboardMonth = previousMonth;
+      notifyListeners();
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  String get dashboardPeriodLabel {
+    if (dashboardPeriod == 'all-time') return 'All Time';
+    if (dashboardPeriod == 'monthly') {
+      return DateFormat('MMM yyyy').format(dashboardMonth);
+    }
+    return '${dashboardPeriod[0].toUpperCase()}${dashboardPeriod.substring(1)}';
+  }
 
   DateTimeRange _dashboardPeriodRange() {
     final now = DateTime.now();
@@ -152,7 +188,7 @@ class Datafeed extends ChangeNotifier {
       );
     }
     if (dashboardPeriod == 'monthly') {
-      final start = DateTime(now.year, now.month);
+      final start = dashboardMonth;
       return DateTimeRange(
         start: start,
         end: DateTime(start.year, start.month + 1),
@@ -182,99 +218,129 @@ class Datafeed extends ChangeNotifier {
         ),
       );
     }
-    final range = _dashboardPeriodRange();
-    return db
+    Query<Map<String, dynamic>> query = db
         .collection('salesSummary')
-        .where('companyid', isEqualTo: companyid)
-        .where(
-          'summarydate',
-          isGreaterThanOrEqualTo: _dashboardDateString(range.start),
-        )
-        .where('summarydate', isLessThan: _dashboardDateString(range.end))
-        .snapshots()
-        .map((snapshot) {
-          double sales = 0;
-          double cash = 0;
-          double credit = 0;
-          double momo = 0;
-          double debtPaymentsMomo = 0;
-          final branchTotals = <String, double>{};
-          final items = <String, Map<String, dynamic>>{};
-          final branchIdFilter = accesslevel.toLowerCase() == 'super admin'
-              ? null
-              : branchid;
+        .where('companyid', isEqualTo: companyid);
+    if (dashboardPeriod != 'all-time') {
+      final range = _dashboardPeriodRange();
+      query = query
+          .where(
+            'summarydate',
+            isGreaterThanOrEqualTo: _dashboardDateString(range.start),
+          )
+          .where('summarydate', isLessThan: _dashboardDateString(range.end));
+    }
+    return query.snapshots().map((snapshot) {
+      double sales = 0;
+      double cash = 0;
+      double credit = 0;
+      double momo = 0;
+      double debtPaymentsMomo = 0;
+      final branchTotals = <String, double>{};
+      final items = <String, Map<String, dynamic>>{};
+      final branchIdFilter = accesslevel.toLowerCase() == 'super admin'
+          ? null
+          : branchid;
 
-          for (final doc in snapshot.docs) {
-            final branches = doc.data()['branchSummary'];
-            if (branches is! Map) continue;
-            for (final entry in branches.entries) {
-              if (branchIdFilter != null &&
-                  entry.key.toString() != branchIdFilter) {
-                continue;
-              }
-              if (entry.value is! Map) continue;
-              final branch = Map<String, dynamic>.from(entry.value as Map);
-              final branchName = (branch['branchName'] ?? entry.key).toString();
-              final branchSales = toDouble(
-                branch['branchsales_value'] ?? branch['sales_value'],
-              );
-              final branchCredit = toDouble(branch['credit']);
-              sales += branchSales;
-              cash += branchSales - branchCredit;
-              credit += branchCredit;
-              momo += toDouble(branch['momo'] ?? branch['merchantmomo']);
-              debtPaymentsMomo += toDouble(branch['debtpay_momo']);
-              branchTotals[branchName] =
-                  (branchTotals[branchName] ?? 0) + branchSales;
-
-              final branchItems = branch['items'];
-              if (branchItems is! Map) continue;
-              for (final itemEntry in branchItems.entries) {
-                if (itemEntry.value is! Map) continue;
-                final item = Map<String, dynamic>.from(itemEntry.value as Map);
-                final id = itemEntry.key.toString();
-                final aggregate = items.putIfAbsent(
-                  id,
-                  () => {
-                    'itemid': id,
-                    'item': item['itemName'] ?? id,
-                    'sales_qty': 0.0,
-                    'sales_value': 0.0,
-                  },
-                );
-                aggregate['sales_qty'] =
-                    toDouble(aggregate['sales_qty']) +
-                    toDouble(item['sales_qty']);
-                aggregate['sales_value'] =
-                    toDouble(aggregate['sales_value']) +
-                    toDouble(item['sales_value']);
-              }
-            }
+      for (final doc in snapshot.docs) {
+        final branches = doc.data()['branchSummary'];
+        if (branches is! Map) continue;
+        for (final entry in branches.entries) {
+          if (branchIdFilter != null &&
+              entry.key.toString() != branchIdFilter) {
+            continue;
           }
-
-          List<Map<String, dynamic>> topItems(String field) {
-            final result = items.values.toList()
-              ..sort(
-                (a, b) => toDouble(b[field]).compareTo(toDouble(a[field])),
-              );
-            return result.take(10).toList();
-          }
-
-          return PeriodDashboardSummary(
-            sales: sales,
-            cash: cash,
-            credit: credit,
-            momo: momo,
-            debtPaymentsMomo: debtPaymentsMomo,
-            branchTotals: branchTotals,
-            topQuantityItems: topItems('sales_qty'),
-            topFinancialItems: topItems('sales_value'),
+          if (entry.value is! Map) continue;
+          final branch = Map<String, dynamic>.from(entry.value as Map);
+          final branchName = (branch['branchName'] ?? entry.key).toString();
+          final branchSales = toDouble(
+            branch['branchsales_value'] ?? branch['sales_value'],
           );
-        });
+          final branchCredit = toDouble(branch['credit']);
+          sales += branchSales;
+          cash += branchSales - branchCredit;
+          credit += branchCredit;
+          momo += toDouble(branch['momo'] ?? branch['merchantmomo']);
+          debtPaymentsMomo += toDouble(branch['debtpay_momo']);
+          branchTotals[branchName] =
+              (branchTotals[branchName] ?? 0) + branchSales;
+
+          final branchItems = branch['items'];
+          if (branchItems is! Map) continue;
+          for (final itemEntry in branchItems.entries) {
+            if (itemEntry.value is! Map) continue;
+            final item = Map<String, dynamic>.from(itemEntry.value as Map);
+            final id = itemEntry.key.toString();
+            final aggregate = items.putIfAbsent(
+              id,
+              () => {
+                'itemid': id,
+                'item': item['itemName'] ?? id,
+                'sales_qty': 0.0,
+                'sales_value': 0.0,
+              },
+            );
+            aggregate['sales_qty'] =
+                toDouble(aggregate['sales_qty']) + toDouble(item['sales_qty']);
+            aggregate['sales_value'] =
+                toDouble(aggregate['sales_value']) +
+                toDouble(item['sales_value']);
+          }
+        }
+      }
+
+      List<Map<String, dynamic>> topItems(String field) {
+        final result = items.values.toList()
+          ..sort((a, b) => toDouble(b[field]).compareTo(toDouble(a[field])));
+        return result.take(10).toList();
+      }
+
+      return PeriodDashboardSummary(
+        sales: sales,
+        cash: cash,
+        credit: credit,
+        momo: momo,
+        debtPaymentsMomo: debtPaymentsMomo,
+        branchTotals: branchTotals,
+        topQuantityItems: topItems('sales_qty'),
+        topFinancialItems: topItems('sales_value'),
+      );
+    });
+  }
+
+  Stream<double> dashboardTotalSalesStream() {
+    if (dashboardPeriod == 'all-time') {
+      return dashboardStatsStream().map((stats) {
+        return accesslevel.toLowerCase() == 'super admin'
+            ? stats.companySalesValue
+            : stats.branchSalesValue;
+      });
+    }
+    return periodDashboardSummaryStream().map((summary) => summary.sales);
+  }
+
+  Stream<double> dashboardMomoStream() {
+    if (dashboardPeriod == 'all-time') {
+      return dashboardStatsStream().map((stats) {
+        return accesslevel.toLowerCase() == 'super admin'
+            ? stats.companyMomo + stats.companydebtpay_momo
+            : stats.branchMomo + stats.branchdebtpay_momo;
+      });
+    }
+    return periodDashboardSummaryStream().map(
+      (summary) => summary.momo + summary.debtPaymentsMomo,
+    );
   }
 
   Stream<double> periodExpenseStream() {
     if (companyid.isEmpty) return Stream.value(0);
+    if (dashboardPeriod == 'all-time') {
+      return dashboardStatsStream().map((stats) {
+        return accesslevel.toLowerCase() == 'super admin'
+            ? stats.companyExpenseValue
+            : stats.branchExpenseValue;
+      });
+    }
     final range = _dashboardPeriodRange();
     final start = range.start.toIso8601String();
     final end = range.end.toIso8601String();
@@ -690,9 +756,6 @@ class Datafeed extends ChangeNotifier {
       double companyopening_credit_bal = 0.0;
       double companyDiscount = 0.0;
       double companydebtpay_momo = 0.0;
-      double companydebtpay_cash = 0.0;
-      double companydebtpay_card = 0.0;
-      double companydebtpay_banktransfer = 0.0;
       double totaldebtpayment = 0.0;
 
       // Current branch payment totals
@@ -712,9 +775,6 @@ class Datafeed extends ChangeNotifier {
           (data['companyavailableCount'] as num?)?.toInt() ?? 0;
       double branchDiscount = 0.0;
       double branchdebtpay_momo = 0.0;
-      double branchdebtpay_cash = 0.0;
-      double branchdebtpay_card = 0.0;
-      double branchdebtpay_banktransfer = 0.0;
       double branchdebtpay = 0.0;
 
       for (final entry in branchSales.entries) {
@@ -747,6 +807,10 @@ class Datafeed extends ChangeNotifier {
             (branchData['debtpay_bank transfer'] as num?)?.toDouble() ??
             (branchData['debtpay_bank_transfer'] as num?)?.toDouble() ??
             0.0;
+        final debtpay_hubtel =
+            (branchData['debtpay_hubtel'] as num?)?.toDouble() ?? 0.0;
+        final debtpay_cheque =
+            (branchData['debtpay_cheque'] as num?)?.toDouble() ?? 0.0;
 
         // Company totals
         companyCash += cash;
@@ -757,8 +821,14 @@ class Datafeed extends ChangeNotifier {
         companyopening_credit_bal += opening_credit_bal;
         companyDiscount += discount;
         companydebtpay_momo += debtpay_momo;
-        totaldebtpayment +=
-            (debtpay_momo + debtpay_cash + debtpay_card + debtpay_banktransfer);
+        final totalBranchDebtPayments =
+            debtpay_momo +
+            debtpay_cash +
+            debtpay_card +
+            debtpay_banktransfer +
+            debtpay_hubtel +
+            debtpay_cheque;
+        totaldebtpayment += totalBranchDebtPayments;
         if (entry.key.toLowerCase() == branchid.toLowerCase()) {
           branchSalesValue = salesValue;
 
@@ -770,13 +840,30 @@ class Datafeed extends ChangeNotifier {
           branchopening_credit_bal = opening_credit_bal;
           branchDiscount = discount;
           branchdebtpay_momo = debtpay_momo;
-          branchdebtpay =
-              (debtpay_momo +
-              debtpay_cash +
-              debtpay_card +
-              debtpay_banktransfer);
+          branchdebtpay = totalBranchDebtPayments;
         }
       }
+
+      final hasCompanyDebtPaymentTotals = [
+        'companydebtpay_cash',
+        'companydebtpay_momo',
+        'companydebtpay_card',
+        'companydebtpay_bank transfer',
+        'companydebtpay_bank_transfer',
+        'companydebtpay_hubtel',
+        'companydebtpay_cheque',
+      ].any(data.containsKey);
+      final companyDebtPayments = hasCompanyDebtPaymentTotals
+          ? toDouble(data['companydebtpay_cash']) +
+                toDouble(data['companydebtpay_momo']) +
+                toDouble(data['companydebtpay_card']) +
+                toDouble(
+                  data['companydebtpay_bank transfer'] ??
+                      data['companydebtpay_bank_transfer'],
+                ) +
+                toDouble(data['companydebtpay_hubtel']) +
+                toDouble(data['companydebtpay_cheque'])
+          : totaldebtpayment;
 
       final branchExpenses = Map<String, dynamic>.from(
         data['branchexpense'] ?? {},
@@ -820,15 +907,19 @@ class Datafeed extends ChangeNotifier {
       }
 
       return DashboardStats(
-        companySalesValue: companySalesValue,
-        companyExpenseValue: companyExpenseValue,
+        companySalesValue: data['companysales_value'] == null
+            ? companySalesValue
+            : toDouble(data['companysales_value']),
+        companyExpenseValue: data['expense_total'] == null
+            ? companyExpenseValue
+            : toDouble(data['expense_total']),
         branchSalesValue: branchSalesValue,
         branchExpenseValue: branchExpenseValue,
         companyStockValue: companyStockValue,
         branchStockValue: branchStockValue,
         companyCash: companyCash,
         companyCard: companyCard,
-        companyCredit: (companyCredit - totaldebtpayment),
+        companyCredit: (companyCredit - companyDebtPayments),
         companyMomo: companyMomo,
         companyBankTransfer: companyBankTransfer,
         branchCash: branchCash,
@@ -5362,7 +5453,7 @@ class Datafeed extends ChangeNotifier {
       normalizedAccessLevel == 'sales manager';
   String get landingRoute {
     final role = normalizedAccessLevelNoSpaces;
-     if (role == 'salesattendance' ||
+    if (role == 'salesattendance' ||
         role == 'salesmanager' ||
         role.contains('operations') ||
         role.contains('stockofficer') ||
@@ -10687,7 +10778,8 @@ class Datafeed extends ChangeNotifier {
     if (companyid.isEmpty) return;
     _receiptNumberingSub?.cancel();
     try {
-      _receiptNumberingSub = db.collection('settings')
+      _receiptNumberingSub = db
+          .collection('settings')
           .doc('receipt_numbering_config_$companyid')
           .snapshots()
           .listen(

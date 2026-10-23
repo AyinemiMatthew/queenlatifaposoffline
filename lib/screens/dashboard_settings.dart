@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
@@ -6,6 +7,93 @@ import '../providers/routes.dart';
 
 class DashboardSettings extends StatelessWidget {
   const DashboardSettings({super.key});
+
+  Future<void> _selectMonth(BuildContext context, Datafeed datafeed) async {
+    var selectedYear = datafeed.dashboardMonth.year;
+    var selectedMonth = datafeed.dashboardMonth.month;
+    final currentYear = DateTime.now().year;
+    final monthNames = List.generate(
+      12,
+      (index) => DateFormat('MMMM').format(DateTime(2026, index + 1)),
+    );
+    final month = await showDialog<DateTime>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Select summary month'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: selectedYear,
+                decoration: const InputDecoration(labelText: 'Year'),
+                items: [
+                  for (var year = 2000; year <= currentYear; year++)
+                    DropdownMenuItem(value: year, child: Text('$year')),
+                ],
+                onChanged: (year) {
+                  if (year == null) return;
+                  setDialogState(() {
+                    selectedYear = year;
+                    if (selectedYear == currentYear &&
+                        selectedMonth > DateTime.now().month) {
+                      selectedMonth = DateTime.now().month;
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: selectedMonth,
+                decoration: const InputDecoration(labelText: 'Month'),
+                items: [
+                  for (
+                    var monthNumber = 1;
+                    monthNumber <=
+                        (selectedYear == currentYear
+                            ? DateTime.now().month
+                            : 12);
+                    monthNumber++
+                  )
+                    DropdownMenuItem(
+                      value: monthNumber,
+                      child: Text(monthNames[monthNumber - 1]),
+                    ),
+                ],
+                onChanged: (monthNumber) {
+                  if (monthNumber != null) {
+                    setDialogState(() => selectedMonth = monthNumber);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(DateTime(selectedYear, selectedMonth)),
+              child: const Text('Select'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (month == null || !context.mounted) return;
+
+    try {
+      await datafeed.setDashboardMonth(month);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save dashboard month: $error')),
+      );
+    }
+  }
 
   Future<void> _savePeriod(
     BuildContext context,
@@ -47,8 +135,8 @@ class DashboardSettings extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Yearly uses the calendar year. Monthly uses the full calendar month. '
-                      'Weekly runs Monday through Sunday.',
+                      'All Time shows cumulative totals. Yearly uses the calendar year. '
+                      'Weekly runs Monday through Sunday. Monthly lets you select a month.',
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                     const SizedBox(height: 12),
@@ -63,7 +151,9 @@ class DashboardSettings extends StatelessWidget {
                             (period) => DropdownMenuItem(
                               value: period,
                               child: Text(
-                                '${period[0].toUpperCase()}${period.substring(1)}',
+                                period == 'all-time'
+                                    ? 'All Time'
+                                    : '${period[0].toUpperCase()}${period.substring(1)}',
                               ),
                             ),
                           )
@@ -74,6 +164,16 @@ class DashboardSettings extends StatelessWidget {
                         }
                       },
                     ),
+                    if (datafeed.dashboardPeriod == 'monthly') ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => _selectMonth(context, datafeed),
+                        icon: const Icon(Icons.calendar_month),
+                        label: Text(
+                          'Summary month: ${datafeed.dashboardPeriodLabel}',
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

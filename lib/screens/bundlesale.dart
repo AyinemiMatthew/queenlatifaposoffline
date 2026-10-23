@@ -1507,55 +1507,56 @@ class _BundlePageState extends State<BundlePage> {
     return Container(
       margin: const EdgeInsets.only(top: 4),
       constraints: const BoxConstraints(maxHeight: 250),
-      decoration: BoxDecoration(
+      child: Material(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
-        ],
-      ),
-      child: ListView.builder(
-        shrinkWrap: true,
-        itemCount: filtered.length,
-        itemBuilder: (context, index) {
-          final item = filtered[index];
-          final branchBalance =
-              item.branchbalance?[value.activeBranchId]
-                  as Map<String, dynamic>? ??
-              {};
-          final double netPieces =
-              (branchBalance['netpieces'] as num?)?.toDouble() ?? 0.0;
-          return ListTile(
-            dense: true,
-            leading: const Icon(
-              Icons.inventory_2,
-              color: Colors.blue,
-              size: 20,
-            ),
-            title: Text(
-              item.name,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: Colors.blue.withOpacity(0.3)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final item = filtered[index];
+            final branchBalance =
+                item.branchbalance?[value.activeBranchId]
+                    as Map<String, dynamic>? ??
+                {};
+            final double netPieces =
+                (branchBalance['netpieces'] as num?)?.toDouble() ?? 0.0;
+            return ListTile(
+              dense: true,
+              leading: const Icon(
+                Icons.inventory_2,
+                color: Colors.blue,
+                size: 20,
               ),
-            ),
-            subtitle: Text(
-              'Barcode: ${item.barcode} | CP: GHS ${item.cp} | Pieces: ${netPieces.toStringAsFixed(0)}',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 11,
+              title: Text(
+                item.name,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            trailing: const Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.white54,
-              size: 14,
-            ),
-            onTap: () => _selectItem(item, value),
-          );
-        },
+              subtitle: Text(
+                'Barcode: ${item.barcode} | CP: GHS ${item.cp} | Pieces: ${netPieces.toStringAsFixed(0)}',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 11,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.white54,
+                size: 14,
+              ),
+              onTap: () => _selectItem(item, value),
+            );
+          },
+        ),
       ),
     );
   }

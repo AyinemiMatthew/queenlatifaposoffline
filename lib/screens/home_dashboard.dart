@@ -14,6 +14,7 @@ import 'package:kologsoft/widgets/offline_indicator.dart';
 import 'package:provider/provider.dart';
 
 import '../models/branch_stock_value.dart';
+import '../models/sales_summary.dart';
 import '../providers/routes.dart';
 import 'companyreg.dart';
 import 'debtpage.dart';
@@ -1634,7 +1635,7 @@ class _BranchSalesState extends State<BranchSales> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Branch Sales — ${datafeed.dashboardPeriodLabel}',
+                  'Branch Sales — Today',
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontSize: 14,
@@ -1644,8 +1645,8 @@ class _BranchSalesState extends State<BranchSales> {
                 const SizedBox(height: 12),
 
                 Expanded(
-                  child: StreamBuilder<PeriodDashboardSummary>(
-                    stream: datafeed.periodDashboardSummaryStream(),
+                  child: StreamBuilder<SalesSummary>(
+                    stream: datafeed.StodayTotalsStream(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting &&
                           !snapshot.hasData) {
@@ -1672,8 +1673,8 @@ class _BranchSalesState extends State<BranchSales> {
                         );
                       }
 
-                      final summary = snapshot.data!;
-                      final entries = summary.branchTotals.entries.toList();
+                      final entries = snapshot.data!.branchTotals.entries
+                          .toList();
 
                       final grandTotal = entries.fold<double>(
                         0,
@@ -2033,13 +2034,14 @@ class _MomoKpiWidgetState extends State<MomoKpiWidget>
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<PeriodDashboardSummary>(
-      stream: context.read<Datafeed>().periodDashboardSummaryStream(),
+    return StreamBuilder<double>(
+      stream: context.read<Datafeed>().dashboardMomoStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
             child: Text(
-              'Unable to load period MOMO: ${snapshot.error}',
+              'Unable to load ${context.read<Datafeed>().dashboardPeriodLabel} '
+              'MOMO: ${snapshot.error}',
               style: const TextStyle(color: Colors.red),
             ),
           );
@@ -2049,8 +2051,7 @@ class _MomoKpiWidgetState extends State<MomoKpiWidget>
           return _buildCard();
         }
 
-        final summary = snapshot.data!;
-        final momo = summary.momo + summary.debtPaymentsMomo;
+        final momo = snapshot.data!;
 
         // Animate only when value changes
         if (momo != _currentAmount) {
