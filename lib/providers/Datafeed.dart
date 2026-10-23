@@ -5362,14 +5362,13 @@ class Datafeed extends ChangeNotifier {
       normalizedAccessLevel == 'sales manager';
   String get landingRoute {
     final role = normalizedAccessLevelNoSpaces;
-    if (role.contains('cashier')) {
-      return Routes.cashierPage;
-    } else if (role == 'salesattendance' ||
+     if (role == 'salesattendance' ||
         role == 'salesmanager' ||
         role.contains('operations') ||
         role.contains('stockofficer') ||
         role.contains('accountant') ||
         role.contains('warehouse') ||
+        role.contains('cashier') ||
         role.contains('sales')) {
       return Routes.roleAccessDashboard;
     } else if (role.contains('superadmin')) {
