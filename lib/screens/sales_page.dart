@@ -59,7 +59,6 @@ class _SalesPageState extends State<SalesPage> {
   final TextEditingController _discountController = TextEditingController();
   final TextEditingController _totalPiecesController = TextEditingController();
   final TextEditingController _totalAmountController = TextEditingController();
-  final TextEditingController _gtotalAmountController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   DateTime? _selectedDate;
   String? _selectedSalesMode;
@@ -80,8 +79,6 @@ class _SalesPageState extends State<SalesPage> {
   String _superAdminBranchId = "";
   String _superAdminBranchName = "";
   String _displayBranchName = "";
-  String _loginBranchId = '';
-  String _loginBranchName = '';
   String get _activeBranchId => _superAdminBranchId.isNotEmpty
       ? _superAdminBranchId
       : branchid.isNotEmpty
@@ -179,8 +176,6 @@ class _SalesPageState extends State<SalesPage> {
       }
 
       _displayBranchName = value.branch;
-      _loginBranchId = value.branchid;
-      _loginBranchName = value.branch;
       _barcodeController.addListener(_onBarcodeChanged);
       _quantityController.addListener(_onQuantityChanged);
       _discountController.addListener(_calculateTotals);
@@ -519,8 +514,7 @@ class _SalesPageState extends State<SalesPage> {
       }
 
       final item = _selectedItem!;
-      final isService =
-          (item.producttype ?? '').toLowerCase().trim() == 'service';
+      final isService = item.producttype.toLowerCase().trim() == 'service';
       final bool filterByBalance = !isService && datafeed.stockCheckEnabled;
 
       double balanceOf(String id) {
@@ -565,7 +559,7 @@ class _SalesPageState extends State<SalesPage> {
         }
         setState(() {
           branchid = b.id;
-          branchtype = b.branchtype ?? '';
+          branchtype = b.branchtype;
           _superAdminBranchId = b.id;
           _superAdminBranchName = b.branchname;
           _displayBranchName = b.branchname;
@@ -599,7 +593,7 @@ class _SalesPageState extends State<SalesPage> {
           items: available.map((b) {
             final pcs = balanceOf(b.id);
             final boxes = boxQty > 0 ? pcs / boxQty : 0.0;
-            final typeLabel = (b.branchtype ?? '').isNotEmpty
+            final typeLabel = b.branchtype.isNotEmpty
                 ? ' (${b.branchtype})'
                 : '';
             final label = isService
@@ -831,12 +825,11 @@ class _SalesPageState extends State<SalesPage> {
 
       final balanceBranchType = useSalesWarehouse
           ? datafeed.branches
-                    .firstWhere(
-                      (b) => b.id == balanceBranchId,
-                      orElse: () => BranchModel(),
-                    )
-                    .branchtype ??
-                ''
+                .firstWhere(
+                  (b) => b.id == balanceBranchId,
+                  orElse: () => BranchModel(),
+                )
+                .branchtype
           : branchtype;
       final totalPieces = double.tryParse(_totalPiecesController.text) ?? 0;
 
@@ -893,7 +886,6 @@ class _SalesPageState extends State<SalesPage> {
 
       double totalAmt = double.parse(_totalAmountController.text.toString());
       double totalpcs = double.parse(_totalPiecesController.text.toString());
-      double qty = double.parse(_quantityController.text.toString());
       double cp = double.tryParse(_selectedItem?.cp ?? '') ?? 0;
 
       double sp =
@@ -993,7 +985,6 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => _isSavingDirect = true);
 
     try {
-      final double totalAmount = salesProvider.calculateTaxableTotal();
       final double totalDiscount = salesProvider.calculateDiscountTotal();
       final double grossTotal = salesProvider.calculateGrossTotal();
 
@@ -1159,7 +1150,6 @@ class _SalesPageState extends State<SalesPage> {
       itemId: itemId,
       selectedBranch: branchId,
     );
-    if (balance == null) return;
     await provider.db.collection('itemsreg').doc(itemId).update({
       'branchbalance.$branchId.netpieces': balance,
       'branchbalance.$branchId.lastupdate': FieldValue.serverTimestamp(),
@@ -1596,10 +1586,6 @@ class _SalesPageState extends State<SalesPage> {
                             final isSalesBranch =
                                 provider.branchtype ==
                                 "Sales Branch"; //"Sales Point";
-                            final accesslevel = provider.accesslevel;
-                            final isSuperAdmin =
-                                accesslevel.toLowerCase().trim() ==
-                                'super admin';
                             final canPrint = provider.canPrint;
                             final posPrint =
                                 !provider.isSalesPoint &&
@@ -2143,55 +2129,6 @@ class _SalesPageState extends State<SalesPage> {
                                                                                   ?.toDouble() ??
                                                                               0.0;
 
-                                                                          double
-                                                                          boxQty =
-                                                                              double.tryParse(
-                                                                                _selectedItem?.modes
-                                                                                        ?.firstWhere(
-                                                                                          (
-                                                                                            m,
-                                                                                          ) =>
-                                                                                              m.name.toLowerCase() ==
-                                                                                              'carton',
-                                                                                          orElse: () => Mode(
-                                                                                            id: '',
-                                                                                            name: '',
-                                                                                            qty: '1',
-                                                                                            cp: '',
-                                                                                            rp: '',
-                                                                                            wp: '',
-                                                                                            sp: '',
-                                                                                          ),
-                                                                                        )
-                                                                                        .qty ??
-                                                                                    _selectedItem?.modes
-                                                                                        ?.firstWhere(
-                                                                                          (
-                                                                                            m,
-                                                                                          ) =>
-                                                                                              m.name.toLowerCase() ==
-                                                                                              'single',
-                                                                                          orElse: () => Mode(
-                                                                                            id: '',
-                                                                                            name: '',
-                                                                                            qty: '1',
-                                                                                            cp: '',
-                                                                                            rp: '',
-                                                                                            wp: '',
-                                                                                            sp: '',
-                                                                                          ),
-                                                                                        )
-                                                                                        .qty ??
-                                                                                    '1',
-                                                                              ) ??
-                                                                              1.0;
-                                                                          final double
-                                                                          cartonsLeft =
-                                                                              boxQty >
-                                                                                  0
-                                                                              ? (netPieces /
-                                                                                    boxQty)
-                                                                              : 0.0;
                                                                           final cartonMode = item.modes?.firstWhere(
                                                                             (
                                                                               m,
@@ -2228,9 +2165,10 @@ class _SalesPageState extends State<SalesPage> {
 
                                                                           final String
                                                                           boxPrice =
-                                                                              (cartonMode?.wp?.isNotEmpty ??
-                                                                                  false)
-                                                                              ? cartonMode!.wp
+                                                                              cartonMode !=
+                                                                                      null &&
+                                                                                  cartonMode.wp.isNotEmpty
+                                                                              ? cartonMode.wp
                                                                               : (singleMode?.wp ??
                                                                                     '0');
                                                                           return ListTile(

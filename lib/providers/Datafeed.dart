@@ -464,6 +464,11 @@ class Datafeed extends ChangeNotifier {
   bool isloadingsalesbundle = false;
   List<Map<String, dynamic>> bundleview = [];
   List<ItemModel> bundleviewitemodel = [];
+
+  void refreshBundleView() {
+    notifyListeners();
+  }
+
   bool isLoadingReceipt = false;
   List<Map<String, dynamic>> receiptList = [];
   final List<Map<String, dynamic>> closeSaleRecords = [];

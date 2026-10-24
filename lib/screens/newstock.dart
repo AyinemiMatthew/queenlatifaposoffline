@@ -31,7 +31,6 @@ class _NewStockState extends State<NewStock> {
   final TextEditingController _dateController = TextEditingController();
 
   String? _selectedPurchaseType;
-  String? _selectedpaymentaccount;
   String method = "";
   Map<String, List<String>> linkedAccounts = {};
   List<String> _linkedAccounts = [];
@@ -76,10 +75,6 @@ class _NewStockState extends State<NewStock> {
       if (_purchasTypes.contains(customerType)) {
         _selectedPurchaseType = customerType;
       }
-      final paymentDuration = customadata['paymentduration'];
-      if (paymentaccount.contains(paymentDuration)) {
-        _selectedpaymentaccount = paymentDuration;
-      }
     }
     if (widget.docId != null && widget.docId!.isNotEmpty) {
       _showStockItems = true;
@@ -123,7 +118,6 @@ class _NewStockState extends State<NewStock> {
       _contactController.clear();
       _dateController.clear();
       _selectedPurchaseType = null;
-      _selectedpaymentaccount = null;
       _selectedDate = null;
     });
   }
@@ -570,7 +564,6 @@ class _NewStockState extends State<NewStock> {
 
                                               if (v != 'Cash') {
                                                 _selectedPaymentMethod = '';
-                                                _selectedpaymentaccount = null;
                                                 _linkedAccounts = [];
                                               }
                                             });
@@ -974,7 +967,6 @@ class _StockItemsFormState extends State<StockItemsForm> {
   final List<String> _taxType = ['No vat', 'Flat', 'standard'];
   Map<String, dynamic>? _itemModes;
   bool _loading = false;
-  List<Map<String, dynamic>> _suggestions = [];
   bool _showSuggestions = false;
   Map<String, dynamic>? _selectedItem;
   String _searchQuery = '';
@@ -1044,9 +1036,9 @@ class _StockItemsFormState extends State<StockItemsForm> {
         _loadingBalance = true;
       });
 
-      final double newOldPieces =
-          (await provider.fetchItemCurrentBalance(itemId: item['id']) ?? .0)
-              .toDouble();
+      final double newOldPieces = (await provider.fetchItemCurrentBalance(
+        itemId: item['id'],
+      )).toDouble();
 
       debugPrint('Old pieces for ${item['name']}: $newOldPieces');
 
@@ -1075,8 +1067,6 @@ class _StockItemsFormState extends State<StockItemsForm> {
         oldPieces = newOldPieces;
 
         _showSuggestions = false;
-
-        _suggestions = [];
       });
     } catch (e, stack) {
       debugPrint('_selectItem error: $e');
@@ -1169,6 +1159,8 @@ class _StockItemsFormState extends State<StockItemsForm> {
 
         _items.add({
           'item': _itemController.text.trim(),
+          'supplierid': widget.headerData['supplierid']?.toString() ?? '',
+          'suppliername': widget.headerData['suppliername']?.toString() ?? '',
           'quantity': quantity,
           'price': price,
           'discount': discount,
@@ -1202,7 +1194,6 @@ class _StockItemsFormState extends State<StockItemsForm> {
 
     for (final it in _items) {
       final double price = (it['price'] as num?)?.toDouble() ?? 0.0;
-      final double qty = (it['quantity'] as double?) ?? 0;
       final double totalpieces = (it['pieces'] as double?) ?? 0;
       final double discount = (it['discount'] as num?)?.toDouble() ?? 0.0;
       final double taxAmt = (it['taxamount'] as num?)?.toDouble() ?? 0.0;
@@ -1360,17 +1351,21 @@ class _StockItemsFormState extends State<StockItemsForm> {
           "${item['itemid']} -> old cp: $oldCp -> old pcs: $oldPieces -> oldValue:$oldValue ->new cp: $newCp -> newval: $newval ->calc cp:$calculatedCp ->totalval:$totalValue",
         );
 
+        final itemUpdate = <String, dynamic>{};
         if (oldCp != newCp) {
+          itemUpdate.addAll({
+            'oldcp': oldCp,
+            'cp': calculatedCp,
+            'newcp': newCp,
+            'lastModified': FieldValue.serverTimestamp(),
+          });
+        }
+        if (itemUpdate.isNotEmpty) {
           batch.update(
             FirebaseFirestore.instance
                 .collection('itemsreg')
                 .doc(item['itemid']),
-            {
-              'oldcp': oldCp,
-              'cp': calculatedCp,
-              'newcp': newCp,
-              'lastModified': FieldValue.serverTimestamp(),
-            },
+            itemUpdate,
           );
         }
       }
@@ -2129,12 +2124,7 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                 final allDocs = snapshot.data!;
                                                 final filteredDocs = allDocs
                                                     .where((doc) {
-                                                      final data =
-                                                          doc
-                                                              as Map<
-                                                                String,
-                                                                dynamic
-                                                              >;
+                                                      final data = doc;
                                                       final name =
                                                           (data['name'] ?? '')
                                                               .toString()
@@ -2193,11 +2183,10 @@ class _StockItemsFormState extends State<StockItemsForm> {
                                                       final doc =
                                                           filteredDocs[index];
                                                       final item =
-                                                          doc
-                                                              as Map<
-                                                                String,
-                                                                dynamic
-                                                              >;
+                                                          Map<
+                                                            String,
+                                                            dynamic
+                                                          >.from(doc);
                                                       item['id'] = doc['id'];
 
                                                       return ListTile(
@@ -2905,9 +2894,9 @@ class _StockItemsFormState extends State<StockItemsForm> {
                       "",
                       //"",
                       "",
-                      totals.discount!.toStringAsFixed(2),
+                      totals.discount.toStringAsFixed(2),
                       //totals.tax!.toStringAsFixed(2),
-                      totals.net!.toStringAsFixed(2),
+                      totals.net.toStringAsFixed(2),
                       "",
                     ]);
                   })(),
@@ -3069,7 +3058,6 @@ class MobileSalesPreview extends StatelessWidget {
         ? colorScheme.onPrimary
         : Colors.white;
 
-    Map<String, dynamic> datas;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -3283,16 +3271,6 @@ class MobileSalesPreview extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _line(String left, String right) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(left, style: const TextStyle(color: Colors.white60, fontSize: 12)),
-        Text(right, style: const TextStyle(color: Colors.white)),
-      ],
     );
   }
 

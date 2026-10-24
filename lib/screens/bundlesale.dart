@@ -311,8 +311,6 @@ class _BundlePageState extends State<BundlePage> {
   }
 
   void _addToSalesPreview() {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
     if (!_formKey.currentState!.validate()) return;
     if (_bundlenameController.text.trim().isEmpty) {
       _snack('Please enter bundle name before adding items.', Colors.red);
@@ -440,7 +438,7 @@ class _BundlePageState extends State<BundlePage> {
         datafeed.bundleview[idx]['name'] = newName;
         datafeed.bundleview[idx]['barcode'] = newName;
         datafeed.bundleview[idx]['items'] = updatedItems;
-        datafeed.notifyListeners();
+        datafeed.refreshBundleView();
       }
 
       _snack('Bundle name updated successfully', Colors.green);
@@ -558,7 +556,7 @@ class _BundlePageState extends State<BundlePage> {
         );
         if (idx != -1) datafeed.bundleview[idx] = localDoc;
 
-        datafeed.notifyListeners();
+        datafeed.refreshBundleView();
         Navigator.pop(context);
       } else {
         final datafeed = context.read<Datafeed>();
@@ -566,7 +564,7 @@ class _BundlePageState extends State<BundlePage> {
         localDoc['createdat'] = null;
 
         datafeed.bundleview.add(localDoc);
-        datafeed.notifyListeners();
+        datafeed.refreshBundleView();
         _resetForm();
         setState(() => _salesItems = []);
       }

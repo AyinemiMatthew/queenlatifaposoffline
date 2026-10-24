@@ -394,7 +394,6 @@ class _DamagesState extends State<Damages> {
       );
       _selectItem(foundItem, datafeed);
     }
-
     setState(() {
       _editingIndex = index;
       _itemController.text = item['item']?.toString() ?? '';
@@ -1299,8 +1298,7 @@ class _DamagesState extends State<Damages> {
                                                                   size: 20,
                                                                 ),
                                                                 title: Text(
-                                                                  item?.name ??
-                                                                      '',
+                                                                  item.name,
                                                                   style: TextStyle(
                                                                     color: Theme.of(
                                                                       context,
@@ -2514,9 +2512,7 @@ class MobileSalesPreview extends StatelessWidget {
     final mode = modes.isNotEmpty ? "$modes ($modeqty)" : "";
     final price = _parseDouble(item['cp']);
     final qty = _parseDouble(item['quantity']);
-    final totalpieces = _parseDouble(item['totalpieces']);
 
-    final total = price * totalpieces;
     final total1 = price * (qty * _parseDouble(modeqty));
     final theme = Theme.of(context);
     final primaryColor = isInsufficient
