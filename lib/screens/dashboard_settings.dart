@@ -28,7 +28,7 @@ class DashboardSettings extends StatelessWidget {
                 initialValue: selectedYear,
                 decoration: const InputDecoration(labelText: 'Year'),
                 items: [
-                  for (var year = 2000; year <= currentYear; year++)
+                  for (var year = 2026; year <= currentYear; year++)
                     DropdownMenuItem(value: year, child: Text('$year')),
                 ],
                 onChanged: (year) {
