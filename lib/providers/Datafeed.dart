@@ -3267,95 +3267,6 @@ class Datafeed extends ChangeNotifier {
         .orderBy('summarydate', descending: false)
         .get(const GetOptions(source: Source.serverAndCache));
 
-    DateTime? lastStockDate;
-    DateTime? lastSalesDate;
-    void collectLastActivity(
-      Map<String, dynamic> data, {
-      bool isFuture = false,
-      bool latestStockFoundInFuture = false,
-      bool latestSaleFoundInFuture = false,
-    }) {
-      final summaryDate = DateTime.tryParse(
-        data['summarydate']?.toString() ?? '',
-      );
-      if (summaryDate == null) return;
-      final itemsRoot = data['items'];
-      if (itemsRoot is! Map) return;
-
-      for (final branchEntry in itemsRoot.entries) {
-        final branchId = branchEntry.key.toString();
-        if (!isAllBranches &&
-            branchId.toLowerCase() != selectedBranch!.trim().toLowerCase()) {
-          continue;
-        }
-        final branchItems = branchEntry.value;
-        if (branchItems is! Map) continue;
-        for (final entry in branchItems.entries) {
-          if (entry.key == 'branchId' || entry.key == 'branchName') continue;
-          if (entry.value is! Map) continue;
-          final item = Map<String, dynamic>.from(entry.value as Map);
-          final docItemId = (item['itemId'] ?? item['itemid'] ?? '')
-              .toString()
-              .trim();
-          if (docItemId != itemId.trim()) continue;
-
-          final inboundQty =
-              _n(item['newstock']) +
-              _n(item['transfer_recieved_qty']) +
-              _n(item['salesReturn_qty']);
-          final currentLastStockDate = lastStockDate;
-          if (inboundQty > 0 &&
-              (!isFuture || !latestStockFoundInFuture) &&
-              (currentLastStockDate == null ||
-                  summaryDate.isAfter(currentLastStockDate))) {
-            lastStockDate = summaryDate;
-          }
-          final currentLastSalesDate = lastSalesDate;
-          if (_n(item['sales_qty']) > 0 &&
-              (!isFuture || !latestSaleFoundInFuture) &&
-              (currentLastSalesDate == null ||
-                  summaryDate.isAfter(currentLastSalesDate))) {
-            lastSalesDate = summaryDate;
-          }
-        }
-      }
-    }
-
-    for (final doc in [...openingSnap.docs, ...currentSnap.docs]) {
-      collectLastActivity(doc.data());
-    }
-
-    var latestStockFoundInFuture = false;
-    var latestSaleFoundInFuture = false;
-    Query<Map<String, dynamic>> futureQuery = db
-        .collection('stockreport')
-        .where('companyid', isEqualTo: companyid)
-        .where('summarydate', isGreaterThan: endStr)
-        .orderBy('summarydate', descending: true)
-        .limit(100);
-    while (!latestStockFoundInFuture || !latestSaleFoundInFuture) {
-      final futureSnap = await futureQuery.get(
-        const GetOptions(source: Source.serverAndCache),
-      );
-      if (futureSnap.docs.isEmpty) break;
-
-      for (final doc in futureSnap.docs) {
-        final beforeStockDate = lastStockDate;
-        final beforeSalesDate = lastSalesDate;
-        collectLastActivity(
-          doc.data(),
-          isFuture: true,
-          latestStockFoundInFuture: latestStockFoundInFuture,
-          latestSaleFoundInFuture: latestSaleFoundInFuture,
-        );
-        if (lastStockDate != beforeStockDate) latestStockFoundInFuture = true;
-        if (lastSalesDate != beforeSalesDate) latestSaleFoundInFuture = true;
-      }
-
-      if (latestStockFoundInFuture && latestSaleFoundInFuture) break;
-      futureQuery = futureQuery.startAfterDocument(futureSnap.docs.last);
-    }
-
     Map<String, dynamic> _buildBalanceOnlyRow({
       required String date,
       required String branch,
@@ -3593,11 +3504,6 @@ class Datafeed extends ChangeNotifier {
           ),
         );
       }
-    }
-
-    for (final transaction in ordered) {
-      transaction['last_stock_date'] = lastStockDate;
-      transaction['last_sales_date'] = lastSalesDate;
     }
 
     stockTransactions = ordered;
@@ -7222,6 +7128,16 @@ class Datafeed extends ChangeNotifier {
     return double.tryParse(v.toString()) ?? fallback;
   }
 
+  DateTime? _historyDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+    return null;
+  }
+
   Future<void> loadItemHistory({
     required String itemId,
     required String itemName,
@@ -7318,7 +7234,13 @@ class Datafeed extends ChangeNotifier {
           if (isReturned) {
             entries.add(
               ItemHistoryEntry(
-                date: (d['dym'] as Timestamp?)?.toDate(),
+                date: _historyDate(
+                  m['returned_timestamp'] ??
+                      d['returned_createdat'] ??
+                      d['returned_updatedat'] ??
+                      d['createdAt'] ??
+                      d['createdat'],
+                ),
                 invoiceDate: d['dateymd'] ?? '',
                 type: 'Sales Return',
 
@@ -7364,7 +7286,7 @@ class Datafeed extends ChangeNotifier {
 
           entries.add(
             ItemHistoryEntry(
-              date: (d['createdAt'] as Timestamp?)?.toDate(),
+              date: _historyDate(d['createdAt'] ?? d['createdat']),
               type: saleTypeLabel,
               invoiceDate: (d['dateymd']) ?? '',
               sign: '-',
@@ -7428,7 +7350,7 @@ class Datafeed extends ChangeNotifier {
 
           entries.add(
             ItemHistoryEntry(
-              date: (d['createdat'] as Timestamp?)?.toDate(),
+              date: _historyDate(d['createdat'] ?? d['createdAt']),
               invoiceDate: invoiceDate,
 
               type: purchaseTypeLabel,
@@ -7465,9 +7387,11 @@ class Datafeed extends ChangeNotifier {
           if (returnPieces > 0) {
             entries.add(
               ItemHistoryEntry(
-                date:
-                    (m['returndate'] as Timestamp?)?.toDate() ??
-                    (d['createdat'] as Timestamp?)?.toDate(),
+                date: _historyDate(
+                  d['createdat'] ??
+                      d['createdAt'] ??
+                      d['submittedat'],
+                ),
                 invoiceDate: d['date'] ?? '',
                 type: 'Purchase Return',
 
@@ -7522,7 +7446,9 @@ class Datafeed extends ChangeNotifier {
 
           ItemHistoryEntry build(String type, String sign, String branchName) =>
               ItemHistoryEntry(
-                date: (d['createdat'] as Timestamp?)?.toDate(),
+                date: _historyDate(
+                  d['createdat'] ?? d['createdAt'],
+                ),
                 invoiceDate: transferdate,
                 type: type,
                 sign: sign,
@@ -7570,7 +7496,7 @@ class Datafeed extends ChangeNotifier {
 
           entries.add(
             ItemHistoryEntry(
-              date: (d['createdat'] as Timestamp?)?.toDate(),
+              date: _historyDate(d['createdat'] ?? d['createdAt']),
               invoiceDate: d['dateymd'] ?? '',
               type: 'Damage',
 
@@ -7617,9 +7543,11 @@ class Datafeed extends ChangeNotifier {
 
           entries.add(
             ItemHistoryEntry(
-              date:
-                  (m['returndate'] as Timestamp?)?.toDate() ??
-                  (d['submittedat'] as Timestamp?)?.toDate(),
+              date: _historyDate(
+                d['createdat'] ??
+                    d['createdAt'] ??
+                    d['submittedat'],
+              ),
 
               type: 'Purchase Return',
               invoiceDate: d['date'] ?? '',
@@ -7684,7 +7612,12 @@ class Datafeed extends ChangeNotifier {
 
           entries.add(
             ItemHistoryEntry(
-              date: (d['returned_createdat'] as Timestamp?)?.toDate(),
+              date: _historyDate(
+                d['returned_createdat'] ??
+                    d['returned_updatedat'] ??
+                    d['createdAt'] ??
+                    d['createdat'],
+              ),
               invoiceDate: d['dateymd'] ?? '',
               type: 'Sales Return',
               sign: '+',

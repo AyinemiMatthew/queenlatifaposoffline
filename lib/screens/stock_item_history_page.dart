@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:provider/provider.dart';
 
+import '../models/itemhistory.dart';
 import '../widgets/itemhistorypdf.dart';
 
 class _DetailColumn {
@@ -20,8 +21,6 @@ class StockItemHistoryPage extends StatefulWidget {
   final String? branchName;
   final DateTimeRange? dateRange;
   final double? boxpieces;
-  final DateTime? lastStockDate;
-  final DateTime? lastSalesDate;
 
   const StockItemHistoryPage({
     super.key,
@@ -31,8 +30,6 @@ class StockItemHistoryPage extends StatefulWidget {
     required this.branchName,
     required this.dateRange,
     this.boxpieces,
-    this.lastStockDate,
-    this.lastSalesDate,
   });
 
   @override
@@ -45,7 +42,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
   final ScrollController _vc = ScrollController();
   final ScrollController _hc = ScrollController();
 
-  static const int _rowsPerPage = 10;
+  static const int _rowsPerPage = 13;
   final NumberFormat _quantityFormat = NumberFormat('#,##0.########');
 
   int _page = 0;
@@ -62,10 +59,10 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
   Color get _borderColor => _colors.outlineVariant;
   Color get _accentColor => _colors.secondary;
 
-  String _elapsedSince(DateTime? date) {
-    if (date == null) return 'Not recorded';
+  String _elapsedSince(DateTime? date, [DateTime? endDate]) {
+    if (date == null) return '-';
 
-    final seconds = DateTime.now()
+    final seconds = (endDate ?? DateTime.now())
         .difference(date)
         .inSeconds
         .clamp(0, 31536000 * 1000);
@@ -94,9 +91,43 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
     return '$years ${years == 1 ? 'year' : 'years'}';
   }
 
-  String _lastStockedLabel() => widget.lastStockDate == null
-      ? 'Not recorded'
-      : DateFormat('dd MMM yyyy').format(widget.lastStockDate!);
+  bool _isSale(ItemHistoryEntry entry) =>
+      entry.type == 'Cash Sale' || entry.type == 'Credit Sale';
+
+  bool _isStockIn(ItemHistoryEntry entry) =>
+      entry.sign == '+' && entry.type != 'Sales Return';
+
+  String _ageSinceLatestEvent(
+    ItemHistoryEntry entry,
+    List<ItemHistoryEntry> history,
+    bool Function(ItemHistoryEntry) isRelevantEvent,
+  ) {
+    final date = entry.date;
+    if (date == null) return '-';
+
+    final index = history.indexOf(entry);
+    if (index == -1) return '-';
+    for (var i = index + 1; i < history.length; i++) {
+      final event = history[i];
+      final eventDate = event.date;
+      if (isRelevantEvent(event) &&
+          eventDate != null &&
+          !eventDate.isAfter(date)) {
+        return _elapsedSince(eventDate, date);
+      }
+    }
+    return '-';
+  }
+
+  String _stockAge(
+    ItemHistoryEntry entry,
+    List<ItemHistoryEntry> history,
+  ) => _ageSinceLatestEvent(entry, history, _isStockIn);
+
+  String _salesAge(
+    ItemHistoryEntry entry,
+    List<ItemHistoryEntry> history,
+  ) => _ageSinceLatestEvent(entry, history, _isSale);
 
   Widget _ageDetail(String label, String value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +240,10 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
     }
   }
 
-  Widget _mobileList(List<dynamic> pagedEntries) {
+  Widget _mobileList(
+    List<ItemHistoryEntry> pagedEntries,
+    List<ItemHistoryEntry> allEntries,
+  ) {
     return ListView.builder(
       controller: _vc,
       padding: const EdgeInsets.all(8),
@@ -304,16 +338,15 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                   spacing: 20,
                   runSpacing: 8,
                   children: [
-                    _ageDetail('Last Stocked', _lastStockedLabel()),
                     if (_showEntryDate)
                       _ageDetail('Entry Date', t.invoiceDate ?? '-'),
                     _ageDetail(
                       'Stock Age',
-                      _elapsedSince(widget.lastStockDate),
+                      _stockAge(t, allEntries),
                     ),
                     _ageDetail(
                       'Sales Age',
-                      _elapsedSince(widget.lastSalesDate),
+                      _salesAge(t, allEntries),
                     ),
                   ],
                 ),
@@ -351,7 +384,6 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
             const _DetailColumn('#', 30),
             if (_showEntryDate) const _DetailColumn('Entry Date', 130),
             const _DetailColumn('Txn Date', 90),
-            const _DetailColumn('Last Stocked', 100),
             const _DetailColumn('Stock Age', 90),
             const _DetailColumn('Sales Age', 90),
             const _DetailColumn('Type', 100),
@@ -455,21 +487,20 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                                 ),
                               ),
                               Text(
-                                _lastStockedLabel(),
-                                style: TextStyle(
-                                  color: _textColor,
-                                  fontSize: 12,
+                                _stockAge(
+                                  t,
+                                  datafeed.itemHistoryEntries,
                                 ),
-                              ),
-                              Text(
-                                _elapsedSince(widget.lastStockDate),
                                 style: TextStyle(
                                   color: _secondaryTextColor,
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
-                                _elapsedSince(widget.lastSalesDate),
+                                _salesAge(
+                                  t,
+                                  datafeed.itemHistoryEntries,
+                                ),
                                 style: TextStyle(
                                   color: _secondaryTextColor,
                                   fontSize: 12,
@@ -820,7 +851,10 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                         ),
                       )
                     : isSmall
-                    ? _mobileList(pagedEntries)
+                    ? _mobileList(
+                        pagedEntries,
+                        datafeed.itemHistoryEntries,
+                      )
                     : _desktopTable(datafeed, pagedEntries, page),
               ),
             ],
