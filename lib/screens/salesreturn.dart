@@ -20,6 +20,8 @@ class Salesreturn extends StatefulWidget {
 }
 
 class _SalesreturnState extends State<Salesreturn> {
+  static const String _supplierWithoutId = '__supplier_without_id__';
+
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
   Color get _primaryTextColor =>
       _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
@@ -50,37 +52,34 @@ class _SalesreturnState extends State<Salesreturn> {
   double _amountPaid = 0;
   String? _dateymd;
   String? _selectedConditionId;
+  String? _selectedSupplierId;
+  String? _selectedSupplierName;
+  bool _supplierLocked = false;
   Map<String, Map<String, dynamic>> _cartItems = {};
   List<Map<String, dynamic>> _receiptItems = [];
   List<Map<String, dynamic>> _payments = [];
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      final datafeed = context.read<Datafeed>();
-      datafeed.fetchItems();
-      datafeed.fetchReturnreasons();
-      datafeed.getdata();
+    final datafeed = context.read<Datafeed>();
+    datafeed.fetchItems();
+    datafeed.fetchReturnreasons();
+    datafeed.fetchSuppliers();
+    datafeed.getdata();
 
-      if (mounted && datafeed.returnitemreasons.isNotEmpty) {
-        setState(() {
-          _selectedConditionId = datafeed.returnitemreasons.first.id;
-        });
-      }
+    if (datafeed.returnitemreasons.isNotEmpty) {
+      _selectedConditionId = datafeed.returnitemreasons.first.id;
+    }
 
-      if (widget.salesitem != null) {
-        _receiptId = widget.salesitem!.id;
-        _dateymd = widget.salesitem!.dateymd;
-        print(_dateymd);
-        final Map<String, dynamic> itemsMap = widget.salesitem!.items ?? {};
-        setState(() {
-          _cartItems = itemsMap.map(
-            (key, value) =>
-                MapEntry(key, Map<String, dynamic>.from(value as Map)),
-          );
-        });
-      }
-    });
+    final salesItem = widget.salesitem;
+    if (salesItem != null) {
+      _receiptId = salesItem.id;
+      _dateymd = salesItem.dateymd;
+      _cartItems = salesItem.items.map(
+        (key, value) => MapEntry(key, Map<String, dynamic>.from(value as Map)),
+      );
+      _setSupplierFromItems(_cartItems.values);
+    }
   }
 
   @override
@@ -104,6 +103,9 @@ class _SalesreturnState extends State<Salesreturn> {
       _searcherror = null;
       _receiptItems = [];
       _cartItems = {};
+      _selectedSupplierId = null;
+      _selectedSupplierName = null;
+      _supplierLocked = false;
       _selectedConditionId = df.returnitemreasons.isNotEmpty
           ? df.returnitemreasons.first.id
           : null;
@@ -116,6 +118,9 @@ class _SalesreturnState extends State<Salesreturn> {
       _searcherror = null;
       _receiptLocked = false;
       _receiptItems = [];
+      _selectedSupplierId = null;
+      _selectedSupplierName = null;
+      _supplierLocked = false;
     });
 
     try {
@@ -185,6 +190,7 @@ class _SalesreturnState extends State<Salesreturn> {
         _receiptId = val;
         _receiptLocked = true;
         _searcherror = null;
+        _setSupplierFromItems(unreturned);
       });
     } catch (e) {
       setState(() {
@@ -194,6 +200,33 @@ class _SalesreturnState extends State<Salesreturn> {
       debugPrint("Search error: $e");
     } finally {
       setState(() => _isSearching = false);
+    }
+  }
+
+  void _setSupplierFromItems(Iterable<Map<String, dynamic>> items) {
+    final suppliers = <String, String>{};
+    for (final item in items) {
+      final id = (item['returned_supplierid'] ?? item['supplierid'] ?? '')
+          .toString();
+      final name =
+          (item['returned_supplier'] ??
+                  item['returned_suppliername'] ??
+                  item['supplier'] ??
+                  item['suppliername'] ??
+                  '')
+              .toString();
+      if (id.isNotEmpty || name.isNotEmpty) {
+        suppliers[id.isNotEmpty ? id : 'name:$name'] = name.isNotEmpty
+            ? name
+            : id;
+      }
+    }
+
+    if (suppliers.length == 1) {
+      final entry = suppliers.entries.single;
+      _selectedSupplierId = entry.key.startsWith('name:') ? null : entry.key;
+      _selectedSupplierName = entry.value;
+      _supplierLocked = true;
     }
   }
 
@@ -213,6 +246,12 @@ class _SalesreturnState extends State<Salesreturn> {
       return;
     }
 
+    final selectedSupplier = df.suppliers
+        .where((supplier) => supplier.id == _selectedSupplierId)
+        .firstOrNull;
+    final selectedSupplierName =
+        selectedSupplier?.supplier ?? _selectedSupplierName ?? '';
+
     final Map<String, Map<String, dynamic>> newCart = {};
 
     for (final item in _receiptItems) {
@@ -222,13 +261,24 @@ class _SalesreturnState extends State<Salesreturn> {
           double.tryParse(item['returned_quantity']?.toString() ?? '0') ?? 0;
       final double price =
           double.tryParse(item['returned_price']?.toString() ?? '0') ?? 0;
-      final double grosstotalamount =
-          double.tryParse(
-            item['returned_grosstotalamount']?.toString() ?? '0',
-          ) ??
-          0;
-      final String totalAmount = (grosstotalamount).toStringAsFixed(2);
-
+      final supplierName =
+          [
+                item['returned_supplier'],
+                item['returned_suppliername'],
+                item['supplier'],
+                item['suppliername'],
+              ]
+              .map((value) => value?.toString() ?? '')
+              .firstWhere(
+                (value) => value.isNotEmpty,
+                orElse: () => selectedSupplierName,
+              );
+      final supplierId = [item['returned_supplierid'], item['supplierid']]
+          .map((value) => value?.toString() ?? '')
+          .firstWhere(
+            (value) => value.isNotEmpty,
+            orElse: () => _selectedSupplierId ?? '',
+          );
       newCart[key] = {
         'itemkey': key,
         'returned_item': item['returned_item'],
@@ -248,20 +298,14 @@ class _SalesreturnState extends State<Salesreturn> {
         'returned_pcategory': item['returned_pcategory'],
         'returned_producttype': item['returned_producttype'],
         'returned_stockCheckStatus': item['returned_stockCheckStatus'],
-        'returned_supplier':
-            item['returned_supplier'] ??
-            item['returned_suppliername'] ??
-            item['supplier'] ??
-            item['suppliername'] ??
-            '',
-        'returned_supplierid':
-            item['returned_supplierid'] ?? item['supplierid'] ?? '',
+        'returned_supplier': supplierName,
+        'returned_supplierid': supplierId,
 
         'returned_receiptid': _receiptId ?? '',
         'returned_quantity': qty.toString(),
         'returned_price': price.toString(),
         'returned_transMode': item['returned_transMode'] ?? _transMode ?? '',
-        'returned_condition': reason?.name ?? '',
+        'returned_condition': reason.name,
         'returned_type': 'Full',
         'status': 'returned',
         'returned_totalamount': item['returned_totalamount'],
@@ -354,15 +398,16 @@ class _SalesreturnState extends State<Salesreturn> {
 
       final double totalAmount = _cartItems.values.fold(
         0.0,
-        (sum, item) =>
-            sum +
+        (runningTotal, item) =>
+            runningTotal +
             (double.tryParse(item['returned_grosstotalamount'].toString()) ??
                 0),
       );
       final double totaldiscount = _cartItems.values.fold(
         0.0,
-        (sum, item) =>
-            sum + (double.tryParse(item['returned_discount'].toString()) ?? 0),
+        (runningTotal, item) =>
+            runningTotal +
+            (double.tryParse(item['returned_discount'].toString()) ?? 0),
       );
       final amountPaid = _amountPaid;
 
@@ -416,6 +461,7 @@ class _SalesreturnState extends State<Salesreturn> {
           .doc(id)
           .set(returnData, SetOptions(merge: true));
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -432,17 +478,21 @@ class _SalesreturnState extends State<Salesreturn> {
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Error: $e",
-            style: TextStyle(color: ColorScheme.of(context).onPrimary),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Error: $e",
+              style: TextStyle(color: ColorScheme.of(context).onPrimary),
+            ),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: Colors.red,
-        ),
-      );
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -602,8 +652,9 @@ class _SalesreturnState extends State<Salesreturn> {
                               icon: const Icon(Icons.send, color: Colors.blue),
                               onPressed: () async {
                                 final val = _searchController.text.trim();
-                                if (val.length >= 8)
+                                if (val.length >= 8) {
                                   await _searchReceipt(df, val);
+                                }
                               },
                             ),
                     ),
@@ -643,10 +694,10 @@ class _SalesreturnState extends State<Salesreturn> {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.redAccent.withOpacity(0.4),
+                      color: Colors.redAccent.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Text(
@@ -675,12 +726,14 @@ class _SalesreturnState extends State<Salesreturn> {
                   decoration: BoxDecoration(
                     color: _innerCardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                    border: Border.all(
+                      color: Colors.blue.withValues(alpha: 0.15),
+                    ),
                   ),
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: _receiptItems.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         Divider(height: 1, color: _softDividerColor),
                     itemBuilder: (context, i) {
                       final item = _receiptItems[i];
@@ -740,6 +793,18 @@ class _SalesreturnState extends State<Salesreturn> {
                 const SizedBox(height: 10),
                 _buildConditionDropdown(df),
 
+                const SizedBox(height: 16),
+                Text(
+                  "Supplier",
+                  style: TextStyle(
+                    color: _primaryTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildSupplierDropdown(df),
+
                 const SizedBox(height: 24),
 
                 // ── RETURN ALL BUTTON
@@ -789,7 +854,7 @@ class _SalesreturnState extends State<Salesreturn> {
       children: [
         Expanded(
           child: DropdownButtonFormField<String>(
-            value: _selectedConditionId,
+            initialValue: _selectedConditionId,
             hint: Text(
               reasons.isEmpty ? 'No reasons available' : 'Select Reason',
               style: TextStyle(color: _mutedTextColor),
@@ -825,6 +890,67 @@ class _SalesreturnState extends State<Salesreturn> {
           color: Theme.of(context).colorScheme.primary,
         ),
       ],
+    );
+  }
+
+  Widget _buildSupplierDropdown(Datafeed df) {
+    final supplierItems = df.suppliers
+        .map(
+          (supplier) => DropdownMenuItem<String>(
+            value: supplier.id,
+            child: Text(
+              supplier.supplier,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+          ),
+        )
+        .toList();
+    final hasSelectedSupplier = df.suppliers.any(
+      (supplier) => supplier.id == _selectedSupplierId,
+    );
+    final selectedId = hasSelectedSupplier
+        ? _selectedSupplierId
+        : _supplierLocked && (_selectedSupplierName?.isNotEmpty ?? false)
+        ? _supplierWithoutId
+        : null;
+    if (selectedId == _supplierWithoutId) {
+      supplierItems.add(
+        DropdownMenuItem<String>(
+          value: _supplierWithoutId,
+          child: Text(
+            _selectedSupplierName!,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey(selectedId),
+      initialValue: selectedId,
+      hint: Text(
+        df.suppliers.isEmpty ? 'No suppliers available' : 'Select Supplier',
+        style: TextStyle(color: _mutedTextColor),
+      ),
+      dropdownColor: Theme.of(context).colorScheme.surface,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 15,
+      ),
+      iconEnabledColor: _secondaryTextColor,
+      decoration: _fieldInput("Select Supplier", Icons.business),
+      items: supplierItems,
+      onChanged: _supplierLocked
+          ? null
+          : (value) {
+              final supplier = df.suppliers
+                  .where((supplier) => supplier.id == value)
+                  .firstOrNull;
+              setState(() {
+                _selectedSupplierId = value;
+                _selectedSupplierName = supplier?.supplier;
+              });
+            },
     );
   }
 
@@ -952,7 +1078,7 @@ class _SalesreturnState extends State<Salesreturn> {
                   Icon(
                     Icons.assignment_return_outlined,
                     size: 56,
-                    color: _mutedTextColor.withOpacity(0.2),
+                    color: _mutedTextColor.withValues(alpha: 0.2),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -1015,11 +1141,11 @@ class _SalesreturnState extends State<Salesreturn> {
                       horizontal: 10,
                       vertical: 6,
                     ),
-                    backgroundColor: Colors.redAccent.withOpacity(0.08),
+                    backgroundColor: Colors.redAccent.withValues(alpha: 0.08),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
-                        color: Colors.redAccent.withOpacity(0.3),
+                        color: Colors.redAccent.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
@@ -1034,7 +1160,7 @@ class _SalesreturnState extends State<Salesreturn> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _cartItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final key = cartKeys[i];
                 final item = _cartItems[key]!;
@@ -1081,8 +1207,9 @@ class _SalesreturnState extends State<Salesreturn> {
 
     final totalAmount = _cartItems.values.fold<double>(
       0.0,
-      (sum, item) =>
-          sum + (double.tryParse(item['returned_totalamount'].toString()) ?? 0),
+      (runningTotal, item) =>
+          runningTotal +
+          (double.tryParse(item['returned_totalamount'].toString()) ?? 0),
     );
 
     return Card(
@@ -1090,7 +1217,7 @@ class _SalesreturnState extends State<Salesreturn> {
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.blue.withOpacity(0.3), width: 1.5),
+        side: BorderSide(color: Colors.blue.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

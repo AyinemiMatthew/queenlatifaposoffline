@@ -42,7 +42,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
   final ScrollController _vc = ScrollController();
   final ScrollController _hc = ScrollController();
 
-  static const int _rowsPerPage = 10;
+  static const int _rowsPerPage = 16;
   static const double _colGap = 10;
 
   static const List<_MovementColumn> _columns = [
@@ -56,9 +56,8 @@ class _StockMovementPageState extends State<StockMovementPage> {
     _MovementColumn('Sale Return', 90),
     _MovementColumn('Purchase Return', 80),
     _MovementColumn('Damages', 70),
-    _MovementColumn('Pcs Bal', 90),
-    _MovementColumn('Ctn Bal', 80),
-    _MovementColumn('Stock Age', 110),
+    _MovementColumn('Pieces Balance', 90),
+    _MovementColumn('Carton Balance', 80),
   ];
 
   int _page = 0;
@@ -72,38 +71,6 @@ class _StockMovementPageState extends State<StockMovementPage> {
   Color get _secondaryTextColor => _colors.onSurfaceVariant;
   Color get _borderColor => _colors.outlineVariant;
   Color get _accentColor => _colors.secondary;
-
-  DateTime? _asDate(dynamic value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
-    if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
-    return null;
-  }
-
-  String _stockAge(Map<String, dynamic> transaction) {
-    final lastStock = _asDate(transaction['last_stock_date']);
-    if (lastStock == null) return 'Unknown';
-
-    final days = DateTime.now().difference(lastStock).inDays.clamp(0, 1000000);
-    if (days < 7) return '$days ${days == 1 ? 'day' : 'days'}';
-    if (days < 30) {
-      final weeks = days ~/ 7;
-      return '$weeks ${weeks == 1 ? 'week' : 'weeks'}';
-    }
-    if (days < 365) {
-      final months = days ~/ 30;
-      return '$months ${months == 1 ? 'month' : 'months'}';
-    }
-    final years = days ~/ 365;
-    return '$years ${years == 1 ? 'year' : 'years'}';
-  }
-
-  String _dateLabel(dynamic value) {
-    final date = _asDate(value);
-    return date == null
-        ? 'Not recorded'
-        : DateFormat('dd MMM yyyy').format(date);
-  }
 
   void _closeSearch(Datafeed provider) {
     _search.clear();
@@ -148,12 +115,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
     super.dispose();
   }
 
-  void _openHistory(
-    String itemId,
-    String item,
-    double boxPiece,
-    Map<String, dynamic> transaction,
-  ) {
+  void _openHistory(String itemId, String item, double boxPiece) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => StockItemHistoryPage(
@@ -163,8 +125,6 @@ class _StockMovementPageState extends State<StockMovementPage> {
           branchName: widget.branchName,
           dateRange: widget.dateRange,
           boxpieces: boxPiece,
-          lastStockDate: _asDate(transaction['last_stock_date']),
-          lastSalesDate: _asDate(transaction['last_sales_date']),
         ),
       ),
     );
@@ -232,7 +192,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
           }
 
           return InkWell(
-            onTap: () => _openHistory(itemid, item, boxPiece, t),
+            onTap: () => _openHistory(itemid, item, boxPiece),
             child: Card(
               color: _surfaceColor,
               margin: const EdgeInsets.symmetric(vertical: 8),
@@ -299,15 +259,6 @@ class _StockMovementPageState extends State<StockMovementPage> {
                           'Ctn Bal',
                           cartonQtyBal.toStringAsFixed(1),
                         ),
-                        _miniStatstring('Stock Age', _stockAge(t)),
-                        _miniStatstring(
-                          'Last Stock',
-                          _dateLabel(t['last_stock_date']),
-                        ),
-                        _miniStatstring(
-                          'Last Sale',
-                          _dateLabel(t['last_sales_date']),
-                        ),
                       ],
                     ),
                   ],
@@ -351,11 +302,10 @@ class _StockMovementPageState extends State<StockMovementPage> {
       Text(damages.toString(), style: style),
       Text(balanceCd.toString(), style: style),
       Text(cartonQtyBal.toStringAsFixed(1), style: style),
-      Text(_stockAge(t), style: style),
     ];
 
     return InkWell(
-      onTap: () => _openHistory(itemid, item, boxPiece, t),
+      onTap: () => _openHistory(itemid, item, boxPiece),
       child: Container(
         decoration: BoxDecoration(
           color: _surfaceColor,
