@@ -1060,64 +1060,6 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                                   }
                                 },
 
-                                // onSupplyAll: () async {
-                                //   if (sale.isFullySupplied) return;
-                                //
-                                //   if (!_isSuperAdmin && !_hasSearchedByReceipt) {
-                                //     ScaffoldMessenger.of(context).showSnackBar(
-                                //       const SnackBar(
-                                //         content: Text('Please search by receipt number first'),
-                                //         backgroundColor: Colors.red,
-                                //       ),
-                                //     );
-                                //     return;
-                                //   }
-                                //
-                                //   try {
-                                //     LoadingDialog.show(context, message: 'Supplying all items...');
-                                //     final provider = Provider.of<StockProvider>(context, listen: false);
-                                //
-                                //     // Get all item names
-                                //     final allItemNames = sale.items.map((item) => item.name).toList();
-                                //
-                                //     await provider.db.collection('sales').doc(sale.id).set({
-                                //       'suppliedItems': allItemNames,
-                                //       'supplyStatus': 'completed',
-                                //       'supplyDate': FieldValue.serverTimestamp(),
-                                //       'supplyStaff': provider.staff,
-                                //       'isSupplied': true,
-                                //     }, SetOptions(merge: true));
-                                //
-                                //     if (mounted) {
-                                //       setState(() {
-                                //         for (var item in sale.items) {
-                                //           item.isSupplied = true;
-                                //         }
-                                //         sale.supplyStatus = 'completed';
-                                //       });
-                                //       showToast(
-                                //         'All items supplied for receipt #${sale.receiptNumber.substring(sale.receiptNumber.length - 8)}',
-                                //       );
-                                //     }
-                                //   } catch (e) {
-                                //     debugPrint("Error updating supply info: $e");
-                                //     if (mounted) {
-                                //       ScaffoldMessenger.of(context).showSnackBar(
-                                //         SnackBar(
-                                //           content: Text('Error: ${e.toString()}'),
-                                //           backgroundColor: Colors.red,
-                                //           behavior: SnackBarBehavior.floating,
-                                //           margin: const EdgeInsets.all(16),
-                                //           shape: RoundedRectangleBorder(
-                                //             borderRadius: BorderRadius.circular(10),
-                                //           ),
-                                //         ),
-                                //       );
-                                //     }
-                                //   } finally {
-                                //     LoadingDialog.hide();
-                                //   }
-                                // },
                               ),
                           ],
                         ),

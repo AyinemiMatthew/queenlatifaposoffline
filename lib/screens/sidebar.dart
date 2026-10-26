@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/screens/role_access_config.dart';
 import 'package:kologsoft/screens/dashboard_settings.dart';
+import 'package:kologsoft/screens/momo_transactions_page.dart';
 import 'package:provider/provider.dart';
 
 import '../models/account_type_model.dart';
@@ -102,63 +103,63 @@ class Sidebar extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-              DrawerHeader(
-                decoration: BoxDecoration(color: colorScheme.surface),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
+                DrawerHeader(
+                  decoration: BoxDecoration(color: colorScheme.surface),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
                     Icon(Icons.factory, size: 48, color: colorScheme.onSurface),
-                    const SizedBox(height: 8),
-                    Text(
-                      value.company.toString().toUpperCase(),
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 8),
+                      Text(
+                        value.company.toString().toUpperCase(),
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (isAdmin || isSuperAdmin)
+                  Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                      unselectedWidgetColor: colorScheme.onSurface,
+                      colorScheme: Theme.of(context).colorScheme.copyWith(
+                        primary: colorScheme.surfaceContainerHighest,
+                        onPrimary: colorScheme.onSurface,
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              if (isAdmin || isSuperAdmin)
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                    unselectedWidgetColor: colorScheme.onSurface,
-                    colorScheme: Theme.of(context).colorScheme.copyWith(
-                      primary: colorScheme.surfaceContainerHighest,
-                      onPrimary: colorScheme.onSurface,
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.dashboard,
+                        color: colorScheme.onSurface,
+                      ),
+                      title: Text(
+                        'Dashboard',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      selectedTileColor: colorScheme.surfaceContainerHighest,
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
                     ),
                   ),
-                  child: ListTile(
-                    leading: Icon(
-                      Icons.dashboard,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Dashboard',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    selectedTileColor: colorScheme.surfaceContainerHighest,
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
 
-              if (isAdmin) ...[
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(Icons.people, color: colorScheme.onSurface),
-                    title: Text(
-                      'User Management',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                if (isAdmin) ...[
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(Icons.people, color: colorScheme.onSurface),
+                      title: Text(
+                        'User Management',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.person_add,
@@ -203,135 +204,135 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
+                      ],
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
 
-                // System Setup
-                if (value.companyid == 'KS008') ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.agriculture_outlined,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Farmer Management',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          Icons.person_add_alt_1,
-                          color: colorScheme.onSurface,
-                        ),
-                        title: Text(
-                          'Farmer Registration',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.farmerreg);
-                        },
+                  // System Setup
+                  if (value.companyid == 'KS008') ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.agriculture_outlined,
+                        color: colorScheme.onSurface,
                       ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.people_alt,
-                          color: colorScheme.onSurface,
-                        ),
-                        title: Text(
-                          'View Farmers',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.viewfarmers);
-                        },
+                      title: Text(
+                        'Farmer Management',
+                        style: TextStyle(color: colorScheme.onSurface),
                       ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.grass,
-                          color: colorScheme.onSurface,
+                      children: [
+                        ListTile(
+                          leading: Icon(
+                            Icons.person_add_alt_1,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Farmer Registration',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.farmerreg);
+                          },
                         ),
-                        title: Text(
-                          'Crop Registration',
-                          style: TextStyle(color: colorScheme.onSurface),
+                        ListTile(
+                          leading: Icon(
+                            Icons.people_alt,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'View Farmers',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.viewfarmers);
+                          },
                         ),
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.registercrop);
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.language,
-                          color: colorScheme.onSurface,
+                        ListTile(
+                          leading: Icon(
+                            Icons.grass,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Crop Registration',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.registercrop);
+                          },
                         ),
-                        title: Text(
-                          'Register Language',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        onTap: () {
+                        ListTile(
+                          leading: Icon(
+                            Icons.language,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Register Language',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
                           Navigator.pushNamed(context, Routes.registerlanguage);
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.cast_for_education,
-                          color: colorScheme.onSurface,
+                          },
                         ),
-                        title: Text(
-                          'Education Level',
-                          style: TextStyle(color: colorScheme.onSurface),
+                        ListTile(
+                          leading: Icon(
+                            Icons.cast_for_education,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Education Level',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.educationlevel);
+                          },
                         ),
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.educationlevel);
-                        },
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-                if (value.companyid != 'KS008') ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+                  if (value.companyid != 'KS008') ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
                     leading: Icon(Icons.groups_2, color: colorScheme.onSurface),
-                    title: Text(
-                      'Customer Management',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          Icons.person_add_alt,
-                          color: colorScheme.onSurface,
-                        ),
-                        title: Text(
-                          'Customer Registration',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.customerreg);
-                        },
+                      title: Text(
+                        'Customer Management',
+                        style: TextStyle(color: colorScheme.onSurface),
                       ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.inventory_2,
-                      color: colorScheme.onSurface,
+                      children: [
+                        ListTile(
+                          leading: Icon(
+                            Icons.person_add_alt,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Customer Registration',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.customerreg);
+                          },
+                        ),
+                      ],
                     ),
-                    title: Text(
-                      'Item',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.inventory_2,
+                        color: colorScheme.onSurface,
+                      ),
+                      title: Text(
+                        'Item',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.category,
@@ -468,22 +469,22 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.synczero);
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-
-                // Stock Management
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(Icons.storage, color: colorScheme.onSurface),
-                    title: Text(
-                      'Stock Management',
-                      style: TextStyle(color: colorScheme.onSurface),
+                      ],
                     ),
-                    children: [
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+
+                  // Stock Management
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                    leading: Icon(Icons.storage, color: colorScheme.onSurface),
+                      title: Text(
+                        'Stock Management',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.post_add,
@@ -510,19 +511,19 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.stocklisttable);
                           },
                         ),
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.add_business,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'View Stock ',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.stocklist);
-                      //   },
-                      // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.add_business,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'View Stock ',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.stocklist);
+                        //   },
+                        // ),
                         ListTile(
                           leading: Icon(
                             Icons.local_shipping,
@@ -576,58 +577,58 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.add_business,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Requests',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.stockrequest);
-                      //   },
-                      // ),
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.add_business,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Requests List',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.stockrequestlist);
-                      //   },
-                      // ),
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.add_business,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Receive Stock',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.receivestock);
-                      //   },
-                      // ),
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.add_business,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Supply',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.stocksupply);
-                      //   },
-                      // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.add_business,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Requests',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.stockrequest);
+                        //   },
+                        // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.add_business,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Requests List',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.stockrequestlist);
+                        //   },
+                        // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.add_business,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Receive Stock',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.receivestock);
+                        //   },
+                        // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.add_business,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Supply',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.stocksupply);
+                        //   },
+                        // ),
                         ListTile(
                           leading: Icon(
                             Icons.assignment_return,
@@ -676,19 +677,19 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.receipt_long,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Transaction Supply Report',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.transactionsupplyreport);
-                      //   },
-                      // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.receipt_long,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Transaction Supply Report',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.transactionsupplyreport);
+                        //   },
+                        // ),
                         ListTile(
                           leading: Icon(
                             Icons.delete_sweep,
@@ -703,51 +704,51 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.upload_file,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Upload stock',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.uploadstock);
-                      //   },
-                      // ),
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.transfer_within_a_station,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Upload stock transfers',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.uploadstocktransfer);
-                      //   },
-                      // ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.upload_file,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Upload stock',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.uploadstock);
+                        //   },
+                        // ),
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.transfer_within_a_station,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Upload stock transfers',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.uploadstocktransfer);
+                        //   },
+                        // ),
+                      ],
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
 
-                // Transactions
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.receipt_long,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Transactions',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                  // Transactions
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.receipt_long,
+                        color: colorScheme.onSurface,
+                      ),
+                      title: Text(
+                        'Transactions',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.point_of_sale,
@@ -776,6 +777,27 @@ class Sidebar extends StatelessWidget {
                           ),
                           onTap: () {
                             Navigator.pushNamed(context, Routes.cashierPage);
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.phone_android_rounded,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            'MoMo transactions',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const MomoTransactionsPage(),
+                              ),
+                            );
                           },
                         ),
                         ListTile(
@@ -844,41 +866,41 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.receipt_long_outlined,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(
-                          'Unprinted Receipts',
+                        ListTile(
+                          leading: Icon(
+                            Icons.receipt_long_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            'Unprinted Receipts',
                           style: TextStyle(color: colorScheme.onSurfaceVariant),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Routes.unprintedreceiptview,
+                            );
+                          },
                         ),
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            Routes.unprintedreceiptview,
-                          );
-                        },
+                      ],
+                    ),
+
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.calculate,
+                        color: colorScheme.onSurface,
                       ),
-                    ],
-                  ),
-
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.calculate,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Account',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                      title: Text(
+                        'Account',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.account_tree,
@@ -1111,24 +1133,24 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.journalView);
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
+                      ],
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
 
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.shopping_cart,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Expenses',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.shopping_cart,
+                        color: colorScheme.onSurface,
+                      ),
+                      title: Text(
+                        'Expenses',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.paid,
@@ -1159,24 +1181,24 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.expenseview);
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
+                      ],
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
 
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.bar_chart,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Reports',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.bar_chart,
+                        color: colorScheme.onSurface,
+                      ),
+                      title: Text(
+                        'Reports',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.analytics,
@@ -1272,51 +1294,51 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                      ListTile(
-                        leading: Icon(
-                          Icons.account_balance_wallet,
-                          color: colorScheme.onSurface,
-                        ),
-                        title: Text(
-                          'Supplier Report',
+                        ListTile(
+                          leading: Icon(
+                            Icons.account_balance_wallet,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Supplier Report',
                           style: TextStyle(color: colorScheme.onSurfaceVariant),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.supplierreport);
+                          },
                         ),
-                        onTap: () {
-                          Navigator.pushNamed(context, Routes.supplierreport);
-                        },
-                      ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.warehouse,
-                          color: colorScheme.onSurface,
+                        ListTile(
+                          leading: Icon(
+                            Icons.warehouse,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Warehouse Supply Report',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Routes.transactionsupplyreport,
+                            );
+                          },
                         ),
-                        title: Text(
-                          'Warehouse Supply Report',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            Routes.transactionsupplyreport,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-
-                // Damages & Sales Returns
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(Icons.warning, color: colorScheme.onSurface),
-                    title: Text(
-                      'Damages',
-                      style: TextStyle(color: colorScheme.onSurface),
+                      ],
                     ),
-                    children: [
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+
+                  // Damages & Sales Returns
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                    leading: Icon(Icons.warning, color: colorScheme.onSurface),
+                      title: Text(
+                        'Damages',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.broken_image,
@@ -1347,21 +1369,21 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.damagelist);
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(Icons.business, color: colorScheme.onSurface),
-                    title: Text(
-                      'Sales Return',
-                      style: TextStyle(color: colorScheme.onSurface),
+                      ],
                     ),
-                    children: [
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                    leading: Icon(Icons.business, color: colorScheme.onSurface),
+                      title: Text(
+                        'Sales Return',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.list_alt,
@@ -1395,24 +1417,24 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
+                      ],
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
 
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(
-                      Icons.upload_file,
-                      color: colorScheme.onSurface,
-                    ),
-                    title: Text(
-                      'Uploads',
-                      style: TextStyle(color: colorScheme.onSurface),
-                    ),
-                    children: [
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                      leading: Icon(
+                        Icons.upload_file,
+                        color: colorScheme.onSurface,
+                      ),
+                      title: Text(
+                        'Uploads',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
                         ListTile(
                           leading: Icon(
                             Icons.folder_open,
@@ -1446,41 +1468,41 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
-
-                ...[
-                  ExpansionTile(
-                    iconColor: colorScheme.onSurface,
-                    collapsedIconColor: colorScheme.onSurface,
-                    leading: Icon(Icons.settings, color: colorScheme.onSurface),
-                    title: Text(
-                      'System Setup',
-                      style: TextStyle(color: colorScheme.onSurface),
+                      ],
                     ),
-                    children: [
-                      if (isAdmin || isSuperAdmin)
-                        ListTile(
-                          leading: Icon(
-                            Icons.tune,
-                            color: colorScheme.onSurface,
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+
+                  ...[
+                    ExpansionTile(
+                      iconColor: colorScheme.onSurface,
+                      collapsedIconColor: colorScheme.onSurface,
+                    leading: Icon(Icons.settings, color: colorScheme.onSurface),
+                      title: Text(
+                        'System Setup',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      children: [
+                        if (isAdmin || isSuperAdmin)
+                          ListTile(
+                            leading: Icon(
+                              Icons.tune,
+                              color: colorScheme.onSurface,
+                            ),
+                            title: Text(
+                              'Dashboard & Feature Settings',
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DashboardSettings(),
+                                ),
+                              );
+                            },
                           ),
-                          title: Text(
-                            'Dashboard & Feature Settings',
-                            style: TextStyle(color: colorScheme.onSurface),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const DashboardSettings(),
-                              ),
-                            );
-                          },
-                        ),
                         ListTile(
                           leading: Icon(
                             Icons.storefront,
@@ -1553,68 +1575,68 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
-                      ListTile(
-                        leading: Icon(
-                          Icons.data_exploration,
-                          color: colorScheme.onSurface,
+                        ListTile(
+                          leading: Icon(
+                            Icons.data_exploration,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'collection Manager',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Routes.collectionmanager,
+                            );
+                          },
                         ),
-                        title: Text(
-                          'collection Manager',
-                          style: TextStyle(color: colorScheme.onSurface),
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            Routes.collectionmanager,
-                          );
-                        },
-                      ),
 
-                      // ListTile(
-                      //   leading: Icon(
-                      //     Icons.graphic_eq,
-                      //     color: colorScheme.onSurface,
-                      //   ),
-                      //   title: Text(
-                      //     'Usage Stats',
-                      //     style: TextStyle(color: colorScheme.onSurface),
-                      //   ),
-                      //   onTap: () {
-                      //     Navigator.pushNamed(context, Routes.firebasestats);
-                      //   },
-                      // ),
-                    ],
-                  ),
-                  Divider(color: colorScheme.outlineVariant),
-                ],
+                        // ListTile(
+                        //   leading: Icon(
+                        //     Icons.graphic_eq,
+                        //     color: colorScheme.onSurface,
+                        //   ),
+                        //   title: Text(
+                        //     'Usage Stats',
+                        //     style: TextStyle(color: colorScheme.onSurface),
+                        //   ),
+                        //   onTap: () {
+                        //     Navigator.pushNamed(context, Routes.firebasestats);
+                        //   },
+                        // ),
+                      ],
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
 
-                //SMS Management
-                ...[
-                  ListTile(
+                  //SMS Management
+                  ...[
+                    ListTile(
                     leading: Icon(Icons.campaign, color: colorScheme.onSurface),
+                      title: Text(
+                        'SMS Management',
+                        style: TextStyle(color: colorScheme.onSurface),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, Routes.smsManagement);
+                      },
+                    ),
+                    Divider(color: colorScheme.outlineVariant),
+                  ],
+
+                  ListTile(
+                    leading: Icon(Icons.login, color: colorScheme.onSurface),
                     title: Text(
-                      'SMS Management',
+                      'logout',
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, Routes.smsManagement);
+                    onTap: () async {
+                      await value.logout(context);
                     },
                   ),
-                  Divider(color: colorScheme.outlineVariant),
                 ],
-
-                ListTile(
-                  leading: Icon(Icons.login, color: colorScheme.onSurface),
-                  title: Text(
-                    'logout',
-                    style: TextStyle(color: colorScheme.onSurface),
-                  ),
-                  onTap: () async {
-                    await value.logout(context);
-                  },
-                ),
-              ],
               ],
             ),
           ),
