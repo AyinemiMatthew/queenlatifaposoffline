@@ -619,16 +619,18 @@ class Datafeed extends ChangeNotifier {
       double cash = 0;
       double credit = 0;
       double momo = 0;
+      double discount = 0;
 
       final Map<String, double> branchTotals = {};
 
       if (accesslevel.toLowerCase() == 'super admin') {
+        discount = (data['company_Discount'] as num?)?.toDouble() ?? 0;
         totalToday = (data['companysales_value'] as num?)?.toDouble() ?? 0;
 
         credit = (data['credit'] as num?)?.toDouble() ?? 0;
 
         // Everything except credit is considered cash
-        cash = totalToday - credit;
+        cash = (totalToday - credit)-discount;
         momo = 0;
 
         final branches = Map<String, dynamic>.from(data['branchSummary'] ?? {});
@@ -644,13 +646,14 @@ class Datafeed extends ChangeNotifier {
 
         if (branches.containsKey(branchid)) {
           final branch = Map<String, dynamic>.from(branches[branchid]);
+          discount = (branch['branch_Discount'] as num?)?.toDouble() ?? 0;
 
           totalToday = (branch['branchsales_value'] as num?)?.toDouble() ?? 0;
 
           credit = (branch['credit'] as num?)?.toDouble() ?? 0;
 
           // Everything except credit is considered cash
-          cash = totalToday - credit;
+          cash = (totalToday - credit) -discount;
           momo = 0;
 
           branchTotals[branch['branchName'] ?? branchid] = totalToday;

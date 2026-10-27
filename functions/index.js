@@ -3526,7 +3526,7 @@ if (
              admin.firestore.FieldValue.increment(data.modes["bank transfer"]) );
 
            totalSales += data.sales;
-            totalDiscount += data.discount || 0;
+           totalDiscount += data.discount || 0;
            companyCash += data.modes.cash;
            companyCard += data.modes.card;
            companyMomo += data.modes.momo;
