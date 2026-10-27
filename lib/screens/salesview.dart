@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/screens/salesviewdetails.dart';
-import 'package:kologsoft/screens/sales_today_views.dart';
 import 'package:provider/provider.dart';
 
 import '../models/appModuls.dart';

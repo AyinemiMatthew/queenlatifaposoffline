@@ -60,6 +60,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   static const List<TxnCol> _txnCols = [
     TxnCol('#', 1),
     TxnCol('Date', 4),
+    TxnCol('Category', 3, minWidth: 700),
     TxnCol('Qty', 1, right: true),
     TxnCol('Price', 2, right: true),
     TxnCol('Disc', 2, right: true),
@@ -76,6 +77,8 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   String? _kind;
   int _page = 0;
   bool _loading = true;
+  bool _sortByCategory = false;
+  bool _sortCategoryAscending = true;
 
   @override
   void initState() {
@@ -121,6 +124,18 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   }
 
   bool _isRet(Map<String, dynamic> t) => t['isReturned'] == true;
+
+  void _toggleCategorySort() {
+    setState(() {
+      if (_sortByCategory) {
+        _sortCategoryAscending = !_sortCategoryAscending;
+      } else {
+        _sortByCategory = true;
+        _sortCategoryAscending = true;
+      }
+      _page = 0;
+    });
+  }
 
   String _txnType(Map<String, dynamic> t) {
     if (_isRet(t)) {
@@ -383,6 +398,8 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         return '${i + 1}';
       case 'Date':
         return _txnDate(t['date']);
+      case 'Category':
+        return (t['pcategory'] ?? '').toString();
       case 'Qty':
         {
           final q = _num(t['qty']);
@@ -444,7 +461,9 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         final numeric = col.right && col.label != 'Price';
         return Text(
           _txnCell(col.label, t, i),
-          textAlign: col.right ? TextAlign.right : TextAlign.left,
+          textAlign: col.right || col.label == '#'
+              ? TextAlign.center
+              : TextAlign.left,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -535,6 +554,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
             children: [
               kv('Disc', sg(_num(t['discount']))),
               kv('Profit', sg(_num(t['profit']))),
+              kv('Category', (t['pcategory'] ?? '').toString()),
               kv('Customer', (t['customer'] ?? '').toString()),
               kv('Staff', (t['staff'] ?? '').toString()),
               kv('Sales mode', (t['salesMode'] ?? '').toString()),
@@ -663,7 +683,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
           }
           return Text(
             text,
-            textAlign: col.right ? TextAlign.right : TextAlign.left,
+            textAlign: col.right ? TextAlign.center : TextAlign.left,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -679,18 +699,39 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
           children: [
             _txnRowShell(
               cols,
-              (col, _) => Text(
-                col.label,
-                textAlign: col.right ? TextAlign.right : TextAlign.left,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: _textColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  letterSpacing: 0.4,
-                ),
-              ),
+              (col, _) {
+                final header = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        col.label,
+                        textAlign: col.right ? TextAlign.right : TextAlign.left,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                    if (col.label == 'Category')
+                      Icon(
+                        _sortByCategory
+                            ? (_sortCategoryAscending
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward)
+                            : Icons.unfold_more,
+                        color: _sortByCategory ? _accentColor : _mutedTextColor,
+                        size: 14,
+                      ),
+                  ],
+                );
+                if (col.label != 'Category') return header;
+                return InkWell(onTap: _toggleCategorySort, child: header);
+              },
               color: _cardColor,
               vertical: 12,
             ),
@@ -740,7 +781,20 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   Widget build(BuildContext context) {
     final isSmall = MediaQuery.sizeOf(context).width < 600;
     final base = _provider.filteredItemTransactions(staff: _staff);
-    final list = _kind == null ? base : _filterByKind(base, _kind!);
+    final list = (_kind == null ? base : _filterByKind(base, _kind!)).toList();
+    if (_sortByCategory) {
+      final indexedRows = list.asMap().entries.toList();
+      indexedRows.sort((a, b) {
+        final aCategory = (a.value['pcategory'] ?? '').toString().toLowerCase();
+        final bCategory = (b.value['pcategory'] ?? '').toString().toLowerCase();
+        final comparison = aCategory.compareTo(bCategory);
+        if (comparison == 0) return a.key.compareTo(b.key);
+        return _sortCategoryAscending ? comparison : -comparison;
+      });
+      list
+        ..clear()
+        ..addAll(indexedRows.map((entry) => entry.value));
+    }
     final s = _txnSummary(base);
     final hasFilter = _staff != null || _kind != null;
     final totalPages = list.isEmpty
@@ -915,6 +969,26 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                 ),
                 const SizedBox(height: 8),
                 _txnStats(s),
+                if (isSmall)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ActionChip(
+                      avatar: Icon(
+                        _sortByCategory
+                            ? (_sortCategoryAscending
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward)
+                            : Icons.sort_by_alpha,
+                        size: 16,
+                      ),
+                      label: Text(
+                        _sortByCategory
+                            ? 'Category ${_sortCategoryAscending ? 'A–Z' : 'Z–A'}'
+                            : 'Sort by category',
+                      ),
+                      onPressed: _toggleCategorySort,
+                    ),
+                  ),
                 if (isSmall)
                   Padding(
                     padding: EdgeInsets.only(top: 4),

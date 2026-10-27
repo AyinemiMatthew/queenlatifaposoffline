@@ -1,7 +1,3 @@
-import 'dart:async';
-import 'dart:math' as math;
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -9,30 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../models/dashboardStats.dart';
 import '../providers/Datafeed.dart';
-
-class _DebtActivity {
-  final DateTime date;
-  double debtAdded = 0;
-  double payments = 0;
-
-  _DebtActivity(this.date);
-}
-
-class _DebtTrendPoint {
-  final DateTime date;
-  final double debtAdded;
-  final double payments;
-  final double balance;
-  final FlSpot spot;
-
-  const _DebtTrendPoint({
-    required this.date,
-    required this.debtAdded,
-    required this.payments,
-    required this.balance,
-    required this.spot,
-  });
-}
 
 class TotalDebtWidget extends StatefulWidget {
   final double cwidth;
@@ -49,139 +21,6 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
   late Animation<double> _animation;
 
   double _currentDebt = 0.0;
-
-  Stream<List<_DebtTrendPoint>> _debtHistoryStream({
-    required Datafeed datafeed,
-    required bool isSuperAdmin,
-    required double currentDebt,
-  }) {
-    final salesQuery = datafeed.db
-        .collection('sales')
-        .where('companyId', isEqualTo: datafeed.companyid);
-    final paymentsQuery = datafeed.db
-        .collection('debtpayment')
-        .where('companyid', isEqualTo: datafeed.companyid);
-
-    return Stream<List<_DebtTrendPoint>>.multi((controller) {
-      QuerySnapshot<Map<String, dynamic>>? salesSnapshot;
-      QuerySnapshot<Map<String, dynamic>>? paymentsSnapshot;
-
-      List<_DebtTrendPoint> buildPoints() {
-        final activityByDate = <DateTime, _DebtActivity>{};
-
-        DateTime? parseDate(dynamic value) {
-          if (value is Timestamp) return value.toDate();
-          if (value is DateTime) return value;
-          return DateTime.tryParse(value?.toString() ?? '');
-        }
-
-        double amountOf(dynamic value) {
-          if (value is num) return value.toDouble();
-          return double.tryParse(value?.toString() ?? '') ?? 0;
-        }
-
-        bool matchesBranch(Map<String, dynamic> data) {
-          return isSuperAdmin ||
-              (data['branchId'] ?? data['branchid'] ?? '').toString() ==
-                  datafeed.branchid;
-        }
-
-        void addActivity(
-          DateTime date, {
-          double debtAdded = 0,
-          double payments = 0,
-        }) {
-          final day = DateTime(date.year, date.month, date.day);
-          final activity = activityByDate.putIfAbsent(
-            day,
-            () => _DebtActivity(day),
-          );
-          activity.debtAdded += debtAdded;
-          activity.payments += payments;
-        }
-
-        for (final document in salesSnapshot!.docs) {
-          final sale = document.data();
-          if (!matchesBranch(sale) || sale['isreturned'] == true) continue;
-
-          final due = math.max(
-            0.0,
-            amountOf(sale['totalamount']) - amountOf(sale['amountPaid']),
-          );
-          final date =
-              parseDate(sale['createdAt']) ?? parseDate(sale['dateymd']);
-          if (due > 0 && date != null) {
-            addActivity(date, debtAdded: due);
-          }
-        }
-
-        for (final document in paymentsSnapshot!.docs) {
-          final payment = document.data();
-          if (!matchesBranch(payment)) continue;
-          final date =
-              parseDate(payment['createdat']) ?? parseDate(payment['date']);
-          final amount = amountOf(payment['amount']);
-          if (date != null && amount > 0) {
-            addActivity(date, payments: amount);
-          }
-        }
-
-        final activities = activityByDate.values.toList()
-          ..sort((a, b) => a.date.compareTo(b.date));
-        final netActivity = activities.fold<double>(
-          0,
-          (total, activity) => total + activity.debtAdded - activity.payments,
-        );
-        var balance = currentDebt - netActivity;
-        final points = <_DebtTrendPoint>[
-          _DebtTrendPoint(
-            date: activities.isEmpty
-                ? DateTime.now()
-                : activities.first.date.subtract(const Duration(days: 1)),
-            debtAdded: 0,
-            payments: 0,
-            balance: balance,
-            spot: FlSpot(0, balance),
-          ),
-        ];
-
-        for (var i = 0; i < activities.length; i++) {
-          final activity = activities[i];
-          balance += activity.debtAdded - activity.payments;
-          points.add(
-            _DebtTrendPoint(
-              date: activity.date,
-              debtAdded: activity.debtAdded,
-              payments: activity.payments,
-              balance: balance,
-              spot: FlSpot((i + 1).toDouble(), balance),
-            ),
-          );
-        }
-        return points;
-      }
-
-      void emitIfReady() {
-        if (salesSnapshot != null && paymentsSnapshot != null) {
-          controller.add(buildPoints());
-        }
-      }
-
-      final salesSubscription = salesQuery.snapshots().listen((snapshot) {
-        salesSnapshot = snapshot;
-        emitIfReady();
-      }, onError: controller.addError);
-      final paymentsSubscription = paymentsQuery.snapshots().listen((snapshot) {
-        paymentsSnapshot = snapshot;
-        emitIfReady();
-      }, onError: controller.addError);
-
-      controller.onCancel = () {
-        salesSubscription.cancel();
-        paymentsSubscription.cancel();
-      };
-    });
-  }
 
   @override
   void initState() {
@@ -275,7 +114,7 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
 
   @override
   Widget build(BuildContext context) {
-    final datafeed = context.read<Datafeed>();
+    final datafeed = context.watch<Datafeed>();
 
     return StreamBuilder<DashboardStats>(
       stream: datafeed.dashboardStatsStream(),
@@ -305,29 +144,12 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
             }
           });
         }
-        return StreamBuilder<List<_DebtTrendPoint>>(
-          stream: _debtHistoryStream(
-            datafeed: datafeed,
-            isSuperAdmin: isSuperAdmin,
-            currentDebt: totalDebt,
-          ),
-          builder: (context, historySnapshot) => _buildCard(
-            debt: totalDebt,
-            stockValue: companyStockValue,
-            history: historySnapshot.data,
-            historyError: historySnapshot.hasError,
-          ),
-        );
+        return _buildCard(debt: totalDebt, stockValue: companyStockValue);
       },
     );
   }
 
-  Widget _buildCard({
-    required double debt,
-    required double stockValue,
-    List<_DebtTrendPoint>? history,
-    bool historyError = false,
-  }) {
+  Widget _buildCard({required double debt, required double stockValue}) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final color = _debtColor(debt, stockValue);
@@ -361,7 +183,7 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "TOTAL DEBT — All time",
+                "TOTAL DEBT",
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: colorScheme.onSurface,
                 ),
@@ -430,27 +252,43 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
 
           SizedBox(
             height: 60,
-            child: historyError
-                ? Center(
-                    child: Text(
-                      'Unable to load debt history',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.error,
-                      ),
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: 8,
+                minY: 0,
+                maxY: 100,
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineTouchData: LineTouchData(handleBuiltInTouches: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: const [
+                      FlSpot(0, 0),
+                      FlSpot(1, 24),
+                      FlSpot(2, 12),
+                      FlSpot(3, 42),
+                      FlSpot(4, 61),
+                      FlSpot(5, 76),
+                      FlSpot(6, 100),
+                      FlSpot(7, 82),
+                      FlSpot(8, 43),
+                    ],
+                    isCurved: true,
+                    curveSmoothness: 0.25,
+                    color: color,
+                    barWidth: 2.5,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: color.withValues(alpha: 0.15),
                     ),
-                  )
-                : history == null
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                : history.isEmpty
-                ? Center(
-                    child: Text(
-                      'No debt activity recorded',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                : _buildDebtChart(history, color, theme),
+                  ),
+                ],
+              ),
+              duration: const Duration(milliseconds: 250),
+            ),
           ),
 
           const Spacer(),
@@ -471,77 +309,6 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDebtChart(
-    List<_DebtTrendPoint> history,
-    Color color,
-    ThemeData theme,
-  ) {
-    final minBalance = history.map((point) => point.balance).reduce(math.min);
-    final maxBalance = history.map((point) => point.balance).reduce(math.max);
-    final range = math.max(1.0, maxBalance - minBalance);
-    final spots = history.map((point) => point.spot).toList();
-
-    return LineChart(
-      LineChartData(
-        minY: minBalance - range * 0.1,
-        maxY: maxBalance + range * 0.1,
-        gridData: const FlGridData(show: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        lineTouchData: LineTouchData(
-          handleBuiltInTouches: true,
-          getTouchedSpotIndicator: (barData, spotIndexes) => spotIndexes
-              .map(
-                (_) => TouchedSpotIndicatorData(
-                  FlLine(color: Colors.transparent),
-                  FlDotData(show: false),
-                ),
-              )
-              .toList(),
-          touchTooltipData: LineTouchTooltipData(
-            fitInsideHorizontally: true,
-            fitInsideVertically: true,
-            tooltipHorizontalAlignment: FLHorizontalAlignment.left,
-            getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
-              final point = history[spot.spotIndex];
-              final date = DateFormat('d MMM yyyy').format(point.date);
-              final lines = [
-                date,
-                if (point.debtAdded > 0)
-                  'New debt: GHS ${NumberFormat('#,##0.00').format(point.debtAdded)}',
-                if (point.payments > 0)
-                  'Payments: GHS ${NumberFormat('#,##0.00').format(point.payments)}',
-                'Balance: GHS ${NumberFormat('#,##0.00').format(point.balance)}',
-              ];
-              return LineTooltipItem(
-                lines.join('\n'),
-                TextStyle(
-                  color: theme.colorScheme.onInverseSurface,
-                  fontSize: 10,
-                  height: 1.3,
-                ),
-                textAlign: TextAlign.left,
-              );
-            }).toList(),
-          ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: false,
-            color: color,
-            barWidth: 2.5,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: color.withValues(alpha: 0.15),
-            ),
           ),
         ],
       ),

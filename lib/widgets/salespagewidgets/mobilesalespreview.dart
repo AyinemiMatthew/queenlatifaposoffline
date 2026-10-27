@@ -18,6 +18,7 @@ class MobileSalesPreview extends StatelessWidget {
     required this.onCustomerInfo,
     this.onSaveDirect,
     this.saveDirectLabel = 'SAVE DIRECT',
+    this.isSavingDirect = false,
     required this.onRemoveItem,
     required this.posPrint,
     required this.cashAllowed,
@@ -37,6 +38,7 @@ class MobileSalesPreview extends StatelessWidget {
   final VoidCallback onCustomerInfo;
   final VoidCallback? onSaveDirect;
   final String saveDirectLabel;
+  final bool isSavingDirect;
   final Function(int index) onRemoveItem;
   final bool posPrint;
   final bool cashAllowed;
@@ -48,12 +50,12 @@ class MobileSalesPreview extends StatelessWidget {
       required Color color,
       required VoidCallback onTap,
       required onRemoveItem,
-
+      bool isLoading = false,
     }) {
       return Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: isLoading ? null : onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -65,7 +67,17 @@ class MobileSalesPreview extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: Colors.white, size: 18),
+                if (isLoading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                else
+                  Icon(icon, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   label,
@@ -223,6 +235,7 @@ class MobileSalesPreview extends StatelessWidget {
                   color: posPrint ? Colors.teal : Colors.green,
                   onTap: onPrintReceipt,
                   onRemoveItem: null,
+                  isLoading: isSavingDirect,
                 ),
               if (onSaveDirect != null)
                 actionTile(
@@ -231,6 +244,7 @@ class MobileSalesPreview extends StatelessWidget {
                   color: Colors.green,
                   onTap: onSaveDirect!,
                   onRemoveItem: null,
+                  isLoading: isSavingDirect,
                 ),
               actionTile(
                 label: 'NEW TRANSACTION',

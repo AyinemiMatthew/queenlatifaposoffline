@@ -26,6 +26,7 @@ class CashierProvider extends Datafeed {
   bool isLoadingpayment = false;
   final firestore = FirebaseFirestore.instance;
   double totalPendingAmount = 0;
+  double discount = 0;
   double totalPaidToday = 0;
   int pendingCount = 0;
   int paidCount = 0;
@@ -174,9 +175,9 @@ class CashierProvider extends Datafeed {
     totalPaidToday = 0;
     pendingCount = 0;
     paidCount = 0;
-
+    discount = 0;
     for (var invoice in invoices) {
-      if ( invoice.amountPaid >= invoice.totalamount) {
+      if ( invoice.amountPaid >= (invoice.totalamount-discount)) {
         paidCount++;
         totalPaidToday += invoice.totalamount;
       } else {

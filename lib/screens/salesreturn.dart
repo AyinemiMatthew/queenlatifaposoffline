@@ -9,6 +9,8 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/screens/salesreturnlist.dart';
 import 'package:provider/provider.dart';
 
+import '../widgets/offline_indicator.dart';
+
 const double _returnPanelMinHeight = 200;
 
 class Salesreturn extends StatefulWidget {
@@ -451,24 +453,69 @@ class _SalesreturnState extends State<Salesreturn> {
         'staffemailupdated': datafeed.staffemail,
       };
 
-      await datafeed.db
+      final saleUpdateFuture = datafeed.db
           .collection('sales')
           .doc(id)
           .set(updateData, SetOptions(merge: true));
 
-      await datafeed.db
+      final returnSaveFuture = datafeed.db
           .collection('salesreturn')
           .doc(id)
           .set(returnData, SetOptions(merge: true));
+
+      final isOffline = datafeed.isOffline;
+      if (isOffline) {
+        salereturn? previousRecord;
+        for (final existingRecord in datafeed.salesreturn) {
+          if (existingRecord.id == id) {
+            previousRecord = existingRecord;
+            break;
+          }
+        }
+
+        final pendingRecord = salereturn(
+          companyid: datafeed.companyid,
+          receiptid: cleanReceipt,
+          id: id,
+          branchid: returnBranchId.toString(),
+          branchname: returnBranchName.toString(),
+          staffposition: datafeed.staffPosition,
+          salesreturn: Timestamp.fromDate(now),
+          items: cart,
+          itemcount: cart.length,
+          createdat: Timestamp.fromDate(now),
+          createdby: datafeed.staff,
+          pricingtype: _transMode ?? '',
+          approvedby: datafeed.staff,
+          dateymd: formattedDate,
+          pendingSync: true,
+        );
+
+        datafeed.addPendingSalesReturn(pendingRecord);
+        unawaited(
+          _finishOfflineReturnSync(
+            saleUpdateFuture,
+            returnSaveFuture,
+            datafeed,
+            id,
+            previousRecord,
+            ScaffoldMessenger.of(context),
+          ),
+        );
+      } else {
+        await Future.wait([saleUpdateFuture, returnSaveFuture]);
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            "Return saved successfully",
+            isOffline
+                ? 'Return saved on this device; waiting for internet to sync.'
+                : "Return saved successfully",
             style: TextStyle(color: ColorScheme.of(context).onPrimary),
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: isOffline ? Colors.orange : Colors.green,
         ),
       );
 
@@ -493,6 +540,28 @@ class _SalesreturnState extends State<Salesreturn> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _finishOfflineReturnSync(
+    Future<void> saleUpdateFuture,
+    Future<void> returnSaveFuture,
+    Datafeed datafeed,
+    String id,
+    salereturn? previousRecord,
+    ScaffoldMessengerState messenger,
+  ) async {
+    try {
+      await Future.wait([saleUpdateFuture, returnSaveFuture]);
+      datafeed.markSalesReturnSynced(id);
+    } catch (error) {
+      datafeed.restoreSalesReturnAfterFailedOfflineSave(id, previousRecord);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not sync sales return: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -545,60 +614,70 @@ class _SalesreturnState extends State<Salesreturn> {
         ),
       ),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1400),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isDesktop = constraints.maxWidth >= 900;
+        child: Column(
+          children: [
+            const OfflineIndicator(),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1400),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 24,
+                    ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isDesktop = constraints.maxWidth >= 900;
 
-                  if (isDesktop) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: SingleChildScrollView(
-                            child: _buildLeftPanel(datafeed),
-                          ),
-                        ),
-                        const SizedBox(width: 32),
-                        Expanded(
-                          flex: 4,
+                        if (isDesktop) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 5,
+                                child: SingleChildScrollView(
+                                  child: _buildLeftPanel(datafeed),
+                                ),
+                              ),
+                              const SizedBox(width: 32),
+                              Expanded(
+                                flex: 4,
+                                child: Column(
+                                  children: [
+                                    _buildCartList(datafeed),
+                                    const SizedBox(height: 24),
+                                    _buildSummaryCard(),
+                                    const SizedBox(height: 16),
+                                    _buildSaveButton(datafeed),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return SingleChildScrollView(
                           child: Column(
                             children: [
+                              _buildLeftPanel(datafeed),
+                              const SizedBox(height: 24),
                               _buildCartList(datafeed),
                               const SizedBox(height: 24),
                               _buildSummaryCard(),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 20),
                               _buildSaveButton(datafeed),
+                              const SizedBox(height: 40),
                             ],
                           ),
-                        ),
-                      ],
-                    );
-                  }
-
-                  return SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildLeftPanel(datafeed),
-                        const SizedBox(height: 24),
-                        _buildCartList(datafeed),
-                        const SizedBox(height: 24),
-                        _buildSummaryCard(),
-                        const SizedBox(height: 20),
-                        _buildSaveButton(datafeed),
-                        const SizedBox(height: 40),
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

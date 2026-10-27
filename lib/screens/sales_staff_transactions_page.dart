@@ -232,12 +232,12 @@ class _SalesStaffTransactionsPageState
                       col('Item'),
                       col('Barcode'),
                       col('Mode'),
-                      col('Qty', numeric: true),
+                      col('Qty', numeric: false),
                       col('Price Mode'),
-                      col('Price', numeric: true),
-                      col('Discount', numeric: true),
-                      col('Amount', numeric: true),
-                      col('Profit', numeric: true),
+                      col('Price', numeric: false),
+                      col('Discount', numeric: false),
+                      col('Amount', numeric: false),
+                      col('Profit', numeric: false),
                     ],
                     rows: lines
                         .map(

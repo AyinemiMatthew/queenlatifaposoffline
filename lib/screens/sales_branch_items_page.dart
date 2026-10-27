@@ -53,6 +53,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
     1,
     4,
     2,
+    3,
     2,
     2,
     2,
@@ -70,6 +71,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
     '#',
     'Item',
     'Qty Sold',
+    'Category',
     'Cash Sales',
     'MoMo',
     'Hubtel',
@@ -216,28 +218,30 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
       case 2:
         return row.qty;
       case 3:
-        return row.cash;
+        return (row.category ?? '').toLowerCase();
       case 4:
-        return row.momo;
+        return row.cash;
       case 5:
-        return row.hubtel;
+        return row.momo;
       case 6:
-        return row.card;
+        return row.hubtel;
       case 7:
-        return row.bank;
+        return row.card;
       case 8:
-        return row.cheque;
+        return row.bank;
       case 9:
-        return row.credit;
+        return row.cheque;
       case 10:
-        return row.totalSales;
+        return row.credit;
       case 11:
-        return row.returns;
+        return row.totalSales;
       case 12:
-        return row.discount;
+        return row.returns;
       case 13:
-        return row.profit;
+        return row.discount;
       case 14:
+        return row.profit;
+      case 15:
         return row.cashAtHand;
       default:
         return 0;
@@ -246,7 +250,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
 
   Widget _sortableHeader(int column) {
     final active = _sortColumn == column;
-    final numeric = column >= 2;
+    final numeric = column >= 2 && column != 3;
 
     return Expanded(
       flex: _colFlexes[column],
@@ -264,7 +268,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
         },
         child: Row(
           mainAxisAlignment: numeric
-              ? MainAxisAlignment.end
+              ? MainAxisAlignment.start
               : MainAxisAlignment.start,
           children: [
             Flexible(
@@ -272,7 +276,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                 _headers[column],
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                textAlign: numeric ? TextAlign.right : TextAlign.left,
+                textAlign: numeric ? TextAlign.left : TextAlign.left,
                 style: TextStyle(
                   color: _textColor,
                   fontWeight: FontWeight.w700,
@@ -371,6 +375,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
             flex: _colFlexes[0],
             child: Text(
               total ? '' : '${index + 1}',
+              textAlign: TextAlign.center,
               style: TextStyle(color: _textColor, fontSize: 13),
             ),
           ),
@@ -393,9 +398,23 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
             flex: _colFlexes[2],
             child: Text(
               _qty(r.qty),
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: _textColor,
+                fontSize: 13,
+                fontWeight: total ? FontWeight.w800 : FontWeight.w400,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            flex: _colFlexes[3],
+            child: Text(
+              total ? '' : (r.category ?? ''),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _mutedTextColor,
                 fontSize: 13,
                 fontWeight: total ? FontWeight.w800 : FontWeight.w400,
               ),
@@ -404,7 +423,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
           for (int i = 0; i < values.length; i++) ...[
             const SizedBox(width: 6),
             Expanded(
-              flex: _colFlexes[i + 3],
+              flex: _colFlexes[i + 4],
               child: srTip(
                 context,
                 tips[i],
@@ -412,7 +431,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                   width: double.infinity,
                   child: Text(
                     srN(values[i]),
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: i == values.length - 1 && !_isLightTheme
                           ? Colors.white
@@ -573,6 +592,16 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                           ),
                         ],
                       ),
+                      if ((r.category ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          r.category!,
+                          style: TextStyle(
+                            color: _mutedTextColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 10,
@@ -824,7 +853,9 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 Text(
                   'Best sellers:',
@@ -833,7 +864,6 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 8),
                 ChoiceChip(
                   label: const Text('By quantity'),
                   selected: _sortColumn == 2,
@@ -843,13 +873,21 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
                     _page = 0;
                   }),
                 ),
-                const SizedBox(width: 8),
                 ChoiceChip(
                   label: const Text('By sales value'),
-                  selected: _sortColumn == 10,
+                  selected: _sortColumn == 11,
                   onSelected: (_) => setState(() {
-                    _sortColumn = 10;
+                    _sortColumn = 11;
                     _sortAscending = false;
+                    _page = 0;
+                  }),
+                ),
+                ChoiceChip(
+                  label: const Text('By category'),
+                  selected: _sortColumn == 3,
+                  onSelected: (_) => setState(() {
+                    _sortColumn = 3;
+                    _sortAscending = true;
                     _page = 0;
                   }),
                 ),

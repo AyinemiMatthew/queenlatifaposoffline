@@ -5,6 +5,97 @@ import 'package:provider/provider.dart';
 import '../models/sales_summary.dart';
 import '../providers/Datafeed.dart';
 
+class _SalesLoadingPlaceholder extends StatefulWidget {
+  final bool showTotal;
+
+  const _SalesLoadingPlaceholder({this.showTotal = false});
+
+  @override
+  State<_SalesLoadingPlaceholder> createState() =>
+      _SalesLoadingPlaceholderState();
+}
+
+class _SalesLoadingPlaceholderState extends State<_SalesLoadingPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..repeat(reverse: true);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final placeholderColor = isDarkMode
+        ? colorScheme.surfaceContainerHighest
+        : const Color(0xFFD1D5DB);
+    final minimumOpacity = isDarkMode ? 0.4 : 0.55;
+
+    Widget bar({required double width, required double height}) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: placeholderColor,
+          borderRadius: BorderRadius.circular(8),
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => Opacity(
+        opacity: minimumOpacity + (_controller.value * (1 - minimumOpacity)),
+        child: child,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.showTotal) ...[
+            bar(width: 132, height: 24),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [bar(width: 82, height: 12), bar(width: 96, height: 12)],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 38,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: placeholderColor.withValues(
+                alpha: isDarkMode ? 0.45 : 0.35,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colorScheme.outlineVariant),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                bar(width: 94, height: 14),
+                bar(width: 64, height: 12),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: bar(width: 122, height: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
 class WorkPlaceWidget extends StatefulWidget {
   final double cwidth;
   const WorkPlaceWidget({super.key, required this.cwidth});
@@ -21,6 +112,7 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final salesColor = isLight ? const Color(0xFF167D3D) : Colors.greenAccent;
     final creditColor = isLight ? const Color(0xFFB42318) : Colors.redAccent;
+    final statusForeground = isLight ? Colors.white : colorScheme.surface;
     return Container(
       width: widget.cwidth,
       height: 235,
@@ -46,7 +138,7 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Total Sales — ${datafeed.dashboardPeriodLabel}",
+                "Total Sales ",
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontSize: 14,
@@ -73,11 +165,11 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                 return Text(
                   'Unable to load ${datafeed.dashboardPeriodLabel} sales: '
                   '${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
+                  style: TextStyle(color: colorScheme.error),
                 );
               }
               if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
+                return const _SalesLoadingPlaceholder(showTotal: true);
               }
 
               final salesTotal = snapshot.data!;
@@ -102,11 +194,11 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                         return Text(
                           "Unable to load today's cash and credit sales: "
                           '${dailySnapshot.error}',
-                          style: const TextStyle(color: Colors.red),
+                          style: TextStyle(color: colorScheme.error),
                         );
                       }
                       if (!dailySnapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const _SalesLoadingPlaceholder();
                       }
 
                       final cashTotal = dailySnapshot.data!.cash;
@@ -181,10 +273,10 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                                     color: salesColor,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Center(
+                                  child: Center(
                                     child: Icon(
                                       Icons.bookmark_added_outlined,
-                                      color: Colors.white,
+                                      color: statusForeground,
                                       size: 12,
                                     ),
                                   ),
@@ -239,11 +331,11 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                                     color: creditColor,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Center(
+                                  child: Center(
                                     child: Text(
                                       "!",
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: statusForeground,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -256,7 +348,6 @@ class _WorkPlaceWidgetState extends State<WorkPlaceWidget> {
                       );
                     },
                   ),
-
                 ],
               );
             },

@@ -439,7 +439,7 @@ Future<void> exportItemHistoryExcel({
   }
 
   final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-  final fileName = 'KologSoft_${itemName.replaceAll(' ', '_')}_history_$ts';
+  final fileName = '$companyName${itemName.replaceAll(' ', '_')}_history_$ts';
 
   await FileSaver.instance.saveFile(
     name: fileName,

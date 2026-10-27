@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
 import '../widgets/datepicker.dart';
+import '../widgets/offline_indicator.dart';
 import '../widgets/salesreturnpdf.dart';
 
 const int _pageSize = 10;
@@ -540,6 +541,27 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
     );
   }
 
+  Widget _syncStatusBadge(salereturn record) {
+    if (!record.pendingSync) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        'Waiting to sync',
+        style: TextStyle(
+          color: Colors.deepOrange,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget _actions(salereturn record, Datafeed provider) {
     return PopupMenuButton<String>(
       tooltip: 'More return actions',
@@ -774,9 +796,17 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
                                 for (var c = 0; c < _columns.length; c++)
                                   switch (c) {
                                     7 => Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: _statusBadge(texts[c]),
-                                    ),
+                                        alignment: Alignment.centerLeft,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            _statusBadge(texts[c]),
+                                            _syncStatusBadge(record),
+                                          ],
+                                        ),
+                                      ),
                                     8 => Align(
                                       alignment: Alignment.centerLeft,
                                       child: _actions(record, provider),
@@ -980,7 +1010,13 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _statusBadge(_status(record)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _statusBadge(_status(record)),
+                      _syncStatusBadge(record),
+                    ],
+                  ),
                 ],
               ),
             ],
@@ -1181,19 +1217,26 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
             onPressed: () => _registerReturn(provider),
             child: const Icon(Icons.add),
           ),
-          body: _loading || provider.isloadingsalesreturn
-              ? const Center(child: CircularProgressIndicator())
-              : Padding(
-            padding: EdgeInsets.all(compact ? 12 : 20),
-            child: Column(
-              children: [
-                if (!desktop) ...[
-                  _mobileSummary(records),
-                  const SizedBox(height: 16),
-                ],
-                Expanded(child: _body(records, provider, desktop)),
-              ],
-            ),
+          body: Column(
+            children: [
+              const OfflineIndicator(),
+              Expanded(
+                child: _loading || provider.isloadingsalesreturn
+                    ? const Center(child: CircularProgressIndicator())
+                    : Padding(
+                        padding: EdgeInsets.all(compact ? 12 : 20),
+                        child: Column(
+                          children: [
+                            if (!desktop) ...[
+                              _mobileSummary(records),
+                              const SizedBox(height: 16),
+                            ],
+                            Expanded(child: _body(records, provider, desktop)),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
           ),
         );
       },

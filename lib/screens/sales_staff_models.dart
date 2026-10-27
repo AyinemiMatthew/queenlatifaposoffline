@@ -240,7 +240,6 @@ List<ItemLine> parseItemLines(dynamic itemsField) {
   return lines;
 }
 
-// ------------------------- small shared widgets -------------------------
 
 Widget miniStatString(BuildContext context, String title, dynamic value) {
   final isLightTheme = Theme.of(context).brightness == Brightness.light;

@@ -98,8 +98,7 @@ class _SalesReportState extends State<SalesReport> {
 
   static final NumberFormat _nf = NumberFormat('#,##0.00');
 
-  double _num(dynamic v) =>
-      v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+  double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
 
   bool _isWarehouseType(String? t) =>
       (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') == 'warehouse';
@@ -269,12 +268,7 @@ class _SalesReportState extends State<SalesReport> {
               _selectedBranch = selected == '__ALL__' ? null : selected;
               _mainPage = 0;
             });
-            await value.fetchsalesreport(
-              selectedDate: selectedDate,
-              selectedBranch: _selectedBranch,
-              productType: _selectedType,
-              category: _selectedCategory,
-            );
+            _applyFilter(value);
             break;
           case 'date':
             await _pickMobileDateRange(value);
@@ -1670,48 +1664,69 @@ class _SalesReportState extends State<SalesReport> {
               ),
             ),
           ),
-          body: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1600),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (value.salesReportError != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Text(
+                    value.salesReportError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ),
-                child: value.isloadingsalesreport
-                    ? Center(
-                        child: CircularProgressIndicator(color: _textColor),
-                      )
-                    : rows.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No Sales Found',
-                          style: TextStyle(color: _textColor),
-                        ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          if (constraints.maxWidth > 700) {
-                            return _buildDesktopLayout(
-                              visibleRows,
-                              totals,
-                              page,
-                              totalPages,
-                              rows.length,
-                            );
-                          }
-                          return _buildMobileList(
-                            visibleRows,
-                            totals,
-                            page,
-                            totalPages,
-                            rows.length,
-                          );
-                        },
+              Expanded(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1600),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
+                      child:
+                          value.isloadingsalesreport &&
+                              !value.salesReportHasVisibleData
+                          ? Center(
+                              child: CircularProgressIndicator(
+                                color: _textColor,
+                              ),
+                            )
+                          : rows.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No Sales Found',
+                                style: TextStyle(color: _textColor),
+                              ),
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                if (constraints.maxWidth > 700) {
+                                  return _buildDesktopLayout(
+                                    visibleRows,
+                                    totals,
+                                    page,
+                                    totalPages,
+                                    rows.length,
+                                  );
+                                }
+                                return _buildMobileList(
+                                  visibleRows,
+                                  totals,
+                                  page,
+                                  totalPages,
+                                  rows.length,
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         );
       },

@@ -727,7 +727,8 @@ class _CashierPageState extends State<CashierPage>
   Widget _buildInvoiceCard(SalesModel invoice, bool isSelected) {
     final receiptNumber = invoice.receiptNumber;
     final customerName = _getCustomerName(invoice);
-    final totalAmount = invoice.totalamount.toDouble();
+    final discount = invoice.discount?.toDouble();
+    final totalAmount = invoice.totalamount.toDouble()-(discount ?? 0);
     final amountPaid = invoice.amountPaid.toDouble();
     String paymentStatus = invoice.paymentStatus;
     if (invoice.transMode == 'credit') {
@@ -1073,7 +1074,8 @@ class _CashierPageState extends State<CashierPage>
   Widget _buildMobileInvoiceCard(SalesModel invoice, bool isSelected) {
     final receiptNumber = invoice.receiptNumber;
     final customerName = _getCustomerName(invoice);
-    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
+    final discount = (invoice.discount as num?)?.toDouble() ?? 0;
+    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0 -discount;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
     String paymentStatus = invoice.paymentStatus;
     if (invoice.transMode == 'credit') {
@@ -1350,9 +1352,9 @@ class _CashierPageState extends State<CashierPage>
 
   Widget _buildMobileInvoiceDetails() {
     final provider = Provider.of<CashierProvider>(context, listen: false);
-
     final invoice = provider.selectedInvoice!;
-    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
+    final discount = (invoice.discount as num?)?.toDouble() ?? 0;
+    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0 -discount;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
     final balance = totalAmount - amountPaid;
     String paymentStatus = invoice.paymentStatus;
@@ -1488,7 +1490,8 @@ class _CashierPageState extends State<CashierPage>
     final invoiceId = invoice.id;
     final paymentStatus = invoice.paymentStatus;
     final transmode = invoice.transMode;
-    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0.0;
+    final discount = (invoice.discount as num?)?.toDouble() ?? 0.0;
+    final totalAmount = ((invoice.totalamount as num?)?.toDouble() ?? 0.0)-discount;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0.0;
     final change = (invoice.change as num?)?.toDouble() ?? 0.0;
     final balance = totalAmount - amountPaid;
@@ -1674,84 +1677,6 @@ class _CashierPageState extends State<CashierPage>
 
               phoneController: _contactController,
             ),
-          // if (paymentMethod.toLowerCase() == 'momo') ...[
-          //   DropdownButtonFormField<String>(
-          //     value: selectedNetwork,
-          //     dropdownColor: _inputSurface,
-          //     style: const TextStyle(color: Colors.white),
-          //     decoration: InputDecoration(
-          //       labelText: 'Select Network',
-          //       labelStyle: TextStyle(color: _secondaryText),
-          //       prefixIcon: const Icon(Icons.sim_card, color: _secondaryText),
-          //       filled: true,
-          //       fillColor: _inputSurface,
-          //       border: OutlineInputBorder(
-          //         borderRadius: BorderRadius.circular(12),
-          //         borderSide: BorderSide.none,
-          //       ),
-          //     ),
-          //     items: momoNetworks.map((network) {
-          //       return DropdownMenuItem(
-          //         value: network.toLowerCase(),
-          //         child: Row(
-          //           children: [
-          //             Icon(
-          //               _getNetworkIcon(network),
-          //               color: _getNetworkColor(network),
-          //               size: 20,
-          //             ),
-          //             const SizedBox(width: 8),
-          //             Text(network, style: const TextStyle(color: Colors.white)),
-          //           ],
-          //         ),
-          //       );
-          //     }).toList(),
-          //     onChanged: (value) {
-          //       if (value != null) {
-          //         setState(() {
-          //           provider.selectedNetworks[invoiceId] = value;
-          //         });
-          //       }
-          //     },
-          //     validator: (value) {
-          //       if (paymentMethod.toLowerCase() == 'momo' && value == null) {
-          //         return 'Please select a network';
-          //       }
-          //       return null;
-          //     },
-          //   ),
-          //   const SizedBox(height: 12),
-          //   TextFormField(
-          //     controller: accountNumberController,
-          //     style: const TextStyle(color: Colors.white),
-          //     keyboardType: TextInputType.phone,
-          //     inputFormatters: [
-          //     FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-          //     ],
-          //     decoration: InputDecoration(
-          //       labelText: 'Mobile Money Number',
-          //       labelStyle: TextStyle(color: _secondaryText),
-          //       hintText: 'e.g. 055XXXXXXX',
-          //       hintStyle: TextStyle(color: _secondaryText),
-          //       prefixIcon: const Icon(Icons.phone_android, color: _secondaryText),
-          //       filled: true,
-          //       fillColor: _inputSurface,
-          //       border: OutlineInputBorder(
-          //         borderRadius: BorderRadius.circular(12),
-          //         borderSide: BorderSide.none,
-          //       ),
-          //     ),
-          //     validator: (value) {
-          //       if (paymentMethod.toLowerCase() == 'momo' && (value == null || value.isEmpty)) {
-          //         return 'Please enter mobile money number';
-          //       }
-          //       if (value != null && value.isNotEmpty && !RegExp(r'^0\d{9}$').hasMatch(value)) {
-          //         return 'Enter a valid 10-digit number starting with 0';
-          //       }
-          //       return null;
-          //     },
-          //   ),
-          // ],
 
           if (paymentMethod.toLowerCase() == 'bank_transfer' ||
               paymentMethod.toLowerCase() == 'cheque') ...[
@@ -2388,7 +2313,8 @@ class _CashierPageState extends State<CashierPage>
     final provider = Provider.of<CashierProvider>(context, listen: false);
 
     final invoice = provider.selectedInvoice!;
-    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
+    final discount = (invoice.discount as num?)?.toDouble() ?? 0;
+    final totalAmount = ((invoice.totalamount as num?)?.toDouble() ?? 0)-discount;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
     final balance = totalAmount - amountPaid;
     final itemCount = invoice.itemCount ?? 0;
@@ -2514,7 +2440,8 @@ class _CashierPageState extends State<CashierPage>
   Widget _buildMobileDetailsTab() {
     final provider = Provider.of<CashierProvider>(context, listen: false);
     final invoice = provider.selectedInvoice!;
-    final totalAmount = (invoice.totalamount as num?)?.toDouble() ?? 0;
+    final discount = (invoice.discount as num?)?.toDouble() ?? 0;
+    final totalAmount = ((invoice.totalamount as num?)?.toDouble() ?? 0) -discount;
     final amountPaid = (invoice.amountPaid as num?)?.toDouble() ?? 0;
     final balance = totalAmount - amountPaid;
     final createdAt = (invoice.createdAt as Timestamp?)?.toDate();

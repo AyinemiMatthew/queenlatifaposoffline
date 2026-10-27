@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +13,7 @@ import '../models/ReasonsModel.dart';
 import '../models/damageitem.dart';
 import '../models/itemmodel.dart';
 import '../providers/SalesProvider.dart';
+import '../widgets/offline_indicator.dart';
 import 'damagesslist.dart';
 
 class Damages extends StatefulWidget {
@@ -689,24 +692,47 @@ class _DamagesState extends State<Damages> {
         grandtotal: grandtotal,
       );
 
-      await datafeed.db
+      final saveFuture = datafeed.db
           .collection('damageitems')
           .doc(docId)
           .set(damageitem.tomap(), SetOptions(merge: true));
 
-      await datafeed.fetchdamages();
+      final isOffline = datafeed.isOffline;
+      if (isOffline) {
+        damageitemmodel? previousDamage;
+        for (final existingDamage in datafeed.damages) {
+          if (existingDamage.id == docId) {
+            previousDamage = existingDamage;
+            break;
+          }
+        }
+        datafeed.addPendingDamage(damageitem);
+        unawaited(
+          _finishQueuedDamageSave(
+            saveFuture,
+            datafeed,
+            docId,
+            previousDamage,
+          ),
+        );
+      } else {
+        await saveFuture;
+        await datafeed.fetchdamages();
+      }
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isEditing
+            isOffline
+                ? 'Damage saved on this device; waiting for internet to sync.'
+                : isEditing
                 ? 'Damage record updated successfully'
                 : 'Damages recorded successfully',
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: isOffline ? Colors.orange : Colors.green,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -735,6 +761,27 @@ class _DamagesState extends State<Damages> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _finishQueuedDamageSave(
+    Future<void> saveFuture,
+    Datafeed datafeed,
+    String docId,
+    damageitemmodel? previousDamage,
+  ) async {
+    try {
+      await saveFuture;
+      datafeed.markDamageSynced(docId);
+    } catch (error) {
+      datafeed.restoreDamageAfterFailedOfflineSave(docId, previousDamage);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not sync damage record: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -781,6 +828,7 @@ class _DamagesState extends State<Damages> {
                 ),
                 child: Column(
                   children: [
+                    const OfflineIndicator(),
                     Center(
                       child: LayoutBuilder(
                         builder: (context, constraints) {

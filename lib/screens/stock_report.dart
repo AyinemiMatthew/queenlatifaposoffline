@@ -756,15 +756,18 @@ class _StockReportPageState extends State<StockReportPage> {
       0,
       totalPages == 0 ? 0 : totalPages - 1,
     );
+
     final paginatedRows = _pageRows(stockreport, effectivePage);
     final stockTotal = stockreport.fold<double>(
       0,
       (s, r) => s + _num(r['stock_value']),
     );
+
     final sellTotal = stockreport.fold<double>(
       0,
       (s, r) => s + _num(r['selling_value']),
     );
+
     final compactAppBar = MediaQuery.of(context).size.width < 860;
     final compactFooter = MediaQuery.of(context).size.width < 600;
     final compactTitleWidth = (MediaQuery.of(context).size.width - 100).clamp(
@@ -866,209 +869,240 @@ class _StockReportPageState extends State<StockReportPage> {
             ? null
             : _appBarActions(context, provider, stockreport, compactAppBar),
       ),
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1430),
-            child: provider.isloadingsalesreport
-                ? Center(child: CircularProgressIndicator(color: _primaryColor))
-                : stockreport.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inventory_2_outlined,
-                          size: 64,
-                          color: _textMutedColor,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No stock items found',
-                          style: TextStyle(color: _textMutedColor),
-                        ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: _surfaceColor,
-                            border: Border.all(color: _borderColor),
+      body: Column(
+        children: [
+          if (provider.stockReportError != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Text(
+                provider.stockReportError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1430),
+                  child:
+                      provider.isLoadingStockReport &&
+                          !provider.stockReportHasVisibleData
+                      ? Center(
+                          child: CircularProgressIndicator(
+                            color: _primaryColor,
                           ),
-                          clipBehavior: Clip.none,
-                          child: isLargeScreen
-                              ? _buildStockTable(paginatedRows)
-                              : ListView.builder(
-                                  padding: const EdgeInsets.all(5),
-                                  itemCount: paginatedRows.length,
-                                  itemBuilder: (_, i) =>
-                                      _buildStockCard(paginatedRows[i]),
-                                ),
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: _surfaceColor,
-                          border: Border(
-                            top: BorderSide(color: _borderColor, width: 0.7),
-                          ),
-                        ),
-                        child: isLargeScreen
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildDesktopTotalsRow(
-                                      _stockColumns(),
-                                      stockreport.length,
-                                      stockTotal,
-                                      sellTotal,
-                                    ),
-                                  ),
-                                  if (stockreport.length > _rowsPerPage)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: Row(
-                                        children: [
-                                          IconButton(
-                                            tooltip: 'Previous page',
-                                            onPressed: effectivePage > 0
-                                                ? () => setState(
-                                                    () => _currentPage =
-                                                        effectivePage - 1,
-                                                  )
-                                                : null,
-                                            padding: EdgeInsets.zero,
-                                            icon: const Icon(
-                                              Icons.chevron_left,
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _backgroundColor,
-                                            ),
-                                            child: Text(
-                                              '${effectivePage + 1}/$totalPages',
-                                              style: TextStyle(
-                                                color: _textPrimaryColor,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'Next page',
-                                            onPressed:
-                                                effectivePage < totalPages - 1
-                                                ? () => setState(
-                                                    () => _currentPage =
-                                                        effectivePage + 1,
-                                                  )
-                                                : null,
-                                            padding: EdgeInsets.zero,
-                                            icon: const Icon(
-                                              Icons.chevron_right,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  if (!compactFooter)
-                                    Expanded(
-                                      child: _footerStat(
-                                        'Items',
-                                        stockreport.length,
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: _footerStat(
-                                      'Total Cost Value',
-                                      _formatMoney(stockTotal),
-                                      dense: compactFooter,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _footerStat(
-                                      'Total Selling Value',
-                                      _formatMoney(sellTotal),
-                                      dense: compactFooter,
-                                    ),
-                                  ),
-                                  if (stockreport.length > _rowsPerPage)
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                        right: compactFooter ? 2 : 8,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          IconButton(
-                                            tooltip: 'Previous page',
-                                            onPressed: effectivePage > 0
-                                                ? () => setState(
-                                                    () => _currentPage =
-                                                        effectivePage - 1,
-                                                  )
-                                                : null,
-                                            padding: EdgeInsets.zero,
-                                            icon: const Icon(
-                                              Icons.chevron_left,
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: compactFooter
-                                                  ? 5
-                                                  : 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _backgroundColor,
-                                            ),
-                                            child: Text(
-                                              '${effectivePage + 1}/$totalPages',
-                                              style: TextStyle(
-                                                color: _textPrimaryColor,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            tooltip: 'Next page',
-                                            onPressed:
-                                                effectivePage < totalPages - 1
-                                                ? () => setState(
-                                                    () => _currentPage =
-                                                        effectivePage + 1,
-                                                  )
-                                                : null,
-                                            padding: EdgeInsets.zero,
-                                            icon: const Icon(
-                                              Icons.chevron_right,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
+                        )
+                      : stockreport.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.inventory_2_outlined,
+                                size: 64,
+                                color: _textMutedColor,
                               ),
-                      ),
-                    ],
-                  ),
+                              SizedBox(height: 16),
+                              Text(
+                                'No stock items found',
+                                style: TextStyle(color: _textMutedColor),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: _surfaceColor,
+                                  border: Border.all(color: _borderColor),
+                                ),
+                                clipBehavior: Clip.none,
+                                child: isLargeScreen
+                                    ? _buildStockTable(paginatedRows)
+                                    : ListView.builder(
+                                        padding: const EdgeInsets.all(5),
+                                        itemCount: paginatedRows.length,
+                                        itemBuilder: (_, i) =>
+                                            _buildStockCard(paginatedRows[i]),
+                                      ),
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: _surfaceColor,
+                                border: Border(
+                                  top: BorderSide(
+                                    color: _borderColor,
+                                    width: 0.7,
+                                  ),
+                                ),
+                              ),
+                              child: isLargeScreen
+                                  ? Row(
+                                      children: [
+                                        if (stockreport.length > _rowsPerPage)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 8,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                IconButton(
+                                                  tooltip: 'Previous page',
+                                                  onPressed: effectivePage > 0
+                                                      ? () => setState(
+                                                          () => _currentPage =
+                                                              effectivePage - 1,
+                                                        )
+                                                      : null,
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.chevron_left,
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 6,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: _backgroundColor,
+                                                  ),
+                                                  child: Text(
+                                                    '${effectivePage + 1}/$totalPages',
+                                                    style: TextStyle(
+                                                      color: _textPrimaryColor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  tooltip: 'Next page',
+                                                  onPressed:
+                                                      effectivePage <
+                                                          totalPages - 1
+                                                      ? () => setState(
+                                                          () => _currentPage =
+                                                              effectivePage + 1,
+                                                        )
+                                                      : null,
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.chevron_right,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        Expanded(
+                                          child: _buildDesktopTotalsRow(
+                                            _stockColumns(),
+                                            stockreport.length,
+                                            stockTotal,
+                                            sellTotal,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      children: [
+                                        if (!compactFooter)
+                                          Expanded(
+                                            child: _footerStat(
+                                              'Items',
+                                              stockreport.length,
+                                            ),
+                                          ),
+
+                                        Expanded(
+                                          child: _footerStat(
+                                            'Total Cost Value',
+                                            _formatMoney(stockTotal),
+                                            dense: compactFooter,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: _footerStat(
+                                            'Total Selling Value',
+                                            _formatMoney(sellTotal),
+                                            dense: compactFooter,
+                                          ),
+                                        ),
+                                        if (stockreport.length > _rowsPerPage)
+                                          Padding(
+                                            padding: EdgeInsets.only(
+                                              right: compactFooter ? 2 : 8,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                IconButton(
+                                                  tooltip: 'Previous page',
+                                                  onPressed: effectivePage > 0
+                                                      ? () => setState(
+                                                          () => _currentPage =
+                                                              effectivePage - 1,
+                                                        )
+                                                      : null,
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.chevron_left,
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: compactFooter
+                                                        ? 5
+                                                        : 10,
+                                                    vertical: 6,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: _backgroundColor,
+                                                  ),
+                                                  child: Text(
+                                                    '${effectivePage + 1}/$totalPages',
+                                                    style: TextStyle(
+                                                      color: _textPrimaryColor,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  tooltip: 'Next page',
+                                                  onPressed:
+                                                      effectivePage <
+                                                          totalPages - 1
+                                                      ? () => setState(
+                                                          () => _currentPage =
+                                                              effectivePage + 1,
+                                                        )
+                                                      : null,
+                                                  padding: EdgeInsets.zero,
+                                                  icon: const Icon(
+                                                    Icons.chevron_right,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1200,8 +1234,8 @@ class _StockReportPageState extends State<StockReportPage> {
     final purchaseReturns = item['purchase_returns'] ?? 0;
     final damages = item['damages'] ?? 0;
     final saleReturns = item['sale_returns'] ?? 0;
-    final boxPiece = double.tryParse(item['cartonqty_bal'].toString()) ?? 1;
-    final cartonQtyBal = balanceCd / (boxPiece == 0 ? 1 : boxPiece);
+    final boxPiece = _num(item['cartonqty_bal']);
+    final cartonQtyBal = _num(balanceCd) / (boxPiece == 0 ? 1 : boxPiece);
 
     final cells = <Widget>[
       Text(
@@ -1328,8 +1362,8 @@ class _StockReportPageState extends State<StockReportPage> {
     final saleReturns = item['sale_returns'] ?? 0;
     final stockOut = item['stock_out'] ?? 0;
 
-    final boxPiece = double.tryParse(item['cartonqty_bal'].toString()) ?? 1;
-    final cartonQtyBal = balanceCd / (boxPiece == 0 ? 1 : boxPiece);
+    final boxPiece = _num(item['cartonqty_bal']);
+    final cartonQtyBal = _num(balanceCd) / (boxPiece == 0 ? 1 : boxPiece);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1638,12 +1672,7 @@ class _StockReportPageState extends State<StockReportPage> {
   }
 
   String _formatNumber(dynamic number) {
-    if (number is double) {
-      return number.truncateToDouble() == number
-          ? number.toInt().toString()
-          : number.toStringAsFixed(1);
-    }
-    return number.toString();
+    return _nf.format(_num(number));
   }
 
   String _formatMoney(dynamic value) {

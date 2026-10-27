@@ -575,8 +575,12 @@ Future<void> printReceipt({
 
                   salesProvider.showMessage(
                     context,
-                    shouldPrint ? 'Receipt printed: $receiptNumber' : 'Sale saved: $receiptNumber',
-                    Colors.green,
+                    datafeed.isOffline
+                        ? 'Sale saved on this device; waiting for internet to sync. Receipt: $receiptNumber'
+                        : shouldPrint
+                        ? 'Receipt printed: $receiptNumber'
+                        : 'Sale saved: $receiptNumber',
+                    datafeed.isOffline ? Colors.orange : Colors.green,
                   );
                 } catch (e) {
                   salesProvider.showMessage(
@@ -847,8 +851,10 @@ Future<void> printReceipt({
 
                   salesProvider.showMessage(
                     context,
-                    'Receipt printed: $receiptNumber',
-                    Colors.green,
+                    datafeed.isOffline
+                        ? 'Sale saved on this device; waiting for internet to sync. Receipt: $receiptNumber'
+                        : 'Receipt printed: $receiptNumber',
+                    datafeed.isOffline ? Colors.orange : Colors.green,
                   );
                 } catch (e) {
                   salesProvider.showMessage(

@@ -43,6 +43,82 @@ Color _dashboardDividerColor(BuildContext context) {
       : theme.colorScheme.outlineVariant;
 }
 
+class _DashboardLoadingPlaceholder extends StatefulWidget {
+  final int rowCount;
+
+  const _DashboardLoadingPlaceholder({this.rowCount = 5});
+
+  @override
+  State<_DashboardLoadingPlaceholder> createState() =>
+      _DashboardLoadingPlaceholderState();
+}
+
+class _DashboardLoadingPlaceholderState
+    extends State<_DashboardLoadingPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..repeat(reverse: true);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final placeholderColor = isDarkMode
+        ? Theme.of(context).colorScheme.surfaceContainerHighest
+        : const Color(0xFFD1D5DB);
+    final minimumOpacity = isDarkMode ? 0.35 : 0.55;
+    return Center(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) => Opacity(
+          opacity: minimumOpacity + (_controller.value * (1 - minimumOpacity)),
+          child: child,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(widget.rowCount, (index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: index.isEven ? 6 : 4,
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: placeholderColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: 52,
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: placeholderColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+
 String _capitalizeFirstLowerRest(String value) {
   final normalized = value.trim().toLowerCase();
   if (normalized.isEmpty) return normalized;
@@ -467,7 +543,9 @@ class _HomeDashboardState extends State<HomeDashboard> {
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
-            title: Text(value.company.toString().toUpperCase()),
+            title: Text(
+              '${(value.company.toString().toUpperCase())}-${value.dashboardPeriodLabel}',
+            ),
             centerTitle: true,
             backgroundColor: theme.appBarTheme.backgroundColor,
             foregroundColor: theme.appBarTheme.foregroundColor,
@@ -1049,9 +1127,7 @@ class _PieChartWidgetState extends State<PieChartWidget> {
       return SizedBox(
         height: 420,
         width: widget.cwidth,
-        child: Center(
-          child: CircularProgressIndicator(color: colorScheme.primary),
-        ),
+        child: _DashboardLoadingPlaceholder(rowCount: 7),
       );
     }
 
@@ -1072,10 +1148,9 @@ class _PieChartWidgetState extends State<PieChartWidget> {
       child: StreamBuilder<WeeklySalesComparison>(
         stream: _salesStream,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(color: colorScheme.primary),
-            );
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return _DashboardLoadingPlaceholder(rowCount: 7);
           }
 
           if (snapshot.hasError) {
@@ -1338,10 +1413,18 @@ class MonthlyRevenueWidget extends StatefulWidget {
 }
 
 class _MonthlyRevenueWidgetState extends State<MonthlyRevenueWidget> {
+  Stream<List<Map<String, dynamic>>>? _itemsStream;
+  String? _itemsStreamKey;
+
   @override
   Widget build(BuildContext context) {
     final datafeed = context.watch<Datafeed>();
     final colorScheme = Theme.of(context).colorScheme;
+    if (_itemsStream == null ||
+        _itemsStreamKey != datafeed.periodDashboardSummaryCacheKey) {
+      _itemsStreamKey = datafeed.periodDashboardSummaryCacheKey;
+      _itemsStream = datafeed.dashboardTopItemsStream('sales_value');
+    }
     return Container(
       height: 400,
       width: widget.cwidth,
@@ -1352,7 +1435,7 @@ class _MonthlyRevenueWidgetState extends State<MonthlyRevenueWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Best 10 financial items — ${datafeed.dashboardPeriodLabel}',
+              'Best 10 financial items',
               style: TextStyle(
                 color: colorScheme.onSurface,
                 fontSize: 14,
@@ -1387,11 +1470,13 @@ class _MonthlyRevenueWidgetState extends State<MonthlyRevenueWidget> {
             Divider(color: _dashboardDividerColor(context), thickness: 1),
 
             Expanded(
-              child: StreamBuilder<PeriodDashboardSummary>(
-                stream: datafeed.periodDashboardSummaryStream(),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _itemsStream,
+                initialData: datafeed.cachedDashboardTopItems('sales_value'),
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const _DashboardLoadingPlaceholder();
                   }
 
                   if (snapshot.hasError) {
@@ -1403,8 +1488,8 @@ class _MonthlyRevenueWidgetState extends State<MonthlyRevenueWidget> {
                     );
                   }
 
-                  if (!snapshot.hasData ||
-                      snapshot.data!.topFinancialItems.isEmpty) {
+                  final items = snapshot.data ?? [];
+                  if (items.isEmpty) {
                     return Center(
                       child: Text(
                         'No data',
@@ -1412,8 +1497,6 @@ class _MonthlyRevenueWidgetState extends State<MonthlyRevenueWidget> {
                       ),
                     );
                   }
-
-                  final items = snapshot.data!.topFinancialItems;
 
                   return ListView.separated(
                     key: const PageStorageKey('top10_items'),
@@ -1478,10 +1561,18 @@ class TopWidget extends StatefulWidget {
 }
 
 class _TopWidgetState extends State<TopWidget> {
+  Stream<List<Map<String, dynamic>>>? _itemsStream;
+  String? _itemsStreamKey;
+
   @override
   Widget build(BuildContext context) {
     final datafeed = context.watch<Datafeed>();
     final colorScheme = Theme.of(context).colorScheme;
+    if (_itemsStream == null ||
+        _itemsStreamKey != datafeed.periodDashboardSummaryCacheKey) {
+      _itemsStreamKey = datafeed.periodDashboardSummaryCacheKey;
+      _itemsStream = datafeed.dashboardTopItemsStream('sales_qty');
+    }
     return Container(
       height: 400,
       width: widget.cwidth,
@@ -1495,7 +1586,7 @@ class _TopWidgetState extends State<TopWidget> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Best 10 qty items — ${datafeed.dashboardPeriodLabel}',
+                  'Best 10 qty items',
                   style: TextStyle(
                     color: colorScheme.onSurface,
                     fontSize: 14,
@@ -1530,12 +1621,13 @@ class _TopWidgetState extends State<TopWidget> {
             Divider(color: _dashboardDividerColor(context), thickness: 1),
 
             Expanded(
-              child: StreamBuilder<PeriodDashboardSummary>(
-                stream: datafeed.periodDashboardSummaryStream(),
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _itemsStream,
+                initialData: datafeed.cachedDashboardTopItems('sales_qty'),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting &&
                       !snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const _DashboardLoadingPlaceholder();
                   }
 
                   if (snapshot.hasError) {
@@ -1547,7 +1639,7 @@ class _TopWidgetState extends State<TopWidget> {
                     );
                   }
 
-                  final items = snapshot.data?.topQuantityItems ?? [];
+                  final items = snapshot.data ?? [];
 
                   if (items.isEmpty) {
                     return Center(
@@ -1650,7 +1742,7 @@ class _BranchSalesState extends State<BranchSales> {
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting &&
                           !snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const _DashboardLoadingPlaceholder();
                       }
 
                       if (snapshot.hasError) {
@@ -2082,7 +2174,7 @@ class _MomoKpiWidgetState extends State<MomoKpiWidget>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Total MOMO — ${context.watch<Datafeed>().dashboardPeriodLabel}",
+                "Total MOMO",
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontSize: 14,

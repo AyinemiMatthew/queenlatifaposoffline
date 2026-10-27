@@ -82,6 +82,13 @@ class PeriodDashboardSummary {
   });
 }
 
+class _ItemHistoryCacheEntry {
+  final List<ItemHistoryEntry> entries;
+  final DateTime cachedAt;
+
+  const _ItemHistoryCacheEntry(this.entries, this.cachedAt);
+}
+
 double toDouble(dynamic value) {
   if (value == null) return 0;
   if (value is num) return value.toDouble();
@@ -109,6 +116,11 @@ class Datafeed extends ChangeNotifier {
   ];
   String dashboardPeriod = 'all-time';
   DateTime dashboardMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  final Map<String, StreamController<PeriodDashboardSummary>>
+  _periodDashboardSummaryControllers = {};
+  final Map<String, StreamSubscription<PeriodDashboardSummary>>
+  _periodDashboardSummarySubscriptions = {};
+  final Map<String, PeriodDashboardSummary> _periodDashboardSummaryCache = {};
   SalesImportService get salesImport => _salesImport ??= SalesImportService();
 
   Future<void> loadDashboardPeriod() async {
@@ -203,6 +215,62 @@ class Datafeed extends ChangeNotifier {
       '${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
 
+  String get periodDashboardSummaryCacheKey {
+    final range = dashboardPeriod == 'all-time'
+        ? null
+        : _dashboardPeriodRange();
+    return [
+      companyid,
+      accesslevel.toLowerCase(),
+      branchid,
+      dashboardPeriod,
+      range == null ? '' : _dashboardDateString(range.start),
+      range == null ? '' : _dashboardDateString(range.end),
+    ].join('|');
+  }
+
+  PeriodDashboardSummary? get cachedPeriodDashboardSummary =>
+      _periodDashboardSummaryCache[periodDashboardSummaryCacheKey];
+
+  List<Map<String, dynamic>>? cachedDashboardTopItems(String fieldName) {
+    if (dashboardPeriod == 'all-time' &&
+        accesslevel.toLowerCase() == 'super admin') {
+      return null;
+    }
+    final summary = cachedPeriodDashboardSummary;
+    if (summary == null) return null;
+    return switch (fieldName) {
+      'sales_qty' => summary.topQuantityItems,
+      'sales_value' => summary.topFinancialItems,
+      _ => throw ArgumentError.value(
+        fieldName,
+        'fieldName',
+        'Unsupported dashboard item ranking field',
+      ),
+    };
+  }
+
+  Stream<List<Map<String, dynamic>>> dashboardTopItemsStream(String fieldName) {
+    if (fieldName != 'sales_qty' && fieldName != 'sales_value') {
+      throw ArgumentError.value(
+        fieldName,
+        'fieldName',
+        'Unsupported dashboard item ranking field',
+      );
+    }
+
+    if (dashboardPeriod == 'all-time' &&
+        accesslevel.toLowerCase() == 'super admin') {
+      return top10BestSellingItems(fieldName);
+    }
+
+    return periodDashboardSummaryStream().map(
+      (summary) => fieldName == 'sales_qty'
+          ? summary.topQuantityItems
+          : summary.topFinancialItems,
+    );
+  }
+
   Stream<PeriodDashboardSummary> periodDashboardSummaryStream() {
     if (companyid.isEmpty) {
       return Stream.value(
@@ -218,6 +286,10 @@ class Datafeed extends ChangeNotifier {
         ),
       );
     }
+    final streamKey = periodDashboardSummaryCacheKey;
+    final existingController = _periodDashboardSummaryControllers[streamKey];
+    if (existingController != null) return existingController.stream;
+
     Query<Map<String, dynamic>> query = db
         .collection('salesSummary')
         .where('companyid', isEqualTo: companyid);
@@ -230,82 +302,107 @@ class Datafeed extends ChangeNotifier {
           )
           .where('summarydate', isLessThan: _dashboardDateString(range.end));
     }
-    return query.snapshots().map((snapshot) {
-      double sales = 0;
-      double cash = 0;
-      double credit = 0;
-      double momo = 0;
-      double debtPaymentsMomo = 0;
-      final branchTotals = <String, double>{};
-      final items = <String, Map<String, dynamic>>{};
-      final branchIdFilter = accesslevel.toLowerCase() == 'super admin'
-          ? null
-          : branchid;
 
-      for (final doc in snapshot.docs) {
-        final branches = doc.data()['branchSummary'];
-        if (branches is! Map) continue;
-        for (final entry in branches.entries) {
-          if (branchIdFilter != null &&
-              entry.key.toString() != branchIdFilter) {
-            continue;
-          }
-          if (entry.value is! Map) continue;
-          final branch = Map<String, dynamic>.from(entry.value as Map);
-          final branchName = (branch['branchName'] ?? entry.key).toString();
-          final branchSales = toDouble(
-            branch['branchsales_value'] ?? branch['sales_value'],
-          );
-          final branchCredit = toDouble(branch['credit']);
-          sales += branchSales;
-          cash += branchSales - branchCredit;
-          credit += branchCredit;
-          momo += toDouble(branch['momo'] ?? branch['merchantmomo']);
-          debtPaymentsMomo += toDouble(branch['debtpay_momo']);
-          branchTotals[branchName] =
-              (branchTotals[branchName] ?? 0) + branchSales;
+    Stream<PeriodDashboardSummary> createSummaryStream() {
+      return query.snapshots().map((snapshot) {
+        double sales = 0;
+        double cash = 0;
+        double credit = 0;
+        double momo = 0;
+        double debtPaymentsMomo = 0;
+        final branchTotals = <String, double>{};
+        final items = <String, Map<String, dynamic>>{};
+        final branchIdFilter = accesslevel.toLowerCase() == 'super admin'
+            ? null
+            : branchid;
 
-          final branchItems = branch['items'];
-          if (branchItems is! Map) continue;
-          for (final itemEntry in branchItems.entries) {
-            if (itemEntry.value is! Map) continue;
-            final item = Map<String, dynamic>.from(itemEntry.value as Map);
-            final id = itemEntry.key.toString();
-            final aggregate = items.putIfAbsent(
-              id,
-              () => {
-                'itemid': id,
-                'item': item['itemName'] ?? id,
-                'sales_qty': 0.0,
-                'sales_value': 0.0,
-              },
+        for (final doc in snapshot.docs) {
+          final branches = doc.data()['branchSummary'];
+          if (branches is! Map) continue;
+          for (final entry in branches.entries) {
+            if (branchIdFilter != null &&
+                entry.key.toString() != branchIdFilter) {
+              continue;
+            }
+            if (entry.value is! Map) continue;
+            final branch = Map<String, dynamic>.from(entry.value as Map);
+            final branchName = (branch['branchName'] ?? entry.key).toString();
+            final branchSales = toDouble(
+              branch['branchsales_value'] ?? branch['sales_value'],
             );
-            aggregate['sales_qty'] =
-                toDouble(aggregate['sales_qty']) + toDouble(item['sales_qty']);
-            aggregate['sales_value'] =
-                toDouble(aggregate['sales_value']) +
-                toDouble(item['sales_value']);
+            final branchCredit = toDouble(branch['credit']);
+            sales += branchSales;
+            cash += branchSales - branchCredit;
+            credit += branchCredit;
+            momo += toDouble(branch['momo'] ?? branch['merchantmomo']);
+            debtPaymentsMomo += toDouble(branch['debtpay_momo']);
+            branchTotals[branchName] =
+                (branchTotals[branchName] ?? 0) + branchSales;
+
+            final branchItems = branch['items'];
+            if (branchItems is! Map) continue;
+            for (final itemEntry in branchItems.entries) {
+              if (itemEntry.value is! Map) continue;
+              final item = Map<String, dynamic>.from(itemEntry.value as Map);
+              final id = itemEntry.key.toString();
+              final aggregate = items.putIfAbsent(
+                id,
+                () => {
+                  'itemid': id,
+                  'item': item['itemName'] ?? id,
+                  'sales_qty': 0.0,
+                  'sales_value': 0.0,
+                },
+              );
+              aggregate['sales_qty'] =
+                  toDouble(aggregate['sales_qty']) +
+                  toDouble(item['sales_qty']);
+              aggregate['sales_value'] =
+                  toDouble(aggregate['sales_value']) +
+                  toDouble(item['sales_value']);
+            }
           }
         }
-      }
 
-      List<Map<String, dynamic>> topItems(String field) {
-        final result = items.values.toList()
-          ..sort((a, b) => toDouble(b[field]).compareTo(toDouble(a[field])));
-        return result.take(10).toList();
-      }
+        List<Map<String, dynamic>> topItems(String field) {
+          final result = items.values.toList()
+            ..sort((a, b) => toDouble(b[field]).compareTo(toDouble(a[field])));
+          return result.take(10).toList();
+        }
 
-      return PeriodDashboardSummary(
-        sales: sales,
-        cash: cash,
-        credit: credit,
-        momo: momo,
-        debtPaymentsMomo: debtPaymentsMomo,
-        branchTotals: branchTotals,
-        topQuantityItems: topItems('sales_qty'),
-        topFinancialItems: topItems('sales_value'),
-      );
-    });
+        return PeriodDashboardSummary(
+          sales: sales,
+          cash: cash,
+          credit: credit,
+          momo: momo,
+          debtPaymentsMomo: debtPaymentsMomo,
+          branchTotals: branchTotals,
+          topQuantityItems: topItems('sales_qty'),
+          topFinancialItems: topItems('sales_value'),
+        );
+      });
+    }
+
+    late final StreamController<PeriodDashboardSummary> controller;
+    controller = StreamController<PeriodDashboardSummary>.broadcast(
+      onListen: () {
+        final cached = _periodDashboardSummaryCache[streamKey];
+        if (cached != null) controller.add(cached);
+
+        if (!_periodDashboardSummarySubscriptions.containsKey(streamKey)) {
+          _periodDashboardSummarySubscriptions[streamKey] =
+              createSummaryStream().listen((summary) {
+                _periodDashboardSummaryCache[streamKey] = summary;
+                controller.add(summary);
+              }, onError: controller.addError);
+        }
+      },
+      onCancel: () {
+        _periodDashboardSummarySubscriptions.remove(streamKey)?.cancel();
+      },
+    );
+    _periodDashboardSummaryControllers[streamKey] = controller;
+    return controller.stream;
   }
 
   Stream<double> dashboardTotalSalesStream() {
@@ -363,12 +460,21 @@ class Datafeed extends ChangeNotifier {
     });
   }
 
-  Stream<List<Map<String, dynamic>>> top10BestSellingItems(fieldname) {
-    return FirebaseFirestore.instance
+  Stream<List<Map<String, dynamic>>> top10BestSellingItems(String fieldName) {
+    if (fieldName != 'sales_value' && fieldName != 'sales_qty') {
+      throw ArgumentError.value(
+        fieldName,
+        'fieldName',
+        'Unsupported top-selling item field',
+      );
+    }
+    if (companyid.isEmpty) return Stream.value(const []);
+
+    return db
         .collection('itemsreg')
         .where('companyid', isEqualTo: companyid)
-        .where(fieldname, isGreaterThan: 0)
-        .orderBy(fieldname, descending: true)
+        .where(fieldName, isGreaterThan: 0)
+        .orderBy(fieldName, descending: true)
         .limit(10)
         .snapshots()
         .map((snapshot) {
@@ -619,16 +725,18 @@ class Datafeed extends ChangeNotifier {
       double cash = 0;
       double credit = 0;
       double momo = 0;
+      double discount = 0;
 
       final Map<String, double> branchTotals = {};
 
       if (accesslevel.toLowerCase() == 'super admin') {
+        discount = (data['company_Discount'] as num?)?.toDouble() ?? 0;
         totalToday = (data['companysales_value'] as num?)?.toDouble() ?? 0;
 
         credit = (data['credit'] as num?)?.toDouble() ?? 0;
 
         // Everything except credit is considered cash
-        cash = totalToday - credit;
+        cash = (totalToday - credit)-discount;
         momo = 0;
 
         final branches = Map<String, dynamic>.from(data['branchSummary'] ?? {});
@@ -644,13 +752,14 @@ class Datafeed extends ChangeNotifier {
 
         if (branches.containsKey(branchid)) {
           final branch = Map<String, dynamic>.from(branches[branchid]);
+          discount = (branch['branch_Discount'] as num?)?.toDouble() ?? 0;
 
           totalToday = (branch['branchsales_value'] as num?)?.toDouble() ?? 0;
 
           credit = (branch['credit'] as num?)?.toDouble() ?? 0;
 
           // Everything except credit is considered cash
-          cash = totalToday - credit;
+          cash = (totalToday - credit) -discount;
           momo = 0;
 
           branchTotals[branch['branchName'] ?? branchid] = totalToday;
@@ -1190,7 +1299,10 @@ class Datafeed extends ChangeNotifier {
     String? selectedBranch,
   }) async {
     isloadingdamages = true;
-    damages = [];
+    final locallyPendingDamages = damages
+        .where((damage) => damage.pendingSync)
+        .toList();
+    damages = locallyPendingDamages;
     notifyListeners();
 
     try {
@@ -1237,17 +1349,51 @@ class Datafeed extends ChangeNotifier {
         return false;
       }
 
-      damages = snap.docs
+      final fetchedDamages = snap.docs
           .where((doc) => matchesBranch(doc.data()))
-          .map((doc) => damageitemmodel.fromfirestore(doc.data(), doc.id))
+          .map(
+            (doc) => damageitemmodel
+                .fromfirestore(doc.data(), doc.id)
+                .copyWith(pendingSync: doc.metadata.hasPendingWrites),
+          )
           .toList();
+      final fetchedIds = fetchedDamages.map((damage) => damage.id).toSet();
+      damages = [
+        ...fetchedDamages,
+        ...locallyPendingDamages.where(
+          (damage) => !fetchedIds.contains(damage.id),
+        ),
+      ];
     } catch (e) {
       debugPrint('Error fetching damages: $e');
-      damages = [];
     } finally {
       isloadingdamages = false;
       notifyListeners();
     }
+  }
+
+  void addPendingDamage(damageitemmodel damage) {
+    damages.removeWhere((existing) => existing.id == damage.id);
+    damages.insert(0, damage.copyWith(pendingSync: true));
+    notifyListeners();
+  }
+
+  void markDamageSynced(String id) {
+    final index = damages.indexWhere((damage) => damage.id == id);
+    if (index == -1) return;
+    damages[index] = damages[index].copyWith(pendingSync: false);
+    notifyListeners();
+  }
+
+  void restoreDamageAfterFailedOfflineSave(
+    String id,
+    damageitemmodel? previousDamage,
+  ) {
+    damages.removeWhere((damage) => damage.id == id);
+    if (previousDamage != null) {
+      damages.insert(0, previousDamage.copyWith(pendingSync: false));
+    }
+    notifyListeners();
   }
 
   bool _disposed = false;
@@ -1270,6 +1416,9 @@ class Datafeed extends ChangeNotifier {
     DateTimeRange? selectedDate,
     String? selectedBranch,
   }) async {
+    final locallyPendingReturns = salesreturn
+        .where((record) => record.pendingSync)
+        .toList();
     try {
       isloadingsalesreturn = true;
 
@@ -1302,15 +1451,52 @@ class Datafeed extends ChangeNotifier {
         const GetOptions(source: Source.serverAndCache),
       );
 
-      salesreturn = snap.docs
-          .map((doc) => salereturn.fromfirestore(doc.data(), doc.id))
+      final fetchedReturns = snap.docs
+          .map(
+            (doc) => salereturn.fromfirestore(
+              doc.data(),
+              doc.id,
+              pendingSync: doc.metadata.hasPendingWrites,
+            ),
+          )
           .toList();
+      final fetchedIds = fetchedReturns.map((record) => record.id).toSet();
+      salesreturn = [
+        ...fetchedReturns,
+        ...locallyPendingReturns.where(
+          (record) => !fetchedIds.contains(record.id),
+        ),
+      ];
     } catch (e) {
       debugPrint("Error fetching Sales return: $e");
     }
 
     isloadingsalesreturn = false;
 
+    _notify();
+  }
+
+  void addPendingSalesReturn(salereturn record) {
+    salesreturn.removeWhere((existing) => existing.id == record.id);
+    salesreturn.insert(0, record.copyWith(pendingSync: true));
+    _notify();
+  }
+
+  void markSalesReturnSynced(String id) {
+    final index = salesreturn.indexWhere((record) => record.id == id);
+    if (index == -1) return;
+    salesreturn[index] = salesreturn[index].copyWith(pendingSync: false);
+    _notify();
+  }
+
+  void restoreSalesReturnAfterFailedOfflineSave(
+    String id,
+    salereturn? previousRecord,
+  ) {
+    salesreturn.removeWhere((record) => record.id == id);
+    if (previousRecord != null) {
+      salesreturn.insert(0, previousRecord.copyWith(pendingSync: false));
+    }
     _notify();
   }
 
@@ -1579,6 +1765,10 @@ class Datafeed extends ChangeNotifier {
 
   List<Map<String, dynamic>> branchReport = [];
   List<Map<String, dynamic>> branchReportitem = [];
+  final Map<String, List<Map<String, dynamic>>> _salesReportRawCache = {};
+  bool salesReportHasVisibleData = false;
+  int _salesReportRequestGeneration = 0;
+  String? salesReportError;
   // branch-level totals
   double branchTotalCashSales = 0;
   double branchTotalCreditSales = 0;
@@ -1602,51 +1792,118 @@ class Datafeed extends ChangeNotifier {
     String? productType,
     String? category,
   }) async {
+    final requestGeneration = ++_salesReportRequestGeneration;
+    final now = DateTime.now();
+    final startStr = _toDateOnly(selectedDate?.start ?? now);
+    final endStr = _toDateOnly(selectedDate?.end ?? now);
+    final cacheKey = '$companyid|$startStr|$endStr';
+
+    Query<Map<String, dynamic>> query = db
+        .collection('salesSummary')
+        .where('companyid', isEqualTo: companyid)
+        .where('summarydate', isGreaterThanOrEqualTo: startStr)
+        .where('summarydate', isLessThanOrEqualTo: endStr);
+
     try {
       isloadingsalesreport = true;
-      notifyListeners();
+      salesReportError = null;
+      final inMemoryRaw = _salesReportRawCache[cacheKey];
+      if (_salesReportRawCache.containsKey(cacheKey)) {
+        _applySalesReportData(
+          inMemoryRaw!,
+          selectedBranch: selectedBranch,
+          productType: productType,
+          category: category,
+        );
+        salesReportHasVisibleData = true;
+        notifyListeners();
+      } else {
+        salesReportHasVisibleData = false;
+        salesReportRaw = [];
+        report.clear();
+        branchReport.clear();
+        notifyListeners();
 
-      report.clear();
-      branchReport.clear();
+        try {
+          final cachedSnapshot = await query.get(
+            const GetOptions(source: Source.cache),
+          );
+          if (requestGeneration != _salesReportRequestGeneration) return;
+          if (cachedSnapshot.docs.isNotEmpty) {
+            final cachedRaw = cachedSnapshot.docs
+                .map((doc) => doc.data())
+                .toList();
+            _cacheSalesReportRaw(cacheKey, cachedRaw);
+            _applySalesReportData(
+              cachedRaw,
+              selectedBranch: selectedBranch,
+              productType: productType,
+              category: category,
+            );
+            salesReportHasVisibleData = true;
+            notifyListeners();
+          }
+        } on FirebaseException catch (error) {
+          if (requestGeneration != _salesReportRequestGeneration) return;
+          debugPrint('Sales report cache lookup failed: $error');
+        }
+      }
 
-      final now = DateTime.now();
-      final startStr = _toDateOnly(selectedDate?.start ?? now);
-      final endStr = _toDateOnly(selectedDate?.end ?? now);
-
-      final snap = await db
-          .collection('salesSummary')
-          .where('companyid', isEqualTo: companyid)
-          .where('summarydate', isGreaterThanOrEqualTo: startStr)
-          .where('summarydate', isLessThanOrEqualTo: endStr)
-          .get(const GetOptions(source: Source.serverAndCache));
-
-      final raw = snap.docs
-          .map((doc) => doc.data() as Map<String, dynamic>)
-          .toList();
-      salesReportRaw = raw;
-      _collectReportFilters(raw);
-
-      report = raw.isEmpty ? [] : extractItems(raw, selectedBranch);
-      branchReport = _buildBranchReport(
+      final snapshot = await query.get(const GetOptions(source: Source.server));
+      if (requestGeneration != _salesReportRequestGeneration) return;
+      final raw = snapshot.docs.map((doc) => doc.data()).toList();
+      _cacheSalesReportRaw(cacheKey, raw);
+      _applySalesReportData(
         raw,
-        selectedBranch,
-        productType,
-        category,
+        selectedBranch: selectedBranch,
+        productType: productType,
+        category: category,
       );
-
-      _computeReportTotals();
-      _computeBranchReportTotals();
+      salesReportHasVisibleData = true;
     } catch (e) {
-      print("fetchsalesreport error: $e");
-      salesReportRaw = [];
-      report = [];
-      branchReport = [];
-      _computeReportTotals();
-      _computeBranchReportTotals();
+      if (requestGeneration != _salesReportRequestGeneration) return;
+      debugPrint("fetchsalesreport error: $e");
+      salesReportError = 'Unable to refresh the sales report: $e';
+      if (!salesReportHasVisibleData) {
+        salesReportRaw = [];
+        report = [];
+        branchReport = [];
+        _computeReportTotals();
+        _computeBranchReportTotals();
+      }
     } finally {
-      isloadingsalesreport = false;
-      notifyListeners();
+      if (requestGeneration == _salesReportRequestGeneration) {
+        isloadingsalesreport = false;
+        notifyListeners();
+      }
     }
+  }
+
+  void _cacheSalesReportRaw(String cacheKey, List<Map<String, dynamic>> raw) {
+    _salesReportRawCache.remove(cacheKey);
+    _salesReportRawCache[cacheKey] = raw;
+    if (_salesReportRawCache.length > 5) {
+      _salesReportRawCache.remove(_salesReportRawCache.keys.first);
+    }
+  }
+
+  void _applySalesReportData(
+    List<Map<String, dynamic>> raw, {
+    String? selectedBranch,
+    String? productType,
+    String? category,
+  }) {
+    salesReportRaw = raw;
+    _collectReportFilters(raw);
+    report = raw.isEmpty ? [] : extractItems(raw, selectedBranch);
+    branchReport = _buildBranchReport(
+      raw,
+      selectedBranch,
+      productType,
+      category,
+    );
+    _computeReportTotals();
+    _computeBranchReportTotals();
   }
 
   void applySalesReportFilter({
@@ -2220,46 +2477,46 @@ class Datafeed extends ChangeNotifier {
   }
 
   bool isloadingbranchitem = false;
+  int _branchItemsRequestGeneration = 0;
+
   Future<void> loadBranchItemsReport({
     required DateTime startDate,
     required DateTime endDate,
     String? branchId,
   }) async {
+    final requestGeneration = ++_branchItemsRequestGeneration;
+    final startStr = _toDateOnly(startDate);
+    final endStr = _toDateOnly(endDate);
+    final query = db
+        .collection('salesSummary')
+        .where('companyid', isEqualTo: companyid)
+        .where('summarydate', isGreaterThanOrEqualTo: startStr)
+        .where('summarydate', isLessThanOrEqualTo: endStr);
+
     isloadingbranchitem = true;
     notifyListeners();
 
     try {
-      final List<String> dateStrings = [];
-      DateTime cursor = DateTime(
-        startDate.year,
-        startDate.month,
-        startDate.day,
+      await _loadQueryCacheFirst(
+        query,
+        isCurrent: () => requestGeneration == _branchItemsRequestGeneration,
+        label: 'Sales branch items report',
+        apply: (snapshot) {
+          final fetched = snapshot.docs.map((doc) => doc.data()).toList();
+          branchReportitem = extractBranchItems(fetched, branchId);
+          notifyListeners();
+        },
       );
-      final endDay = DateTime(endDate.year, endDate.month, endDate.day);
-      while (!cursor.isAfter(endDay)) {
-        dateStrings.add(DateFormat('yyyy-MM-dd').format(cursor));
-        cursor = cursor.add(const Duration(days: 1));
-      }
-
-      final List<Map<String, dynamic>> fetched = [];
-
-      for (final dateStr in dateStrings) {
-        final docId = '${companyid}_$dateStr';
-        final doc = await db.collection('salesSummary').doc(docId).get();
-
-        if (doc.exists && doc.data() != null) {
-          fetched.add(doc.data()! as Map<String, dynamic>);
-        }
-      }
-
-      branchReportitem = extractBranchItems(fetched, branchId);
     } catch (e) {
+      if (requestGeneration != _branchItemsRequestGeneration) return;
       debugPrint('loadBranchItemsReport error: $e');
-      report = [];
+      branchReportitem = [];
     }
 
-    isloadingbranchitem = false;
-    notifyListeners();
+    if (requestGeneration == _branchItemsRequestGeneration) {
+      isloadingbranchitem = false;
+      notifyListeners();
+    }
   }
 
   double _d(dynamic v) {
@@ -2724,6 +2981,10 @@ class Datafeed extends ChangeNotifier {
   }
 
   List<Map<String, dynamic>> salesStaffRows = [];
+  int _salesStaffSummaryRequestGeneration = 0;
+  int _salesStaffTransactionsRequestGeneration = 0;
+  int _itemSalesTransactionsRequestGeneration = 0;
+  int _stockTransactionsRequestGeneration = 0;
 
   List<Map<String, dynamic>> salesTransactions = [];
   List<Map<String, dynamic>> itemTransactions = [];
@@ -2733,6 +2994,96 @@ class Datafeed extends ChangeNotifier {
       "${d.year.toString().padLeft(4, '0')}-"
       "${d.month.toString().padLeft(2, '0')}-"
       "${d.day.toString().padLeft(2, '0')}";
+
+  Future<void> _loadQueryCacheFirst<T>(
+    Query<T> query, {
+    required bool Function() isCurrent,
+    required void Function(QuerySnapshot<T>) apply,
+    required String label,
+  }) async {
+    try {
+      final cached = await query.get(const GetOptions(source: Source.cache));
+      if (!isCurrent()) return;
+      if (cached.docs.isNotEmpty) {
+        apply(cached);
+        unawaited(() async {
+          try {
+            final fresh = await query.get(
+              const GetOptions(source: Source.server),
+            );
+            if (isCurrent()) apply(fresh);
+          } catch (error) {
+            debugPrint('$label online refresh failed: $error');
+          }
+        }());
+        return;
+      }
+    } on FirebaseException catch (error) {
+      debugPrint('$label cache lookup failed: $error');
+    }
+
+    if (!isCurrent()) return;
+    final fresh = await query.get(const GetOptions(source: Source.server));
+    if (isCurrent()) apply(fresh);
+  }
+
+  Future<void> _loadQueryPairCacheFirst<T>(
+    Query<T> firstQuery,
+    Query<T> secondQuery, {
+    required bool Function() isCurrent,
+    required void Function(QuerySnapshot<T>, QuerySnapshot<T>) apply,
+    required String label,
+  }) async {
+    await _loadQueriesCacheFirst(
+      [firstQuery, secondQuery],
+      isCurrent: isCurrent,
+      apply: (snapshots) => apply(snapshots[0], snapshots[1]),
+      label: label,
+    );
+  }
+
+  Future<void> _loadQueriesCacheFirst<T>(
+    List<Query<T>> queries, {
+    required bool Function() isCurrent,
+    required void Function(List<QuerySnapshot<T>>) apply,
+    required String label,
+  }) async {
+    try {
+      final cached = await Future.wait(
+        queries.map(
+          (query) => query.get(const GetOptions(source: Source.cache)),
+        ),
+      );
+      if (!isCurrent()) return;
+      if (cached.any((snapshot) => snapshot.docs.isNotEmpty)) {
+        apply(cached);
+        unawaited(() async {
+          try {
+            final fresh = await Future.wait(
+              queries.map(
+                (query) => query.get(const GetOptions(source: Source.server)),
+              ),
+            );
+            if (isCurrent()) apply(fresh);
+          } catch (error) {
+            debugPrint('$label online refresh failed: $error');
+          }
+        }());
+        return;
+      }
+    } on FirebaseException catch (error) {
+      debugPrint('$label cache lookup failed: $error');
+    }
+
+    if (!isCurrent()) return;
+    final fresh = await Future.wait(
+      queries.map(
+        (query) => query.get(const GetOptions(source: Source.server)),
+      ),
+    );
+    if (isCurrent()) apply(fresh);
+  }
+
   double _n(dynamic v) =>
       v == null ? 0.0 : double.tryParse(v.toString()) ?? 0.0;
   DateTime _startOfWeek(DateTime date) =>
@@ -2809,7 +3160,13 @@ class Datafeed extends ChangeNotifier {
   }
 
   List<Map<String, dynamic>> _rawStockDocs = [];
+  final Map<String, List<Map<String, dynamic>>> _stockReportRawCache = {};
   DateTime _stockStartDate = DateTime.now();
+  bool isLoadingStockReport = false;
+  bool stockReportHasVisibleData = false;
+  String? stockReportError;
+  int _stockReportRequestGeneration = 0;
+
   void applyStockBranch(String? selectedBranch) {
     if (_rawStockDocs.isEmpty) return;
     stockreport = extractstockReport(
@@ -2824,68 +3181,82 @@ class Datafeed extends ChangeNotifier {
     DateTimeRange? selectedDate,
     String? selectedBranch,
   }) async {
+    final requestGeneration = ++_stockReportRequestGeneration;
+    final now = DateTime.now();
+    final startDate = DateTime(
+      (selectedDate?.start ?? now).year,
+      (selectedDate?.start ?? now).month,
+      (selectedDate?.start ?? now).day,
+    );
+    final endDate = DateTime(
+      (selectedDate?.end ?? now).year,
+      (selectedDate?.end ?? now).month,
+      (selectedDate?.end ?? now).day,
+    );
+    final startStr = _toDateOnly(startDate);
+    final endStr = _toDateOnly(endDate);
+    final cacheKey = '$companyid|$startStr|$endStr';
+    final openingQuery = db
+        .collection('stockreport')
+        .where('summarydate', isLessThan: startStr)
+        .where('companyid', isEqualTo: companyid);
+    final currentQuery = db
+        .collection('stockreport')
+        .where('summarydate', isGreaterThanOrEqualTo: startStr)
+        .where('summarydate', isLessThanOrEqualTo: endStr)
+        .where('companyid', isEqualTo: companyid);
+
     try {
-      isloadingsalesreport = true;
-      notifyListeners();
-
-      stockreport.clear();
-
-      final now = DateTime.now();
-
-      final startDate = DateTime(
-        (selectedDate?.start ?? now).year,
-        (selectedDate?.start ?? now).month,
-        (selectedDate?.start ?? now).day,
-      );
-
-      final endDate = DateTime(
-        (selectedDate?.end ?? now).year,
-        (selectedDate?.end ?? now).month,
-        (selectedDate?.end ?? now).day,
-      );
-
-      final startStr = _toDateOnly(startDate);
-      final endStr = _toDateOnly(endDate);
-
-      // OPENING BALANCE
-      final openingQuery = await db
-          .collection('stockreport')
-          .where('summarydate', isLessThan: startStr)
-          .where('companyid', isEqualTo: companyid)
-          .get(const GetOptions(source: Source.serverAndCache));
-
-      // CURRENT PERIOD
-      final currentQuery = await db
-          .collection('stockreport')
-          .where('summarydate', isGreaterThanOrEqualTo: startStr)
-          .where('summarydate', isLessThanOrEqualTo: endStr)
-          .where('companyid', isEqualTo: companyid)
-          .get(const GetOptions(source: Source.serverAndCache));
-
-      final allDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[
-        ...openingQuery.docs,
-        ...currentQuery.docs,
-      ];
-
-      if (allDocs.isEmpty) {
+      isLoadingStockReport = true;
+      stockReportError = null;
+      final cachedRaw = _stockReportRawCache[cacheKey];
+      if (cachedRaw != null) {
+        _rawStockDocs = cachedRaw;
+        _stockStartDate = startDate;
+        stockreport = extractstockReport(cachedRaw, selectedBranch, startDate);
+        stockReportHasVisibleData = true;
+      } else {
+        stockReportHasVisibleData = false;
         stockreport = [];
-        return;
       }
-
-      final raw = allDocs.map((e) {
-        final data = Map<String, dynamic>.from(e.data());
-        data['_docId'] = e.id;
-        return data;
-      }).toList();
-      _rawStockDocs = raw;
-      _stockStartDate = startDate;
-      stockreport = extractstockReport(raw, selectedBranch, startDate);
-    } catch (e) {
-      print("Error fetching stock report: $e");
-      stockreport = [];
-    } finally {
-      isloadingsalesreport = false;
       notifyListeners();
+
+      await _loadQueryPairCacheFirst(
+        openingQuery,
+        currentQuery,
+        isCurrent: () => requestGeneration == _stockReportRequestGeneration,
+        label: 'Stock report',
+        apply: (openingSnapshot, currentSnapshot) {
+          final allDocs = [...openingSnapshot.docs, ...currentSnapshot.docs];
+          final raw = allDocs.map((doc) {
+            final data = Map<String, dynamic>.from(doc.data());
+            data['_docId'] = doc.id;
+            return data;
+          }).toList();
+          _rawStockDocs = raw;
+          _stockStartDate = startDate;
+          _stockReportRawCache.remove(cacheKey);
+          _stockReportRawCache[cacheKey] = raw;
+          if (_stockReportRawCache.length > 5) {
+            _stockReportRawCache.remove(_stockReportRawCache.keys.first);
+          }
+          stockreport = raw.isEmpty
+              ? []
+              : extractstockReport(raw, selectedBranch, startDate);
+          stockReportHasVisibleData = true;
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      if (requestGeneration != _stockReportRequestGeneration) return;
+      stockReportError = 'Unable to load the stock report: $e';
+      debugPrint(stockReportError);
+      if (!stockReportHasVisibleData) stockreport = [];
+    } finally {
+      if (requestGeneration == _stockReportRequestGeneration) {
+        isLoadingStockReport = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -3240,7 +3611,7 @@ class Datafeed extends ChangeNotifier {
     required String itemName,
     required String? selectedBranch,
   }) async {
-    final List<Map<String, dynamic>> transactions = [];
+    final requestGeneration = ++_stockTransactionsRequestGeneration;
 
     final isAllBranches =
         selectedBranch == null ||
@@ -3250,264 +3621,273 @@ class Datafeed extends ChangeNotifier {
     final startStr = _toDateOnly(startDate);
     final endStr = _toDateOnly(endDate);
 
-    // ONE query to establish the opening balance (everything before the range)
-    final openingSnap = await db
+
+    final openingQuery = db
         .collection('stockreport')
         .where('companyid', isEqualTo: companyid)
-        .where('summarydate', isLessThan: startStr)
-        .get(const GetOptions(source: Source.serverAndCache));
+        .where('summarydate', isLessThan: startStr);
 
-    // ONE query for the whole range, ASCENDING so we can walk forward and
-    // accumulate a running balance instead of recomputing it every day.
-    final currentSnap = await db
+
+    final currentQuery = db
         .collection('stockreport')
         .where('companyid', isEqualTo: companyid)
         .where('summarydate', isGreaterThanOrEqualTo: startStr)
         .where('summarydate', isLessThanOrEqualTo: endStr)
-        .orderBy('summarydate', descending: false)
-        .get(const GetOptions(source: Source.serverAndCache));
+        .orderBy('summarydate', descending: false);
 
-    Map<String, dynamic> _buildBalanceOnlyRow({
-      required String date,
-      required String branch,
-      required double opening,
-      double boxpieces = 1.0,
-    }) {
-      return {
-        'date': date,
-        'item': itemName,
-        'itemId': itemId,
-        'branch': branch,
-        'opening_stock': opening,
-        'newstock': 0.0,
-        'sales_qty': 0.0,
-        'credit_sales': 0.0,
-        'cash_sales': 0.0,
-        'sale_returns': 0.0,
-        'purchase_returns': 0.0,
-        'damages': 0.0,
-        'transfer': 0.0,
-        'transfer_recieved_qty': 0.0,
-        'total_stock': opening,
-        'stock_out': 0.0,
-        'boxpieces': boxpieces,
-        'balance_cd': opening,
-      };
-    }
+    await _loadQueryPairCacheFirst(
+      openingQuery,
+      currentQuery,
+      isCurrent: () => requestGeneration == _stockTransactionsRequestGeneration,
+      label: 'Stock movement transactions',
+      apply: (openingSnap, currentSnap) {
+        final List<Map<String, dynamic>> transactions = [];
+        Map<String, dynamic> _buildBalanceOnlyRow({
+          required String date,
+          required String branch,
+          required double opening,
+          double boxpieces = 1.0,
+        }) {
+          return {
+            'date': date,
+            'item': itemName,
+            'itemId': itemId,
+            'branch': branch,
+            'opening_stock': opening,
+            'newstock': 0.0,
+            'sales_qty': 0.0,
+            'credit_sales': 0.0,
+            'cash_sales': 0.0,
+            'sale_returns': 0.0,
+            'purchase_returns': 0.0,
+            'damages': 0.0,
+            'transfer': 0.0,
+            'transfer_recieved_qty': 0.0,
+            'total_stock': opening,
+            'stock_out': 0.0,
+            'boxpieces': boxpieces,
+            'balance_cd': opening,
+          };
+        }
 
-    // Running balance — starts as the balance carried into the range.
-    double runningBalance = _computeOpeningBalanceFromDocs(
-      openingDocs: openingSnap.docs,
-      targetItemId: itemId,
-      isAllBranches: isAllBranches,
-      selectedBranch: selectedBranch,
-    );
+        // Running balance — starts as the balance carried into the range.
+        double runningBalance = _computeOpeningBalanceFromDocs(
+          openingDocs: openingSnap.docs,
+          targetItemId: itemId,
+          isAllBranches: isAllBranches,
+          selectedBranch: selectedBranch,
+        );
 
-    for (final doc in currentSnap.docs) {
-      final data = doc.data();
-      final dateStr = data['summarydate']?.toString() ?? '';
-      if (dateStr.isEmpty) continue;
+        for (final doc in currentSnap.docs) {
+          final data = doc.data();
+          final dateStr = data['summarydate']?.toString() ?? '';
+          if (dateStr.isEmpty) continue;
 
-      final itemsRoot = data['items'] as Map<String, dynamic>?;
-      if (itemsRoot == null) continue;
+          final itemsRoot = data['items'] as Map<String, dynamic>?;
+          if (itemsRoot == null) continue;
 
-      Iterable<String> branchIds;
-      if (isAllBranches) {
-        branchIds = itemsRoot.entries
-            .where((e) => e.value is Map<String, dynamic>)
-            .map((e) => e.key);
-      } else {
-        if (!itemsRoot.containsKey(selectedBranch)) continue;
-        branchIds = [selectedBranch!];
-      }
+          Iterable<String> branchIds;
+          if (isAllBranches) {
+            branchIds = itemsRoot.entries
+                .where((e) => e.value is Map<String, dynamic>)
+                .map((e) => e.key);
+          } else {
+            if (!itemsRoot.containsKey(selectedBranch)) continue;
+            branchIds = [selectedBranch!];
+          }
 
-      final openingForThisDate = runningBalance;
+          final openingForThisDate = runningBalance;
 
-      if (isAllBranches) {
-        double newStock = 0,
-            boxpieces = 1.0,
-            salesReturn = 0,
-            transferReceiveQty = 0,
-            cashSales = 0,
-            salesQty = 0,
-            creditSales = 0,
-            purchaseRet = 0,
-            damages = 0,
-            transfer = 0;
-        bool found = false;
+          if (isAllBranches) {
+            double newStock = 0,
+                boxpieces = 1.0,
+                salesReturn = 0,
+                transferReceiveQty = 0,
+                cashSales = 0,
+                salesQty = 0,
+                creditSales = 0,
+                purchaseRet = 0,
+                damages = 0,
+                transfer = 0;
+            bool found = false;
 
-        for (final bId in branchIds) {
-          final branchData = itemsRoot[bId];
-          if (branchData is! Map<String, dynamic>) continue;
+            for (final bId in branchIds) {
+              final branchData = itemsRoot[bId];
+              if (branchData is! Map<String, dynamic>) continue;
 
-          for (final entry in branchData.entries) {
-            if (entry.key == 'branchId' || entry.key == 'branchName') continue;
-            if (entry.value is! Map<String, dynamic>) continue;
+              for (final entry in branchData.entries) {
+                if (entry.key == 'branchId' || entry.key == 'branchName')
+                  continue;
+                if (entry.value is! Map<String, dynamic>) continue;
 
-            final item = Map<String, dynamic>.from(entry.value);
-            final docItemId = (item['itemId'] ?? item['itemid'] ?? '')
-                .toString()
-                .trim();
-            if (docItemId != itemId.trim()) continue;
+                final item = Map<String, dynamic>.from(entry.value);
+                final docItemId = (item['itemId'] ?? item['itemid'] ?? '')
+                    .toString()
+                    .trim();
+                if (docItemId != itemId.trim()) continue;
 
-            newStock += _n(item['newstock']);
-            salesReturn += _n(item['salesReturn_qty']);
-            transferReceiveQty += _n(item['transfer_recieved_qty']);
-            salesQty += _n(item['sales_qty']);
-            cashSales += _n(item['cash_sales']);
-            creditSales += _n(item['credit_sales']);
-            purchaseRet += _n(item['purchaseReturn_qty']);
-            damages += _n(item['damage_qty']);
-            transfer += _n(item['transfer_qty']);
-            final bp = _n(item['boxpieces']);
-            if (bp > 0) boxpieces = bp;
-            found = true;
+                newStock += _n(item['newstock']);
+                salesReturn += _n(item['salesReturn_qty']);
+                transferReceiveQty += _n(item['transfer_recieved_qty']);
+                salesQty += _n(item['sales_qty']);
+                cashSales += _n(item['cash_sales']);
+                creditSales += _n(item['credit_sales']);
+                purchaseRet += _n(item['purchaseReturn_qty']);
+                damages += _n(item['damage_qty']);
+                transfer += _n(item['transfer_qty']);
+                final bp = _n(item['boxpieces']);
+                if (bp > 0) boxpieces = bp;
+                found = true;
+              }
+            }
+
+            if (!found) {
+              if (openingForThisDate != 0.0) {
+                transactions.add(
+                  _buildBalanceOnlyRow(
+                    date: dateStr,
+                    branch: company,
+                    opening: openingForThisDate,
+                    boxpieces: boxpieces > 0 ? boxpieces : 1.0,
+                  ),
+                );
+              }
+              // no activity → balance carries forward unchanged
+              continue;
+            }
+
+            final totalStock = openingForThisDate + newStock;
+            final stockOut = salesQty + purchaseRet + damages;
+            final closing = totalStock - stockOut;
+
+            transactions.add({
+              'date': dateStr,
+              'item': itemName,
+              'itemId': itemId,
+              'branch': company,
+              'opening_stock': openingForThisDate,
+              'newstock': newStock,
+              'sales_qty': salesQty,
+              'cash_sales': cashSales,
+              'credit_sales': creditSales,
+              'sale_returns': salesReturn,
+              'purchase_returns': purchaseRet,
+              'damages': damages,
+              'transfer': transfer,
+              'boxpieces': boxpieces > 0 ? boxpieces : 1.0,
+              'transfer_recieved_qty': transferReceiveQty,
+              'total_stock': totalStock,
+              'stock_out': stockOut,
+              'balance_cd': closing,
+            });
+
+            runningBalance = closing;
+          } else {
+            final branchData = itemsRoot[selectedBranch!];
+            if (branchData is! Map<String, dynamic>) continue;
+            final branchItems = Map<String, dynamic>.from(branchData);
+            final branchName =
+                branchItems['branchName']?.toString() ?? selectedBranch;
+
+            bool found = false;
+            double closingForBranch = openingForThisDate;
+
+            for (final entry in branchItems.entries) {
+              if (entry.key == 'branchId' || entry.key == 'branchName')
+                continue;
+              if (entry.value is! Map<String, dynamic>) continue;
+
+              final item = Map<String, dynamic>.from(entry.value);
+              final docItemId = (item['itemId'] ?? item['itemid'] ?? '')
+                  .toString()
+                  .trim();
+              if (docItemId != itemId.trim()) continue;
+
+              final newStock = _n(item['newstock']);
+              final transferReceive = _n(item['transfer_recieved_qty']);
+              final salesReturn = _n(item['salesReturn_qty']);
+              final salesQty = _n(item['sales_qty']);
+              final cashSales = _n(item['cash_sales']);
+              final creditSales = _n(item['credit_sales']);
+              final purchaseRet = _n(item['purchaseReturn_qty']);
+              final damages = _n(item['damage_qty']);
+              final transfer = _n(item['transfer_qty']);
+              final bp = _n(item['boxpieces']);
+
+              final totalStock =
+                  openingForThisDate + newStock + transferReceive;
+              final stockOut = salesQty + purchaseRet + damages + transfer;
+              final closing = totalStock - stockOut;
+
+              transactions.add({
+                'date': dateStr,
+                'item': item['item'] ?? itemName,
+                'itemId': docItemId,
+                'branch': branchName,
+                'opening_stock': openingForThisDate,
+                'newstock': newStock,
+                'sales_qty': salesQty,
+                'cash_sales': cashSales,
+                'credit_sales': creditSales,
+                'sale_returns': salesReturn,
+                'purchase_returns': purchaseRet,
+                'damages': damages,
+                'transfer': transfer,
+                'transfer_recieved_qty': transferReceive,
+                'total_stock': totalStock,
+                'boxpieces': bp > 0 ? bp : 1.0,
+                'stock_out': stockOut,
+                'balance_cd': closing,
+              });
+
+              found = true;
+              closingForBranch = closing;
+            }
+
+            if (!found && openingForThisDate != 0.0) {
+              transactions.add(
+                _buildBalanceOnlyRow(
+                  date: dateStr,
+                  branch: branchName,
+                  opening: openingForThisDate,
+                  boxpieces: 1.0,
+                ),
+              );
+            }
+
+            runningBalance = closingForBranch;
           }
         }
 
-        if (!found) {
-          if (openingForThisDate != 0.0) {
-            transactions.add(
+        // UI previously expected newest-first (docs were queried descending).
+        final ordered = transactions.reversed.toList();
+
+        if (ordered.isEmpty) {
+          final openingBalance = runningBalance == 0.0
+              ? _computeOpeningBalanceFromDocs(
+                  openingDocs: openingSnap.docs,
+                  targetItemId: itemId,
+                  isAllBranches: isAllBranches,
+                  selectedBranch: selectedBranch,
+                )
+              : runningBalance;
+
+          if (openingBalance != 0.0) {
+            ordered.add(
               _buildBalanceOnlyRow(
-                date: dateStr,
-                branch: company,
-                opening: openingForThisDate,
-                boxpieces: boxpieces > 0 ? boxpieces : 1.0,
+                date: startStr,
+                branch: isAllBranches ? company : selectedBranch!,
+                opening: openingBalance,
+                boxpieces: 1.0,
               ),
             );
           }
-          // no activity → balance carries forward unchanged
-          continue;
         }
 
-        final totalStock = openingForThisDate + newStock;
-        final stockOut = salesQty + purchaseRet + damages;
-        final closing = totalStock - stockOut;
-
-        transactions.add({
-          'date': dateStr,
-          'item': itemName,
-          'itemId': itemId,
-          'branch': company,
-          'opening_stock': openingForThisDate,
-          'newstock': newStock,
-          'sales_qty': salesQty,
-          'cash_sales': cashSales,
-          'credit_sales': creditSales,
-          'sale_returns': salesReturn,
-          'purchase_returns': purchaseRet,
-          'damages': damages,
-          'transfer': transfer,
-          'boxpieces': boxpieces > 0 ? boxpieces : 1.0,
-          'transfer_recieved_qty': transferReceiveQty,
-          'total_stock': totalStock,
-          'stock_out': stockOut,
-          'balance_cd': closing,
-        });
-
-        runningBalance = closing;
-      } else {
-        final branchData = itemsRoot[selectedBranch!];
-        if (branchData is! Map<String, dynamic>) continue;
-        final branchItems = Map<String, dynamic>.from(branchData);
-        final branchName =
-            branchItems['branchName']?.toString() ?? selectedBranch;
-
-        bool found = false;
-        double closingForBranch = openingForThisDate;
-
-        for (final entry in branchItems.entries) {
-          if (entry.key == 'branchId' || entry.key == 'branchName') continue;
-          if (entry.value is! Map<String, dynamic>) continue;
-
-          final item = Map<String, dynamic>.from(entry.value);
-          final docItemId = (item['itemId'] ?? item['itemid'] ?? '')
-              .toString()
-              .trim();
-          if (docItemId != itemId.trim()) continue;
-
-          final newStock = _n(item['newstock']);
-          final transferReceive = _n(item['transfer_recieved_qty']);
-          final salesReturn = _n(item['salesReturn_qty']);
-          final salesQty = _n(item['sales_qty']);
-          final cashSales = _n(item['cash_sales']);
-          final creditSales = _n(item['credit_sales']);
-          final purchaseRet = _n(item['purchaseReturn_qty']);
-          final damages = _n(item['damage_qty']);
-          final transfer = _n(item['transfer_qty']);
-          final bp = _n(item['boxpieces']);
-
-          final totalStock = openingForThisDate + newStock + transferReceive;
-          final stockOut = salesQty + purchaseRet + damages + transfer;
-          final closing = totalStock - stockOut;
-
-          transactions.add({
-            'date': dateStr,
-            'item': item['item'] ?? itemName,
-            'itemId': docItemId,
-            'branch': branchName,
-            'opening_stock': openingForThisDate,
-            'newstock': newStock,
-            'sales_qty': salesQty,
-            'cash_sales': cashSales,
-            'credit_sales': creditSales,
-            'sale_returns': salesReturn,
-            'purchase_returns': purchaseRet,
-            'damages': damages,
-            'transfer': transfer,
-            'transfer_recieved_qty': transferReceive,
-            'total_stock': totalStock,
-            'boxpieces': bp > 0 ? bp : 1.0,
-            'stock_out': stockOut,
-            'balance_cd': closing,
-          });
-
-          found = true;
-          closingForBranch = closing;
-        }
-
-        if (!found && openingForThisDate != 0.0) {
-          transactions.add(
-            _buildBalanceOnlyRow(
-              date: dateStr,
-              branch: branchName,
-              opening: openingForThisDate,
-              boxpieces: 1.0,
-            ),
-          );
-        }
-
-        runningBalance = closingForBranch;
-      }
-    }
-
-    // UI previously expected newest-first (docs were queried descending).
-    final ordered = transactions.reversed.toList();
-
-    if (ordered.isEmpty) {
-      final openingBalance = runningBalance == 0.0
-          ? _computeOpeningBalanceFromDocs(
-              openingDocs: openingSnap.docs,
-              targetItemId: itemId,
-              isAllBranches: isAllBranches,
-              selectedBranch: selectedBranch,
-            )
-          : runningBalance;
-
-      if (openingBalance != 0.0) {
-        ordered.add(
-          _buildBalanceOnlyRow(
-            date: startStr,
-            branch: isAllBranches ? company : selectedBranch!,
-            opening: openingBalance,
-            boxpieces: 1.0,
-          ),
-        );
-      }
-    }
-
-    stockTransactions = ordered;
-    notifyListeners();
+        stockTransactions = ordered;
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> loadSalesStaffSummary({
@@ -3516,154 +3896,167 @@ class Datafeed extends ChangeNotifier {
     required bool shouldFilterByBranch,
     required String selectedBranchId,
   }) async {
-    final Map<String, Map<String, dynamic>> grouped = {};
-
+    final requestGeneration = ++_salesStaffSummaryRequestGeneration;
     final startStr = _toDateOnly(startDate);
     final endStr = _toDateOnly(endDate);
 
-    final snap = await db
+    final query = db
         .collection('salesSummary')
         .where('companyid', isEqualTo: companyid)
         .where('summarydate', isGreaterThanOrEqualTo: startStr)
-        .where('summarydate', isLessThanOrEqualTo: endStr)
-        .get(const GetOptions(source: Source.serverAndCache));
+        .where('summarydate', isLessThanOrEqualTo: endStr);
 
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final staffSummary = data['staffSummary'] as Map<String, dynamic>? ?? {};
-      if (staffSummary.isEmpty) continue;
+    await _loadQueryCacheFirst(
+      query,
+      isCurrent: () => requestGeneration == _salesStaffSummaryRequestGeneration,
+      label: 'Sales staff summary',
+      apply: (snap) {
+        final Map<String, Map<String, dynamic>> grouped = {};
 
-      for (final branchEntry in staffSummary.entries) {
-        final branchId = branchEntry.key.trim().toLowerCase();
+        for (final doc in snap.docs) {
+          final data = doc.data();
+          final staffSummary =
+              data['staffSummary'] as Map<String, dynamic>? ?? {};
+          if (staffSummary.isEmpty) continue;
 
-        if (shouldFilterByBranch &&
-            branchId != selectedBranchId.trim().toLowerCase()) {
-          continue;
-        }
+          for (final branchEntry in staffSummary.entries) {
+            final branchId = branchEntry.key.trim().toLowerCase();
 
-        if (branchEntry.value is! Map) continue;
+            if (shouldFilterByBranch &&
+                branchId != selectedBranchId.trim().toLowerCase()) {
+              continue;
+            }
 
-        final branchMap = Map<String, dynamic>.from(branchEntry.value);
+            if (branchEntry.value is! Map) continue;
 
-        for (final staffEntry in branchMap.entries) {
-          final staffEmail = staffEntry.key;
+            final branchMap = Map<String, dynamic>.from(branchEntry.value);
 
-          if (staffEntry.value is! Map) continue;
+            for (final staffEntry in branchMap.entries) {
+              final staffEmail = staffEntry.key;
 
-          final staffData = Map<String, dynamic>.from(staffEntry.value);
+              if (staffEntry.value is! Map) continue;
 
-          final branchName = (staffData['branchName'] ?? '').toString();
-          final staffDisplayName = (staffData['staff'] ?? staffEmail)
-              .toString();
+              final staffData = Map<String, dynamic>.from(staffEntry.value);
 
-          final groupKey = '$branchId|$staffEmail';
+              final branchName = (staffData['branchName'] ?? '').toString();
+              final staffDisplayName = (staffData['staff'] ?? staffEmail)
+                  .toString();
 
-          grouped.putIfAbsent(
-            groupKey,
-            () => {
-              'staff': staffDisplayName,
-              'staffEmail': staffEmail,
-              'branchId': branchId,
-              'branchName': branchName,
-              'quantity': 0.0,
-              'cashSales': 0.0,
-              'creditSales': 0.0,
-              'creditReturns': 0.0,
-              'merchantmomo': 0.0,
-              'hubtel': 0.0,
-              'card': 0.0,
-              'bank': 0.0,
-              'cheque': 0.0,
-              'cashDiscount': 0.0,
-              'creditDiscount': 0.0,
-              'cashReturns': 0.0,
-              'profit': 0.0,
-              'debtPayment': 0.0,
-              'debtpayment_cash': 0.0,
-              'debtcard': 0.0,
-              'debtcheque': 0.0,
-              'debtbank': 0.0,
-              'debtmerchantmomo': 0.0,
-              'debthubtel': 0.0,
-              'cashAtHand': 0.0,
-            },
-          );
+              final groupKey = '$branchId|$staffEmail';
 
-          final row = grouped[groupKey]!;
+              grouped.putIfAbsent(
+                groupKey,
+                () => {
+                  'staff': staffDisplayName,
+                  'staffEmail': staffEmail,
+                  'branchId': branchId,
+                  'branchName': branchName,
+                  'quantity': 0.0,
+                  'cashSales': 0.0,
+                  'creditSales': 0.0,
+                  'creditReturns': 0.0,
+                  'merchantmomo': 0.0,
+                  'hubtel': 0.0,
+                  'card': 0.0,
+                  'bank': 0.0,
+                  'cheque': 0.0,
+                  'cashDiscount': 0.0,
+                  'creditDiscount': 0.0,
+                  'cashReturns': 0.0,
+                  'profit': 0.0,
+                  'debtPayment': 0.0,
+                  'debtpayment_cash': 0.0,
+                  'debtcard': 0.0,
+                  'debtcheque': 0.0,
+                  'debtbank': 0.0,
+                  'debtmerchantmomo': 0.0,
+                  'debthubtel': 0.0,
+                  'cashAtHand': 0.0,
+                },
+              );
 
-          final merchantmomo =
-              (staffData['momo'] ?? staffData['merchantmomo'] ?? 0).toDouble();
-          final debtmerchantmomo = (staffData['debtpayment_momo'] ?? 0)
-              .toDouble();
-          final hubtel = (staffData['hubtel'] ?? 0).toDouble();
-          final debthubtel = (staffData['debtpayment_hubtel'] ?? 0).toDouble();
-          final card = (staffData['card'] ?? 0).toDouble();
-          final debtcard = (staffData['debtpayment_card'] ?? 0).toDouble();
+              final row = grouped[groupKey]!;
 
-          final bank =
-              (staffData['bank'] ??
-                      staffData['bank_transfer'] ??
-                      staffData['bank transfer'] ??
-                      0)
+              final merchantmomo =
+                  (staffData['momo'] ?? staffData['merchantmomo'] ?? 0)
+                      .toDouble();
+              final debtmerchantmomo = (staffData['debtpayment_momo'] ?? 0)
                   .toDouble();
-          final debtbank = (staffData['debtpayment_bank'] ?? 0).toDouble();
-          final cheque = (staffData['cheque'] ?? 0).toDouble();
-          final debtcheque = (staffData['debtpayment_cheque'] ?? 0).toDouble();
-          final cashReturns = (staffData['cash_returns'] ?? 0).toDouble();
+              final hubtel = (staffData['hubtel'] ?? 0).toDouble();
+              final debthubtel = (staffData['debtpayment_hubtel'] ?? 0)
+                  .toDouble();
+              final card = (staffData['card'] ?? 0).toDouble();
+              final debtcard = (staffData['debtpayment_card'] ?? 0).toDouble();
 
-          final debtpayment_cash = (staffData['debtpayment_cash'] ?? 0)
-              .toDouble();
+              final bank =
+                  (staffData['bank'] ??
+                          staffData['bank_transfer'] ??
+                          staffData['bank transfer'] ??
+                          0)
+                      .toDouble();
+              final debtbank = (staffData['debtpayment_bank'] ?? 0).toDouble();
+              final cheque = (staffData['cheque'] ?? 0).toDouble();
+              final debtcheque = (staffData['debtpayment_cheque'] ?? 0)
+                  .toDouble();
+              final cashReturns = (staffData['cash_returns'] ?? 0).toDouble();
 
-          final creditReturns = (staffData['credit_returns'] ?? 0).toDouble();
-          final discount = (staffData['staffdiscount'] ?? 0).toDouble();
+              final debtpayment_cash = (staffData['debtpayment_cash'] ?? 0)
+                  .toDouble();
 
-          final qty = (staffData['staffsales_qty'] ?? 0).toDouble();
+              final creditReturns = (staffData['credit_returns'] ?? 0)
+                  .toDouble();
+              final discount = (staffData['staffdiscount'] ?? 0).toDouble();
 
-          final salesReturnQty = (staffData['staffsalesReturn_qty'] ?? 0)
-              .toDouble();
-          final rawcash = (staffData['cash'] ?? 0).toDouble();
-          final credit = (staffData['credit'] ?? 0).toDouble();
-          final debtPayment =
-              (debtmerchantmomo +
-                  debthubtel +
-                  debtcard +
-                  debtbank +
-                  debtcheque +
-                  debtpayment_cash) ??
-              (staffData['debtpayments_value'] ?? 0).toDouble();
-          final cash = rawcash - (merchantmomo + hubtel + card + bank + cheque);
+              final qty = (staffData['staffsales_qty'] ?? 0).toDouble();
 
-          final profit = (staffData['profit'] ?? 0).toDouble();
-          final cashNet = (cash + debtpayment_cash) - cashReturns;
+              final salesReturnQty = (staffData['staffsalesReturn_qty'] ?? 0)
+                  .toDouble();
+              final rawcash = (staffData['cash'] ?? 0).toDouble();
+              final credit = (staffData['credit'] ?? 0).toDouble();
+              final debtPayment =
+                  (debtmerchantmomo +
+                      debthubtel +
+                      debtcard +
+                      debtbank +
+                      debtcheque +
+                      debtpayment_cash) ??
+                  (staffData['debtpayments_value'] ?? 0).toDouble();
+              final cash =
+                  rawcash - (merchantmomo + hubtel + card + bank + cheque);
 
-          row['quantity'] += (qty - salesReturnQty);
-          row['cashSales'] += cash;
-          row['creditSales'] += credit;
-          row['cashReturns'] += cashReturns;
-          row['debtPayment'] += debtPayment;
-          row['debtpayment_cash'] += debtpayment_cash;
-          row['creditReturns'] += creditReturns;
-          row['cashDiscount'] += discount;
+              final profit = (staffData['profit'] ?? 0).toDouble();
+              final cashNet = (cash + debtpayment_cash) - cashReturns;
 
-          row['merchantmomo'] += merchantmomo;
-          row['debtmerchantmomo'] += debtmerchantmomo;
-          row['hubtel'] += hubtel;
-          row['debthubtel'] += debthubtel;
-          row['card'] += card;
-          row['debtcard'] += debtcard;
-          row['bank'] += bank;
-          row['debtbank'] += debtbank;
-          row['cheque'] += cheque;
-          row['debtcheque'] += debtcheque;
-          row['profit'] += profit;
+              row['quantity'] += (qty - salesReturnQty);
+              row['cashSales'] += cash;
+              row['creditSales'] += credit;
+              row['cashReturns'] += cashReturns;
+              row['debtPayment'] += debtPayment;
+              row['debtpayment_cash'] += debtpayment_cash;
+              row['creditReturns'] += creditReturns;
+              row['cashDiscount'] += discount;
 
-          row['cashAtHand'] += cashNet;
+              row['merchantmomo'] += merchantmomo;
+              row['debtmerchantmomo'] += debtmerchantmomo;
+              row['hubtel'] += hubtel;
+              row['debthubtel'] += debthubtel;
+              row['card'] += card;
+              row['debtcard'] += debtcard;
+              row['bank'] += bank;
+              row['debtbank'] += debtbank;
+              row['cheque'] += cheque;
+              row['debtcheque'] += debtcheque;
+              row['profit'] += profit;
+
+              row['cashAtHand'] += cashNet;
+            }
+          }
         }
-      }
-    }
 
-    salesStaffRows = grouped.values.toList();
-    notifyListeners();
+        salesStaffRows = grouped.values.toList();
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> loadSalesAndDebStaffSummary({
@@ -3879,24 +4272,21 @@ class Datafeed extends ChangeNotifier {
     required String companyId,
     required String? selectedBranch,
   }) async {
-    final List<Map<String, dynamic>> sales = [];
-
+    final requestGeneration = ++_salesStaffTransactionsRequestGeneration;
     final startStr = _toDateOnly(startDate);
     final endStr = _toDateOnly(endDate);
 
-    final salesSnap = await db
+    final salesQuery = db
         .collection('sales')
         .where('companyId', isEqualTo: companyId)
         .where('dateymd', isGreaterThanOrEqualTo: startStr)
-        .where('dateymd', isLessThanOrEqualTo: endStr)
-        .get();
+        .where('dateymd', isLessThanOrEqualTo: endStr);
 
-    final debtSnap = await db
+    final debtQuery = db
         .collection('debtpayment')
         .where('companyid', isEqualTo: companyId)
         .where('date', isGreaterThanOrEqualTo: startStr)
-        .where('date', isLessThanOrEqualTo: endStr)
-        .get();
+        .where('date', isLessThanOrEqualTo: endStr);
 
     String methodLabel(dynamic paymentsField) {
       if (paymentsField is! List || paymentsField.isEmpty) return '';
@@ -3919,81 +4309,97 @@ class Datafeed extends ChangeNotifier {
         ? null
         : selectedBranch.trim();
 
-    for (final doc in salesSnap.docs) {
-      final data = doc.data();
+    await _loadQueryPairCacheFirst(
+      salesQuery,
+      debtQuery,
+      isCurrent: () =>
+          requestGeneration == _salesStaffTransactionsRequestGeneration,
+      label: 'Sales staff transactions',
+      apply: (salesSnap, debtSnap) {
+        final List<Map<String, dynamic>> sales = [];
 
-      // Filter by staff email first.
-      // This is the primary key for staff-based transactions.
-      final staffemail = (data['receiptbyemail'] ?? data['staffemail'] ?? '')
-          .toString()
-          .trim();
-      if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
+        for (final doc in salesSnap.docs) {
+          final data = doc.data();
 
-      sales.add({
-        'type': 'sale',
-        'date': data['dateymd'] ?? '',
-        'datetime': data['createdAt'] ?? '',
-        'receipt': data['receiptNumber'] ?? '',
-        'customer': data['customerName'] ?? '',
-        'amount': data['totalamount'] ?? 0,
-        'amountPaid': data['amountPaid'] ?? 0,
-        'discount': data['discount'] ?? 0,
-        'transMode': data['transMode'] ?? '',
-        'payment': data['transMode'] ?? '',
-        'paymentMethods': methodLabel(data['payments']),
-        'payments': data['payments'] is List ? data['payments'] : <dynamic>[],
-        'paymentStatus': data['paymentStatus'] ?? '',
-        'branch': data['branchName'] ?? '',
-        'itemCount': data['itemCount'] ?? 0,
-        'items': data['items'] is Map
-            ? Map<String, dynamic>.from(data['items'])
-            : <String, dynamic>{},
-        'mode': data['pricingtype'] ?? '',
-      });
-    }
+          // Filter by staff email first.
+          // This is the primary key for staff-based transactions.
+          final staffemail =
+              (data['receiptbyemail'] ?? data['staffemail'] ?? '')
+                  .toString()
+                  .trim();
+          if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
 
-    for (final doc in debtSnap.docs) {
-      final data = doc.data();
+          sales.add({
+            'type': 'sale',
+            'date': data['dateymd'] ?? '',
+            'datetime': data['createdAt'] ?? '',
+            'receipt': data['receiptNumber'] ?? '',
+            'customer': data['customerName'] ?? '',
+            'amount': data['totalamount'] ?? 0,
+            'amountPaid': data['amountPaid'] ?? 0,
+            'discount': data['discount'] ?? 0,
+            'transMode': data['transMode'] ?? '',
+            'payment': data['transMode'] ?? '',
+            'paymentMethods': methodLabel(data['payments']),
+            'payments': data['payments'] is List
+                ? data['payments']
+                : <dynamic>[],
+            'paymentStatus': data['paymentStatus'] ?? '',
+            'branch': data['branchName'] ?? '',
+            'itemCount': data['itemCount'] ?? 0,
+            'items': data['items'] is Map
+                ? Map<String, dynamic>.from(data['items'])
+                : <String, dynamic>{},
+            'mode': data['pricingtype'] ?? '',
+          });
+        }
 
-      final staffemail = (data['receiptemail'] ?? '').toString().trim();
-      if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
+        for (final doc in debtSnap.docs) {
+          final data = doc.data();
 
-      if (selectedBranch != null &&
-          selectedBranch.isNotEmpty &&
-          data['branchId']?.toString() != selectedBranch) {
-        continue;
-      }
+          final staffemail = (data['receiptemail'] ?? '').toString().trim();
+          if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
 
-      sales.add({
-        'type': 'debt',
-        'date': data['date'] ?? '',
-        'datetime': data['createdat'] ?? '',
-        'receipt': data['id'] ?? '',
-        'customer': data['customername'] ?? '',
-        'amount': data['amount'] ?? 0,
-        'amountPaid': data['amount'] ?? 0,
-        'discount': 0,
-        'transMode': 'Debt Payment',
-        'payment': data['paymentmethod'] ?? '',
-        'paymentMethods': methodLabel(data['payments']),
-        'payments': data['payments'] is List ? data['payments'] : <dynamic>[],
-        'paymentStatus': '',
-        'branch': data['branchName'] ?? '',
-        'itemCount': 0,
-        'items': <String, dynamic>{},
-        'mode': 'Debt Payment',
-      });
-    }
+          if (selectedBranch != null &&
+              selectedBranch.isNotEmpty &&
+              data['branchId']?.toString() != selectedBranch) {
+            continue;
+          }
 
-    sales.sort((a, b) {
-      final da = a['datetime'];
-      final dbb = b['datetime'];
-      if (da is Timestamp && dbb is Timestamp) return dbb.compareTo(da);
-      return 0;
-    });
+          sales.add({
+            'type': 'debt',
+            'date': data['date'] ?? '',
+            'datetime': data['createdat'] ?? '',
+            'receipt': data['id'] ?? '',
+            'customer': data['customername'] ?? '',
+            'amount': data['amount'] ?? 0,
+            'amountPaid': data['amount'] ?? 0,
+            'discount': 0,
+            'transMode': 'Debt Payment',
+            'payment': data['paymentmethod'] ?? '',
+            'paymentMethods': methodLabel(data['payments']),
+            'payments': data['payments'] is List
+                ? data['payments']
+                : <dynamic>[],
+            'paymentStatus': '',
+            'branch': data['branchName'] ?? '',
+            'itemCount': 0,
+            'items': <String, dynamic>{},
+            'mode': 'Debt Payment',
+          });
+        }
 
-    salesTransactions = sales;
-    notifyListeners();
+        sales.sort((a, b) {
+          final da = a['datetime'];
+          final dbb = b['datetime'];
+          if (da is Timestamp && dbb is Timestamp) return dbb.compareTo(da);
+          return 0;
+        });
+
+        salesTransactions = sales;
+        notifyListeners();
+      },
+    );
   }
 
   List<Map<String, dynamic>> filteredSalesStaffTransactions() {
@@ -4033,7 +4439,7 @@ class Datafeed extends ChangeNotifier {
     required String itemName,
     required String? branchId,
   }) async {
-    final List<Map<String, dynamic>> transactions = [];
+    final requestGeneration = ++_itemSalesTransactionsRequestGeneration;
 
     List<String> generateIds(DateTime start, DateTime end) {
       List<String> ids = [];
@@ -4050,179 +4456,201 @@ class Datafeed extends ChangeNotifier {
     }
 
     final ids = generateIds(startDate, endDate);
-    final allDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final queries = <Query<Map<String, dynamic>>>[];
 
     for (int i = 0; i < ids.length; i += 30) {
       final chunk = ids.skip(i).take(30).toList();
 
-      Query<Map<String, dynamic>> query = db
-          .collection('sales')
-          .where('companyId', isEqualTo: companyid)
-          .where('dateymd', whereIn: chunk);
-
-      final snap = await query.get();
-      allDocs.addAll(snap.docs);
+      queries.add(
+        db
+            .collection('sales')
+            .where('companyId', isEqualTo: companyid)
+            .where('dateymd', whereIn: chunk),
+      );
     }
 
-    for (final doc in allDocs) {
-      final data = doc.data();
-      final items = data['items'] as Map<String, dynamic>? ?? {};
+    await _loadQueriesCacheFirst(
+      queries,
+      isCurrent: () =>
+          requestGeneration == _itemSalesTransactionsRequestGeneration,
+      label: 'Sales item transactions',
+      apply: (snapshots) {
+        final List<Map<String, dynamic>> transactions = [];
+        final allDocs = snapshots.expand((snapshot) => snapshot.docs);
 
-      final docTransMode = (data['transMode'] ?? '')
-          .toString()
-          .toLowerCase()
-          .trim();
-      final resolvedTransMode = docTransMode.isNotEmpty ? docTransMode : 'cash';
+        for (final doc in allDocs) {
+          final data = doc.data();
+          final items = data['items'] as Map<String, dynamic>? ?? {};
 
-      // Document-level branch check
-      final bool docMatchesBranch =
-          branchId == null ||
-          branchId.isEmpty ||
-          branchId.toLowerCase() == 'all' ||
-          data['branchId']?.toString().trim() == branchId.trim();
+          final docTransMode = (data['transMode'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
+          final resolvedTransMode = docTransMode.isNotEmpty
+              ? docTransMode
+              : 'cash';
 
-      items.forEach((key, value) {
-        if (value is! Map) return;
-        final itemMap = Map<String, dynamic>.from(value);
+          // Document-level branch check
+          final bool docMatchesBranch =
+              branchId == null ||
+              branchId.isEmpty ||
+              branchId.toLowerCase() == 'all' ||
+              data['branchId']?.toString().trim() == branchId.trim();
 
-        // Match by itemid (Firestore ID) OR barcode
-        final currentItemId =
-            (itemMap['itemid'] ?? itemMap['itemId'] ?? itemMap['id'] ?? '')
+          items.forEach((key, value) {
+            if (value is! Map) return;
+            final itemMap = Map<String, dynamic>.from(value);
+
+            // Match by itemid (Firestore ID) OR barcode
+            final currentItemId =
+                (itemMap['itemid'] ?? itemMap['itemId'] ?? itemMap['id'] ?? '')
+                    .toString()
+                    .trim();
+            final currentBarcode = (itemMap['barcode'] ?? '').toString().trim();
+            final producttype = (itemMap['producttype'] ?? '').toString();
+            final pcategory = (itemMap['pcategory'] ?? '').toString();
+            if (currentItemId != itemId.trim() &&
+                currentBarcode != itemId.trim())
+              return;
+
+            // Item-level branch check
+            final itemBranchId = (itemMap['branchid'] ?? data['branchId'] ?? '')
                 .toString()
                 .trim();
-        final currentBarcode = (itemMap['barcode'] ?? '').toString().trim();
-        final producttype = (itemMap['producttype'] ?? '').toString();
-        final pcategory = (itemMap['pcategory'] ?? '').toString();
-        if (currentItemId != itemId.trim() && currentBarcode != itemId.trim())
-          return;
+            final bool itemMatchesBranch =
+                branchId == null ||
+                branchId.isEmpty ||
+                branchId.toLowerCase() == 'all' ||
+                itemBranchId == branchId.trim();
 
-        // Item-level branch check
-        final itemBranchId = (itemMap['branchid'] ?? data['branchId'] ?? '')
-            .toString()
-            .trim();
-        final bool itemMatchesBranch =
-            branchId == null ||
-            branchId.isEmpty ||
-            branchId.toLowerCase() == 'all' ||
-            itemBranchId == branchId.trim();
+            // If filtering by branch, only include if document or item specifically matches
+            if (!docMatchesBranch && !itemMatchesBranch) return;
 
-        // If filtering by branch, only include if document or item specifically matches
-        if (!docMatchesBranch && !itemMatchesBranch) return;
+            final qty = double.tryParse(itemMap['quantity'].toString()) ?? 0;
+            final price = double.tryParse(itemMap['price'].toString()) ?? 0;
+            final profit = double.tryParse(itemMap['profit'].toString()) ?? 0;
+            final total =
+                double.tryParse(
+                  itemMap['totalamount']?.toString() ??
+                      itemMap['price']?.toString() ??
+                      '0',
+                ) ??
+                0;
+            final cp = double.tryParse(itemMap['cp']?.toString() ?? '0') ?? 0;
+            final discount =
+                double.tryParse(itemMap['discount']?.toString() ?? '0') ?? 0;
 
-        final qty = double.tryParse(itemMap['quantity'].toString()) ?? 0;
-        final price = double.tryParse(itemMap['price'].toString()) ?? 0;
-        final profit = double.tryParse(itemMap['profit'].toString()) ?? 0;
-        final total =
-            double.tryParse(
-              itemMap['totalamount']?.toString() ??
-                  itemMap['price']?.toString() ??
-                  '0',
-            ) ??
-            0;
-        final cp = double.tryParse(itemMap['cp']?.toString() ?? '0') ?? 0;
-        final discount =
-            double.tryParse(itemMap['discount']?.toString() ?? '0') ?? 0;
+            // Return info
+            final returnedQty =
+                double.tryParse(
+                  itemMap['returned_quantity']?.toString() ?? '0',
+                ) ??
+                0;
+            final returnedProfit =
+                double.tryParse(
+                  itemMap['returned_profit']?.toString() ?? '0',
+                ) ??
+                0;
+            final returnedDiscount =
+                double.tryParse(
+                  itemMap['returned_discount']?.toString() ?? '0',
+                ) ??
+                0;
+            final returnedAmount =
+                double.tryParse(
+                  itemMap['returned_totalamount']?.toString() ?? '0',
+                ) ??
+                0;
+            final returnedGrosstotalamount =
+                double.tryParse(
+                  itemMap['returned_grosstotalamount']?.toString() ?? '0',
+                ) ??
+                0;
+            final isReturned =
+                itemMap['status']?.toString() == 'returned' && returnedQty > 0;
+            final returnedTransMode =
+                (itemMap['returned_transMode'] ?? resolvedTransMode)
+                    .toString()
+                    .toLowerCase()
+                    .trim();
 
-        // Return info
-        final returnedQty =
-            double.tryParse(itemMap['returned_quantity']?.toString() ?? '0') ??
-            0;
-        final returnedProfit =
-            double.tryParse(itemMap['returned_profit']?.toString() ?? '0') ?? 0;
-        final returnedDiscount =
-            double.tryParse(itemMap['returned_discount']?.toString() ?? '0') ??
-            0;
-        final returnedAmount =
-            double.tryParse(
-              itemMap['returned_totalamount']?.toString() ?? '0',
-            ) ??
-            0;
-        final returnedGrosstotalamount =
-            double.tryParse(
-              itemMap['returned_grosstotalamount']?.toString() ?? '0',
-            ) ??
-            0;
-        final isReturned =
-            itemMap['status']?.toString() == 'returned' && returnedQty > 0;
-        final returnedTransMode =
-            (itemMap['returned_transMode'] ?? resolvedTransMode)
-                .toString()
-                .toLowerCase()
-                .trim();
+            transactions.add({
+              'date': data['createdAt'],
+              'item': itemMap['item'] ?? '',
+              'qty': qty,
+              'price': price,
+              'profit': profit,
+              'total': total,
+              'cp': cp,
+              'discount': discount,
+              'transMode': resolvedTransMode,
+              'salesMode': itemMap['mode'] ?? '',
+              'customer': data['customerName'] ?? '',
+              'branch': data['branchName'] ?? '',
+              'pricingMode': itemMap['pricemode'] ?? '',
+              'staff': data['createdBy'] ?? '',
+              'staffEmail': data['staffemail'] ?? '',
+              'receipt': data['receiptNumber'] ?? '',
+              'paymentStatus': data['paymentStatus'] ?? '',
+              'transactionId': data['id'] ?? '',
+              'isReturned': false,
+              'returnedQty': 0.0,
+              'returnedAmount': 0.0,
+              'returnedTransMode': '',
+              'isCash': resolvedTransMode == 'cash',
+              'isCredit': resolvedTransMode == 'credit',
+              'isCashReturn': false,
+              'isCreditReturn': false,
+              'pcategory': pcategory,
+              'producttype': producttype,
+            });
 
-        transactions.add({
-          'date': data['createdAt'],
-          'item': itemMap['item'] ?? '',
-          'qty': qty,
-          'price': price,
-          'profit': profit,
-          'total': total,
-          'cp': cp,
-          'discount': discount,
-          'transMode': resolvedTransMode,
-          'salesMode': itemMap['mode'] ?? '',
-          'customer': data['customerName'] ?? '',
-          'branch': data['branchName'] ?? '',
-          'pricingMode': itemMap['pricemode'] ?? '',
-          'staff': data['createdBy'] ?? '',
-          'staffEmail': data['staffemail'] ?? '',
-          'receipt': data['receiptNumber'] ?? '',
-          'paymentStatus': data['paymentStatus'] ?? '',
-          'transactionId': data['id'] ?? '',
-          'isReturned': false,
-          'returnedQty': 0.0,
-          'returnedAmount': 0.0,
-          'returnedTransMode': '',
-          'isCash': resolvedTransMode == 'cash',
-          'isCredit': resolvedTransMode == 'credit',
-          'isCashReturn': false,
-          'isCreditReturn': false,
-          'pcategory': pcategory,
-          'producttype': producttype,
-        });
+            if (isReturned) {
+              transactions.add({
+                'date': data['returned_updatedat'] ?? data['createdAt'],
+                'item': itemMap['returned_item'] ?? itemMap['item'] ?? '',
+                'qty': returnedQty,
+                'price':
+                    double.tryParse(
+                      itemMap['returned_price']?.toString() ?? '',
+                    ) ??
+                    price,
+                'total': returnedAmount,
+                'profit': returnedProfit,
+                'returnedGrosstotalamount': returnedGrosstotalamount,
+                'discount': returnedDiscount,
+                'cp': cp,
+                'transMode': returnedTransMode,
+                'salesMode': itemMap['returned_mode'] ?? itemMap['mode'] ?? '',
+                'customer': data['customerName'] ?? '',
+                'branch': data['branchName'] ?? '',
+                'pricingMode':
+                    itemMap['returned_pricemode'] ?? itemMap['pricemode'] ?? '',
+                'staff': data['createdBy'] ?? '',
+                'staffEmail': data['staffemail'] ?? '',
+                'receipt': data['receiptNumber'] ?? '',
+                'paymentStatus': 'returned',
+                'transactionId': data['id'] ?? '',
+                'isReturned': true,
+                'returnedQty': returnedQty,
+                'returnedAmount': returnedAmount,
+                'returnedTransMode': returnedTransMode,
+                'isCash': false,
+                'isCredit': false,
+                'isCashReturn': returnedTransMode == 'cash',
+                'isCreditReturn': returnedTransMode == 'credit',
 
-        if (isReturned) {
-          transactions.add({
-            'date': data['returned_updatedat'] ?? data['createdAt'],
-            'item': itemMap['returned_item'] ?? itemMap['item'] ?? '',
-            'qty': returnedQty,
-            'price':
-                double.tryParse(itemMap['returned_price']?.toString() ?? '') ??
-                price,
-            'total': returnedAmount,
-            'profit': returnedProfit,
-            'returnedGrosstotalamount': returnedGrosstotalamount,
-            'discount': returnedDiscount,
-            'cp': cp,
-            'transMode': returnedTransMode,
-            'salesMode': itemMap['returned_mode'] ?? itemMap['mode'] ?? '',
-            'customer': data['customerName'] ?? '',
-            'branch': data['branchName'] ?? '',
-            'pricingMode':
-                itemMap['returned_pricemode'] ?? itemMap['pricemode'] ?? '',
-            'staff': data['createdBy'] ?? '',
-            'staffEmail': data['staffemail'] ?? '',
-            'receipt': data['receiptNumber'] ?? '',
-            'paymentStatus': 'returned',
-            'transactionId': data['id'] ?? '',
-            'isReturned': true,
-            'returnedQty': returnedQty,
-            'returnedAmount': returnedAmount,
-            'returnedTransMode': returnedTransMode,
-            'isCash': false,
-            'isCredit': false,
-            'isCashReturn': returnedTransMode == 'cash',
-            'isCreditReturn': returnedTransMode == 'credit',
-
-            'pcategory': pcategory,
-            'producttype': producttype,
+                'pcategory': pcategory,
+                'producttype': producttype,
+              });
+            }
           });
         }
-      });
-    }
 
-    itemTransactions = transactions;
-    notifyListeners();
+        itemTransactions = transactions;
+        notifyListeners();
+      },
+    );
   }
 
   List<Map<String, dynamic>> filterstockTransactions() {
@@ -7115,6 +7543,26 @@ class Datafeed extends ChangeNotifier {
 
   List<ItemHistoryEntry> itemHistoryEntries = [];
   bool itemHistoryLoading = false;
+  int _itemHistoryRequestGeneration = 0;
+  final Map<String, _ItemHistoryCacheEntry> _itemHistoryCache = {};
+
+  static const _itemHistoryCacheDuration = Duration(seconds: 30);
+  static const _maxItemHistoryCacheEntries = 24;
+
+  String _itemHistoryCacheKey({
+    required String itemId,
+    required String itemName,
+    required String? branchId,
+    required String start,
+    required String end,
+  }) => jsonEncode([
+    companyid,
+    itemId.trim(),
+    itemName,
+    branchId?.trim().toLowerCase() ?? '',
+    start,
+    end,
+  ]);
 
   List<dynamic> _asItemsList(dynamic value) {
     if (value is List) return value;
@@ -7145,12 +7593,29 @@ class Datafeed extends ChangeNotifier {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
+    final requestGeneration = ++_itemHistoryRequestGeneration;
     itemHistoryLoading = true;
-    itemHistoryEntries = [];
-    notifyListeners();
 
     final start = _toDateOnly(startDate);
     final end = _toDateOnly(endDate);
+    final cacheKey = _itemHistoryCacheKey(
+      itemId: itemId,
+      itemName: itemName,
+      branchId: branchId,
+      start: start,
+      end: end,
+    );
+    final cached = _itemHistoryCache.remove(cacheKey);
+    if (cached != null &&
+        DateTime.now().difference(cached.cachedAt) <
+            _itemHistoryCacheDuration) {
+      _itemHistoryCache[cacheKey] = cached;
+      itemHistoryEntries = cached.entries;
+      itemHistoryLoading = false;
+      notifyListeners();
+      return;
+    }
+    notifyListeners();
 
     final isBranch =
         branchId != null &&
@@ -7194,261 +7659,274 @@ class Datafeed extends ChangeNotifier {
     }
 
     try {
-      final results = await Future.wait([
-        _q('sales', 'dateymd', 'companyId').get(),
-        _q('stock_transactions', 'date', 'companyid').get(),
-        _q('stock_transfer', 'date', 'companyid').get(),
-        _q('damageitems', 'dateymd', 'companyid').get(),
-        _q('purchase_returns', 'date', 'companyid').get(),
-        _q('salesreturn', 'dateymd', 'companyid').get(),
-      ]);
+      await _loadQueriesCacheFirst(
+        [
+          _q('sales', 'dateymd', 'companyId'),
+          _q('stock_transactions', 'date', 'companyid'),
+          _q('stock_transfer', 'date', 'companyid'),
+          _q('damageitems', 'dateymd', 'companyid'),
+          _q('purchase_returns', 'date', 'companyid'),
+          _q('salesreturn', 'dateymd', 'companyid'),
+        ],
+        isCurrent: () => requestGeneration == _itemHistoryRequestGeneration,
+        label: 'Stock item history',
+        apply: (results) {
+          final entries = <ItemHistoryEntry>[];
 
-      final entries = <ItemHistoryEntry>[];
+          // SALES
+          for (final doc in results[0].docs) {
+            final d = doc.data();
+            final items = d['items'] as Map<String, dynamic>? ?? {};
 
-      // SALES
-      for (final doc in results[0].docs) {
-        final d = doc.data();
-        final items = d['items'] as Map<String, dynamic>? ?? {};
+            for (final v in items.values) {
+              if (v is! Map) continue;
+              final m = Map<String, dynamic>.from(v);
 
-        for (final v in items.values) {
-          if (v is! Map) continue;
-          final m = Map<String, dynamic>.from(v);
+              final currentItemId =
+                  (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
+                      .toString()
+                      .trim();
+              final currentBarcode = (m['barcode'] ?? '').toString().trim();
 
-          final currentItemId = (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
-              .toString()
-              .trim();
-          final currentBarcode = (m['barcode'] ?? '').toString().trim();
+              if (currentItemId != id.trim() && currentBarcode != id.trim()) {
+                continue;
+              }
 
-          if (currentItemId != id.trim() && currentBarcode != id.trim()) {
-            continue;
-          }
+              if (!okBranch(m, d, ['branchId', 'branchid'])) continue;
 
-          if (!okBranch(m, d, ['branchId', 'branchid'])) continue;
+              // returned  sales
+              final isReturned =
+                  (m['status'] ?? '').toString().toLowerCase() == 'returned';
 
-          // returned  sales
-          final isReturned =
-              (m['status'] ?? '').toString().toLowerCase() == 'returned';
+              //SALES RETURN
 
-          //SALES RETURN
+              if (isReturned) {
+                entries.add(
+                  ItemHistoryEntry(
+                    date: _historyDate(
+                      m['returned_timestamp'] ??
+                          d['returned_createdat'] ??
+                          d['returned_updatedat'] ??
+                          d['createdAt'] ??
+                          d['createdat'],
+                    ),
+                    invoiceDate: d['dateymd'] ?? '',
+                    type: 'Sales Return',
 
-          if (isReturned) {
-            entries.add(
-              ItemHistoryEntry(
-                date: _historyDate(
-                  m['returned_timestamp'] ??
-                      d['returned_createdat'] ??
-                      d['returned_updatedat'] ??
-                      d['createdAt'] ??
-                      d['createdat'],
+                    sign: '+',
+                    item:
+                        m['returned_item']?.toString() ??
+                        m['item']?.toString() ??
+                        itemName,
+                    qty: _toD(
+                      m['returned_totalpieces'] ?? m['returned_quantity'],
+                    ),
+                    price: _toD(m['returned_price'] ?? m['price']),
+                    total: _toD(m['returned_totalamount']),
+                    mode:
+                        m['returned_mode']?.toString() ??
+                        m['mode']?.toString() ??
+                        '',
+
+                    branch:
+                        m['returned_branchname']?.toString() ??
+                        d['branchName']?.toString() ??
+                        '',
+
+                    staff: d['createdBy']?.toString() ?? '',
+
+                    transactionid:
+                        m['returned_receiptid']?.toString() ??
+                        d['receiptNumber']?.toString() ??
+                        d['id']?.toString() ??
+                        '',
+                  ),
+                );
+
+                continue;
+              }
+
+              // SALE
+              final saleTransMode = (d['transMode'] ?? '')
+                  .toString()
+                  .toLowerCase()
+                  .trim();
+              final saleTypeLabel = saleTransMode == 'credit'
+                  ? 'Credit Sale'
+                  : 'Cash Sale';
+
+              entries.add(
+                ItemHistoryEntry(
+                  date: _historyDate(d['createdAt'] ?? d['createdat']),
+                  type: saleTypeLabel,
+                  invoiceDate: (d['dateymd']) ?? '',
+                  sign: '-',
+
+                  item: m['item']?.toString() ?? itemName,
+
+                  qty: _toD(m['totalpieces'] ?? m['quantity']),
+
+                  price: _toD(m['price']),
+
+                  total: _toD(m['totalamount']),
+
+                  mode: m['mode']?.toString() ?? '',
+
+                  branch:
+                      m['branchname']?.toString() ??
+                      d['branchName']?.toString() ??
+                      '',
+
+                  staff: d['createdBy']?.toString() ?? '',
+
+                  transactionid:
+                      d['receiptNumber']?.toString() ??
+                      d['id']?.toString() ??
+                      '',
                 ),
-                invoiceDate: d['dateymd'] ?? '',
-                type: 'Sales Return',
-
-                sign: '+',
-                item:
-                    m['returned_item']?.toString() ??
-                    m['item']?.toString() ??
-                    itemName,
-                qty: _toD(m['returned_totalpieces'] ?? m['returned_quantity']),
-                price: _toD(m['returned_price'] ?? m['price']),
-                total: _toD(m['returned_totalamount']),
-                mode:
-                    m['returned_mode']?.toString() ??
-                    m['mode']?.toString() ??
-                    '',
-
-                branch:
-                    m['returned_branchname']?.toString() ??
-                    d['branchName']?.toString() ??
-                    '',
-
-                staff: d['createdBy']?.toString() ?? '',
-
-                transactionid:
-                    m['returned_receiptid']?.toString() ??
-                    d['receiptNumber']?.toString() ??
-                    d['id']?.toString() ??
-                    '',
-              ),
-            );
-
-            continue;
+              );
+            }
           }
 
-          // SALE
-          final saleTransMode = (d['transMode'] ?? '')
-              .toString()
-              .toLowerCase()
-              .trim();
-          final saleTypeLabel = saleTransMode == 'credit'
-              ? 'Credit Sale'
-              : 'Cash Sale';
+          // STOCK TRANSACTIONS / PURCHASES
+          for (final doc in results[1].docs) {
+            final d = doc.data();
+            final invoiceDate = d['date'] ?? '';
 
-          entries.add(
-            ItemHistoryEntry(
-              date: _historyDate(d['createdAt'] ?? d['createdat']),
-              type: saleTypeLabel,
-              invoiceDate: (d['dateymd']) ?? '',
-              sign: '-',
+            final items = _asItemsList(d['items']);
 
-              item: m['item']?.toString() ?? itemName,
+            for (final v in items) {
+              if (v is! Map) continue;
 
-              qty: _toD(m['totalpieces'] ?? m['quantity']),
+              final m = Map<String, dynamic>.from(v);
 
-              price: _toD(m['price']),
+              final currentItemId =
+                  (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
+                      .toString()
+                      .trim();
+              final currentBarcode = (m['barcode'] ?? '').toString().trim();
 
-              total: _toD(m['totalamount']),
+              if (currentItemId != id.trim() && currentBarcode != id.trim()) {
+                continue;
+              }
 
-              mode: m['mode']?.toString() ?? '',
+              if (!okBranch(m, d, ['branchid', 'branchId'])) continue;
 
-              branch:
-                  m['branchname']?.toString() ??
-                  d['branchName']?.toString() ??
-                  '',
+              final purchaseTypeRaw = (d['purchasetype'] ?? '')
+                  .toString()
+                  .trim()
+                  .toLowerCase();
+              final purchaseTypeLabel = purchaseTypeRaw == 'credit'
+                  ? 'Credit Stock'
+                  : purchaseTypeRaw == 'cash'
+                  ? 'Cash Stock'
+                  : (d['purchasetype'] ?? 'New Stock').toString();
 
-              staff: d['createdBy']?.toString() ?? '',
+              entries.add(
+                ItemHistoryEntry(
+                  date: _historyDate(d['createdat'] ?? d['createdAt']),
+                  invoiceDate: invoiceDate,
 
-              transactionid:
-                  d['receiptNumber']?.toString() ?? d['id']?.toString() ?? '',
-            ),
-          );
-        }
-      }
+                  type: purchaseTypeLabel,
 
-      // STOCK TRANSACTIONS / PURCHASES
-      for (final doc in results[1].docs) {
-        final d = doc.data();
-        final invoiceDate = d['date'] ?? '';
+                  sign: '+',
 
-        final items = _asItemsList(d['items']);
+                  item: m['item']?.toString() ?? itemName,
 
-        for (final v in items) {
-          if (v is! Map) continue;
+                  qty: _toD(m['pieces'] ?? m['quantity']),
 
-          final m = Map<String, dynamic>.from(v);
+                  price: _toD(m['price']),
 
-          final currentItemId = (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
-              .toString()
-              .trim();
-          final currentBarcode = (m['barcode'] ?? '').toString().trim();
+                  total: _toD(m['total']),
 
-          if (currentItemId != id.trim() && currentBarcode != id.trim()) {
-            continue;
-          }
+                  mode: m['stockingmode']?.toString() ?? '',
 
-          if (!okBranch(m, d, ['branchid', 'branchId'])) continue;
+                  branch: d['branchname']?.toString() ?? '',
 
-          final purchaseTypeRaw = (d['purchasetype'] ?? '')
-              .toString()
-              .trim()
-              .toLowerCase();
-          final purchaseTypeLabel = purchaseTypeRaw == 'credit'
-              ? 'Credit Stock'
-              : purchaseTypeRaw == 'cash'
-              ? 'Cash Stock'
-              : (d['purchasetype'] ?? 'New Stock').toString();
+                  staff: d['createdby']?.toString() ?? '',
 
-          entries.add(
-            ItemHistoryEntry(
-              date: _historyDate(d['createdat'] ?? d['createdAt']),
-              invoiceDate: invoiceDate,
-
-              type: purchaseTypeLabel,
-
-              sign: '+',
-
-              item: m['item']?.toString() ?? itemName,
-
-              qty: _toD(m['pieces'] ?? m['quantity']),
-
-              price: _toD(m['price']),
-
-              total: _toD(m['total']),
-
-              mode: m['stockingmode']?.toString() ?? '',
-
-              branch: d['branchname']?.toString() ?? '',
-
-              staff: d['createdby']?.toString() ?? '',
-
-              transactionid:
-                  d['waybill']?.toString() ?? d['docid']?.toString() ?? '',
-              waybill: d['waybill']?.toString() ?? '',
-            ),
-          );
-
-          // PURCHASE RETURN
-
-          final returnPieces =
-              (m['returnpieces'] as num?)?.toDouble() ??
-              double.tryParse(m['returnpieces']?.toString() ?? '0') ??
-              0;
-
-          if (returnPieces > 0) {
-            entries.add(
-              ItemHistoryEntry(
-                date: _historyDate(
-                  d['createdat'] ??
-                      d['createdAt'] ??
-                      d['submittedat'],
+                  transactionid:
+                      d['waybill']?.toString() ?? d['docid']?.toString() ?? '',
+                  waybill: d['waybill']?.toString() ?? '',
                 ),
-                invoiceDate: d['date'] ?? '',
-                type: 'Purchase Return',
+              );
 
-                sign: '-',
+              // PURCHASE RETURN
 
-                item: m['item']?.toString() ?? itemName,
+              final returnPieces =
+                  (m['returnpieces'] as num?)?.toDouble() ??
+                  double.tryParse(m['returnpieces']?.toString() ?? '0') ??
+                  0;
 
-                qty: returnPieces,
-                price: _toD(m['price']),
-                total: _toD(m['returnvalue']),
-                mode: m['stockingmode']?.toString() ?? '',
+              if (returnPieces > 0) {
+                entries.add(
+                  ItemHistoryEntry(
+                    date: _historyDate(
+                      d['createdat'] ?? d['createdAt'] ?? d['submittedat'],
+                    ),
+                    invoiceDate: d['date'] ?? '',
+                    type: 'Purchase Return',
 
-                branch: d['branchname']?.toString() ?? '',
+                    sign: '-',
 
-                staff: d['createdby']?.toString() ?? '',
+                    item: m['item']?.toString() ?? itemName,
 
-                transactionid:
-                    m['waybill']?.toString() ?? d['docid']?.toString() ?? '',
-              ),
-            );
+                    qty: returnPieces,
+                    price: _toD(m['price']),
+                    total: _toD(m['returnvalue']),
+                    mode: m['stockingmode']?.toString() ?? '',
+
+                    branch: d['branchname']?.toString() ?? '',
+
+                    staff: d['createdby']?.toString() ?? '',
+
+                    transactionid:
+                        m['waybill']?.toString() ??
+                        d['docid']?.toString() ??
+                        '',
+                  ),
+                );
+              }
+            }
           }
-        }
-      }
 
-      // STOCK TRANSFERS
-      for (final doc in results[2].docs) {
-        final d = doc.data();
-        final transferdate = d['date'] ?? '';
+          // STOCK TRANSFERS
+          for (final doc in results[2].docs) {
+            final d = doc.data();
+            final transferdate = d['date'] ?? '';
 
-        final fromId = _firstNonEmpty(d, ['supplywarehouseid']).toLowerCase();
-        final fromName = _firstNonEmpty(d, [
-          'supplywarehousename',
-          'staffbranch',
-        ]);
-        final toId = _firstNonEmpty(d, ['recievebranchid']).toLowerCase();
-        final toName = _firstNonEmpty(d, ['recievebranchname']);
+            final fromId = _firstNonEmpty(d, [
+              'supplywarehouseid',
+            ]).toLowerCase();
+            final fromName = _firstNonEmpty(d, [
+              'supplywarehousename',
+              'staffbranch',
+            ]);
+            final toId = _firstNonEmpty(d, ['recievebranchid']).toLowerCase();
+            final toName = _firstNonEmpty(d, ['recievebranchname']);
 
-        final b = branch?.toLowerCase(); // null = All Branches
-        final isFrom = b == null || fromId == b;
-        final isTo = b == null || toId == b;
-        if (!isFrom && !isTo) continue;
+            final b = branch?.toLowerCase(); // null = All Branches
+            final isFrom = b == null || fromId == b;
+            final isTo = b == null || toId == b;
+            if (!isFrom && !isTo) continue;
 
-        for (final v in _asItemsList(d['items'])) {
-          if (v is! Map) continue;
-          final m = Map<String, dynamic>.from(v);
+            for (final v in _asItemsList(d['items'])) {
+              if (v is! Map) continue;
+              final m = Map<String, dynamic>.from(v);
 
-          final currentItemId = (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
-              .toString()
-              .trim();
-          final currentBarcode = (m['barcode'] ?? '').toString().trim();
-          if (currentItemId != id && currentBarcode != id) continue;
+              final currentItemId =
+                  (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
+                      .toString()
+                      .trim();
+              final currentBarcode = (m['barcode'] ?? '').toString().trim();
+              if (currentItemId != id && currentBarcode != id) continue;
 
-          ItemHistoryEntry build(String type, String sign, String branchName) =>
-              ItemHistoryEntry(
-                date: _historyDate(
-                  d['createdat'] ?? d['createdAt'],
-                ),
+              ItemHistoryEntry build(
+                String type,
+                String sign,
+                String branchName,
+              ) => ItemHistoryEntry(
+                date: _historyDate(d['createdat'] ?? d['createdAt']),
                 invoiceDate: transferdate,
                 type: type,
                 sign: sign,
@@ -7463,209 +7941,229 @@ class Datafeed extends ChangeNotifier {
                     d['transferid']?.toString() ?? d['docid']?.toString() ?? '',
               );
 
-          if (isFrom)
-            entries.add(build('Transfer Out to $toName', '-', fromName));
-          if (isTo)
-            entries.add(build('Transfer In from $fromName', '+', toName));
-        }
-      }
-
-      // DAMAGES
-      for (final doc in results[3].docs) {
-        final d = doc.data();
-
-        final itemMap = d['item'] as Map<String, dynamic>? ?? {};
-
-        for (final entry in itemMap.entries) {
-          final v = entry.value;
-
-          if (v is! Map) continue;
-
-          final m = Map<String, dynamic>.from(v);
-
-          final currentItemId = (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
-              .toString()
-              .trim();
-          final currentBarcode = (m['barcode'] ?? '').toString().trim();
-
-          if (currentItemId != id.trim() && currentBarcode != id.trim()) {
-            continue;
+              if (isFrom)
+                entries.add(build('Transfer Out to $toName', '-', fromName));
+              if (isTo)
+                entries.add(build('Transfer In from $fromName', '+', toName));
+            }
           }
 
-          if (!okBranch(m, d, ['branchid', 'branchId'])) continue;
+          // DAMAGES
+          for (final doc in results[3].docs) {
+            final d = doc.data();
 
-          entries.add(
-            ItemHistoryEntry(
-              date: _historyDate(d['createdat'] ?? d['createdAt']),
-              invoiceDate: d['dateymd'] ?? '',
-              type: 'Damage',
+            final itemMap = d['item'] as Map<String, dynamic>? ?? {};
 
-              sign: '-',
+            for (final entry in itemMap.entries) {
+              final v = entry.value;
 
-              item: m['item']?.toString() ?? itemName,
+              if (v is! Map) continue;
 
-              qty: _toD(m['totalpieces'] ?? m['quantity']),
-              price: _toD(m['cp']),
-              total: _toD(m['grandtotal']),
-              mode: m['mode']?.toString() ?? '',
-              branch:
-                  m['branchname']?.toString() ??
-                  d['branchname']?.toString() ??
-                  '',
+              final m = Map<String, dynamic>.from(v);
 
-              staff: d['createdby']?.toString() ?? '',
+              final currentItemId =
+                  (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
+                      .toString()
+                      .trim();
+              final currentBarcode = (m['barcode'] ?? '').toString().trim();
 
-              transactionid: d['trxid'] ?? d['id']?.toString(),
-            ),
-          );
-        }
-      }
-      //purchase return
-      for (final doc in results[4].docs) {
-        final d = doc.data();
+              if (currentItemId != id.trim() && currentBarcode != id.trim()) {
+                continue;
+              }
 
-        final items = _asItemsList(d['items']);
-        for (final v in items) {
-          if (v is! Map) continue;
+              if (!okBranch(m, d, ['branchid', 'branchId'])) continue;
 
-          final m = Map<String, dynamic>.from(v);
+              entries.add(
+                ItemHistoryEntry(
+                  date: _historyDate(d['createdat'] ?? d['createdAt']),
+                  invoiceDate: d['dateymd'] ?? '',
+                  type: 'Damage',
 
-          final currentItemId = (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
-              .toString()
-              .trim();
-          final currentBarcode = (m['barcode'] ?? '').toString().trim();
+                  sign: '-',
 
-          if (currentItemId != id.trim() && currentBarcode != id.trim()) {
-            continue;
+                  item: m['item']?.toString() ?? itemName,
+
+                  qty: _toD(m['totalpieces'] ?? m['quantity']),
+                  price: _toD(m['cp']),
+                  total: _toD(m['grandtotal']),
+                  mode: m['mode']?.toString() ?? '',
+                  branch:
+                      m['branchname']?.toString() ??
+                      d['branchname']?.toString() ??
+                      '',
+
+                  staff: d['createdby']?.toString() ?? '',
+
+                  transactionid: d['trxid'] ?? d['id']?.toString(),
+                ),
+              );
+            }
           }
+          //purchase return
+          for (final doc in results[4].docs) {
+            final d = doc.data();
 
-          if (!okBranch(m, d, ['branchid', 'branchId'])) continue;
+            final items = _asItemsList(d['items']);
+            for (final v in items) {
+              if (v is! Map) continue;
 
-          entries.add(
-            ItemHistoryEntry(
-              date: _historyDate(
-                d['createdat'] ??
-                    d['createdAt'] ??
-                    d['submittedat'],
-              ),
+              final m = Map<String, dynamic>.from(v);
 
-              type: 'Purchase Return',
-              invoiceDate: d['date'] ?? '',
-              sign: '-',
+              final currentItemId =
+                  (m['itemid'] ?? m['itemId'] ?? m['id'] ?? '')
+                      .toString()
+                      .trim();
+              final currentBarcode = (m['barcode'] ?? '').toString().trim();
 
-              item: m['item']?.toString() ?? itemName,
+              if (currentItemId != id.trim() && currentBarcode != id.trim()) {
+                continue;
+              }
 
-              qty:
-                  double.tryParse(
-                    m['returnpieces']?.toString() ??
-                        m['returnquantity']?.toString() ??
-                        '0',
-                  ) ??
-                  0,
+              if (!okBranch(m, d, ['branchid', 'branchId'])) continue;
 
-              price: double.tryParse(m['price']?.toString() ?? '0') ?? 0,
+              entries.add(
+                ItemHistoryEntry(
+                  date: _historyDate(
+                    d['createdat'] ?? d['createdAt'] ?? d['submittedat'],
+                  ),
 
-              total:
-                  double.tryParse(
-                    m['returnvalue']?.toString() ??
-                        m['net_returnvalue']?.toString() ??
-                        '0',
-                  ) ??
-                  0,
+                  type: 'Purchase Return',
+                  invoiceDate: d['date'] ?? '',
+                  sign: '-',
 
-              mode: m['stockingmode']?.toString() ?? '',
+                  item: m['item']?.toString() ?? itemName,
 
-              branch: d['branchname']?.toString() ?? '',
+                  qty:
+                      double.tryParse(
+                        m['returnpieces']?.toString() ??
+                            m['returnquantity']?.toString() ??
+                            '0',
+                      ) ??
+                      0,
 
-              staff: d['createdby']?.toString() ?? '',
+                  price: double.tryParse(m['price']?.toString() ?? '0') ?? 0,
 
-              transactionid:
-                  m['waybill']?.toString() ?? d['returnid']?.toString() ?? '',
-            ),
+                  total:
+                      double.tryParse(
+                        m['returnvalue']?.toString() ??
+                            m['net_returnvalue']?.toString() ??
+                            '0',
+                      ) ??
+                      0,
+
+                  mode: m['stockingmode']?.toString() ?? '',
+
+                  branch: d['branchname']?.toString() ?? '',
+
+                  staff: d['createdby']?.toString() ?? '',
+
+                  transactionid:
+                      m['waybill']?.toString() ??
+                      d['returnid']?.toString() ??
+                      '',
+                ),
+              );
+            }
+          }
+          //sales return
+
+          for (final doc in results[5].docs) {
+            final d = doc.data();
+            final returnedItems =
+                d['returned_items'] as Map<String, dynamic>? ?? {};
+
+            for (final v in returnedItems.values) {
+              if (v is! Map) continue;
+              final m = Map<String, dynamic>.from(v);
+              final currentItemId = (m['returned_itemid'] ?? '')
+                  .toString()
+                  .trim();
+              final currentBarcode =
+                  (m['returned_barcode'] ?? m['barcode'] ?? '')
+                      .toString()
+                      .trim();
+              if (currentItemId != id.trim() && currentBarcode != id.trim())
+                continue;
+
+              if (!okBranch(
+                m,
+                d,
+                ['returned_branchid', 'branchid', 'branchId'],
+                ['returned_branchid', 'branchId', 'branchid'],
+              ))
+                continue;
+
+              entries.add(
+                ItemHistoryEntry(
+                  date: _historyDate(
+                    d['returned_createdat'] ??
+                        d['returned_updatedat'] ??
+                        d['createdAt'] ??
+                        d['createdat'],
+                  ),
+                  invoiceDate: d['dateymd'] ?? '',
+                  type: 'Sales Return',
+                  sign: '+',
+                  item: m['returned_item']?.toString() ?? itemName,
+                  qty:
+                      double.tryParse(
+                        m['returned_totalpieces']?.toString() ??
+                            m['returned_quantity']?.toString() ??
+                            '0',
+                      ) ??
+                      0,
+                  price:
+                      double.tryParse(m['returned_price']?.toString() ?? '0') ??
+                      0,
+                  total:
+                      double.tryParse(
+                        m['returned_totalamount']?.toString() ?? '0',
+                      ) ??
+                      0,
+                  mode: m['returned_mode']?.toString() ?? '',
+                  branch:
+                      m['returned_branchname']?.toString() ??
+                      d['branchName']?.toString() ??
+                      '',
+                  staff: d['returned_createdby']?.toString() ?? '',
+                  transactionid:
+                      m['returned_receiptid']?.toString() ??
+                      d['receiptNumber']?.toString() ??
+                      d['id']?.toString() ??
+                      '',
+                ),
+              );
+            }
+          }
+          // Newest first
+          entries.sort((a, b) {
+            final ta = a.date?.millisecondsSinceEpoch ?? 0;
+            final tb = b.date?.millisecondsSinceEpoch ?? 0;
+            return tb.compareTo(ta);
+          });
+
+          itemHistoryEntries = entries;
+          _itemHistoryCache.remove(cacheKey);
+          _itemHistoryCache[cacheKey] = _ItemHistoryCacheEntry(
+            List.unmodifiable(entries),
+            DateTime.now(),
           );
-        }
-      }
-      //sales return
-
-      for (final doc in results[5].docs) {
-        final d = doc.data();
-        final returnedItems =
-            d['returned_items'] as Map<String, dynamic>? ?? {};
-
-        for (final v in returnedItems.values) {
-          if (v is! Map) continue;
-          final m = Map<String, dynamic>.from(v);
-          final currentItemId = (m['returned_itemid'] ?? '').toString().trim();
-          final currentBarcode = (m['returned_barcode'] ?? m['barcode'] ?? '')
-              .toString()
-              .trim();
-          if (currentItemId != id.trim() && currentBarcode != id.trim())
-            continue;
-
-          if (!okBranch(
-            m,
-            d,
-            ['returned_branchid', 'branchid', 'branchId'],
-            ['returned_branchid', 'branchId', 'branchid'],
-          ))
-            continue;
-
-          entries.add(
-            ItemHistoryEntry(
-              date: _historyDate(
-                d['returned_createdat'] ??
-                    d['returned_updatedat'] ??
-                    d['createdAt'] ??
-                    d['createdat'],
-              ),
-              invoiceDate: d['dateymd'] ?? '',
-              type: 'Sales Return',
-              sign: '+',
-              item: m['returned_item']?.toString() ?? itemName,
-              qty:
-                  double.tryParse(
-                    m['returned_totalpieces']?.toString() ??
-                        m['returned_quantity']?.toString() ??
-                        '0',
-                  ) ??
-                  0,
-              price:
-                  double.tryParse(m['returned_price']?.toString() ?? '0') ?? 0,
-              total:
-                  double.tryParse(
-                    m['returned_totalamount']?.toString() ?? '0',
-                  ) ??
-                  0,
-              mode: m['returned_mode']?.toString() ?? '',
-              branch:
-                  m['returned_branchname']?.toString() ??
-                  d['branchName']?.toString() ??
-                  '',
-              staff: d['returned_createdby']?.toString() ?? '',
-              transactionid:
-                  m['returned_receiptid']?.toString() ??
-                  d['receiptNumber']?.toString() ??
-                  d['id']?.toString() ??
-                  '',
-            ),
-          );
-        }
-      }
-      // Newest first
-      entries.sort((a, b) {
-        final ta = a.date?.millisecondsSinceEpoch ?? 0;
-        final tb = b.date?.millisecondsSinceEpoch ?? 0;
-        return tb.compareTo(ta);
-      });
-
-      itemHistoryEntries = entries;
+          while (_itemHistoryCache.length > _maxItemHistoryCacheEntries) {
+            _itemHistoryCache.remove(_itemHistoryCache.keys.first);
+          }
+          notifyListeners();
+        },
+      );
     } catch (e) {
-      print('loadItemHistory error: $e');
+      if (requestGeneration != _itemHistoryRequestGeneration) return;
+      debugPrint('loadItemHistory error: $e');
       itemHistoryEntries = [];
     }
 
-    itemHistoryLoading = false;
-    notifyListeners();
+    if (requestGeneration == _itemHistoryRequestGeneration) {
+      itemHistoryLoading = false;
+      notifyListeners();
+    }
   }
 
   List<Map<String, dynamic>> ledgerreport = [];

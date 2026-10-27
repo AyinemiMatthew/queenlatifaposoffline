@@ -17,6 +17,7 @@ class salereturn {
   final String? printedby;
   final String? dateymd;
   final Timestamp? printedat;
+  final bool pendingSync;
 
   salereturn({
     required this.companyid,
@@ -35,7 +36,30 @@ class salereturn {
     this.printedby,
     this.printedat,
     this.dateymd,
+    this.pendingSync = false,
   });
+
+  salereturn copyWith({bool? pendingSync}) {
+    return salereturn(
+      companyid: companyid,
+      receiptid: receiptid,
+      id: id,
+      branchid: branchid,
+      branchname: branchname,
+      staffposition: staffposition,
+      salesreturn: salesreturn,
+      items: items,
+      itemcount: itemcount,
+      createdat: createdat,
+      createdby: createdby,
+      pricingtype: pricingtype,
+      approvedby: approvedby,
+      printedby: printedby,
+      printedat: printedat,
+      dateymd: dateymd,
+      pendingSync: pendingSync ?? this.pendingSync,
+    );
+  }
 
   Map<String, dynamic> tomap() {
     return {
@@ -60,9 +84,10 @@ class salereturn {
   }
 
   factory salereturn.fromfirestore(
-      Map<String, dynamic> map,
-      String docid,
-      ) {
+    Map<String, dynamic> map,
+    String docid, {
+    bool pendingSync = false,
+  }) {
     return salereturn(
       id: docid,
       companyid: map['returned_companyid']?.toString() ?? '',
@@ -73,7 +98,7 @@ class salereturn {
       staffposition: (map['returned_staffposition'] as num?)?.toInt() ?? 0,
       salesreturn: map['returned_salesreturn'] != null
           ? map['returned_salesreturn'] as Timestamp
-          : Timestamp.now(),  // fallback if null
+          : Timestamp.now(), // fallback if null
       items: Map<String, dynamic>.from(map['returned_items'] ?? {}),
       itemcount: (map['returned_itemcount'] as num?)?.toInt() ?? 0,
       createdat: map['returned_createdat'] != null
@@ -83,8 +108,10 @@ class salereturn {
       pricingtype: map['returned_pricingtype']?.toString() ?? '',
       approvedby: map['returned_approvedby']?.toString() ?? '',
       printedby: map['returned_printedby']?.toString(),
-      printedat: map['returned_printedat'] != null ? map['returned_printedat'] as Timestamp : null,
-
+      printedat: map['returned_printedat'] != null
+          ? map['returned_printedat'] as Timestamp
+          : null,
+      pendingSync: pendingSync,
     );
   }
 }

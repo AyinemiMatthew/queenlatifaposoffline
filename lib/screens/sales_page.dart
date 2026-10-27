@@ -18,6 +18,7 @@ import '../widgets/salespagewidgets/hamper.dart';
 import '../widgets/salespagewidgets/mobilesalespreview.dart';
 import '../widgets/salespagewidgets/snackmsg.dart';
 import '../widgets/salespagewidgets/validators/salespagevalidator.dart';
+import '../widgets/offline_indicator.dart';
 
 class SalesPage extends StatefulWidget {
   const SalesPage({super.key});
@@ -967,24 +968,24 @@ class _SalesPageState extends State<SalesPage> {
     final activeBranchId = _activeBranchId;
     final activeBranchName = _activeBranchName;
 
-    // Validate stock
-    if (datafeed.stockCheckEnabled) {
-      final isValid = await salesProvider.validateCartStockOnSaves(
-        activeBranchId,
-      );
-      if (!isValid) {
-        snackMsg(
-          context,
-          'Insufficient stock detected. Please adjust cart.',
-          Colors.red,
-        );
-        return;
-      }
-    }
-
     setState(() => _isSavingDirect = true);
 
     try {
+      if (datafeed.stockCheckEnabled) {
+        final isValid = await salesProvider.validateCartStockOnSaves(
+          activeBranchId,
+        );
+        if (!mounted) return;
+        if (!isValid) {
+          snackMsg(
+            context,
+            'Insufficient stock detected. Please adjust cart.',
+            Colors.red,
+          );
+          return;
+        }
+      }
+
       final double totalDiscount = salesProvider.calculateDiscountTotal();
       final double grossTotal = salesProvider.calculateGrossTotal();
 
@@ -1067,12 +1068,17 @@ class _SalesPageState extends State<SalesPage> {
       );
 
       if (!approved) {
-        setState(() => _isSavingDirect = false);
         return;
       }
 
       if (context.mounted) {
-        snackMsg(context, 'Sale saved successfully!', Colors.green);
+        snackMsg(
+          context,
+          datafeed.isOffline
+              ? 'Sale saved on this device; waiting for internet to sync.'
+              : 'Sale saved successfully!',
+          datafeed.isOffline ? Colors.orange : Colors.green,
+        );
         Provider.of<SalesProvider>(context, listen: false).clearCurrentCart();
       }
     } catch (e) {
@@ -1430,13 +1436,14 @@ class _SalesPageState extends State<SalesPage> {
     required Color color,
     required VoidCallback onTap,
     required double minWidth,
+    bool isLoading = false,
   }) {
     return ConstrainedBox(
       constraints: BoxConstraints(minWidth: minWidth),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: isLoading ? null : onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1449,11 +1456,21 @@ class _SalesPageState extends State<SalesPage> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: _isLightTheme ? color : Colors.white,
-                  size: 18,
-                ),
+                if (isLoading)
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _isLightTheme ? color : Colors.white,
+                    ),
+                  )
+                else
+                  Icon(
+                    icon,
+                    color: _isLightTheme ? color : Colors.white,
+                    size: 18,
+                  ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -1567,6 +1584,7 @@ class _SalesPageState extends State<SalesPage> {
                   ),
                   child: Column(
                     children: [
+                      const OfflineIndicator(),
                       Center(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
@@ -3652,6 +3670,8 @@ class _SalesPageState extends State<SalesPage> {
                                                             onTap:
                                                                 _printReceipt,
                                                             minWidth: minWidth,
+                                                            isLoading:
+                                                                _isSavingDirect,
                                                           ),
 
                                                         _previewActionTile(
@@ -3811,6 +3831,7 @@ class _SalesPageState extends State<SalesPage> {
                                         saveDirectLabel: _isSavingDirect
                                             ? 'SAVING...'
                                             : 'SAVE DIRECT',
+                                        isSavingDirect: _isSavingDirect,
                                         onRemoveItem: (int index) {
                                           salesProvider.removeFromSalesPreview(
                                             index,

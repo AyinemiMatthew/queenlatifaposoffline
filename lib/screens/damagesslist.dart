@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +7,7 @@ import '../models/damageitem.dart';
 import '../providers/Datafeed.dart';
 import '../utils/damagepdf.dart';
 import '../widgets/datepicker.dart';
+import '../widgets/offline_indicator.dart';
 import 'damages.dart';
 
 class _DamageSummaryBucket {
@@ -123,7 +123,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
       ];
 
       final headerMatch = headerValues.any(
-            (v) => v?.toString().toLowerCase().contains(q) ?? false,
+        (v) => v?.toString().toLowerCase().contains(q) ?? false,
       );
 
       if (headerMatch) return true;
@@ -192,10 +192,31 @@ class _DamagesListPageState extends State<DamagesListPage> {
     return description.isEmpty ? 'Unspecified' : description;
   }
 
+  Widget _syncStatusBadge(damageitemmodel damage) {
+    if (!damage.pendingSync) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        'Waiting to sync',
+        style: TextStyle(
+          color: Colors.deepOrange,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   void _openDamageInsight(
-      List<damageitemmodel> damages,
-      _DamageInsightView view,
-      ) {
+    List<damageitemmodel> damages,
+    _DamageInsightView view,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _DamageInsightsPage(damages: damages, view: view),
@@ -468,209 +489,210 @@ class _DamagesListPageState extends State<DamagesListPage> {
             ),
             title: _isSearching
                 ? Container(
-              height: 44,
-              width: double.infinity,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _cardColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                autofocus: true,
-                textAlignVertical: TextAlignVertical.center,
-                style: TextStyle(
-                  color: _textColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-                cursorColor: Theme.of(context).colorScheme.secondary,
-                cursorWidth: 2,
-                decoration: InputDecoration(
-                  hintText: 'Search damages...',
-                  hintStyle: TextStyle(
-                    color: _secondaryTextColor,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: _secondaryTextColor,
-                    size: 22,
-                  ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 44,
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 4,
-                  ),
-                ),
-                onChanged: (text) {
-                  setState(() {
-                    searchQuery = text;
-                  });
-                },
-              ),
-            )
+                    height: 44,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _cardColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      autofocus: true,
+                      textAlignVertical: TextAlignVertical.center,
+                      style: TextStyle(
+                        color: _textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      cursorColor: Theme.of(context).colorScheme.secondary,
+                      cursorWidth: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Search damages...',
+                        hintStyle: TextStyle(
+                          color: _secondaryTextColor,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: _secondaryTextColor,
+                          size: 22,
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 4,
+                        ),
+                      ),
+                      onChanged: (text) {
+                        setState(() {
+                          searchQuery = text;
+                        });
+                      },
+                    ),
+                  )
                 : const Text(
-              'Damages List',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+                    'Damages List',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
             actions: _isSearching
                 ? [
-              _appBarIcon(
-                icon: Icons.clear,
-                size: 18,
-                tooltip: 'Close search',
-                onPressed: _closeSearch,
-              ),
-            ]
+                    _appBarIcon(
+                      icon: Icons.clear,
+                      size: 18,
+                      tooltip: 'Close search',
+                      onPressed: _closeSearch,
+                    ),
+                  ]
                 : [
-              _appBarIcon(
-                icon: Icons.search,
-                size: 19,
-                tooltip: 'Search damages',
-                onPressed: _openSearch,
-              ),
-              if (canManage && !value.isloadingdamages)
-                PopupMenuButton<_DamageInsightView>(
-                  tooltip: 'Damage reports',
-                  icon: Icon(Icons.analytics_outlined, color: _textColor),
-                  onSelected: (view) => _openDamageInsight(filteredDamages, view),
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: _DamageInsightView.overview,
-                      child: Row(
-                        children: [
-                          Icon(Icons.dashboard_outlined),
-                          SizedBox(width: 12),
-                          Text('Damage overview'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _DamageInsightView.reasons,
-                      child: Row(
-                        children: [
-                          Icon(Icons.report_problem_outlined),
-                          SizedBox(width: 12),
-                          Text('Damage by reason'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _DamageInsightView.branches,
-                      child: Row(
-                        children: [
-                          Icon(Icons.store_outlined),
-                          SizedBox(width: 12),
-                          Text('Damage by branch'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _DamageInsightView.suppliers,
-                      child: Row(
-                        children: [
-                          Icon(Icons.local_shipping_outlined),
-                          SizedBox(width: 12),
-                          Text('Damage by supplier'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _DamageInsightView.items,
-                      child: Row(
-                        children: [
-                          Icon(Icons.inventory_2_outlined),
-                          SizedBox(width: 12),
-                          Text('Damage by item'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _DamageInsightView.quantities,
-                      child: Row(
-                        children: [
-                          Icon(Icons.numbers_outlined),
-                          SizedBox(width: 12),
-                          Text('Damaged quantity'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _DamageInsightView.costs,
-                      child: Row(
-                        children: [
-                          Icon(Icons.account_balance_wallet_outlined),
-                          SizedBox(width: 12),
-                          Text('Inventory cost by item'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              if (canManage)
-                KeyedSubtree(
-                  key: _branchButtonKey,
-                  child: _appBarIcon(
-                    icon: Icons.store_outlined,
-                    size: 19,
-                    tooltip: _selectedBranchLabel(value),
-                    color: _selectedBranchId != null
-                        ? Theme.of(context).colorScheme.primary
-                        : _textColor,
-                    onPressed: () {
-                      _showBranchDropdown(context, value);
-                    },
-                  ),
-                ),
-              if (!isSmall)
-                ReusableDatePickerWidget(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Icon(
-                      Icons.calendar_today,
+                    _appBarIcon(
+                      icon: Icons.search,
                       size: 19,
-                      color: _textColor,
+                      tooltip: 'Search damages',
+                      onPressed: _openSearch,
                     ),
-                  ),
-                  onDateSelected: (selection) async {
-                    setState(() {
-                      selectedDate = selection;
-                    });
+                    if (canManage && !value.isloadingdamages)
+                      PopupMenuButton<_DamageInsightView>(
+                        tooltip: 'Damage reports',
+                        icon: Icon(Icons.analytics_outlined, color: _textColor),
+                        onSelected: (view) =>
+                            _openDamageInsight(filteredDamages, view),
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(
+                            value: _DamageInsightView.overview,
+                            child: Row(
+                              children: [
+                                Icon(Icons.dashboard_outlined),
+                                SizedBox(width: 12),
+                                Text('Damage overview'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _DamageInsightView.reasons,
+                            child: Row(
+                              children: [
+                                Icon(Icons.report_problem_outlined),
+                                SizedBox(width: 12),
+                                Text('Damage by reason'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _DamageInsightView.branches,
+                            child: Row(
+                              children: [
+                                Icon(Icons.store_outlined),
+                                SizedBox(width: 12),
+                                Text('Damage by branch'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _DamageInsightView.suppliers,
+                            child: Row(
+                              children: [
+                                Icon(Icons.local_shipping_outlined),
+                                SizedBox(width: 12),
+                                Text('Damage by supplier'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _DamageInsightView.items,
+                            child: Row(
+                              children: [
+                                Icon(Icons.inventory_2_outlined),
+                                SizedBox(width: 12),
+                                Text('Damage by item'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _DamageInsightView.quantities,
+                            child: Row(
+                              children: [
+                                Icon(Icons.numbers_outlined),
+                                SizedBox(width: 12),
+                                Text('Damaged quantity'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: _DamageInsightView.costs,
+                            child: Row(
+                              children: [
+                                Icon(Icons.account_balance_wallet_outlined),
+                                SizedBox(width: 12),
+                                Text('Inventory cost by item'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    if (canManage)
+                      KeyedSubtree(
+                        key: _branchButtonKey,
+                        child: _appBarIcon(
+                          icon: Icons.store_outlined,
+                          size: 19,
+                          tooltip: _selectedBranchLabel(value),
+                          color: _selectedBranchId != null
+                              ? Theme.of(context).colorScheme.primary
+                              : _textColor,
+                          onPressed: () {
+                            _showBranchDropdown(context, value);
+                          },
+                        ),
+                      ),
+                    if (!isSmall)
+                      ReusableDatePickerWidget(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            Icons.calendar_today,
+                            size: 19,
+                            color: _textColor,
+                          ),
+                        ),
+                        onDateSelected: (selection) async {
+                          setState(() {
+                            selectedDate = selection;
+                          });
 
-                    await _reloadDamages(value);
-                  },
-                )
-              else
-                _appBarIcon(
-                  icon: Icons.calendar_today,
-                  size: 18,
-                  tooltip: 'Date filter',
-                  onPressed: () async {
-                    final selection = await showDateRangePicker(
-                      context: context,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      initialDateRange: selectedDate,
-                    );
+                          await _reloadDamages(value);
+                        },
+                      )
+                    else
+                      _appBarIcon(
+                        icon: Icons.calendar_today,
+                        size: 18,
+                        tooltip: 'Date filter',
+                        onPressed: () async {
+                          final selection = await showDateRangePicker(
+                            context: context,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                            initialDateRange: selectedDate,
+                          );
 
-                    if (selection == null) return;
+                          if (selection == null) return;
 
-                    setState(() {
-                      selectedDate = selection;
-                    });
+                          setState(() {
+                            selectedDate = selection;
+                          });
 
-                    await _reloadDamages(value);
-                  },
-                ),
-            ],
+                          await _reloadDamages(value);
+                        },
+                      ),
+                  ],
           ),
           floatingActionButton: FloatingActionButton(
             backgroundColor: Theme.of(context).colorScheme.primary,
@@ -689,38 +711,45 @@ class _DamagesListPageState extends State<DamagesListPage> {
               horizontal: isSmall ? 12 : 20,
               vertical: isSmall ? 12 : 16,
             ),
-            child: value.isloadingdamages
-                ? const Center(child: CircularProgressIndicator())
-                : filteredDamages.isEmpty
-                ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.warning_amber_outlined,
-                    color: _mutedTextColor,
-                    size: 42,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    searchQuery.isEmpty
-                        ? 'No damages found'
-                        : 'No matching damages found',
-                    style: TextStyle(color: _secondaryTextColor),
-                  ),
-                ],
-              ),
-            )
-                : Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: isDesktop ? 1200 : 700,
+            child: Column(
+              children: [
+                const OfflineIndicator(),
+                Expanded(
+                  child: value.isloadingdamages
+                      ? const Center(child: CircularProgressIndicator())
+                      : filteredDamages.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_outlined,
+                                color: _mutedTextColor,
+                                size: 42,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                searchQuery.isEmpty
+                                    ? 'No damages found'
+                                    : 'No matching damages found',
+                                style: TextStyle(color: _secondaryTextColor),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isDesktop ? 1200 : 700,
+                            ),
+                            child: isDesktop
+                                ? _desktopTable(filteredDamages, value)
+                                : _mobileList(filteredDamages, value),
+                          ),
+                        ),
                 ),
-                child: isDesktop
-                    ? _desktopTable(filteredDamages, value)
-                    : _mobileList(filteredDamages, value),
-              ),
+              ],
             ),
           ),
         );
@@ -780,6 +809,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
             '${itemMap.length} item(s)',
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
           ),
+          _syncStatusBadge(d),
         ],
       ),
       Text(
@@ -796,10 +826,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
       ),
       Text(
         'GHS ${NumberFormat('#,##0.00').format(total)}',
-        style: TextStyle(
-          color: colors.onSurface,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold),
       ),
       _actionsMenu(d, value),
     ];
@@ -813,7 +840,12 @@ class _DamagesListPageState extends State<DamagesListPage> {
       _DamageCol('Item', 5, sortable: true),
       _DamageCol('Branch / Warehouse', 4),
       _DamageCol('Reason', 4),
-      _DamageCol('Total (GHS)', 3, sortable: true, alignment: Alignment.centerRight),
+      _DamageCol(
+        'Total (GHS)',
+        3,
+        sortable: true,
+        alignment: Alignment.centerRight,
+      ),
       _DamageCol('Actions', 2, alignment: Alignment.center),
     ];
 
@@ -884,8 +916,9 @@ class _DamagesListPageState extends State<DamagesListPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tableWidth =
-        constraints.maxWidth < 900 ? 900.0 : constraints.maxWidth;
+        final tableWidth = constraints.maxWidth < 900
+            ? 900.0
+            : constraints.maxWidth;
 
         return Scrollbar(
           controller: horizontalController,
@@ -971,6 +1004,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
                           ),
                         ),
                       ),
+                      _syncStatusBadge(damage),
                       _actionsMenu(damage, value),
                     ],
                   ),
@@ -1000,7 +1034,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
                             double.tryParse(
                               item['totalpieces']?.toString() ?? '0',
                             ) ??
-                                0;
+                            0;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 16),
@@ -1166,10 +1200,10 @@ class _DamagesListPageState extends State<DamagesListPage> {
   }
 
   Future<void> _handleDelete(
-      BuildContext context,
-      String itemName,
-      String id,
-      ) async {
+    BuildContext context,
+    String itemName,
+    String id,
+  ) async {
     final name = itemName.isEmpty ? 'this damage' : itemName;
 
     final confirm = await showDialog<bool>(
@@ -1342,7 +1376,7 @@ class _DamageInsightsPageState extends State<_DamageInsightsPage> {
       return branch == key;
     }
     return damage.item.values.whereType<Map>().any(
-          (item) => _groupKey(damage, item) == key,
+      (item) => _groupKey(damage, item) == key,
     );
   }
 
@@ -1557,17 +1591,17 @@ class _DamageInsightsPageState extends State<_DamageInsightsPage> {
                 Text(
                   switch (view) {
                     _DamageInsightView.reasons =>
-                    'Select a reason to see the matching item, supplier, quantity, cost, and staff.',
+                      'Select a reason to see the matching item, supplier, quantity, cost, and staff.',
                     _DamageInsightView.branches =>
-                    'Select a branch to see its damage records and item details.',
+                      'Select a branch to see its damage records and item details.',
                     _DamageInsightView.suppliers =>
-                    'Select a supplier to see the damaged items linked to that supplier.',
+                      'Select a supplier to see the damaged items linked to that supplier.',
                     _DamageInsightView.items =>
-                    'Select an item to see its damage history, reasons, and suppliers.',
+                      'Select an item to see its damage history, reasons, and suppliers.',
                     _DamageInsightView.quantities =>
-                    'Items ranked by total damaged quantity. Select one to inspect its records.',
+                      'Items ranked by total damaged quantity. Select one to inspect its records.',
                     _DamageInsightView.costs =>
-                    'Items ranked by inventory cost. Select one to inspect its records.',
+                      'Items ranked by inventory cost. Select one to inspect its records.',
                     _DamageInsightView.overview => '',
                   },
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -1579,7 +1613,7 @@ class _DamageInsightsPageState extends State<_DamageInsightsPage> {
                   const Center(child: Text('No damage records available.'))
                 else
                   ...orderedGroups.map(
-                        (entry) => Card(
+                    (entry) => Card(
                       color: colors.surface,
                       child: ListTile(
                         leading: Icon(_iconForView, color: colors.primary),
@@ -1618,23 +1652,23 @@ class _DamageGroupItemsPage extends StatelessWidget {
   bool _matches(damageitemmodel damage, Map item) {
     final key = switch (view) {
       _DamageInsightView.branches =>
-      damage.branchname.trim().isEmpty
-          ? 'Unassigned'
-          : damage.branchname.trim(),
+        damage.branchname.trim().isEmpty
+            ? 'Unassigned'
+            : damage.branchname.trim(),
       _DamageInsightView.reasons =>
-      (item['reason']?.toString().trim().isNotEmpty ?? false)
-          ? item['reason'].toString().trim()
-          : (damage.description.trim().isEmpty
-          ? 'Unspecified'
-          : damage.description.trim()),
+        (item['reason']?.toString().trim().isNotEmpty ?? false)
+            ? item['reason'].toString().trim()
+            : (damage.description.trim().isEmpty
+                  ? 'Unspecified'
+                  : damage.description.trim()),
       _DamageInsightView.suppliers =>
-      item['supplier']?.toString().trim().isNotEmpty == true
-          ? item['supplier'].toString().trim()
-          : 'Unspecified',
+        item['supplier']?.toString().trim().isNotEmpty == true
+            ? item['supplier'].toString().trim()
+            : 'Unspecified',
       _ =>
-      item['item']?.toString().trim().isNotEmpty == true
-          ? item['item'].toString().trim()
-          : 'Unknown item',
+        item['item']?.toString().trim().isNotEmpty == true
+            ? item['item'].toString().trim()
+            : 'Unknown item',
     };
     return key.toLowerCase() == groupLabel.toLowerCase();
   }
@@ -1666,7 +1700,8 @@ class _DamageGroupItemsPage extends StatelessWidget {
               const SizedBox(height: 12),
               for (final damage in damages)
                 for (final entry in damage.item.entries)
-                  if (entry.value is Map && _matches(damage, entry.value as Map))
+                  if (entry.value is Map &&
+                      _matches(damage, entry.value as Map))
                     Builder(
                       builder: (context) {
                         final item = entry.value as Map;
@@ -1678,7 +1713,7 @@ class _DamageGroupItemsPage extends StatelessWidget {
                         final reason = item['reason']?.toString().trim();
                         final supplier = item['supplier']?.toString().trim();
                         final itemName =
-                        item['item']?.toString().trim().isNotEmpty == true
+                            item['item']?.toString().trim().isNotEmpty == true
                             ? item['item'].toString().trim()
                             : 'Unknown item';
                         final info = [
@@ -1778,9 +1813,9 @@ class _DamageRecordDetailsPage extends StatelessWidget {
     final itemEntries = damage.item.entries
         .where(
           (entry) =>
-      entry.value is Map &&
-          (itemKeys == null || itemKeys!.contains(entry.key)),
-    )
+              entry.value is Map &&
+              (itemKeys == null || itemKeys!.contains(entry.key)),
+        )
         .toList();
     final totalCost = itemEntries.fold<double>(0, (sum, entry) {
       final item = entry.value as Map;
@@ -1796,7 +1831,6 @@ class _DamageRecordDetailsPage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-
               Text('Damaged items', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               ...itemEntries.map((entry) {
@@ -1868,14 +1902,12 @@ class _DamageRecordDetailsPage extends StatelessWidget {
                   ),
                 );
               }),
-
             ],
           ),
         ),
       ),
     );
   }
-
 }
 
 class _DamageCol {
@@ -1885,9 +1917,9 @@ class _DamageCol {
   final Alignment alignment;
 
   const _DamageCol(
-      this.label,
-      this.flex, {
-        this.sortable = false,
-        this.alignment = Alignment.centerLeft,
-      });
+    this.label,
+    this.flex, {
+    this.sortable = false,
+    this.alignment = Alignment.centerLeft,
+  });
 }

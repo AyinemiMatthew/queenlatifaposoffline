@@ -24,6 +24,7 @@ class damageitemmodel {
   final String? dateymd;
   final String? grandtotal;
   final String? trxid;
+  final bool pendingSync;
 
   damageitemmodel({
     required this.id,
@@ -44,14 +45,39 @@ class damageitemmodel {
     required this.companyid,
     required this.company,
     this.trxid,
+    this.pendingSync = false,
   });
+
+  damageitemmodel copyWith({bool? pendingSync}) {
+    return damageitemmodel(
+      id: id,
+      itemcount: itemcount,
+      item: item,
+      branchid: branchid,
+      branchname: branchname,
+      description: description,
+      createdby: createdby,
+      createdat: createdat,
+      updatedby: updatedby,
+      updatedat: updatedat,
+      deletedby: deletedby,
+      deletedat: deletedat,
+      staffposition: staffposition,
+      dateymd: dateymd,
+      grandtotal: grandtotal,
+      companyid: companyid,
+      company: company,
+      trxid: trxid,
+      pendingSync: pendingSync ?? this.pendingSync,
+    );
+  }
 
   /// Convert to Firestore Map (store DateTime as Timestamp)
   Map<String, dynamic> tomap() {
     return {
       'itemcount': itemcount,
       'item': item,
-      'id':id,
+      'id': id,
       'branchid': branchid,
       'branchname': branchname,
       'companyid': companyid,
@@ -72,7 +98,9 @@ class damageitemmodel {
 
   /// Create model from Firestore (convert Timestamp to DateTime)
   factory damageitemmodel.fromfirestore(
-      Map<String, dynamic> map, String docid) {
+    Map<String, dynamic> map,
+    String docid,
+  ) {
     return damageitemmodel(
       id: docid,
       trxid: map['trxid'] ?? '',
