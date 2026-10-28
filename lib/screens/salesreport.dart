@@ -2097,16 +2097,16 @@ class _SalesReportState extends State<SalesReport> {
             columnWidths: {
               0: const pw.FixedColumnWidth(24),
               1: const pw.FlexColumnWidth(2.1),
-              2: const pw.FlexColumnWidth(0.8),
-              3: const pw.FlexColumnWidth(1.2),
-              4: const pw.FlexColumnWidth(1.1),
-              5: const pw.FlexColumnWidth(1.3),
-              6: const pw.FlexColumnWidth(1.2),
-              7: const pw.FlexColumnWidth(1.6),
-              8: const pw.FlexColumnWidth(1.1),
-              9: const pw.FlexColumnWidth(1.7),
-              10: const pw.FlexColumnWidth(1.5),
-              //  11: const pw.FlexColumnWidth(1.3),
+              2: const pw.FlexColumnWidth(1.5),
+              3: const pw.FlexColumnWidth(0.8),
+              4: const pw.FlexColumnWidth(1.2),
+              5: const pw.FlexColumnWidth(1.1),
+              6: const pw.FlexColumnWidth(1.3),
+              7: const pw.FlexColumnWidth(1.2),
+              8: const pw.FlexColumnWidth(1.6),
+              9: const pw.FlexColumnWidth(1.1),
+              10: const pw.FlexColumnWidth(1.7),
+              11: const pw.FlexColumnWidth(1.5),
             },
             children: [
               pw.TableRow(
@@ -2114,6 +2114,7 @@ class _SalesReportState extends State<SalesReport> {
                 children: [
                   cell('#', head: true),
                   cell('DATE', head: true),
+                  cell('CATEGORY', head: true),
                   cell('QTY', head: true, right: true),
                   cell('PRICE', head: true, right: true),
                   cell('DISCOUNT', head: true, right: true),
@@ -2148,6 +2149,7 @@ class _SalesReportState extends State<SalesReport> {
                   children: [
                     cell('${e.key + 1}'),
                     cell(dateStr),
+                    cell((t['pcategory'] ?? '').toString()),
                     cell(
                       ret ? '-${qf(_num(t['qty']))}' : qf(_num(t['qty'])),
                       right: true,
@@ -2175,12 +2177,12 @@ class _SalesReportState extends State<SalesReport> {
                 children: [
                   cell(''),
                   cell('GRAND TOTAL', isBold: true),
+                  cell(''),
                   cell(qf(v('qty')), right: true, isBold: true),
                   cell(''),
                   cell(nf.format(v('discount')), right: true, isBold: true),
                   cell(nf.format(v('net')), right: true, isBold: true),
                   cell(nf.format(v('profit')), right: true, isBold: true),
-                  cell(''),
                   cell(''),
                   cell(''),
                   cell(''),
@@ -2328,6 +2330,7 @@ class _SalesReportState extends State<SalesReport> {
     final headers = <String>[
       '#',
       'DATE',
+      'CATEGORY',
       'QTY',
       'PRICE',
       'DISCOUNT',
@@ -2374,6 +2377,7 @@ class _SalesReportState extends State<SalesReport> {
       sheet.appendRow([
         xls.IntCellValue(i + 1),
         xls.TextCellValue(dateStr),
+        xls.TextCellValue((t['pcategory'] ?? '').toString()),
         xls.DoubleCellValue(ret ? -qty : qty),
         xls.DoubleCellValue(_num(t['price'])),
         xls.DoubleCellValue(sg(_num(t['discount']))),
@@ -2390,6 +2394,7 @@ class _SalesReportState extends State<SalesReport> {
     sheet.appendRow([
       xls.TextCellValue(''),
       xls.TextCellValue('GRAND TOTAL'),
+      xls.TextCellValue(''),
       xls.DoubleCellValue(v('qty')),
       xls.TextCellValue(''),
       xls.DoubleCellValue(v('discount')),
