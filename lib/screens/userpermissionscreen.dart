@@ -194,6 +194,7 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
 
   Widget _buildPermissionCard(String module, List<String> permissions) {
     final isDashboard = module == 'Dashboard';
+    final colorScheme = Theme.of(context).colorScheme;
     final modulePermissions =
         _permissions[module] ??
         {'view': false, 'create': false, 'edit': false, 'delete': false};
@@ -214,8 +215,8 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                 Expanded(
                   child: Text(
                     module,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -234,14 +235,14 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                           ? 'Deselect All'
                           : 'Select All',
                       style: TextStyle(
-                        color: Colors.blue.shade300,
+                        color: colorScheme.primary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
               ],
             ),
-            const Divider(color: Colors.white24, height: 24),
+            Divider(color: colorScheme.outlineVariant, height: 24),
 
             // Permission Toggles
             Wrap(
@@ -263,15 +264,17 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                         value: isEnabled,
                         onChanged: (value) =>
                             _togglePermission(module, permission),
-                        activeColor: Colors.blue,
-                        checkColor: Colors.white,
-                        side: const BorderSide(color: Colors.white54),
+                        activeColor: colorScheme.primary,
+                        checkColor: colorScheme.onPrimary,
+                        side: BorderSide(color: colorScheme.outline),
                       ),
                       Expanded(
                         child: Text(
                           permission.toUpperCase(),
                           style: TextStyle(
-                            color: isEnabled ? Colors.white : Colors.white54,
+                            color: isEnabled
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: isEnabled
                                 ? FontWeight.w600
@@ -472,10 +475,10 @@ class _UserPermissionScreenState extends State<UserPermissionScreen> {
                         const SizedBox(height: 20),
 
                         // Permissions Section
-                        const Text(
+                        Text(
                           'PERMISSIONS',
                           style: TextStyle(
-                            color: Colors.white54,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.2,

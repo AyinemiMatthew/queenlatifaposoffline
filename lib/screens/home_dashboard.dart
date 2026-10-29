@@ -741,7 +741,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             ? screenWidth * 0.48
                             : isBigTablet
                             ? screenWidth * 0.24
-                            : screenWidth * 0.22,
+                            : screenWidth * 0.21,
                       ),
                       RespWidget(
                         cwidth: isMobile
@@ -754,7 +754,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             ? screenWidth * 0.48
                             : isBigTablet
                             ? screenWidth * 0.15
-                            : screenWidth * 0.17,
+                            : screenWidth * 0.165,
                       ),
                       MomoKpiWidget(
                         cwidth: isMobile
@@ -767,7 +767,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             ? screenWidth * 0.48
                             : isBigTablet
                             ? screenWidth * 0.15
-                            : screenWidth * 0.164,
+                            : screenWidth * 0.16,
                         //todayAmount: 0.00,
                         //yesterdayAmount: 0.00,
                       ),
@@ -921,7 +921,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             ? screenWidth * 0.48
                             : isBigTablet
                             ? screenWidth * 0.48
-                            : screenWidth * 0.195,
+                            : screenWidth * 0.19,
                       ),
 
                       MonthlyRevenueWidget(
@@ -933,7 +933,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             ? screenWidth * 0.48
                             : isBigTablet
                             ? screenWidth * 0.48
-                            : screenWidth * 0.195,
+                            : screenWidth * 0.19,
                       ),
                     ],
                   ),

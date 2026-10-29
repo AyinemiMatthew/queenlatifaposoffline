@@ -368,6 +368,17 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
+                  if (datafeed.isOffline && datafeed.stockCheckEnabled) {
+                    salesProvider.showMessage(
+                      context,
+                      'Sales with stock checking require an internet connection.',
+                      Colors.orange,
+                    );
+                    _isSaving = false;
+                    processState.value = "idle";
+                    return;
+                  }
+
                   if (!isService && datafeed.stockCheckEnabled) {
                     final ensureSalesWarehouseSelected =
                     salesProvider.ensureSalesWarehouseSelected(
@@ -410,7 +421,12 @@ Future<void> printReceipt({
                       ((now1.difference(DateTime(now1.year, 1, 1)).inDays) / 7).floor() + 1;
 
                   final week = '${now1.year}.$weekNumber';
-                  final dailyNumber = await datafeed.nextDailyReceiptNumber(datafeed.branchid);
+                  final queuedOffline = datafeed.isOffline;
+                  final dailyNumber = queuedOffline
+                      ? null
+                      : await datafeed.nextDailyReceiptNumber(
+                          datafeed.branchid,
+                        );
 
                   final saleData = SalesModel(
                     id: docId,
@@ -453,7 +469,11 @@ Future<void> printReceipt({
                     approvedby: datafeed.staff,
                     printedby: shouldPrint ? datafeed.staff : '',
                     printedat: shouldPrint ? now : null,
-                    stockCheckedAt: now,
+                    stockCheckedAt: queuedOffline ? null : now,
+                    stockCheckStatus:
+                        queuedOffline && !datafeed.stockCheckEnabled
+                        ? 'approved'
+                        : null,
                     timestamp: timestamp,
                     printed:  shouldPrint,
                     reciepted: true,
@@ -469,18 +489,33 @@ Future<void> printReceipt({
 
                   );
 
-                  await FirebaseFirestore.instance
-                      .collection('sales')
-                      .doc(docId)
-                      .set(saleData.toMap());
+                  if (queuedOffline) {
+                    await datafeed.offlineSalesQueue.saveLocally(
+                      companyId: companyId,
+                      saleId: docId,
+                      saleData: saleData.toMap(),
+                    );
+                  } else {
+                    await FirebaseFirestore.instance
+                        .collection('sales')
+                        .doc(docId)
+                        .set(saleData.toMap());
+                  }
 
-                  final skipCheck = !datafeed.stockCheckEnabled || salesProvider.isServiceOnlySale(salesProvider.salesItems);
-                  final approved =
-                  await salesProvider.ensureSaleApproved(context, docId, skipStockCheck: skipCheck);
-                  if (!approved) return;
+                  if (!queuedOffline) {
+                    final skipCheck = !datafeed.stockCheckEnabled ||
+                        salesProvider.isServiceOnlySale(salesProvider.salesItems);
+                    final approved = await salesProvider.ensureSaleApproved(
+                      context,
+                      docId,
+                      skipStockCheck: skipCheck,
+                    );
+                    if (!approved) return;
+                  }
 
-                  if (shouldPrint) {
-                  final receiptItems = salesItems.map((e) {
+                  if (shouldPrint &&
+                      (!queuedOffline || !datafeed.stockCheckEnabled)) {
+                    final receiptItems = salesItems.map((e) {
                     return ReceiptItem(
                       name: e['item'] ?? '',
                       qty: double.tryParse(e['quantity'].toString()) ?? 0,
@@ -567,7 +602,7 @@ Future<void> printReceipt({
                     );
                   }
               }
-                  if (!context.mounted) return;
+              if (!context.mounted) return;
 
                   context.read<SalesProvider>().clearCurrentCart();
 
@@ -575,12 +610,12 @@ Future<void> printReceipt({
 
                   salesProvider.showMessage(
                     context,
-                    datafeed.isOffline
-                        ? 'Sale saved on this device; waiting for internet to sync. Receipt: $receiptNumber'
+                    queuedOffline
+                        ? 'Sale saved safely on this device; waiting for internet to sync. Receipt: $receiptNumber'
                         : shouldPrint
                         ? 'Receipt printed: $receiptNumber'
                         : 'Sale saved: $receiptNumber',
-                    datafeed.isOffline ? Colors.orange : Colors.green,
+                    queuedOffline ? Colors.orange : Colors.green,
                   );
                 } catch (e) {
                   salesProvider.showMessage(
@@ -650,6 +685,17 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
+                  if (datafeed.isOffline && datafeed.stockCheckEnabled) {
+                    salesProvider.showMessage(
+                      context,
+                      'Sales with stock checking require an internet connection.',
+                      Colors.orange,
+                    );
+                    _isSaving = false;
+                    processState.value = "idle";
+                    return;
+                  }
+
 
                   if (!isService&& datafeed.stockCheckEnabled) {
                     final ensureSalesWarehouseSelected =
@@ -697,7 +743,12 @@ Future<void> printReceipt({
 
                   final week = '${now1.year}.$weekNumber';
 
-                  final dailyNumber = await datafeed.nextDailyReceiptNumber(datafeed.branchid);
+                  final queuedOffline = datafeed.isOffline;
+                  final dailyNumber = queuedOffline
+                      ? null
+                      : await datafeed.nextDailyReceiptNumber(
+                          datafeed.branchid,
+                        );
                   final saleData = SalesModel(
                     id: docId,
                     companyId: companyId,
@@ -740,7 +791,11 @@ Future<void> printReceipt({
                     approvedby: datafeed.staff,
                     printedby: datafeed.staff,
                     printedat: now,
-                    stockCheckedAt: now,
+                    stockCheckedAt: queuedOffline ? null : now,
+                    stockCheckStatus:
+                        queuedOffline && !datafeed.stockCheckEnabled
+                        ? 'approved'
+                        : null,
                     timestamp: timestamp,
                     printed: true,
                     reciepted: true,
@@ -754,19 +809,31 @@ Future<void> printReceipt({
                     dailyreceiptno: dailyNumber,
                   );
 
-                  await FirebaseFirestore.instance
-                      .collection('sales')
-                      .doc(docId)
-                      .set(saleData.toMap());
-                  final skipCheck = !datafeed.stockCheckEnabled ||
-                      salesProvider.isServiceOnlySale(salesProvider.salesItems);
-                  final approved = await salesProvider.ensureSaleApproved(
-                      context, docId, skipStockCheck: skipCheck);
+                  if (queuedOffline) {
+                    await datafeed.offlineSalesQueue.saveLocally(
+                      companyId: companyId,
+                      saleId: docId,
+                      saleData: saleData.toMap(),
+                    );
+                  } else {
+                    await FirebaseFirestore.instance
+                        .collection('sales')
+                        .doc(docId)
+                        .set(saleData.toMap());
+                  }
+                  if (!queuedOffline || !datafeed.stockCheckEnabled) {
+                    final skipCheck = !datafeed.stockCheckEnabled ||
+                        salesProvider.isServiceOnlySale(salesProvider.salesItems);
+                    final approved = await salesProvider.ensureSaleApproved(
+                      context,
+                      docId,
+                      skipStockCheck: skipCheck,
+                    );
+                    if (!approved) return;
+                  }
 
-
-                  if (!approved) return;
-
-                  final receiptItems = salesItems.map((e) {
+                  if (!queuedOffline) {
+                    final receiptItems = salesItems.map((e) {
                     return ReceiptItem(
                       name: e['item'] ?? '',
                       qty: double.tryParse(e['quantity'].toString()) ?? 0,
@@ -843,6 +910,7 @@ Future<void> printReceipt({
                       onLayout: (_) async => doc.save(),
                     );
                   }
+                  }
                   if (!context.mounted) return;
 
                   context.read<SalesProvider>().clearCurrentCart();
@@ -851,10 +919,10 @@ Future<void> printReceipt({
 
                   salesProvider.showMessage(
                     context,
-                    datafeed.isOffline
-                        ? 'Sale saved on this device; waiting for internet to sync. Receipt: $receiptNumber'
+                    queuedOffline
+                        ? 'Sale saved safely on this device; waiting for internet to sync. Receipt: $receiptNumber'
                         : 'Receipt printed: $receiptNumber',
-                    datafeed.isOffline ? Colors.orange : Colors.green,
+                    queuedOffline ? Colors.orange : Colors.green,
                   );
                 } catch (e) {
                   salesProvider.showMessage(
