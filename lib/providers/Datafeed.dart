@@ -23,6 +23,7 @@ import 'package:kologsoft/models/activity_model.dart';
 import 'package:kologsoft/models/sub_account_model.dart';
 import 'package:kologsoft/providers/routes.dart';
 import 'package:kologsoft/services/item_cache_service.dart';
+import 'package:kologsoft/services/offline_sales_queue.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/ReasonsModel.dart';
@@ -495,6 +496,7 @@ class Datafeed extends ChangeNotifier {
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;
   final ItemCacheService itemCache = ItemCacheService();
+  final OfflineSalesQueue offlineSalesQueue = OfflineSalesQueue();
   bool authenticated = false;
   bool isOffline = false;
   String company = "";
@@ -542,6 +544,8 @@ class Datafeed extends ChangeNotifier {
   List<CustomerRegModel> customerlist = [];
   List<damageitemmodel> damages = [];
   bool isloadingdamages = false;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _connectionStatusSub;
 
   List<salereturn> salesreturn = [];
   List<SalesModel> salesview = [];
@@ -1125,7 +1129,7 @@ class Datafeed extends ChangeNotifier {
 
   void _initSync() {
     // Listen to Firestore snapshots metadata to detect offline/online status
-    db
+    _connectionStatusSub = db
         .collection('_connection_check')
         .limit(1)
         .snapshots(includeMetadataChanges: true)
@@ -1133,6 +1137,9 @@ class Datafeed extends ChangeNotifier {
           isOffline = snapshot.metadata.isFromCache;
           notifyListeners();
           debugPrint(isOffline ? '📴 App is OFFLINE' : '📶 App is ONLINE');
+          if (!isOffline && companyid.isNotEmpty) {
+            unawaited(offlineSalesQueue.syncPendingSales(db, companyid));
+          }
         });
   }
 
@@ -1300,7 +1307,10 @@ class Datafeed extends ChangeNotifier {
   }) async {
     isloadingdamages = true;
     final locallyPendingDamages = damages
-        .where((damage) => damage.pendingSync)
+        .where(
+          (damage) =>
+              damage.pendingSync && damage.companyid == companyid,
+        )
         .toList();
     damages = locallyPendingDamages;
     notifyListeners();
@@ -1401,6 +1411,7 @@ class Datafeed extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _connectionStatusSub?.cancel();
     _salesSubscription?.cancel();
     _stockCheckSub?.cancel();
     _reorderSub?.cancel();
@@ -1417,7 +1428,10 @@ class Datafeed extends ChangeNotifier {
     String? selectedBranch,
   }) async {
     final locallyPendingReturns = salesreturn
-        .where((record) => record.pendingSync)
+        .where(
+          (record) =>
+              record.pendingSync && record.companyid == companyid,
+        )
         .toList();
     try {
       isloadingsalesreturn = true;
@@ -4986,6 +5000,9 @@ class Datafeed extends ChangeNotifier {
     await auth.signOut();
 
     authenticated = false;
+    damages = [];
+    salesreturn = [];
+    salesview = [];
     company = "";
     companyid = "";
     companytype = "";
@@ -5664,6 +5681,9 @@ class Datafeed extends ChangeNotifier {
     listenToStaffChanges();
     initStockCheckListener();
     initReorderListener();
+    if (!isOffline && companyid.isNotEmpty) {
+      unawaited(offlineSalesQueue.syncPendingSales(db, companyid));
+    }
     notifyListeners();
   }
 

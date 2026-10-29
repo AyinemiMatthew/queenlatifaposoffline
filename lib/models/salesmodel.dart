@@ -45,6 +45,7 @@ class SalesModel {
   Timestamp? receiptat;
   Timestamp? printedat;
   Timestamp? stockCheckedAt;
+  String? stockCheckStatus;
   String paymentStatus;
   int timestamp;
   final String? dailyreceiptno;
@@ -103,6 +104,7 @@ class SalesModel {
     this.receiptat,
     this.printedat,
     this.stockCheckedAt,
+    this.stockCheckStatus,
     required this.timestamp,
     required this.items,
 
@@ -154,6 +156,7 @@ class SalesModel {
       "receiptat": receiptat,
       "printedat": printedat,
       "stockCheckedAt": stockCheckedAt,
+      if (stockCheckStatus != null) "stockCheckStatus": stockCheckStatus,
       "timestamp": timestamp,
       "items": items,
       "branchType": branchType,
@@ -226,6 +229,7 @@ class SalesModel {
       year: map['year'] ?? '',
 
       stockCheckedAt: map['stockCheckedAt'],
+      stockCheckStatus: map['stockCheckStatus']?.toString(),
       timestamp: map['timestamp'] ?? 0,
       items: Map<String, dynamic>.from(map['items'] ?? {}),
 

@@ -697,42 +697,33 @@ class _DamagesState extends State<Damages> {
           .doc(docId)
           .set(damageitem.tomap(), SetOptions(merge: true));
 
-      final isOffline = datafeed.isOffline;
-      if (isOffline) {
-        damageitemmodel? previousDamage;
-        for (final existingDamage in datafeed.damages) {
-          if (existingDamage.id == docId) {
-            previousDamage = existingDamage;
-            break;
-          }
+      final wasOffline = datafeed.isOffline;
+      damageitemmodel? previousDamage;
+      for (final existingDamage in datafeed.damages) {
+        if (existingDamage.id == docId) {
+          previousDamage = existingDamage;
+          break;
         }
-        datafeed.addPendingDamage(damageitem);
-        unawaited(
-          _finishQueuedDamageSave(
-            saveFuture,
-            datafeed,
-            docId,
-            previousDamage,
-          ),
-        );
-      } else {
-        await saveFuture;
-        await datafeed.fetchdamages();
       }
+
+      // Always queue the local pending item so desktop/web can save while offline.
+      // Firestore persistence will upload it automatically once connection returns.
+      datafeed.addPendingDamage(damageitem);
+      unawaited(
+        _finishQueuedDamageSave(saveFuture, datafeed, docId, previousDamage),
+      );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isOffline
-                ? 'Damage saved on this device; waiting for internet to sync.'
-                : isEditing
-                ? 'Damage record updated successfully'
-                : 'Damages recorded successfully',
-            style: TextStyle(color: Colors.white),
+            wasOffline
+                ? 'Damage saved on this device; it will sync when internet is available.'
+                : 'Damage saved locally; it will sync automatically when online.',
+            style: const TextStyle(color: Colors.white),
           ),
-          backgroundColor: isOffline ? Colors.orange : Colors.green,
+          backgroundColor: Colors.orange,
           duration: const Duration(seconds: 3),
         ),
       );
