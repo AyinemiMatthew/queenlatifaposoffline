@@ -191,21 +191,21 @@ class _MomoTransactionsPageState extends State<MomoTransactionsPage> {
                     onDaySelected: _goToDay,
                     onPickDate: _selectDay,
                   ),
-                  const SizedBox(height: 14),
-                  Text(
-                    _isToday ? 'Today' : 'Selected day',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
+                  //const SizedBox(height: 14),
+                  // Text(
+                  //   _isToday ? 'Today' : 'Selected day',
+                  //   style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  //     color: colors.onSurfaceVariant,
+                  //   ),
+                  // ),
+                  const SizedBox(height: 4),
                   Text(
                     _dayFormat.format(_selectedDay),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 4),
                   _HeroCard(
                     amount: _amountFormat.format(_totalAmount),
                     count: _transactions.length,
@@ -415,7 +415,7 @@ class _DayChip extends StatelessWidget {
             Text(
               '${day.day}',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: fg,
               ),
@@ -447,7 +447,7 @@ class _HeroCard extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: LinearGradient(
@@ -504,7 +504,7 @@ class _HeroCard extends StatelessWidget {
             child: Text(
               loading ? 'GHS —' : amount,
               style: TextStyle(
-                fontSize: 32,
+                fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: colors.onPrimary,
               ),
