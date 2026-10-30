@@ -1268,6 +1268,63 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
+  Widget _reportStatusBanner(Datafeed value) {
+    final isOffline = value.salesReportOffline;
+    final hasData = value.salesReportHasVisibleData;
+    final colorScheme = Theme.of(context).colorScheme;
+    final message = isOffline
+        ? hasData
+              ? 'Offline · Showing saved sales report data.'
+              : "Sales report isn't available offline yet. Connect to the internet to load it."
+        : hasData
+        ? "Couldn't refresh the sales report. Showing saved data."
+        : "Couldn't load the sales report. Check your connection and try again.";
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isOffline
+            ? colorScheme.secondaryContainer
+            : colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOffline ? Icons.cloud_off_outlined : Icons.info_outline,
+            color: isOffline
+                ? colorScheme.onSecondaryContainer
+                : colorScheme.onErrorContainer,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: isOffline
+                    ? colorScheme.onSecondaryContainer
+                    : colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: value.isloadingsalesreport
+                ? null
+                : () => value.fetchsalesreport(
+                    selectedDate: selectedDate,
+                    selectedBranch: _selectedBranch,
+                    productType: _selectedType,
+                    category: _selectedCategory,
+                  ),
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showFilterMenu(
     GlobalKey key,
     String allLabel,
@@ -1667,16 +1724,8 @@ class _SalesReportState extends State<SalesReport> {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (value.salesReportError != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Text(
-                    value.salesReportError!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
+              if (value.salesReportOffline || value.salesReportError != null)
+                _reportStatusBanner(value),
               Expanded(
                 child: Align(
                   alignment: Alignment.topCenter,

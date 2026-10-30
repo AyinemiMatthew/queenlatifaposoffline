@@ -132,6 +132,60 @@ class _StockReportPageState extends State<StockReportPage> {
     );
   }
 
+  Widget _reportStatusBanner(Datafeed provider) {
+    if (!provider.stockReportOffline && provider.stockReportError == null) {
+      return const SizedBox.shrink();
+    }
+
+    final hasData = provider.stockReportHasVisibleData;
+    final isOffline = provider.stockReportOffline;
+    final colorScheme = Theme.of(context).colorScheme;
+    final message = isOffline
+        ? hasData
+              ? 'Offline · Showing saved stock report data.'
+              : "Stock report isn't available offline yet. Connect to the internet to load it."
+        : hasData
+        ? "Couldn't refresh the stock report. Showing saved data."
+        : "Couldn't load the stock report. Check your connection and try again.";
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isOffline
+            ? colorScheme.secondaryContainer
+            : colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOffline ? Icons.cloud_off_outlined : Icons.info_outline,
+            color: isOffline
+                ? colorScheme.onSecondaryContainer
+                : colorScheme.onErrorContainer,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: isOffline
+                    ? colorScheme.onSecondaryContainer
+                    : colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: provider.isLoadingStockReport ? null : _applyFilters,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDateRangePicker() {
     showDialog(
       context: context,
@@ -871,14 +925,8 @@ class _StockReportPageState extends State<StockReportPage> {
       ),
       body: Column(
         children: [
-          if (provider.stockReportError != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: Text(
-                provider.stockReportError!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
+          if (provider.stockReportOffline || provider.stockReportError != null)
+            _reportStatusBanner(provider),
           Expanded(
             child: Align(
               alignment: Alignment.topCenter,

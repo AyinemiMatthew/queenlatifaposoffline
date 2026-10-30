@@ -186,6 +186,7 @@ class CashierProvider extends Datafeed {
       }
     }
   }
+
   void selectInvoice(String id,SalesModel invoicedata) {
     selectedInvoiceId = id;
       selectedInvoice = invoicedata;
@@ -236,8 +237,6 @@ class CashierProvider extends Datafeed {
       final paymentStatus = totalPaid >= paymentdata.totalamount ? 'paid' : 'partial';
 
       final paymentsMap = payments.map((e) => e.toMap()).toList();
-
-
       final updateData = {
         'amountPaid': totalPaid,
         'paymentStatus': paymentStatus,
@@ -298,6 +297,7 @@ class CashierProvider extends Datafeed {
         isLoadingpayment=false;
         notifyListeners();
       }
+
 
 
   }
@@ -368,8 +368,6 @@ class CashierProvider extends Datafeed {
       "branchsales.$branchid.debtpay_$paymentmethod": FieldValue.increment(amount),
     });
   }
-
-
 
   Future<Debtor?> searchDebtorByContact(String contact) async {
     try {
@@ -453,17 +451,46 @@ class CashierProvider extends Datafeed {
     }
   }
 
-   debptpayment(
-      Map<String, dynamic> paymentdata) async {
-    try {
-      final oldAmount = paymentdata['oldamount'] as double;
-      final paymentmethod = paymentdata['paymentmethod'];
-      await db.runTransaction((transaction) async {
-        final customerRef = db.collection('customers').doc(paymentdata['customerid']);
-        final paymentRef = db.collection('debtpayment').doc(paymentdata['id']);
+  Future<void> debptpayment(Map<String, dynamic> paymentdata) async {
+    double readAmount(String key, {required double? defaultValue}) {
+      final value = paymentdata[key];
+      if (value == null) {
+        if (defaultValue != null) return defaultValue;
+        throw FormatException('Missing $key value');
+      }
+      if (value is num) {
+        final amount = value.toDouble();
+        if (amount.isFinite) return amount;
+        throw FormatException('Invalid $key value: $value');
+      }
+      final parsed = double.tryParse(value.toString());
+      if (parsed == null || !parsed.isFinite) {
+        throw FormatException('Invalid $key value: $value');
+      }
+      return parsed;
+    }
 
-        final newAmount = paymentdata['amount'] as double;
-        final difference = newAmount - oldAmount;
+    final oldAmount = readAmount('oldamount', defaultValue: 0);
+    final newAmount = readAmount('amount', defaultValue: null);
+    if (newAmount <= 0) {
+      throw const FormatException('Payment amount must be greater than zero');
+    }
+    final paymentId = paymentdata['id']?.toString();
+    final customerId = paymentdata['customerid']?.toString();
+    if (paymentId == null || paymentId.isEmpty) {
+      throw const FormatException('Payment ID is required');
+    }
+    if (customerId == null || customerId.isEmpty) {
+      throw const FormatException('Customer ID is required');
+    }
+
+    final paymentMethod = paymentdata['paymentmethod']?.toString() ?? '';
+    final difference = newAmount - oldAmount;
+    final paymentRef = db.collection('debtpayment').doc(paymentId);
+    final customerRef = db.collection('customers').doc(customerId);
+
+    try {
+      await db.runTransaction((transaction) async {
         transaction.set(paymentRef, paymentdata, SetOptions(merge: true));
 
         if (difference != 0) {
@@ -471,34 +498,43 @@ class CashierProvider extends Datafeed {
             'amountpaid': FieldValue.increment(difference),
             'updatedat': FieldValue.serverTimestamp(),
           });
-          final paymentIndex = debtpayments.indexWhere(
-                (p) => p.id == paymentdata['id'],
-          );
-
-          if (paymentIndex != -1) {
-            debtpayments[paymentIndex] = debtpayments[paymentIndex].copyWith(
-              amount: newAmount,
-              runningbalance: debtpayments[paymentIndex].runningbalance - difference,
-            );
+          if (companyid.isNotEmpty &&
+              branchid.isNotEmpty &&
+              paymentMethod.isNotEmpty) {
+            transaction
+                .update(db.collection('dashbaord_stats').doc(companyid), {
+                  'companydebtpay_$paymentMethod': FieldValue.increment(
+                    difference,
+                  ),
+                  'branchsales.$branchid.debtpay_$paymentMethod':
+                      FieldValue.increment(difference),
+                });
           }
-          incrementMomoDebtPayment(amount: difference,paymentmethod:paymentmethod);
-
         }
       });
 
-      final index = debtorlist.indexWhere((d) => d.id == paymentdata['customerid'],);
-      if (index != -1) {
-        final newAmount = paymentdata['amount'] as double;
-        final difference = newAmount - oldAmount;
-        debtorlist[index] = debtorlist[index].copyWith(amountpaid: debtorlist[index].amountpaid + difference,);
+      final paymentIndex = debtpayments.indexWhere((p) => p.id == paymentId);
+      if (paymentIndex != -1) {
+        debtpayments[paymentIndex] = debtpayments[paymentIndex].copyWith(
+          amount: newAmount,
+          runningbalance:
+              debtpayments[paymentIndex].runningbalance - difference,
+        );
       }
 
+      final debtorIndex = debtorlist.indexWhere((d) => d.id == customerId);
+      if (debtorIndex != -1) {
+        debtorlist[debtorIndex] = debtorlist[debtorIndex].copyWith(
+          amountpaid: debtorlist[debtorIndex].amountpaid + difference,
+        );
+      }
       notifyListeners();
-    } catch (e) {
-      print('Payment error: $e');
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save debtor payment: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
     }
   }
-
 
   void setSearchQuery(String value) {
     searchQuery = value;
@@ -578,7 +614,6 @@ class CashierProvider extends Datafeed {
       });
 
       debtpayments.removeWhere((p) => p.id == payment.id);
-
     } catch(e, stackTrace) {
     debugPrint('ERROR: $e');
     debugPrint('$stackTrace');

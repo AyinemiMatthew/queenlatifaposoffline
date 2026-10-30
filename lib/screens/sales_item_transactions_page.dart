@@ -63,7 +63,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
     TxnCol('Category', 3, minWidth: 700),
     TxnCol('Qty', 1, right: true),
     TxnCol('Price', 2, right: true),
-    TxnCol('Disc', 2, right: true),
+    TxnCol('Discount', 2),
     TxnCol('Total', 2, right: true),
     TxnCol('Profit', 2, right: true),
     TxnCol('Type', 3),
@@ -407,7 +407,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         }
       case 'Price':
         return srN(_num(t['price']));
-      case 'Disc':
+      case 'Discount':
         return sg(_num(t['discount']));
       case 'Total':
         return sg(_num(t['total']));
@@ -458,10 +458,11 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         if (col.label == 'Type') {
           return Align(alignment: Alignment.centerLeft, child: _typeBadge(t));
         }
-        final numeric = col.right && col.label != 'Price';
+        final numeric =
+            (col.right || col.label == 'Discount') && col.label != 'Price';
         return Text(
           _txnCell(col.label, t, i),
-          textAlign: col.right || col.label == '#'
+          textAlign: col.right || col.label == '#' || col.label == 'Discount'
               ? TextAlign.center
               : TextAlign.left,
           maxLines: 2,
@@ -552,7 +553,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
             spacing: 14,
             runSpacing: 4,
             children: [
-              kv('Disc', sg(_num(t['discount']))),
+              kv('Discount', sg(_num(t['discount']))),
               kv('Profit', sg(_num(t['profit']))),
               kv('Category', (t['pcategory'] ?? '').toString()),
               kv('Customer', (t['customer'] ?? '').toString()),
@@ -608,7 +609,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
             runSpacing: 6,
             children: [
               kv('Qty', _q(s['qty'] ?? 0)),
-              kv('Disc', srN(s['discount'] ?? 0)),
+              kv('Discount', srN(s['discount'] ?? 0)),
               kv('Net Total', srN(s['net'] ?? 0)),
               kv('Profit', srN(s['profit'] ?? 0)),
             ],
@@ -671,7 +672,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
             case 'Qty':
               text = _q(s['qty'] ?? 0);
               break;
-            case 'Disc':
+            case 'Discount':
               text = srN(s['discount'] ?? 0);
               break;
             case 'Total':
@@ -683,7 +684,9 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
           }
           return Text(
             text,
-            textAlign: col.right ? TextAlign.center : TextAlign.left,
+            textAlign: col.right || col.label == 'Discount'
+                ? TextAlign.center
+                : TextAlign.left,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -706,7 +709,11 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                     Flexible(
                       child: Text(
                         col.label,
-                        textAlign: col.right ? TextAlign.right : TextAlign.left,
+                        textAlign: col.right && col.label != 'Discount'
+                            ? TextAlign.right
+                            : col.label == 'Discount'
+                            ? TextAlign.center
+                            : TextAlign.left,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

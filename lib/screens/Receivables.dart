@@ -1297,6 +1297,16 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                                 merchantFields: _buildMomoTransactionFields(),
 
                                 phoneController: _contactController,
+                                fieldColor: _inputSurface(context),
+                                foregroundColor: _primaryText(context),
+                                mutedColor: _secondaryText(context),
+                                borderColor: _isLightTheme(context)
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant
+                                    : Colors.white24,
+                                floatingLabelColor:
+                                    Theme.of(context).colorScheme.primary,
                               ),
                             ],
 

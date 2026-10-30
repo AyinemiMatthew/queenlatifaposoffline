@@ -310,18 +310,28 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                       'Staff    ',
                                       salesview.createdBy ?? '-',
                                     ),
+                                    // _plainInfoLine(
+                                    //   'Date',
+                                    //   salesview.createdAt != null &&
+                                    //           salesview.createdAt!.isNotEmpty
+                                    //       ? DateFormat(
+                                    //           'dd MMM yyyy, hh:mm a',
+                                    //         ).format(
+                                    //           DateTime.parse(
+                                    //             salesview.createdAt!,
+                                    //           ),
+                                    //         )
+                                    //       : '',
+                                    // ),
                                     _plainInfoLine(
                                       'Date',
-                                      salesview.dateymd != null &&
-                                              salesview.dateymd!.isNotEmpty
+                                      salesview.createdAt != null
                                           ? DateFormat(
-                                              'dd MMM yyyy, hh:mm a',
-                                            ).format(
-                                              DateTime.parse(
-                                                salesview.dateymd!,
-                                              ),
-                                            )
-                                          : '-',
+                                        'dd MMM yyyy, hh:mm a',
+                                      ).format(
+                                        salesview.createdAt!.toDate(),
+                                      )
+                                          : '',
                                     ),
                                   ],
                                 ),
@@ -690,8 +700,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                   isCollapsed: true,
                                 ),
                                 onChanged: (text) {
-                                  // setState so the clear (x) button
-                                  // appears/disappears as the user types.
                                   setState(() => _currentPage = 0);
                                   context.read<Datafeed>().updateSearch(text);
                                 },
@@ -810,59 +818,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                           },
                         ),
 
-                      /*
-                      if (value.isAdminLevel)
-                        PopupMenuButton<SalesTodayView>(
-                          tooltip: 'Sales insights',
-                          icon: Icon(
-                            Icons.analytics_outlined,
-                            color: _textColor,
-                            size: 21,
-                          ),
-                          onSelected: (view) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SalesTodayPage(
-                                  sales: filteredSalesview.toList(
-                                    growable: false,
-                                  ),
-                                  view: view,
-                                  periodLabel: periodText,
-                                  branchLabel: branchLabel,
-                                ),
-                              ),
-                            );
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: SalesTodayView.overview,
-                              child: Text('Sales Overview'),
-                            ),
-                            PopupMenuItem(
-                              value: SalesTodayView.topProducts,
-                              child: Text('Top-selling Products'),
-                            ),
-                            PopupMenuItem(
-                              value: SalesTodayView.payments,
-                              child: Text('Payment Breakdown'),
-                            ),
-                            // PopupMenuItem(
-                            //   value: SalesTodayView.dailySummary,
-                            //   child: Text('Sales Summary'),
-                            // ),
 
-                            PopupMenuItem(
-                              value: SalesTodayView.staffCollections,
-                              child: Text('Staff'),
-                            ),
-                            PopupMenuItem(
-                              value: SalesTodayView.itemsSold,
-                              child: Text('Items Sold'),
-                            ),
-                          ],
-                        ),
-                      */
                     ],
                   );
                 },

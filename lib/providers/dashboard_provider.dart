@@ -145,10 +145,16 @@ Stream<DashboardDocument> dashboardStream() {
 }
 
 StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _subscription;
+int _branchStockListenerGeneration = 0;
 
   void listenToBranchStock() async {
+    final generation = ++_branchStockListenerGeneration;
+    await _subscription?.cancel();
+    _subscription = null;
+
     try {
       await getdata();
+      if (generation != _branchStockListenerGeneration) return;
       if (companyid == null || companyid.toString().trim().isEmpty) {
         debugPrint('Company ID is null or empty');
         return;
@@ -160,9 +166,12 @@ StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _subscription;
           .snapshots()
           .listen(
             (doc) {
+          if (generation != _branchStockListenerGeneration) return;
           try {
             if (!doc.exists || doc.data() == null) {
               branchStockValue = [];
+              totalStockVal = 0;
+              notifyListeners();
               return;
             }
 
@@ -175,25 +184,44 @@ StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _subscription;
             debugPrint('Error processing branch stock snapshot: $innerError');
             debugPrintStack(stackTrace: stackTrace);
             branchStockValue = [];
+            totalStockVal = 0;
+            notifyListeners();
           }
         },
         onError: (error, stackTrace) {
+          if (generation != _branchStockListenerGeneration) return;
           // Handle Firestore stream errors
           debugPrint('Firestore stream error: $error');
           debugPrintStack(stackTrace: stackTrace);
           branchStockValue = [];
+          totalStockVal = 0;
+          notifyListeners();
         },
       );
     } catch (error, stackTrace) {
+      if (generation != _branchStockListenerGeneration) return;
       // Handle setup errors (e.g., invalid companyid, Firestore issues)
       debugPrint('Error setting up branch stock listener: $error');
       debugPrintStack(stackTrace: stackTrace);
       branchStockValue = [];
+      totalStockVal = 0;
+      notifyListeners();
     }
+  }
+
+  Future<void> clearBranchStock() async {
+    _branchStockListenerGeneration++;
+    final subscription = _subscription;
+    _subscription = null;
+    branchStockValue = [];
+    totalStockVal = 0;
+    notifyListeners();
+    await subscription?.cancel();
   }
 
   @override
 void dispose() {
+  _branchStockListenerGeneration++;
   _subscription?.cancel();
   super.dispose();
 }
