@@ -971,6 +971,15 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => _isSavingDirect = true);
 
     try {
+      if (datafeed.isOffline && datafeed.stockCheckEnabled) {
+        snackMsg(
+          context,
+          'Sales with stock checking require an internet connection.',
+          Colors.orange,
+        );
+        return;
+      }
+
       if (datafeed.stockCheckEnabled) {
         final isValid = await salesProvider.validateCartStockOnSaves(
           activeBranchId,
@@ -990,6 +999,7 @@ class _SalesPageState extends State<SalesPage> {
       final double grossTotal = salesProvider.calculateGrossTotal();
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final queuedOffline = datafeed.isOffline;
       final saleDocId =
           '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp';
       final receiptNumber = '${datafeed.staffPosition}$timestamp';
@@ -1039,7 +1049,10 @@ class _SalesPageState extends State<SalesPage> {
         staffemail: datafeed.staffemail,
         receiptbyemail: '',
         dateymd: formattedDate,
-        stockCheckedAt: Timestamp.now(),
+        stockCheckedAt: queuedOffline ? null : Timestamp.now(),
+        stockCheckStatus: queuedOffline && !datafeed.stockCheckEnabled
+            ? 'approved'
+            : null,
         timestamp: timestamp,
         printed: false,
         customerName: 'Cash Customer',
@@ -1052,32 +1065,42 @@ class _SalesPageState extends State<SalesPage> {
         supplystatus: false,
       );
 
-      await datafeed.db
-          .collection('sales')
-          .doc(saleDocId)
-          .set(saleData.toMap());
+      if (queuedOffline) {
+        await datafeed.offlineSalesQueue.saveLocally(
+          companyId: datafeed.companyid,
+          saleId: saleDocId,
+          saleData: saleData.toMap(),
+        );
+      } else {
+        await datafeed.db
+            .collection('sales')
+            .doc(saleDocId)
+            .set(saleData.toMap());
+      }
 
-      final skipCheck =
-          !datafeed.stockCheckEnabled ||
-          salesProvider.isServiceOnlySale(salesItems);
-      if (!context.mounted) return;
-      final approved = await salesProvider.ensureSaleApproved(
-        context,
-        saleDocId,
-        skipStockCheck: skipCheck,
-      );
+      if (!queuedOffline) {
+        final skipCheck =
+            !datafeed.stockCheckEnabled ||
+            salesProvider.isServiceOnlySale(salesItems);
+        if (!context.mounted) return;
+        final approved = await salesProvider.ensureSaleApproved(
+          context,
+          saleDocId,
+          skipStockCheck: skipCheck,
+        );
 
-      if (!approved) {
-        return;
+        if (!approved) {
+          return;
+        }
       }
 
       if (context.mounted) {
         snackMsg(
           context,
-          datafeed.isOffline
+          queuedOffline
               ? 'Sale saved on this device; waiting for internet to sync.'
               : 'Sale saved successfully!',
-          datafeed.isOffline ? Colors.orange : Colors.green,
+          queuedOffline ? Colors.orange : Colors.green,
         );
         Provider.of<SalesProvider>(context, listen: false).clearCurrentCart();
       }
@@ -1119,6 +1142,14 @@ class _SalesPageState extends State<SalesPage> {
     final value = Provider.of<Datafeed>(context, listen: false);
     if (value.isSalesPoint) {
       await _saveDirectSale();
+      return;
+    }
+    if (value.isOffline && value.stockCheckEnabled) {
+      snackMsg(
+        context,
+        'Sales with stock checking require an internet connection.',
+        Colors.orange,
+      );
       return;
     }
     final isService =

@@ -2097,16 +2097,16 @@ class _SalesReportState extends State<SalesReport> {
             columnWidths: {
               0: const pw.FixedColumnWidth(24),
               1: const pw.FlexColumnWidth(2.1),
-              2: const pw.FlexColumnWidth(0.8),
-              3: const pw.FlexColumnWidth(1.2),
-              4: const pw.FlexColumnWidth(1.1),
-              5: const pw.FlexColumnWidth(1.3),
-              6: const pw.FlexColumnWidth(1.2),
-              7: const pw.FlexColumnWidth(1.6),
-              8: const pw.FlexColumnWidth(1.1),
-              9: const pw.FlexColumnWidth(1.7),
-              10: const pw.FlexColumnWidth(1.5),
-              //  11: const pw.FlexColumnWidth(1.3),
+              2: const pw.FlexColumnWidth(1.5),
+              3: const pw.FlexColumnWidth(0.8),
+              4: const pw.FlexColumnWidth(1.2),
+              5: const pw.FlexColumnWidth(1.1),
+              6: const pw.FlexColumnWidth(1.3),
+              7: const pw.FlexColumnWidth(1.2),
+              8: const pw.FlexColumnWidth(1.6),
+              9: const pw.FlexColumnWidth(1.1),
+              10: const pw.FlexColumnWidth(1.7),
+              11: const pw.FlexColumnWidth(1.5),
             },
             children: [
               pw.TableRow(
@@ -2114,6 +2114,7 @@ class _SalesReportState extends State<SalesReport> {
                 children: [
                   cell('#', head: true),
                   cell('DATE', head: true),
+                  cell('CATEGORY', head: true),
                   cell('QTY', head: true, right: true),
                   cell('PRICE', head: true, right: true),
                   cell('DISCOUNT', head: true, right: true),
@@ -2148,6 +2149,7 @@ class _SalesReportState extends State<SalesReport> {
                   children: [
                     cell('${e.key + 1}'),
                     cell(dateStr),
+                    cell((t['pcategory'] ?? '').toString()),
                     cell(
                       ret ? '-${qf(_num(t['qty']))}' : qf(_num(t['qty'])),
                       right: true,
@@ -2175,12 +2177,12 @@ class _SalesReportState extends State<SalesReport> {
                 children: [
                   cell(''),
                   cell('GRAND TOTAL', isBold: true),
+                  cell(''),
                   cell(qf(v('qty')), right: true, isBold: true),
                   cell(''),
                   cell(nf.format(v('discount')), right: true, isBold: true),
                   cell(nf.format(v('net')), right: true, isBold: true),
                   cell(nf.format(v('profit')), right: true, isBold: true),
-                  cell(''),
                   cell(''),
                   cell(''),
                   cell(''),
@@ -2328,6 +2330,7 @@ class _SalesReportState extends State<SalesReport> {
     final headers = <String>[
       '#',
       'DATE',
+      'CATEGORY',
       'QTY',
       'PRICE',
       'DISCOUNT',
@@ -2374,6 +2377,7 @@ class _SalesReportState extends State<SalesReport> {
       sheet.appendRow([
         xls.IntCellValue(i + 1),
         xls.TextCellValue(dateStr),
+        xls.TextCellValue((t['pcategory'] ?? '').toString()),
         xls.DoubleCellValue(ret ? -qty : qty),
         xls.DoubleCellValue(_num(t['price'])),
         xls.DoubleCellValue(sg(_num(t['discount']))),
@@ -2390,6 +2394,7 @@ class _SalesReportState extends State<SalesReport> {
     sheet.appendRow([
       xls.TextCellValue(''),
       xls.TextCellValue('GRAND TOTAL'),
+      xls.TextCellValue(''),
       xls.DoubleCellValue(v('qty')),
       xls.TextCellValue(''),
       xls.DoubleCellValue(v('discount')),
@@ -3314,6 +3319,7 @@ class _SalesReportState extends State<SalesReport> {
     required _BranchRow t,
   }) async {
     final pdf = pw.Document();
+    final includeCategory = firstColumn.trim().toUpperCase() == 'ITEM';
 
     final regular = pw.Font.ttf(
       await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
@@ -3326,6 +3332,32 @@ class _SalesReportState extends State<SalesReport> {
     final dateFmt = DateFormat('dd MMM yyyy');
     final now = DateTime.now();
     final period = '${dateFmt.format(start)} - ${dateFmt.format(end)}';
+    final columnWidths = includeCategory
+        ? <int, pw.TableColumnWidth>{
+            0: const pw.FixedColumnWidth(26),
+            1: const pw.FlexColumnWidth(3.2),
+            2: const pw.FlexColumnWidth(2),
+            3: const pw.FlexColumnWidth(0.9),
+            4: const pw.FlexColumnWidth(1.5),
+            5: const pw.FlexColumnWidth(1.5),
+            6: const pw.FlexColumnWidth(1.5),
+            7: const pw.FlexColumnWidth(1.5),
+            8: const pw.FlexColumnWidth(1.5),
+            9: const pw.FlexColumnWidth(1.5),
+            10: const pw.FlexColumnWidth(1.8),
+          }
+        : <int, pw.TableColumnWidth>{
+            0: const pw.FixedColumnWidth(26),
+            1: const pw.FlexColumnWidth(3),
+            2: const pw.FlexColumnWidth(1.1),
+            3: const pw.FlexColumnWidth(1.6),
+            4: const pw.FlexColumnWidth(1.6),
+            5: const pw.FlexColumnWidth(1.6),
+            6: const pw.FlexColumnWidth(1.6),
+            7: const pw.FlexColumnWidth(1.6),
+            8: const pw.FlexColumnWidth(1.6),
+            9: const pw.FlexColumnWidth(2.0),
+          };
 
     String qf(double x) =>
         x == x.roundToDouble() ? x.toStringAsFixed(0) : x.toStringAsFixed(2);
@@ -3380,7 +3412,9 @@ class _SalesReportState extends State<SalesReport> {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4.portrait,
+        pageFormat: includeCategory
+            ? PdfPageFormat.a4.landscape
+            : PdfPageFormat.a4.portrait,
         margin: const pw.EdgeInsets.all(30),
         footer: (ctx) => pw.Column(
           children: [
@@ -3467,24 +3501,14 @@ class _SalesReportState extends State<SalesReport> {
 
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.8),
-            columnWidths: {
-              0: const pw.FixedColumnWidth(26),
-              1: const pw.FlexColumnWidth(3),
-              2: const pw.FlexColumnWidth(1.1),
-              3: const pw.FlexColumnWidth(1.6),
-              4: const pw.FlexColumnWidth(1.6),
-              5: const pw.FlexColumnWidth(1.6),
-              6: const pw.FlexColumnWidth(1.6),
-              7: const pw.FlexColumnWidth(1.6),
-              8: const pw.FlexColumnWidth(1.6),
-              9: const pw.FlexColumnWidth(2.0),
-            },
+            columnWidths: columnWidths,
             children: [
               pw.TableRow(
                 decoration: const pw.BoxDecoration(),
                 children: [
                   cell('#', head: true),
                   cell(firstColumn, head: true),
+                  if (includeCategory) cell('CATEGORY', head: true),
                   cell('QTY', head: true, right: true),
                   cell('CASH SALES', head: true, right: true),
                   cell('CREDIT SALES', head: true, right: true),
@@ -3501,6 +3525,7 @@ class _SalesReportState extends State<SalesReport> {
                   children: [
                     cell('${e.key + 1}'),
                     cell(r.branchName, isBold: true),
+                    if (includeCategory) cell(r.category ?? ''),
                     cell(qf(r.qty), right: true),
                     cell(nf.format(r.cashSales), right: true),
                     cell(nf.format(r.credit), right: true),
@@ -3517,6 +3542,7 @@ class _SalesReportState extends State<SalesReport> {
                 children: [
                   cell(''),
                   cell('GRAND TOTAL', isBold: true),
+                  if (includeCategory) cell(''),
                   cell(qf(t.qty), right: true, isBold: true),
                   cell(nf.format(t.cashSales), right: true, isBold: true),
                   cell(nf.format(t.credit), right: true, isBold: true),
@@ -3619,6 +3645,7 @@ class _SalesReportState extends State<SalesReport> {
     required _BranchRow t,
   }) async {
     final nf = NumberFormat('#,##0.00');
+    final includeCategory = firstColumn.trim().toUpperCase() == 'ITEM';
     final dateFmt = DateFormat('dd MMM yyyy');
     final period = '${dateFmt.format(start)} - ${dateFmt.format(end)}';
 
@@ -3650,6 +3677,7 @@ class _SalesReportState extends State<SalesReport> {
     final headers = <String>[
       '#',
       firstColumn,
+      if (includeCategory) 'CATEGORY',
       'QTY',
       'CASH SALES',
       'CREDIT SALES',
@@ -3678,6 +3706,7 @@ class _SalesReportState extends State<SalesReport> {
       sheet.appendRow([
         xls.IntCellValue(i + 1),
         xls.TextCellValue(r.branchName),
+        if (includeCategory) xls.TextCellValue(r.category ?? ''),
         xls.DoubleCellValue(r.qty),
         xls.DoubleCellValue(r.cashSales),
         xls.DoubleCellValue(r.credit),
@@ -3692,6 +3721,7 @@ class _SalesReportState extends State<SalesReport> {
     sheet.appendRow([
       xls.TextCellValue(''),
       xls.TextCellValue('GRAND TOTAL'),
+      if (includeCategory) xls.TextCellValue(''),
       xls.DoubleCellValue(t.qty),
       xls.DoubleCellValue(t.cashSales),
       xls.DoubleCellValue(t.credit),
