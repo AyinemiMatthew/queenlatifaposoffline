@@ -10594,16 +10594,14 @@ class Datafeed extends ChangeNotifier {
   List<String> salesReportCategories = [];
 
   Map<String, double> previousBalanceByReceipt = {};
-  Future<void> computePreviousBalances(List<SalesModel> salesList) async {
+  Future<void> computePreviousBalances(
+    List<SalesModel> salesList, {
+    String? selectedBranchId,
+  }) async {
     if (salesList.isEmpty) {
       previousBalanceByReceipt = {};
       notifyListeners();
       return;
-    }
-
-    final byBranch = <String, List<SalesModel>>{};
-    for (final s in salesList) {
-      byBranch.putIfAbsent(s.branchId, () => []).add(s);
     }
 
     final dates =
@@ -10643,23 +10641,32 @@ class Datafeed extends ChangeNotifier {
       }
     }
 
+    final salesInScope = selectedBranchId == null
+        ? salesList
+        : salesList
+              .where((sale) => sale.branchId == selectedBranchId)
+              .toList(growable: false);
+    final sorted = List<SalesModel>.from(salesInScope)
+      ..sort((a, b) {
+        final aTime = a.createdAt?.millisecondsSinceEpoch ?? a.timestamp;
+        final bTime = b.createdAt?.millisecondsSinceEpoch ?? b.timestamp;
+        final timeComparison = aTime.compareTo(bTime);
+        if (timeComparison != 0) return timeComparison;
+
+        final timestampComparison = a.timestamp.compareTo(b.timestamp);
+        if (timestampComparison != 0) return timestampComparison;
+        return a.id.compareTo(b.id);
+      });
+
+    final openingTotal = selectedBranchId == null
+        ? openingBalance.values.fold<double>(0, (total, value) => total + value)
+        : openingBalance[selectedBranchId] ?? 0.0;
+    var running = openingTotal;
     final result = <String, double>{};
-    byBranch.forEach((branchId, list) {
-      final sorted = List<SalesModel>.from(list)
-        ..sort((a, b) {
-          final ta = a.createdAt;
-          final tb = b.createdAt;
-          if (ta == null || tb == null) return 0;
-          return (ta as Timestamp).compareTo(tb as Timestamp);
-        });
-
-      double running = openingBalance[branchId] ?? 0.0;
-
-      for (final s in sorted) {
-        result[s.id] = running;
-        running += (s.totalamount ?? 0.0);
-      }
-    });
+    for (final sale in sorted) {
+      result[sale.id] = running;
+      running += sale.totalamount;
+    }
 
     previousBalanceByReceipt = result;
     notifyListeners();
@@ -11192,8 +11199,12 @@ class Datafeed extends ChangeNotifier {
 
       Query query = db
           .collection('sales')
+          .where('companyId', isEqualTo: companyid)
+          .where('branchType', isEqualTo: 'Sales Point')
           .where('isreturned', isEqualTo: false)
-          .where('companyId', isEqualTo: companyid);
+          .where('printed', isEqualTo: false)
+          .where('reciepted', isEqualTo: false)
+          .where('supplystatus', isEqualTo: false);
       final branch = isAdminLevel ? branchId : branchid;
       if (!isAdminLevel && (branch == null || branch.trim().isEmpty)) {
         throw StateError('Cannot load unprinted receipts without a branch.');
@@ -11205,7 +11216,6 @@ class Datafeed extends ChangeNotifier {
       query = query
           .where('dateymd', isGreaterThanOrEqualTo: ymd(start))
           .where('dateymd', isLessThanOrEqualTo: ymd(end))
-          .where('isreturned', isEqualTo: false)
           .orderBy('dateymd', descending: true);
 
       final snap = await query.get();
@@ -11214,7 +11224,7 @@ class Datafeed extends ChangeNotifier {
           .where((d) {
             final m = d.data() as Map<String, dynamic>;
             final printedBy = (m['printedby'] ?? '').toString().trim();
-            return m['printed'] != true && printedBy.isEmpty;
+            return printedBy.isEmpty;
           })
           .map((d) {
             try {

@@ -97,7 +97,10 @@ class _SalesViewPageState extends State<SalesViewPage> {
         _selectedBranch = canSeeAll ? null : provider.branchid;
 
         await provider.fetchsalesview(selectedBranch: _selectedBranch);
-        await provider.computePreviousBalances(provider.salesview);
+        await provider.computePreviousBalances(
+          provider.salesview,
+          selectedBranchId: _selectedBranch,
+        );
       } finally {
         if (mounted) setState(() => _initialLoading = false);
       }
@@ -196,7 +199,10 @@ class _SalesViewPageState extends State<SalesViewPage> {
       value
           .fetchsalesview(selectedDate: selectedDate, selectedBranch: branch)
           .then((_) {
-            value.computePreviousBalances(value.salesview);
+            value.computePreviousBalances(
+              value.salesview,
+              selectedBranchId: branch,
+            );
           });
     });
   }
@@ -813,6 +819,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                 .then((_) {
                                   provider.computePreviousBalances(
                                     provider.salesview,
+                                    selectedBranchId: _selectedBranch,
                                   );
                                 });
                           },
@@ -1187,7 +1194,9 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
                 if (canSelectDate) ...[
                   _sortableHeaderCell(
-                    'Previous Bal(GHS)',
+                    _selectedBranch == null
+                        ? 'Previous Company Bal(GHS)'
+                        : 'Previous Branch Bal(GHS)',
                     _colFlexes[5],
                     5,
                     (d) => value.previousBalanceByReceipt[d.id] ?? 0.0,
@@ -1612,7 +1621,9 @@ class _SalesViewPageState extends State<SalesViewPage> {
                             if (canSelectDate) ...[
                               const SizedBox(height: 10),
                               _mobileInfoRow(
-                                'Previous Balance (GHS)',
+                                _selectedBranch == null
+                                    ? 'Previous Company Balance (GHS)'
+                                    : 'Previous Branch Balance (GHS)',
                                 nf.format(
                                   value.previousBalanceByReceipt[sv.id] ?? 0.0,
                                 ),
