@@ -343,12 +343,12 @@ Future<void> printReceipt({
                 ),
               ),
 
-              onPressed: () async {
+              onPressed: _isSaving ? null : () async {
 
                 if (_isSaving || processState.value == "loading") return;
 
                 _isSaving = true;
-                processState.value = "loading";
+                setState(() => processState.value = "loading");
 
                 try {
                   final amount =
@@ -626,7 +626,11 @@ Future<void> printReceipt({
                 } finally {
 
                   _isSaving = false;
-                  processState.value = "idle";
+                  if (context.mounted) {
+                    setState(() => processState.value = "idle");
+                  } else {
+                    processState.value = "idle";
+                  }
                 }
               },
 
@@ -660,12 +664,12 @@ Future<void> printReceipt({
                 ),
               ),
 
-              onPressed: () async {
+              onPressed: _isSaving ? null : () async {
 
                 if (_isSaving || processState.value == "loadinga4") return;
 
                 _isSaving = true;
-                processState.value = "loadinga4";
+                setState(() => processState.value = "loadinga4");
 
                 try {
 
@@ -807,6 +811,7 @@ Future<void> printReceipt({
                     dateymd: context.read<SalesProvider>().saleDate,
                     branchType:  datafeed.branchtype,
                     dailyreceiptno: dailyNumber,
+
                   );
 
                   if (queuedOffline) {
@@ -821,7 +826,7 @@ Future<void> printReceipt({
                         .doc(docId)
                         .set(saleData.toMap());
                   }
-                  if (!queuedOffline || !datafeed.stockCheckEnabled) {
+                  if (!queuedOffline) {
                     final skipCheck = !datafeed.stockCheckEnabled ||
                         salesProvider.isServiceOnlySale(salesProvider.salesItems);
                     final approved = await salesProvider.ensureSaleApproved(
@@ -832,7 +837,7 @@ Future<void> printReceipt({
                     if (!approved) return;
                   }
 
-                  if (!queuedOffline) {
+                  if (shouldPrint) {
                     final receiptItems = salesItems.map((e) {
                     return ReceiptItem(
                       name: e['item'] ?? '',
@@ -933,7 +938,11 @@ Future<void> printReceipt({
                 } finally {
 
                   _isSaving = false;
-                  processState.value = "idle";
+                  if (context.mounted) {
+                    setState(() => processState.value = "idle");
+                  } else {
+                    processState.value = "idle";
+                  }
                 }
               },
 

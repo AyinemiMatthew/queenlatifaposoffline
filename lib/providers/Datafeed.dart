@@ -5668,7 +5668,11 @@ class Datafeed extends ChangeNotifier {
       canSellAnyBranch = spref.getBool('canSellAnyBranch') ?? false;
       canSellAnyBranch = spref.getBool('canSellAnyBranch') ?? false;
       allowDiscount = spref.getBool('allowDiscount') ?? false;
-      allowDiscountCode = spref.getBool('allowDiscountCode') ?? false;
+      allowDiscountCode =
+          !allowDiscount && (spref.getBool('allowDiscountCode') ?? false);
+      if (allowDiscount) {
+        await spref.setBool('allowDiscountCode', false);
+      }
       accesslevel =
           spref.getString('accesslevel') ??
           spref.getString('accessLevel') ??

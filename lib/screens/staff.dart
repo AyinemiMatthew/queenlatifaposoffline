@@ -104,8 +104,9 @@ class _StaffState extends State<Staff> {
       _canEditPrice = d['canEditPrice'] ?? false;
       _canSelectDate = d['canSelectDate'] ?? false;
       _canSellAnyBranch = d['canSellAnyBranch'] ?? false;
-      _allowDiscount = d['allowDiscount'] ?? false;
-      _allowDiscountCode = d['allowDiscountCode'] ?? false;
+      _allowDiscount = d['allowDiscount'] == true;
+      _allowDiscountCode =
+          _allowDiscount! ? false : d['allowDiscountCode'] == true;
       _emailController.text = d['email'] ?? '';
       _phoneController.text = d['phone'] ?? '';
       _accesslevel = d['accesslevel'] ?? d['accessLevel'];
@@ -274,8 +275,9 @@ class _StaffState extends State<Staff> {
       _canEditPrice = d['canEditPrice'] ?? false;
       _canSelectDate = d['canSelectDate'] ?? false;
       _canSellAnyBranch = d['canSellAnyBranch'] ?? false;
-      _allowDiscount = d['allowDiscount'] ?? false;
-      _allowDiscountCode = d['allowDiscountCode'] ?? false;
+      _allowDiscount = d['allowDiscount'] == true;
+      _allowDiscountCode =
+          _allowDiscount! ? false : d['allowDiscountCode'] == true;
 
       final pricingRaw = d['pricingMode'] ?? d['pricing'] ?? d['pricingmode'];
       List<String> pricingList = [];
@@ -1073,8 +1075,10 @@ class _StaffState extends State<Staff> {
                             RadioListTile<bool>(
                               value: true,
                               groupValue: _allowDiscount,
-                              onChanged: (v) =>
-                                  setState(() => _allowDiscount = v),
+                              onChanged: (v) => setState(() {
+                                _allowDiscount = v;
+                                if (v == true) _allowDiscountCode = false;
+                              }),
                               title: Text(
                                 'Yes',
                                 style: TextStyle(
@@ -1120,8 +1124,10 @@ class _StaffState extends State<Staff> {
                             RadioListTile<bool>(
                               value: true,
                               groupValue: _allowDiscountCode,
-                              onChanged: (v) =>
-                                  setState(() => _allowDiscountCode = v),
+                              onChanged: (v) => setState(() {
+                                _allowDiscountCode = v;
+                                if (v == true) _allowDiscount = false;
+                              }),
                               title: Text(
                                 'Yes',
                                 style: TextStyle(
@@ -1340,7 +1346,9 @@ class _StaffState extends State<Staff> {
                                   final bool allowDiscount =
                                       _allowDiscount ?? false;
                                   final bool allowDiscountCode =
-                                      _allowDiscountCode ?? false;
+                                      allowDiscount
+                                      ? false
+                                      : (_allowDiscountCode ?? false);
                                   final name = _nameController.text.trim();
                                   final email = _emailController.text.trim();
                                   final phone = _phoneController.text.trim();

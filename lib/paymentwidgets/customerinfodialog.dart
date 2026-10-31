@@ -747,10 +747,10 @@ class CustomerInfoDialog {
                   (selectedItem?.producttype ?? '').toLowerCase().trim() ==
                   'service';
 
-              if (datafeed.isOffline && datafeed.stockCheckEnabled) {
+              if (datafeed.isOffline) {
                 salesProvider.showMessage(
                   context,
-                  'Sales with stock checking require an internet connection.',
+                  'Offline sales are available only from Print Dialog when stock checking is disabled.',
                   Colors.orange,
                 );
                 setState(() => isSaving = false);
@@ -986,10 +986,9 @@ class CustomerInfoDialog {
                   1;
               final week = '${now.year}.$weekNumber';
 
-              final queuedOffline = datafeed.isOffline;
-              final dailyNumber = queuedOffline
-                  ? null
-                  : await datafeed.nextDailyReceiptNumber(datafeed.branchid);
+              final dailyNumber = await datafeed.nextDailyReceiptNumber(
+                datafeed.branchid,
+              );
               final saleData = SalesModel(
                 id: saleDocId,
                 companyId: datafeed.companyid,
@@ -1024,13 +1023,8 @@ class CustomerInfoDialog {
                 staffemail: datafeed.staffemail,
                 receiptbyemail: receiptBy.isEmpty ? '' : datafeed.staffemail,
                 dateymd: formattedDate,
-                stockCheckedAt: queuedOffline
-                    ? null
-                    : Timestamp.fromDate(DateTime.now()),
-                stockCheckStatus:
-                    queuedOffline && !datafeed.stockCheckEnabled
-                    ? 'approved'
-                    : null,
+                stockCheckedAt: Timestamp.fromDate(DateTime.now()),
+                stockCheckStatus: null,
                 timestamp: timestamp,
                 printed: printed,
                 customerId: customerId,
@@ -1045,39 +1039,26 @@ class CustomerInfoDialog {
                 dailyreceiptno: dailyNumber,
               );
 
-              if (queuedOffline) {
-                await datafeed.offlineSalesQueue.saveLocally(
-                  companyId: datafeed.companyid,
-                  saleId: saleDocId,
-                  saleData: saleData.toMap(),
-                  momoTransactionIds: paymentMethod == 'momo'
-                      ? momoTransactionIds.keys.toList()
-                      : const [],
-                );
-              } else {
-                await datafeed.db
-                    .collection('sales')
-                    .doc(saleDocId)
-                    .set(saleData.toMap());
+              await datafeed.db
+                  .collection('sales')
+                  .doc(saleDocId)
+                  .set(saleData.toMap());
+
+              final skipCheck =
+                  !datafeed.stockCheckEnabled ||
+                  salesProvider.isServiceOnlySale(salesProvider.salesItems);
+              final approved = await salesProvider.ensureSaleApproved(
+                context,
+                saleDocId,
+                skipStockCheck: skipCheck,
+              );
+
+              if (!approved) {
+                setState(() => isSaving = false);
+                return;
               }
 
-              if (!queuedOffline) {
-                final skipCheck =
-                    !datafeed.stockCheckEnabled ||
-                    salesProvider.isServiceOnlySale(salesProvider.salesItems);
-                final approved = await salesProvider.ensureSaleApproved(
-                  context,
-                  saleDocId,
-                  skipStockCheck: skipCheck,
-                );
-
-                if (!approved) {
-                  setState(() => isSaving = false);
-                  return;
-                }
-              }
-
-              if (!queuedOffline && paymentMethod == 'momo') {
+              if (paymentMethod == 'momo') {
                 final momoTransactions = getMomoTransactionMap();
                 for (final transactionId in momoTransactions.keys) {
                   final query = await datafeed.db
@@ -1099,9 +1080,7 @@ class CustomerInfoDialog {
                 }
               }
               //  canPrint || isSalesBranch || isCreditNow
-              if ((!queuedOffline || !datafeed.stockCheckEnabled) &&
-                  canPrint &&
-                  !datafeed.isSalesPoint) {
+              if (canPrint && !datafeed.isSalesPoint) {
                 final receiptData = ReceiptData(
                   cashier: datafeed.staff,
                   barcode: receiptNumber,
@@ -1236,10 +1215,8 @@ class CustomerInfoDialog {
               if (context.mounted) {
                 snackMsg(
                   context,
-                  queuedOffline
-                      ? 'Sale saved safely on this device; waiting for internet to sync. Receipt: $receiptNumber'
-                      : 'Sale saved! Receipt: $receiptNumber',
-                  queuedOffline ? Colors.orange : Colors.green,
+                  'Sale saved! Receipt: $receiptNumber',
+                  Colors.green,
                 );
                 context.read<SalesProvider>().clearCurrentCart();
                 Navigator.pop(context);
