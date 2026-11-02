@@ -108,7 +108,6 @@ class _SupplierReportState extends State<SupplierReport> {
         final totalReturns   = totals['totalReturns']  ?? 0.0;
         final totalCash      = totals['totalCash']         ?? 0.0;
         final totalCredit    = totals['totalCredit']       ?? 0.0;
-        final totalOpening   = totals['totalOpeningStock'] ?? 0.0;
 
         final theme = Theme.of(context);
         final colorScheme = theme.colorScheme;
@@ -561,7 +560,7 @@ class _SupplierReportState extends State<SupplierReport> {
 
                             return LayoutBuilder(
                               builder: (context, constraints) {
-                                const widths = [32, 160, 90, 90, 90, 120, 90, 100, 90, 80, 100];
+                                const widths = [32, 160, 90, 90, 90, 90, 100, 90, 80, 100];
                                 const gap = 24.0;
                                 final double contentWidth = widths.reduce((a, b) => a + b) +
                                     (widths.length - 1) * gap +
@@ -616,7 +615,6 @@ class _SupplierReportState extends State<SupplierReport> {
                                                 Text('Purchases', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                                 Text('Cash', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                                 Text('Credit', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
-                                                Text('Opening Stock', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                                 Text('Returns', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                                 Text('Gross', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
                                                 Text('Discount', style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold)),
@@ -647,8 +645,6 @@ class _SupplierReportState extends State<SupplierReport> {
                                                           Text(totalCash.toStringAsFixed(2),
                                                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
                                                           Text(totalCredit.toStringAsFixed(2),
-                                                              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
-                                                          Text(totalOpening.toStringAsFixed(2),
                                                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
                                                           Text(totalReturns.toStringAsFixed(0),
                                                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
@@ -684,8 +680,6 @@ class _SupplierReportState extends State<SupplierReport> {
                                                           Text(((row['cashAmount'] ?? 0.0) as double).toStringAsFixed(2),
                                                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
                                                           Text(((row['creditAmount'] ?? 0.0) as double).toStringAsFixed(2),
-                                                              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
-                                                          Text(((row['openingStockAmount'] ?? 0.0) as double).toStringAsFixed(2),
                                                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
                                                           Text(((row['returnCount'] ?? 0.0) as double).toStringAsFixed(0),
                                                               style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface)),
@@ -768,10 +762,6 @@ class _SupplierReportState extends State<SupplierReport> {
                                           _miniStat( context,
                                               'Credit',
                                               ((row['creditAmount'] ?? 0.0) as double)
-                                                  .toStringAsFixed(2)),
-                                          _miniStat( context,
-                                              'Opening Stock',
-                                              ((row['openingStockAmount'] ?? 0.0) as double)
                                                   .toStringAsFixed(2)),
                                           _miniStat( context,
                                               'Gross',
@@ -1401,12 +1391,11 @@ class _SupplierReportState extends State<SupplierReport> {
               2:  const pw.FlexColumnWidth(0.8),   // Purchases
               3:  const pw.FlexColumnWidth(1.1),   // Cash
               4:  const pw.FlexColumnWidth(1.1),   // Credit
-              5:  const pw.FlexColumnWidth(1.1),   // Opening Stock
-              6:  const pw.FlexColumnWidth(0.8),   // Returns
-              7:  const pw.FlexColumnWidth(1.1),   // Gross
-              8:  const pw.FlexColumnWidth(1.0),   // Discount
-              9:  const pw.FlexColumnWidth(0.8),   // Tax
-              10: const pw.FlexColumnWidth(1.1),   // Net Value
+              5:  const pw.FlexColumnWidth(0.8),   // Returns
+              6:  const pw.FlexColumnWidth(1.1),   // Gross
+              7:  const pw.FlexColumnWidth(1.0),   // Discount
+              8:  const pw.FlexColumnWidth(0.8),   // Tax
+              9:  const pw.FlexColumnWidth(1.1),   // Net Value
             },
             children: [
               // header
@@ -1418,7 +1407,6 @@ class _SupplierReportState extends State<SupplierReport> {
                   cell('PURCHASES',      header: true, right: true),
                   cell('CASH',           header: true, right: true),
                   cell('CREDIT',         header: true, right: true),
-                  cell('OPENING STOCK',  header: true, right: true),
                   cell('RETURNS',        header: true, right: true),
                   cell('GROSS',          header: true, right: true),
                   cell('DISCOUNT',       header: true, right: true),
@@ -1440,7 +1428,6 @@ class _SupplierReportState extends State<SupplierReport> {
                     cell(_d(row['purchaseCount']).toStringAsFixed(0), right: true),
                     cell(_d(row['cashAmount']).toStringAsFixed(2),         right: true),
                     cell(_d(row['creditAmount']).toStringAsFixed(2),       right: true),
-                    cell(_d(row['openingStockAmount']).toStringAsFixed(2), right: true),
                     cell(_d(row['returnCount']).toStringAsFixed(0),        right: true),
                     cell(_d(row['gross']).toStringAsFixed(2),              right: true),
                     cell(_d(row['discount']).toStringAsFixed(2),           right: true),
@@ -1459,7 +1446,6 @@ class _SupplierReportState extends State<SupplierReport> {
                   cell((totals['totalCount']       ?? 0.0).toStringAsFixed(0), header: true, right: true),
                   cell((totals['totalCash']         ?? 0.0).toStringAsFixed(2), header: true, right: true),
                   cell((totals['totalCredit']       ?? 0.0).toStringAsFixed(2), header: true, right: true),
-                  cell((totals['totalOpeningStock'] ?? 0.0).toStringAsFixed(2), header: true, right: true),
                   cell((totals['totalReturns']      ?? 0.0).toStringAsFixed(0), header: true, right: true),
                   cell((totals['totalGross']        ?? 0.0).toStringAsFixed(2), header: true, right: true),
                   cell((totals['totalDiscount']     ?? 0.0).toStringAsFixed(2), header: true, right: true),

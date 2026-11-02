@@ -97,10 +97,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
         _selectedBranch = canSeeAll ? null : provider.branchid;
 
         await provider.fetchsalesview(selectedBranch: _selectedBranch);
-        await provider.computePreviousBalances(
-          provider.salesview,
-          selectedBranchId: _selectedBranch,
-        );
       } finally {
         if (mounted) setState(() => _initialLoading = false);
       }
@@ -196,14 +192,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
         _currentPage = 0;
       });
 
-      value
-          .fetchsalesview(selectedDate: selectedDate, selectedBranch: branch)
-          .then((_) {
-            value.computePreviousBalances(
-              value.salesview,
-              selectedBranchId: branch,
-            );
-          });
+      value.fetchsalesview(selectedDate: selectedDate, selectedBranch: branch);
     });
   }
 
@@ -811,21 +800,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
 
                             final provider = context.read<Datafeed>();
 
-                            provider
-                                .fetchsalesview(
-                                  selectedDate: selectedDate,
-                                  selectedBranch: _selectedBranch,
-                                )
-                                .then((_) {
-                                  provider.computePreviousBalances(
-                                    provider.salesview,
-                                    selectedBranchId: _selectedBranch,
-                                  );
-                                });
+                            provider.fetchsalesview(
+                              selectedDate: selectedDate,
+                              selectedBranch: _selectedBranch,
+                            );
                           },
                         ),
-
-
                     ],
                   );
                 },
@@ -866,15 +846,12 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                   return _buildDesktopLayout(
                                     context,
                                     filteredSalesview,
-                                    value,
-                                    canSelectDate,
                                   );
                                 }
 
                                 return _buildMobileList(
                                   context,
                                   filteredSalesview,
-                                  canSelectDate,
                                 );
                               },
                             ),
@@ -893,13 +870,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _buildDesktopRow(
-    BuildContext context,
-    dynamic sv,
-    int index,
-    Datafeed value,
-    bool canSelectDate,
-  ) {
+  Widget _buildDesktopRow(BuildContext context, dynamic sv, int index) {
     final receipt = sv.receiptNumber;
 
     final customerName = (sv.customerName?.toString().isNotEmpty == true)
@@ -1000,19 +971,8 @@ class _SalesViewPageState extends State<SalesViewPage> {
               ),
             ),
             const SizedBox(width: 8),
-            if (canSelectDate) ...[
-              Expanded(
-                flex: _colFlexes[5],
-                child: Text(
-                  ' ${nf.format(value.previousBalanceByReceipt[sv.id] ?? 0.0)}',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(color: _textColor, fontSize: 13),
-                ),
-              ),
-            ],
-            const SizedBox(width: 8),
             Expanded(
-              flex: _colFlexes[6],
+              flex: _colFlexes[5],
               child: Text(
                 sv.receiptby?.toString().trim().isNotEmpty == true
                     ? sv.receiptby.toString()
@@ -1024,7 +984,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              flex: _colFlexes[7],
+              flex: _colFlexes[6],
               child: Text(
                 '${nf.format(total)}',
                 textAlign: TextAlign.right,
@@ -1033,7 +993,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              flex: _colFlexes[8],
+              flex: _colFlexes[7],
               child: _salesActionsMenu(context, sv, customerName),
             ),
           ],
@@ -1048,7 +1008,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
     4, // Customer
     2, // Date
     2, // Mode
-    4, // Prev. Balance
     3, // Received By
     2, // Total
     2, // Actions
@@ -1130,12 +1089,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _buildDesktopLayout(
-    BuildContext context,
-    List filteredSalesview,
-    Datafeed value,
-    bool canSelectDate,
-  ) {
+  Widget _buildDesktopLayout(BuildContext context, List filteredSalesview) {
     final pageCount = (filteredSalesview.length / _rowsPerPage).ceil().clamp(
       1,
       filteredSalesview.length == 0 ? 1 : filteredSalesview.length,
@@ -1192,31 +1146,18 @@ class _SalesViewPageState extends State<SalesViewPage> {
                 ),
                 const SizedBox(width: 8),
 
-                if (canSelectDate) ...[
-                  _sortableHeaderCell(
-                    _selectedBranch == null
-                        ? 'Previous Company Bal(GHS)'
-                        : 'Previous Branch Bal(GHS)',
-                    _colFlexes[5],
-                    5,
-                    (d) => value.previousBalanceByReceipt[d.id] ?? 0.0,
-                    filteredSalesview,
-                    numeric: true,
-                  ),
-                ],
-                const SizedBox(width: 8),
                 _sortableHeaderCell(
                   'Received By',
-                  _colFlexes[6],
-                  6,
+                  _colFlexes[5],
+                  5,
                   (d) => (d.receiptby ?? '').toLowerCase(),
                   filteredSalesview,
                 ),
                 const SizedBox(width: 8),
                 _sortableHeaderCell(
                   'Total (GHS)',
-                  _colFlexes[7],
-                  7,
+                  _colFlexes[6],
+                  6,
                   (d) {
                     final itemMap = Map<String, dynamic>.from(d.items);
 
@@ -1236,7 +1177,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
                   numeric: true,
                 ),
                 const SizedBox(width: 8),
-                _plainHeaderCell('Actions', _colFlexes[8], centered: true),
+                _plainHeaderCell('Actions', _colFlexes[7], centered: true),
               ],
             ),
           ),
@@ -1261,8 +1202,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
                       context,
                       pageItems[index],
                       startIndex + index,
-                      value,
-                      canSelectDate,
                     );
                   },
                 ),
@@ -1485,11 +1424,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
     );
   }
 
-  Widget _buildMobileList(
-    BuildContext context,
-    List filteredSalesview,
-    bool canSelectDate,
-  ) {
+  Widget _buildMobileList(BuildContext context, List filteredSalesview) {
     final pageCount = filteredSalesview.isEmpty
         ? 1
         : (filteredSalesview.length / _rowsPerPage).ceil();
@@ -1501,7 +1436,7 @@ class _SalesViewPageState extends State<SalesViewPage> {
         .toList(growable: false);
 
     return Consumer<Datafeed>(
-      builder: (context, value, _) {
+      builder: (context, _, _) {
         return ScrollConfiguration(
           behavior: _smoothScrollBehavior,
           child: ListView.separated(
@@ -1618,18 +1553,6 @@ class _SalesViewPageState extends State<SalesViewPage> {
                             _mobileInfoRow('Payment Status', paymentStatus),
                             const SizedBox(height: 10),
                             _mobileInfoRow('Date', date),
-                            if (canSelectDate) ...[
-                              const SizedBox(height: 10),
-                              _mobileInfoRow(
-                                _selectedBranch == null
-                                    ? 'Previous Company Balance (GHS)'
-                                    : 'Previous Branch Balance (GHS)',
-                                nf.format(
-                                  value.previousBalanceByReceipt[sv.id] ?? 0.0,
-                                ),
-                              ),
-                            ],
-
                             const SizedBox(height: 14),
                             Divider(
                               color: _borderColor.withOpacity(0.45),

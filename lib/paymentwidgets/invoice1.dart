@@ -1,11 +1,9 @@
 
 
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import '../providers/Datafeed.dart';
-import 'package:provider/provider.dart';
+
 import '../models/Receiptdatamodel.dart';
 
 String _qty(double q) =>
@@ -142,14 +140,14 @@ class ReceiptPrinter {
       dashed(),
       centered(title, size: 10, b: true),
       dashed(),
-      kv('Receipt No:', data.receiptNumber),
-      kv('Date:', '${_two(when.day)}/${_two(when.month)}/${when.year}'),
+      kv('Receipt Id:', data.receiptNumber),
+      kv('Date:', '${when.day}th ${when.month} ${when.year}'),
       kv('Time:',
           '${_two(when.hour)}:${_two(when.minute)}:${_two(when.second)}'),
-      kv('Cashier:', cashier),
-      kv('Customer:', customer),
+      kv('Cashier Name:', cashier),
+      kv('CustomerName:', customer),
       dashed(),
-      cols('ITEM', 'QTY', 'PRICE', 'TOTAL', b: true, size: 8),
+      cols('ITEM', 'QTY', 'UNIT PRICE', 'TOTAL', b: true, size: 8),
       pw.Divider(height: 4, thickness: 0.6),
 
       for (final i in data.items)
@@ -174,9 +172,9 @@ class ReceiptPrinter {
       kv('Subtotal', _gh(data.subTotal.toDouble())),
       kv('Discount', '-${_gh(data.discount.toDouble())}'),
       solid(),
-      kv('PAYABLE', _gh(data.payable.toDouble()), size: 11, b: true),
+      kv('Total', _gh(data.payable.toDouble()), size: 11, b: true),
       solid(),
-      kv('Paid', _gh(data.amountPaid.toDouble())),
+      kv('Amount Paid', _gh(data.amountPaid.toDouble())),
       kv('Change', _gh(change), b: true),
       dashed(),
       centered(isChristmas
@@ -208,6 +206,7 @@ class ReceiptPrinter {
           color: PdfColors.black,
         ),
       ),
+     // pw.Text('scan to verify')
       dashed(),
       if ((data.dailyNumber ?? '').isNotEmpty)
         kv('RECEIPT NO:', '#${data.dailyNumber}',size: 16, b: true),

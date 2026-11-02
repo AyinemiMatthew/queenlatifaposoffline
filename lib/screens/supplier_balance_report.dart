@@ -72,7 +72,6 @@ class _SupplierReportState extends State<SupplierReport> {
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  double _openingAmount(dynamic value) => _amount(value).abs();
   double _balanceAmount(dynamic value) => _amount(value).abs();
 
   String _money(dynamic value) => NumberFormat('#,##0.00').format(_amount(value));
@@ -116,22 +115,18 @@ class _SupplierReportState extends State<SupplierReport> {
     sheet.appendRow([
       xls.TextCellValue('#'),
       xls.TextCellValue('Name'),
-      xls.TextCellValue('Opening Balance'),
       xls.TextCellValue('Debit'),
       xls.TextCellValue('Credit'),
       xls.TextCellValue('Balance'),
     ]);
-    var opening = 0.0;
     var debit = 0.0;
     var credit = 0.0;
     var balance = 0.0;
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
-      final rowOpening = _openingAmount(row['openingBalance']);
       final rowDebit = _amount(row['debit']);
       final rowCredit = _amount(row['credit']);
       final rowBalance = _balanceAmount(row['balance']);
-      opening += rowOpening;
       debit += rowDebit;
       credit += rowCredit;
       balance += rowBalance;
@@ -140,7 +135,6 @@ class _SupplierReportState extends State<SupplierReport> {
         xls.TextCellValue(
           _capitalizeFirst(row['supplierName']?.toString() ?? ''),
         ),
-        xls.DoubleCellValue(rowOpening),
         xls.DoubleCellValue(rowDebit),
         xls.DoubleCellValue(rowCredit),
         xls.DoubleCellValue(rowBalance),
@@ -149,7 +143,6 @@ class _SupplierReportState extends State<SupplierReport> {
     sheet.appendRow([
       xls.TextCellValue(''),
       xls.TextCellValue('TOTAL'),
-      xls.DoubleCellValue(opening),
       xls.DoubleCellValue(debit),
       xls.DoubleCellValue(credit),
       xls.DoubleCellValue(balance),
@@ -173,18 +166,15 @@ class _SupplierReportState extends State<SupplierReport> {
     final bold = await PdfGoogleFonts.openSansBold();
     final pdf = pw.Document(title: 'Supplier Report');
     final totals = <String, double>{
-      'openingBalance': 0,
       'debit': 0,
       'credit': 0,
       'balance': 0,
     };
     for (final row in rows) {
       for (final key in totals.keys) {
-        final amount = switch (key) {
-          'openingBalance' => _openingAmount(row[key]),
-          'balance' => _balanceAmount(row[key]),
-          _ => _amount(row[key]),
-        };
+        final amount = key == 'balance'
+            ? _balanceAmount(row[key])
+            : _amount(row[key]);
         totals[key] = totals[key]! + amount;
       }
     }
@@ -226,17 +216,15 @@ class _SupplierReportState extends State<SupplierReport> {
             columnWidths: {
               0: const pw.FixedColumnWidth(30),
               1: const pw.FlexColumnWidth(3),
-              2: const pw.FlexColumnWidth(1.3),
+              2: const pw.FlexColumnWidth(1),
               3: const pw.FlexColumnWidth(1),
-              4: const pw.FlexColumnWidth(1),
-              5: const pw.FlexColumnWidth(1.3),
+              4: const pw.FlexColumnWidth(1.3),
             },
             children: [
               pw.TableRow(
                 children: [
                   cell('#', header: true),
                   cell('Name', header: true),
-                  cell('Opening Balance(GHS)', header: true, right: true),
                   cell('Debit (GHS)', header: true, right: true),
                   cell('Credit (GHS)', header: true, right: true),
                   cell('Balance (GHS)', header: true, right: true),
@@ -249,10 +237,6 @@ class _SupplierReportState extends State<SupplierReport> {
                     cell('${entry.key + 1}'),
                     cell(
                       _capitalizeFirst(row['supplierName']?.toString() ?? ''),
-                    ),
-                    cell(
-                      _openingAmount(row['openingBalance']).toStringAsFixed(2),
-                      right: true,
                     ),
                     cell(_money(row['debit']), right: true),
                     cell(_money(row['credit']), right: true),
@@ -267,11 +251,6 @@ class _SupplierReportState extends State<SupplierReport> {
                 children: [
                   cell('', header: true),
                   cell('TOTAL', header: true),
-                  cell(
-                    _money(totals['openingBalance']),
-                    header: true,
-                    right: true,
-                  ),
                   cell(_money(totals['debit']), header: true, right: true),
                   cell(_money(totals['credit']), header: true, right: true),
                   cell(
@@ -294,24 +273,20 @@ class _SupplierReportState extends State<SupplierReport> {
     final columns = [
       ('#', 45.0),
       ('Name', 210.0),
-      ('Opening Balance(GHS)', 150.0),
       ('Debit(GHS)', 130.0),
       ('Credit(GHS)', 130.0),
       ('Balance(GHS)', 140.0),
     ];
     final totals = <String, double>{
-      'openingBalance': 0,
       'debit': 0,
       'credit': 0,
       'balance': 0,
     };
     for (final row in rows) {
       for (final key in totals.keys) {
-        final amount = switch (key) {
-          'openingBalance' => _openingAmount(row[key]),
-          'balance' => _balanceAmount(row[key]),
-          _ => _amount(row[key]),
-        };
+        final amount = key == 'balance'
+            ? _balanceAmount(row[key])
+            : _amount(row[key]);
         totals[key] = totals[key]! + amount;
       }
     }
@@ -370,11 +345,6 @@ class _SupplierReportState extends State<SupplierReport> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      _openingAmount(
-                        rows[index]['openingBalance'],
-                      ).toStringAsFixed(2),
-                    ),
                     Text(_money(rows[index]['debit'])),
                     Text(_money(rows[index]['credit'])),
                     Text(
@@ -385,7 +355,6 @@ class _SupplierReportState extends State<SupplierReport> {
               contentRow([
                 const Text(''),
                 const Text('TOTAL'),
-                Text(_money(totals['openingBalance'])),
                 Text(_money(totals['debit'])),
                 Text(_money(totals['credit'])),
                 Text(_balanceAmount(totals['balance']).toStringAsFixed(2)),
@@ -548,20 +517,15 @@ class _SupplierReportState extends State<SupplierReport> {
                               itemBuilder: (context, index) {
                                 if (index == rows.length) {
                                   final totals = <String, double>{
-                                    'openingBalance': 0,
                                     'debit': 0,
                                     'credit': 0,
                                     'balance': 0,
                                   };
                                   for (final row in rows) {
                                     for (final key in totals.keys) {
-                                      final amount = switch (key) {
-                                        'openingBalance' => _openingAmount(
-                                          row[key],
-                                        ),
-                                        'balance' => _balanceAmount(row[key]),
-                                        _ => _amount(row[key]),
-                                      };
+                                      final amount = key == 'balance'
+                                          ? _balanceAmount(row[key])
+                                          : _amount(row[key]);
                                       totals[key] = totals[key]! + amount;
                                     }
                                   }
@@ -572,10 +536,6 @@ class _SupplierReportState extends State<SupplierReport> {
                                       child: Column(
                                         children: [
                                           for (final entry in [
-                                            (
-                                              'Opening Balance',
-                                              'openingBalance',
-                                            ),
                                             ('Debit', 'debit'),
                                             ('Credit', 'credit'),
                                             ('Balance', 'balance'),
@@ -606,13 +566,6 @@ class _SupplierReportState extends State<SupplierReport> {
                                             style: theme.textTheme.titleMedium,
                                           ),
                                           const SizedBox(height: 8),
-                                          _mobileBalanceRow(
-                                            context,
-                                            'Opening Balance(GHS)',
-                                            _openingAmount(
-                                              row['openingBalance'],
-                                            ),
-                                          ),
                                           _mobileBalanceRow(
                                             context,
                                             'Debit (GHS)',
@@ -704,8 +657,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  double _openingAmount(dynamic value) => _amount(value).abs();
-
   DateTime? _date(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
@@ -763,7 +714,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
     sheet.appendRow([
       xls.TextCellValue('#'),
       xls.TextCellValue('Date'),
-      xls.TextCellValue('Opening Balance'),
       xls.TextCellValue('Amount'),
       xls.TextCellValue('Payment Method'),
       xls.TextCellValue('Reference'),
@@ -781,7 +731,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
               ? '-'
               : DateFormat('yyyy-MM-dd').format(_date(row['date'])!),
         ),
-        xls.DoubleCellValue(_openingAmount(row['openingBalance'])),
         xls.DoubleCellValue(amount),
         xls.TextCellValue((row['paymentMode'] ?? '').toString()),
         xls.TextCellValue((row['transactionRef'] ?? '').toString()),
@@ -791,7 +740,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
     sheet.appendRow([
       xls.TextCellValue(''),
       xls.TextCellValue('TOTAL'),
-      xls.TextCellValue(''),
       xls.DoubleCellValue(total),
       xls.TextCellValue(''),
       xls.TextCellValue(''),
@@ -858,14 +806,12 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
               3: const pw.FlexColumnWidth(1.2),
               4: const pw.FlexColumnWidth(1.5),
               5: const pw.FlexColumnWidth(2),
-              6: const pw.FlexColumnWidth(1.3),
             },
             children: [
               pw.TableRow(
                 children: [
                   cell('#', header: true),
                   cell('Date', header: true),
-                  cell('Opening Balance (GHS)', header: true, right: true),
                   cell('Amount (GHS)', header: true, right: true),
                   cell('Payment Method', header: true),
                   cell('Reference', header: true),
@@ -884,10 +830,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
                           : DateFormat('yyyy-MM-dd').format(date),
                     ),
                     cell(
-                      _openingAmount(row['openingBalance']).toStringAsFixed(2),
-                      right: true,
-                    ),
-                    cell(
                       _amount(row['amount']).toStringAsFixed(2),
                       right: true,
                     ),
@@ -901,7 +843,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
                 children: [
                   cell('', header: true),
                   cell('TOTAL (GHS)', header: true),
-                  cell('', header: true),
                   cell(total.toStringAsFixed(2), header: true, right: true),
                   cell('', header: true),
                   cell('', header: true),
@@ -1061,9 +1002,9 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
                                   ).format(_amount(row['amount'])),
                                 ),
                                 subtitle: Text(
-                                  '${date == null ? '-' : DateFormat.yMMMd().format(date)} · ${row['paymentMode'] ?? '-'}\nOpening balance: ${NumberFormat('#,##0.00').format(_openingAmount(row['openingBalance']))}\n${row['transactionRef'] ?? ''}',
+                                  '${date == null ? '-' : DateFormat.yMMMd().format(date)} · ${row['paymentMode'] ?? '-'}\n${row['transactionRef'] ?? ''}',
                                 ),
-                                isThreeLine: true,
+                                isThreeLine: false,
                               ),
                             );
                           }),
@@ -1083,7 +1024,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
     final columns = [
       ('#', 45.0),
       ('Date', 145.0),
-      ('Opening Balance (GHS)', 155.0),
       ('Amount (GHS)', 145.0),
       ('Payment Method', 180.0),
       ('Reference', 210.0),
@@ -1128,11 +1068,6 @@ class _SupplierPaymentHistoryState extends State<SupplierPaymentHistory> {
               line([
                 Text('${i + 1}'),
                 Text(_formatPaymentDate(rows[i]['date'])),
-                Text(
-                  NumberFormat(
-                    '#,##0.00',
-                  ).format(_openingAmount(rows[i]['openingBalance'])),
-                ),
                 Text(
                   NumberFormat('#,##0.00').format(_amount(rows[i]['amount'])),
                 ),

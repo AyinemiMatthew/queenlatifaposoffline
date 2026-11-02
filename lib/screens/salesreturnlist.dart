@@ -593,8 +593,7 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       itemBuilder: (_) => [
         const PopupMenuItem(value: 'view', child: Text('View return items')),
         const PopupMenuItem(value: 'print', child: Text('Print')),
-      //  if (provider.canEdit(AppModules.sales))       const PopupMenuItem(value: 'edit', child: Text('Edit')),
-        if (provider.canDelete(AppModules.sales))
+       if (provider.canDelete(AppModules.sales))
           PopupMenuItem(
             value: 'delete',
             child: Text('Delete', style: TextStyle(color: _c.error)),

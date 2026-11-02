@@ -9573,7 +9573,10 @@ class Datafeed extends ChangeNotifier {
             final openingBalance = row['openingBalance'] as double;
             final debit = row['debit'] as double;
             final credit = row['credit'] as double;
-            return {...row, 'balance': openingBalance + credit - debit};
+            final reportRow = Map<String, dynamic>.from(row)
+              ..remove('openingBalance')
+              ..['balance'] = openingBalance + credit - debit;
+            return reportRow;
           }).toList()..sort(
             (a, b) => (a['supplierName'] as String).toLowerCase().compareTo(
               (b['supplierName'] as String).toLowerCase(),
@@ -9629,131 +9632,23 @@ class Datafeed extends ChangeNotifier {
       ).add(const Duration(days: 1));
       return !date.isBefore(start) && date.isBefore(endExclusive);
     }).toList();
-    final selectedPaymentsById = {
-      for (final payment in rows) payment['id'].toString(): payment,
-    };
-
-    Query<Map<String, dynamic>> openingQuery = db
-        .collection('creditor_balances')
-        .where('companyid', isEqualTo: companyid)
-        .where('creditorId', isEqualTo: supplierId);
-    Query<Map<String, dynamic>> purchaseQuery = db
-        .collection('stock_transactions')
-        .where('companyid', isEqualTo: companyid)
-        .where('supplierid', isEqualTo: supplierId);
-    if (branch != null && branch.isNotEmpty) {
-      openingQuery = openingQuery.where('branchid', isEqualTo: branch);
-      purchaseQuery = purchaseQuery.where('branchid', isEqualTo: branch);
-    }
-
-    final openingSnapshot = await openingQuery.get(
-      const GetOptions(source: Source.serverAndCache),
-    );
-    final purchaseSnapshot = await purchaseQuery.get(
-      const GetOptions(source: Source.serverAndCache),
-    );
-
-    DateTime? dateOf(dynamic value) {
-      if (value is Timestamp) return value.toDate();
-      if (value is DateTime) return value;
-      return DateTime.tryParse(value?.toString() ?? '');
-    }
-
-    double amountOf(dynamic value) {
-      if (value is num) return value.toDouble();
-      return double.tryParse(value?.toString() ?? '') ?? 0;
-    }
-
-    DateTime? eventDate(Map<String, dynamic> entry) =>
-        dateOf(entry['date'] ?? entry['dateymd'] ?? entry['createdat']);
-    DateTime? createdAt(Map<String, dynamic> entry) =>
-        dateOf(entry['createdat'] ?? entry['createdAt']);
-
-    final events = <Map<String, dynamic>>[];
-    for (final doc in openingSnapshot.docs) {
-      final data = doc.data();
-      events.add({
-        'kind': 'credit',
-        'date': eventDate(data),
-        'createdat': createdAt(data),
-        'id': doc.id,
-        'amount': amountOf(data['amount']),
-      });
-    }
-    for (final doc in purchaseSnapshot.docs) {
-      final data = doc.data();
-      final isReturn =
-          data['purchasereturntrue'] == true || data['purchasereturn'] == true;
-      final isCredit =
-          (data['purchasetype'] ?? '').toString().trim().toLowerCase() ==
-          'credit';
-      if (!isReturn && !isCredit) continue;
-      events.add({
-        'kind': isReturn ? 'debit' : 'credit',
-        'date': eventDate(data),
-        'createdat': createdAt(data),
-        'id': (data['docid'] ?? doc.id).toString(),
-        'amount': amountOf(
-          isReturn ? (data['returnvalue'] ?? data['netval']) : data['netval'],
-        ),
-      });
-    }
-    for (final payment in allPayments) {
-      final paymentId = payment['id']?.toString() ?? '';
-      events.add({
-        'kind': 'payment',
-        'date': eventDate(payment),
-        'createdat': createdAt(payment),
-        'id': paymentId,
-        'amount': amountOf(payment['amount']),
-        'payment': selectedPaymentsById[paymentId],
-      });
-    }
-
-    events.sort((a, b) {
-      final dateA = a['date'] as DateTime?;
-      final dateB = b['date'] as DateTime?;
-      if (dateA == null && dateB != null) return 1;
-      if (dateA != null && dateB == null) return -1;
-      if (dateA != null && dateB != null) {
-        final dateOrder = dateA.compareTo(dateB);
-        if (dateOrder != 0) return dateOrder;
-      }
-      final kindA = a['kind'] == 'payment' ? 1 : 0;
-      final kindB = b['kind'] == 'payment' ? 1 : 0;
-      if (kindA != kindB) return kindA.compareTo(kindB);
-      final createdA = a['createdat'] as DateTime?;
-      final createdB = b['createdat'] as DateTime?;
-      if (createdA != null && createdB != null) {
-        final createdOrder = createdA.compareTo(createdB);
-        if (createdOrder != 0) return createdOrder;
-      }
-      return (a['id'] as String).compareTo(b['id'] as String);
-    });
-
-    var balance = 0.0;
-    for (final event in events) {
-      switch (event['kind']) {
-        case 'credit':
-          balance += event['amount'] as double;
-          break;
-        case 'debit':
-        case 'payment':
-          final payment = event['payment'];
-          if (payment is Map<String, dynamic>)
-            payment['openingBalance'] = balance;
-          balance -= event['amount'] as double;
-          break;
-      }
-    }
-
     rows.sort((a, b) {
-      final dateA = eventDate(a);
-      final dateB = eventDate(b);
-      if (dateA == null && dateB == null) return 0;
-      if (dateA == null) return 1;
-      if (dateB == null) return -1;
-      final dateOrder = dateB.compareTo(dateA);
+      final dateA = a['date'] ?? a['dateymd'];
+      final dateB = b['date'] ?? b['dateymd'];
+      final parsedDateA = dateA is Timestamp
+          ? dateA.toDate()
+          : dateA is DateTime
+          ? dateA
+          : DateTime.tryParse(dateA?.toString() ?? '');
+      final parsedDateB = dateB is Timestamp
+          ? dateB.toDate()
+          : dateB is DateTime
+          ? dateB
+          : DateTime.tryParse(dateB?.toString() ?? '');
+      if (parsedDateA == null && parsedDateB == null) return 0;
+      if (parsedDateA == null) return 1;
+      if (parsedDateB == null) return -1;
+      final dateOrder = parsedDateB.compareTo(parsedDateA);
       if (dateOrder != 0) return dateOrder;
       return (b['id'] ?? '').toString().compareTo((a['id'] ?? '').toString());
     });
@@ -9880,7 +9775,6 @@ class Datafeed extends ChangeNotifier {
           'purchaseType': '',
           'cashAmount': 0.0,
           'creditAmount': 0.0,
-          'openingStockAmount': 0.0,
         };
       }
       bySupplier[id]!['gross'] = (bySupplier[id]!['gross'] as double) + gross;
@@ -9895,9 +9789,6 @@ class Datafeed extends ChangeNotifier {
         } else if (ptKey == 'credit') {
           bySupplier[id]!['creditAmount'] =
               (bySupplier[id]!['creditAmount'] as double) + net;
-        } else if (ptKey.contains('opening')) {
-          bySupplier[id]!['openingStockAmount'] =
-              (bySupplier[id]!['openingStockAmount'] as double) + net;
         }
         if (purchaseType.isNotEmpty) {
           final existing = (bySupplier[id]!['purchaseType'] as String);
@@ -9928,7 +9819,7 @@ class Datafeed extends ChangeNotifier {
   void _computeSupplierReportTotals() {
     double totalGross = 0, totalNet = 0, totalDiscount = 0, totalTax = 0;
     double totalCount = 0, totalReturns = 0;
-    double totalCash = 0, totalCredit = 0, totalOpeningStock = 0;
+    double totalCash = 0, totalCredit = 0;
 
     for (final row in _supplierReportRows) {
       totalGross += row['gross'] as double;
@@ -9939,7 +9830,6 @@ class Datafeed extends ChangeNotifier {
       totalReturns += row['returnCount'] as double;
       totalCash += row['cashAmount'] as double;
       totalCredit += row['creditAmount'] as double;
-      totalOpeningStock += row['openingStockAmount'] as double;
     }
 
     _supplierReportTotals = {
@@ -9951,7 +9841,6 @@ class Datafeed extends ChangeNotifier {
       'totalReturns': totalReturns,
       'totalCash': totalCash,
       'totalCredit': totalCredit,
-      'totalOpeningStock': totalOpeningStock,
     };
   }
 
@@ -9973,8 +9862,7 @@ class Datafeed extends ChangeNotifier {
         totalCount = 0,
         totalReturns = 0,
         totalCash = 0,
-        totalCredit = 0,
-        totalOpeningStock = 0;
+        totalCredit = 0;
 
     for (final row in rows) {
       totalGross += row['gross'] as double;
@@ -9985,7 +9873,6 @@ class Datafeed extends ChangeNotifier {
       totalReturns += row['returnCount'] as double;
       totalCash += row['cashAmount'] as double;
       totalCredit += row['creditAmount'] as double;
-      totalOpeningStock += row['openingStockAmount'] as double;
     }
 
     return {
@@ -9997,7 +9884,6 @@ class Datafeed extends ChangeNotifier {
       'totalReturns': totalReturns,
       'totalCash': totalCash,
       'totalCredit': totalCredit,
-      'totalOpeningStock': totalOpeningStock,
     };
   }
 
@@ -10592,85 +10478,6 @@ class Datafeed extends ChangeNotifier {
   List<Map<String, dynamic>> salesReportRaw = [];
   List<String> salesReportProductTypes = [];
   List<String> salesReportCategories = [];
-
-  Map<String, double> previousBalanceByReceipt = {};
-  Future<void> computePreviousBalances(
-    List<SalesModel> salesList, {
-    String? selectedBranchId,
-  }) async {
-    if (salesList.isEmpty) {
-      previousBalanceByReceipt = {};
-      notifyListeners();
-      return;
-    }
-
-    final dates =
-        salesList
-            .map((s) => s.dateymd ?? '')
-            .where((d) => d.isNotEmpty)
-            .toList()
-          ..sort();
-
-    final openingBalance = <String, double>{};
-
-    if (dates.isNotEmpty) {
-      final minDate = dates.first;
-      try {
-        final snap = await db
-            .collection('salesSummary')
-            .where('companyid', isEqualTo: companyid)
-            .where('summarydate', isLessThan: minDate)
-            .get(const GetOptions(source: Source.serverAndCache));
-
-        for (final doc in snap.docs) {
-          final data = doc.data();
-          final branchSummary =
-              data['branchSummary'] as Map<String, dynamic>? ?? {};
-
-          for (final entry in branchSummary.entries) {
-            final b = entry.value;
-            if (b is! Map) continue;
-            final branchId = (b['branchId'] ?? entry.key).toString();
-            final value = (b['branchsales_value'] as num?)?.toDouble() ?? 0.0;
-            openingBalance[branchId] =
-                (openingBalance[branchId] ?? 0.0) + value;
-          }
-        }
-      } catch (e) {
-        debugPrint('computePreviousBalances opening balance error: $e');
-      }
-    }
-
-    final salesInScope = selectedBranchId == null
-        ? salesList
-        : salesList
-              .where((sale) => sale.branchId == selectedBranchId)
-              .toList(growable: false);
-    final sorted = List<SalesModel>.from(salesInScope)
-      ..sort((a, b) {
-        final aTime = a.createdAt?.millisecondsSinceEpoch ?? a.timestamp;
-        final bTime = b.createdAt?.millisecondsSinceEpoch ?? b.timestamp;
-        final timeComparison = aTime.compareTo(bTime);
-        if (timeComparison != 0) return timeComparison;
-
-        final timestampComparison = a.timestamp.compareTo(b.timestamp);
-        if (timestampComparison != 0) return timestampComparison;
-        return a.id.compareTo(b.id);
-      });
-
-    final openingTotal = selectedBranchId == null
-        ? openingBalance.values.fold<double>(0, (total, value) => total + value)
-        : openingBalance[selectedBranchId] ?? 0.0;
-    var running = openingTotal;
-    final result = <String, double>{};
-    for (final sale in sorted) {
-      result[sale.id] = running;
-      running += sale.totalamount;
-    }
-
-    previousBalanceByReceipt = result;
-    notifyListeners();
-  }
 
   void _collectReportFilters(List<Map<String, dynamic>> raw) {
     final types = <String>{};
