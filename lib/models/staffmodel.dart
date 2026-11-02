@@ -71,15 +71,16 @@ class StaffModel {
     this.canPrint = false,
     this.canEditPrice = false,
     this.canSellAnyBranch =false,
-    this.allowDiscount = false,
-    this.allowDiscountCode =false,
+    bool allowDiscount = false,
+    bool allowDiscountCode = false,
     this.permissions,
     this.tempPassword,
     this.lastLogin,
     this.lastLogout,
     this. isLoggedIn,
     this.canSelectDate = false,
-  });
+  }) : allowDiscount = allowDiscount,
+       allowDiscountCode = allowDiscount ? false : allowDiscountCode;
 
   Map<String, dynamic> toMap() => {
     'id': id,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/dashboard_provider.dart';
 import 'package:kologsoft/screens/role_access_config.dart';
 import 'package:kologsoft/screens/dashboard_settings.dart';
 import 'package:kologsoft/screens/momo_transactions_page.dart';
@@ -1633,6 +1634,9 @@ class Sidebar extends StatelessWidget {
                       style: TextStyle(color: colorScheme.onSurface),
                     ),
                     onTap: () async {
+                      await context
+                          .read<DashboardProvider>()
+                          .clearBranchStock();
                       await value.logout(context);
                     },
                   ),

@@ -971,10 +971,10 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => _isSavingDirect = true);
 
     try {
-      if (datafeed.isOffline && datafeed.stockCheckEnabled) {
+      if (datafeed.isOffline) {
         snackMsg(
           context,
-          'Sales with stock checking require an internet connection.',
+          'Offline sales are available only from Print Dialog when stock checking is disabled.',
           Colors.orange,
         );
         return;
@@ -999,7 +999,6 @@ class _SalesPageState extends State<SalesPage> {
       final double grossTotal = salesProvider.calculateGrossTotal();
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final queuedOffline = datafeed.isOffline;
       final saleDocId =
           '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp';
       final receiptNumber = '${datafeed.staffPosition}$timestamp';
@@ -1049,10 +1048,8 @@ class _SalesPageState extends State<SalesPage> {
         staffemail: datafeed.staffemail,
         receiptbyemail: '',
         dateymd: formattedDate,
-        stockCheckedAt: queuedOffline ? null : Timestamp.now(),
-        stockCheckStatus: queuedOffline && !datafeed.stockCheckEnabled
-            ? 'approved'
-            : null,
+        stockCheckedAt: Timestamp.now(),
+        stockCheckStatus: null,
         timestamp: timestamp,
         printed: false,
         customerName: 'Cash Customer',
@@ -1065,42 +1062,30 @@ class _SalesPageState extends State<SalesPage> {
         supplystatus: false,
       );
 
-      if (queuedOffline) {
-        await datafeed.offlineSalesQueue.saveLocally(
-          companyId: datafeed.companyid,
-          saleId: saleDocId,
-          saleData: saleData.toMap(),
-        );
-      } else {
-        await datafeed.db
-            .collection('sales')
-            .doc(saleDocId)
-            .set(saleData.toMap());
-      }
+      await datafeed.db
+          .collection('sales')
+          .doc(saleDocId)
+          .set(saleData.toMap());
 
-      if (!queuedOffline) {
-        final skipCheck =
-            !datafeed.stockCheckEnabled ||
-            salesProvider.isServiceOnlySale(salesItems);
-        if (!context.mounted) return;
-        final approved = await salesProvider.ensureSaleApproved(
-          context,
-          saleDocId,
-          skipStockCheck: skipCheck,
-        );
+      final skipCheck =
+          !datafeed.stockCheckEnabled ||
+          salesProvider.isServiceOnlySale(salesItems);
+      if (!context.mounted) return;
+      final approved = await salesProvider.ensureSaleApproved(
+        context,
+        saleDocId,
+        skipStockCheck: skipCheck,
+      );
 
-        if (!approved) {
-          return;
-        }
+      if (!approved) {
+        return;
       }
 
       if (context.mounted) {
         snackMsg(
           context,
-          queuedOffline
-              ? 'Sale saved on this device; waiting for internet to sync.'
-              : 'Sale saved successfully!',
-          queuedOffline ? Colors.orange : Colors.green,
+          'Sale saved successfully!',
+          Colors.green,
         );
         Provider.of<SalesProvider>(context, listen: false).clearCurrentCart();
       }
@@ -1140,10 +1125,6 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _printReceipt() async {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final value = Provider.of<Datafeed>(context, listen: false);
-    if (value.isSalesPoint) {
-      await _saveDirectSale();
-      return;
-    }
     if (value.isOffline && value.stockCheckEnabled) {
       snackMsg(
         context,
@@ -1152,6 +1133,21 @@ class _SalesPageState extends State<SalesPage> {
       );
       return;
     }
+
+    if (value.isOffline) {
+      await printReceipt(
+        context: context,
+        salesItems: salesProvider.salesItems,
+        selectedItem: _selectedItem,
+      );
+      return;
+    }
+
+    if (value.isSalesPoint) {
+      await _saveDirectSale();
+      return;
+    }
+
     final isService =
         (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 

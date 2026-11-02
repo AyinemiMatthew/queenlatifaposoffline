@@ -1781,6 +1781,7 @@ class Datafeed extends ChangeNotifier {
   List<Map<String, dynamic>> branchReportitem = [];
   final Map<String, List<Map<String, dynamic>>> _salesReportRawCache = {};
   bool salesReportHasVisibleData = false;
+  bool salesReportOffline = false;
   int _salesReportRequestGeneration = 0;
   String? salesReportError;
   // branch-level totals
@@ -1821,6 +1822,7 @@ class Datafeed extends ChangeNotifier {
     try {
       isloadingsalesreport = true;
       salesReportError = null;
+      salesReportOffline = false;
       final inMemoryRaw = _salesReportRawCache[cacheKey];
       if (_salesReportRawCache.containsKey(cacheKey)) {
         _applySalesReportData(
@@ -1877,7 +1879,10 @@ class Datafeed extends ChangeNotifier {
     } catch (e) {
       if (requestGeneration != _salesReportRequestGeneration) return;
       debugPrint("fetchsalesreport error: $e");
-      salesReportError = 'Unable to refresh the sales report: $e';
+      salesReportOffline = e is FirebaseException && e.code == 'unavailable';
+      salesReportError = salesReportOffline
+          ? null
+          : 'Could not refresh the sales report.';
       if (!salesReportHasVisibleData) {
         salesReportRaw = [];
         report = [];
@@ -3047,12 +3052,14 @@ class Datafeed extends ChangeNotifier {
     required bool Function() isCurrent,
     required void Function(QuerySnapshot<T>, QuerySnapshot<T>) apply,
     required String label,
+    void Function(Object error)? onRefreshError,
   }) async {
     await _loadQueriesCacheFirst(
       [firstQuery, secondQuery],
       isCurrent: isCurrent,
       apply: (snapshots) => apply(snapshots[0], snapshots[1]),
       label: label,
+      onRefreshError: onRefreshError,
     );
   }
 
@@ -3061,6 +3068,7 @@ class Datafeed extends ChangeNotifier {
     required bool Function() isCurrent,
     required void Function(List<QuerySnapshot<T>>) apply,
     required String label,
+    void Function(Object error)? onRefreshError,
   }) async {
     try {
       final cached = await Future.wait(
@@ -3081,6 +3089,7 @@ class Datafeed extends ChangeNotifier {
             if (isCurrent()) apply(fresh);
           } catch (error) {
             debugPrint('$label online refresh failed: $error');
+            if (isCurrent()) onRefreshError?.call(error);
           }
         }());
         return;
@@ -3178,6 +3187,7 @@ class Datafeed extends ChangeNotifier {
   DateTime _stockStartDate = DateTime.now();
   bool isLoadingStockReport = false;
   bool stockReportHasVisibleData = false;
+  bool stockReportOffline = false;
   String? stockReportError;
   int _stockReportRequestGeneration = 0;
 
@@ -3223,6 +3233,7 @@ class Datafeed extends ChangeNotifier {
     try {
       isLoadingStockReport = true;
       stockReportError = null;
+      stockReportOffline = false;
       final cachedRaw = _stockReportRawCache[cacheKey];
       if (cachedRaw != null) {
         _rawStockDocs = cachedRaw;
@@ -3240,6 +3251,14 @@ class Datafeed extends ChangeNotifier {
         currentQuery,
         isCurrent: () => requestGeneration == _stockReportRequestGeneration,
         label: 'Stock report',
+        onRefreshError: (error) {
+          stockReportOffline =
+              error is FirebaseException && error.code == 'unavailable';
+          stockReportError = stockReportOffline
+              ? null
+              : 'Could not refresh the stock report.';
+          notifyListeners();
+        },
         apply: (openingSnapshot, currentSnapshot) {
           final allDocs = [...openingSnapshot.docs, ...currentSnapshot.docs];
           final raw = allDocs.map((doc) {
@@ -3258,13 +3277,18 @@ class Datafeed extends ChangeNotifier {
               ? []
               : extractstockReport(raw, selectedBranch, startDate);
           stockReportHasVisibleData = true;
+          stockReportOffline = false;
+          stockReportError = null;
           notifyListeners();
         },
       );
     } catch (e) {
       if (requestGeneration != _stockReportRequestGeneration) return;
-      stockReportError = 'Unable to load the stock report: $e';
-      debugPrint(stockReportError);
+      debugPrint('Stock report load failed: $e');
+      stockReportOffline = e is FirebaseException && e.code == 'unavailable';
+      stockReportError = stockReportOffline
+          ? null
+          : 'Could not refresh the stock report.';
       if (!stockReportHasVisibleData) stockreport = [];
     } finally {
       if (requestGeneration == _stockReportRequestGeneration) {
@@ -5644,7 +5668,11 @@ class Datafeed extends ChangeNotifier {
       canSellAnyBranch = spref.getBool('canSellAnyBranch') ?? false;
       canSellAnyBranch = spref.getBool('canSellAnyBranch') ?? false;
       allowDiscount = spref.getBool('allowDiscount') ?? false;
-      allowDiscountCode = spref.getBool('allowDiscountCode') ?? false;
+      allowDiscountCode =
+          !allowDiscount && (spref.getBool('allowDiscountCode') ?? false);
+      if (allowDiscount) {
+        await spref.setBool('allowDiscountCode', false);
+      }
       accesslevel =
           spref.getString('accesslevel') ??
           spref.getString('accessLevel') ??

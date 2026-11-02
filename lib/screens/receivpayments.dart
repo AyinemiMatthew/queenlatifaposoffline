@@ -1137,6 +1137,7 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _referenceController = TextEditingController();
+  final referenceController = TextEditingController();
   String? _selectedAccount;
   List<String> _linkedAccounts = [];
   String method = "";
@@ -1177,9 +1178,7 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
     }
   }
 
-  TextEditingController? accountNumberController = TextEditingController();
-  TextEditingController? _contactController = TextEditingController();
-  TextEditingController? referenceController = TextEditingController();
+  final TextEditingController _contactController = TextEditingController();
   List<String> _paymentMethods = [];
   String paymentMethod = '';
   bool isLoading = false;
@@ -1208,6 +1207,8 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
   void dispose() {
     _amountController.dispose();
     _referenceController.dispose();
+    referenceController.dispose();
+    _contactController.dispose();
 
     // Dispose MOMO transaction controllers
     for (var controller in momoTransactionControllers) {
@@ -1487,7 +1488,9 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
           ? selectedNetwork.toUpperCase()
           : (_selectedAccount ?? '');
       final paymentAccountNumber = paymentMethodStore == 'momo'
-          ? accountNumberController?.text.trim() ?? ''
+          ? (momoType == 'hubtel'
+                ? _contactController.text.trim()
+                : momoTransactionIds?.keys.join(', ') ?? '')
           : (_selectedAccount ?? '');
       final paymentReference = _referenceController.text.trim().isEmpty
           ? (paymentMethodStore == 'momo'
@@ -1503,11 +1506,11 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
         paymentMethod: paymentMethodStore,
         customerid: widget.debtor.id,
         customername: widget.debtor.name,
-        createdat: widget.debtor.createdAt!,
+        createdat: _selectedDate,
         companyid: widget.debtor.companyId,
         companyname: widget.debtor.companyName,
         createdby: widget.debtor.staff,
-        contact: widget.debtor.staff,
+        contact: widget.debtor.contact,
         runningbalance: runningbalance,
       );
 
@@ -1537,16 +1540,16 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
         'payments': [paymentEntry],
         'createdat': FieldValue.serverTimestamp(),
         'createdby': widget.debtor.staff,
-        'oldamount': 0,
+        'oldamount': 0.0,
         'transType': "debt payment",
         'branchName': widget.debtor.branchName,
         'branchId': widget.debtor.branchId,
         'staffemail': provider.staffemail,
-        'date': today,
-        'year': now.year.toString(), // 2026
-        'month': '${now.year}.${now.month}', // 2026.5
-        'week': '${now.year}.${weekNumber(now)}', // 2026.32
-        'day': DateFormat('EEEE').format(now),
+        'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+        'year': _selectedDate.year.toString(),
+        'month': '${_selectedDate.year}.${_selectedDate.month}',
+        'week': '${_selectedDate.year}.${weekNumber(_selectedDate)}',
+        'day': DateFormat('EEEE').format(_selectedDate),
       };
       final formatter = NumberFormat.currency(
         locale: 'en_GH',
@@ -1629,7 +1632,8 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
             'select payment method';
         return Container(
           height: MediaQuery.of(context).size.height * 0.85,
-          width: MediaQuery.of(context).size.height * 0.65,
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 640),
           decoration: BoxDecoration(
             color: _paymentSurface(context, const Color(0xFF0A1A2F)),
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1930,6 +1934,15 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
                                 merchantFields: _buildMomoTransactionFields(),
 
                                 phoneController: _contactController,
+                                fieldColor: _paymentSurface(
+                                  context,
+                                  const Color(0xFF1E3A5F),
+                                ),
+                                foregroundColor: _paymentForeground(context),
+                                mutedColor: _paymentMutedForeground(context),
+                                borderColor: _paymentBorder(context),
+                                floatingLabelColor:
+                                    Theme.of(context).colorScheme.primary,
                               ),
                             ],
 

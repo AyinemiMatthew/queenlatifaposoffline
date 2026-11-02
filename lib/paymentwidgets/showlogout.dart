@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/dashboard_provider.dart';
 import 'package:provider/provider.dart';
 
 class LogoutDialog {
   static Future<void> show(BuildContext parentcontext) {
     final datafeed = Provider.of<Datafeed>(parentcontext, listen: false);
+    final dashboardProvider = Provider.of<DashboardProvider>(
+      parentcontext,
+      listen: false,
+    );
     final colorScheme = Theme.of(parentcontext).colorScheme;
 
     return showDialog(
@@ -30,9 +35,10 @@ class LogoutDialog {
                 backgroundColor: colorScheme.error,
                 foregroundColor: colorScheme.onError,
               ),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                datafeed.logout(parentcontext);
+                await dashboardProvider.clearBranchStock();
+                await datafeed.logout(parentcontext);
               },
               child: const Text('Logout'),
             ),

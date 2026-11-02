@@ -24,14 +24,17 @@ class ReceiptUploadPage extends StatefulWidget {
 }
 
 class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
-  Color get _textColor => Theme.of(context).colorScheme.onSurface;
-  Color get _secondaryTextColor =>
-      Theme.of(context).colorScheme.onSurfaceVariant;
+
   Color get _outlineColor => Theme.of(context).colorScheme.outline;
   Color get _fieldSurfaceColor =>
       Theme.of(context).brightness == Brightness.light
       ? Colors.white
       : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor => _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme ? Theme.of(context).colorScheme.onSurfaceVariant : Colors.white70;
+  Color get _dividerColor => _isLightTheme ? Theme.of(context).colorScheme.outlineVariant : Colors.white24;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -399,7 +402,7 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
             padding: const EdgeInsets.only(
               left: 20,
               right: 20,
-              top: 1,
+              top: 10,
               bottom: 20,
             ),
             child: Center(
@@ -428,11 +431,29 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor:
+                            _isLightTheme
+                                ? Theme.of(context)
+                                .colorScheme
+                                .primary
+                                : const Color(
+                              0xFF405A78,
+                            ),
+                            foregroundColor:
+                            _isLightTheme
+                                ? Theme.of(context)
+                                .colorScheme
+                                .onPrimary
+                                : Colors.white,
+                            padding:
+                            const EdgeInsets.symmetric(
+                              vertical: 16,
+                            ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius:
+                              BorderRadius.circular(
+                                8,
+                              ),
                             ),
                           ),
                           onPressed: _loading ? null : _savereceipt,

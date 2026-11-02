@@ -31,14 +31,9 @@ class _DamagesState extends State<Damages> {
       'salespoint';
 
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
-  Color get _textColor =>
-      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
-  Color get _secondaryTextColor => _isLightTheme
-      ? Theme.of(context).colorScheme.onSurfaceVariant
-      : Colors.white70;
-  Color get _dividerColor => _isLightTheme
-      ? Theme.of(context).colorScheme.outlineVariant
-      : Colors.white24;
+  Color get _textColor => _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme ? Theme.of(context).colorScheme.onSurfaceVariant : Colors.white70;
+  Color get _dividerColor => _isLightTheme ? Theme.of(context).colorScheme.outlineVariant : Colors.white24;
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();

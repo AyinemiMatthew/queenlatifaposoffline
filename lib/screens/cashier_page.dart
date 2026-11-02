@@ -1676,6 +1676,11 @@ class _CashierPageState extends State<CashierPage>
               merchantFields: _buildMomoTransactionFields(),
 
               phoneController: _contactController,
+              fieldColor: _inputSurface,
+              foregroundColor: _primaryText,
+              mutedColor: _secondaryText,
+              borderColor: _dividerColor,
+              floatingLabelColor: _colors.primary,
             ),
 
           if (paymentMethod.toLowerCase() == 'bank_transfer' ||
