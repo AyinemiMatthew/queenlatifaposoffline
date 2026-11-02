@@ -22,28 +22,28 @@ class StockProvider extends Datafeed {
   List<PurchaseReturnView> filteredTransactions = [];
   List<Map<String, dynamic>> pendingRequests = [];
   List<FarmerRegModel> farmerlist = [];
-List<Map<String,dynamic>> communities=[];
+  List<Map<String, dynamic>> communities = [];
   Map<String, dynamic>? selectedRequest;
   String? selectedRequestId;
   String? selectedRequestStatus;
   bool isLoading = false;
   String searchQuery = '';
-  List<StockItem> sampleJson=[];
-  List<StockItem> dailyStokcReport=[];
-  List<StockModel> purchaseTransactions=[];
-  List<CropModel> crops=[];
-  List<LanguageModel> languages=[];
-  List<EducationModel> levelofeducationlist=[];
-  List<PurchaseReturnView> purchasereturnitems=[];
+  List<StockItem> sampleJson = [];
+  List<StockItem> dailyStokcReport = [];
+  List<StockModel> purchaseTransactions = [];
+  List<CropModel> crops = [];
+  List<LanguageModel> languages = [];
+  List<EducationModel> levelofeducationlist = [];
+  List<PurchaseReturnView> purchasereturnitems = [];
   final Map<String, Map<String, dynamic>> supplyItems = {};
   String notes = '';
   bool showCompleted = false;
-  int pendingRequestscount=0;
+  int pendingRequestscount = 0;
   StreamSubscription? _subscription;
 
   final now = DateTime.now();
   late final defaultStart = DateTime(now.year, now.month, now.day, 0, 0, 0);
-  late final defaultEnd   = DateTime(now.year, now.month, now.day, 23, 59, 59);
+  late final defaultEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
   int weekNumber(DateTime date) {
     final firstDayOfYear = DateTime(date.year, 1, 1);
@@ -59,32 +59,44 @@ List<Map<String,dynamic>> communities=[];
     notifyListeners();
 
     final effectiveStart = startDate ?? defaultStart;
-    final effectiveEnd   = endDate ?? defaultEnd;
+    final effectiveEnd = endDate ?? defaultEnd;
 
     Query query = db
         .collection('stock_request')
         .where('companyid', isEqualTo: companyid)
         .where('warehouseid', isEqualTo: branchid)
-        .where('createdat', isGreaterThanOrEqualTo: Timestamp.fromDate(effectiveStart))
-        .where('createdat', isLessThanOrEqualTo: Timestamp.fromDate(effectiveEnd))
+        .where(
+          'createdat',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(effectiveStart),
+        )
+        .where(
+          'createdat',
+          isLessThanOrEqualTo: Timestamp.fromDate(effectiveEnd),
+        )
         .orderBy('createdat', descending: true);
 
     if (!showCompleted) {
-      query = query.where('status', whereIn: ['pending', 'partial', 'complete']);
+      query = query.where(
+        'status',
+        whereIn: ['pending', 'partial', 'complete'],
+      );
     }
 
-    _subscription = query.snapshots().listen((snapshot) {
-      pendingRequests = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-      isLoading = false;
-      notifyListeners();
-    }, onError: (error) {
-      isLoading = false;
-      notifyListeners();
-    });
+    _subscription = query.snapshots().listen(
+      (snapshot) {
+        pendingRequests = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+        isLoading = false;
+        notifyListeners();
+      },
+      onError: (error) {
+        isLoading = false;
+        notifyListeners();
+      },
+    );
   }
 
   @override
@@ -93,7 +105,11 @@ List<Map<String,dynamic>> communities=[];
     super.dispose();
   }
 
-  void selectRequest(String id, Map<String, dynamic> request, String requestStatus) {
+  void selectRequest(
+    String id,
+    Map<String, dynamic> request,
+    String requestStatus,
+  ) {
     selectedRequestId = id;
     selectedRequest = request;
     selectedRequestStatus = requestStatus;
@@ -102,7 +118,7 @@ List<Map<String,dynamic>> communities=[];
     notifyListeners();
   }
 
-   updateSupplyQuantity(String itemId, double requestedQty, double suppliedQty) {
+  updateSupplyQuantity(String itemId, double requestedQty, double suppliedQty) {
     if (suppliedQty >= 0) {
       supplyItems[itemId] = {
         'requested': requestedQty,
@@ -131,7 +147,8 @@ List<Map<String,dynamic>> communities=[];
     double totalSupplied = 0;
 
     for (var item in items) {
-      final requestedQty = (item['requestedquantity'] as num?)?.toDouble() ?? 0.0;
+      final requestedQty =
+          (item['requestedquantity'] as num?)?.toDouble() ?? 0.0;
       final oldsupply = (item['suppliedquantity'] as num?)?.toDouble();
       final dbstatus = item['supplystatus'];
       totalRequested += requestedQty;
@@ -162,12 +179,15 @@ List<Map<String,dynamic>> communities=[];
       notifyListeners();
       final items = selectedRequest!['items'] as List;
       String supplyPercentage = calculateSupplyPercentage().toStringAsFixed(0);
-      final overallStatus = (supplyPercentage == '100' ? 'complete' : 'partial');
+      final overallStatus = (supplyPercentage == '100'
+          ? 'complete'
+          : 'partial');
 
       final updatedItems = items.asMap().entries.map((entry) {
         final item = entry.value as Map<String, dynamic>;
         final itemId = item['itemid'];
-        double requested = (item['requestedquantity'] as num?)?.toDouble() ?? 0.0;
+        double requested =
+            (item['requestedquantity'] as num?)?.toDouble() ?? 0.0;
         final supply = supplyItems[itemId];
         final suppliedQty = supply?['supplied'];
         final suppliedQtys = suppliedQty ?? requested;
@@ -183,7 +203,6 @@ List<Map<String,dynamic>> communities=[];
           'supplydate': Timestamp.fromDate(DateTime.now()),
         };
       }).toList();
-
 
       await db.collection('stock_request').doc(selectedRequestId).update({
         'items': updatedItems,
@@ -222,29 +241,39 @@ List<Map<String,dynamic>> communities=[];
     notifyListeners();
   }
 
-  Stream<List<Map<String, dynamic>>> stockStream({required String? collectionName,required String branchfield,required String datefield,DateTime? startDate, DateTime? endDate}) {
+  Stream<List<Map<String, dynamic>>> stockStream({
+    required String? collectionName,
+    required String branchfield,
+    required String datefield,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
     final now = DateTime.now();
 
     final effectiveStart = startDate ?? DateTime(now.year, now.month, 1);
 
-    final effectiveEnd = endDate ?? DateTime(now.year, now.month, now.day, 23, 59, 59);
+    final effectiveEnd =
+        endDate ?? DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-
-    Query<Map<String, dynamic>> query = db.collection(collectionName!)
+    Query<Map<String, dynamic>> query = db
+        .collection(collectionName!)
         .where("companyid", isEqualTo: companyid)
         //.where("$branchfield", isEqualTo: branchid)
-        .where(datefield, isGreaterThanOrEqualTo: Timestamp.fromDate(effectiveStart))
+        .where(
+          datefield,
+          isGreaterThanOrEqualTo: Timestamp.fromDate(effectiveStart),
+        )
         .where(datefield, isLessThanOrEqualTo: Timestamp.fromDate(effectiveEnd))
         .orderBy(datefield, descending: true);
     if (accesslevel != 'super admin') {
       query = query.where(branchfield, isEqualTo: branchid);
     }
-        return query.snapshots().map((snapshot) {
+    return query.snapshots().map((snapshot) {
       return snapshot.docs.map((doc) => doc.data()).toList();
     });
   }
 
- stockreportdata({
+  stockreportdata({
     required String? collectionName,
     required String branchfield,
     DateTime? startDate,
@@ -253,16 +282,17 @@ List<Map<String,dynamic>> communities=[];
     final effectiveStart = startDate ?? defaultStart;
     final effectiveEnd = endDate ?? defaultEnd;
 
-    final querySnapshot = await db.collection(collectionName!)
+    final querySnapshot = await db
+        .collection(collectionName!)
         .where("companyid", isEqualTo: companyid)
-        .orderBy('createdat', descending: true).get();
-    return sampleJson= querySnapshot.docs.map((json) => StockItem.fromJson(json.data())).toList();
-
+        .orderBy('createdat', descending: true)
+        .get();
+    return sampleJson = querySnapshot.docs
+        .map((json) => StockItem.fromJson(json.data()))
+        .toList();
   }
 
-  Future<List<StockItem>> getDailyStockReport({
-    required DateTime date,
-  }) async {
+  Future<List<StockItem>> getDailyStockReport({required DateTime date}) async {
     final List<StockItem> stockReport = [];
 
     // yyyy-mm-dd
@@ -309,33 +339,33 @@ List<Map<String,dynamic>> communities=[];
       stockReport.add(StockItem.fromJson(finalData));
     }
 
-    return dailyStokcReport=stockReport;
+    return dailyStokcReport = stockReport;
   }
-   loadPurchaseTransactions(String invoicenumber) async {
+
+  loadPurchaseTransactions(String invoicenumber) async {
     try {
-         await getdata();
-           Query query = db
+      await getdata();
+      Query query = db
           .collection('stock_transactions')
           .where('companyid', isEqualTo: companyid)
           .where('waybill', isEqualTo: invoicenumber);
-          final snapshot = await query.limit(10).get();
-          purchaseTransactions = snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return StockModel.fromMap(data, doc.id);
-        }).toList();
+      final snapshot = await query.limit(10).get();
+      purchaseTransactions = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return StockModel.fromMap(data, doc.id);
+      }).toList();
     } catch (e) {
       print('Failed to load purchases: $e');
-    }finally{
+    } finally {
       notifyListeners();
     }
   }
 
-   submitReturn({
+  submitReturn({
     required StockModel transaction,
     required Map<String, dynamic> returnItems,
     required String returnId,
     required String returndate,
-
   }) async {
     await getdata();
     final validItems = <Map<String, dynamic>>[];
@@ -367,13 +397,13 @@ List<Map<String,dynamic>> communities=[];
         if (availableBalance < returnPieces) {
           throw Exception(
             '${item.item}\n'
-                'Available: ${availableBalance.toInt()} pcs\n'
-                'Trying to return: ${returnPieces.toInt()} pcs',
+            'Available: ${availableBalance.toInt()} pcs\n'
+            'Trying to return: ${returnPieces.toInt()} pcs',
           );
         }
 
-        double net_returnvalue=0;
-        net_returnvalue=item.price * returnPieces;
+        double net_returnvalue = 0;
+        net_returnvalue = item.price * returnPieces;
         validItems.add({
           ...item.toMap(),
           'returnquantity': returnedQty,
@@ -394,12 +424,11 @@ List<Map<String,dynamic>> communities=[];
     //String today = formatInvoiceDate(returndate);
     final DateTime parsedDate = DateFormat('dd MMM yyyy').parse(returndate);
 
-    final String today = DateFormat('yyyy-MM-dd').format(parsedDate);;
+    final String today = DateFormat('yyyy-MM-dd').format(parsedDate);
+    ;
     final batch = db.batch();
 
-    final returnRef = db
-        .collection('purchase_returns')
-        .doc(transaction.docId);
+    final returnRef = db.collection('purchase_returns').doc(transaction.docId);
 
     final updateSource = db
         .collection('stock_transactions')
@@ -412,37 +441,34 @@ List<Map<String,dynamic>> communities=[];
       'companyid': companyid,
       'companyname': company,
       'submittedat': Timestamp.now(),
-      'supplierid':transaction.supplierId,
-      'suppliername':transaction.supplierName,
-      'invoice':transaction.invoice,
-      'waybill':transaction.waybill,
-      'purchasetype':transaction.purchaseType,
-      'createdby':staff,
-      'date':today,
-      'branchname':transaction.branchName,
-      'branchid':transaction.branchId,
+      'supplierid': transaction.supplierId,
+      'suppliername': transaction.supplierName,
+      'invoice': transaction.invoice,
+      'waybill': transaction.waybill,
+      'purchasetype': transaction.purchaseType,
+      'createdby': staff,
+      'date': today,
+      'branchname': transaction.branchName,
+      'branchid': transaction.branchId,
       'year': now.year.toString(), // 2026
       'month': '${now.year}.${now.month}', // 2026.5
       'week': '${now.year}.${weekNumber(now)}', // 2026.32
       'day': DateFormat('EEEE').format(now),
-      'returndate':returndate ,
-    },
-        SetOptions(merge: true),
-    );
+      'returndate': returndate,
+    }, SetOptions(merge: true));
 
-    batch.update(updateSource, {
-      'purchasereturn': true,
-    });
+    batch.update(updateSource, {'purchasereturn': true});
 
     await batch.commit();
     markTransactionReturned(transaction.docId);
   }
 
-   markTransactionReturned(String id) {
+  markTransactionReturned(String id) {
     final index = purchaseTransactions.indexWhere((t) => t.docId == id);
     if (index != -1) {
-      purchaseTransactions[index] =
-          purchaseTransactions[index].copyWith(purchasereturn: true);
+      purchaseTransactions[index] = purchaseTransactions[index].copyWith(
+        purchasereturn: true,
+      );
       notifyListeners();
     }
   }
@@ -461,16 +487,17 @@ List<Map<String,dynamic>> communities=[];
       filterTransactions();
     } catch (e) {
       print('Failed to load purchases: $e');
-    }finally{
+    } finally {
       notifyListeners();
     }
   }
 
-   filterTransactions() {
+  filterTransactions() {
     filteredTransactions = purchasereturnitems.where((txn) {
       final query = searchQuery.toLowerCase();
 
-      bool matchesSearch = searchQuery.isEmpty ||
+      bool matchesSearch =
+          searchQuery.isEmpty ||
           txn.invoice.toLowerCase().contains(query) ||
           txn.suppliername.toLowerCase().contains(query) ||
           txn.companyname.toLowerCase().contains(query);
@@ -497,6 +524,7 @@ List<Map<String,dynamic>> communities=[];
       print('Delete failed: $e');
     }
   }
+
   fetchCrops() async {
     await getdata();
     try {
@@ -512,6 +540,7 @@ List<Map<String,dynamic>> communities=[];
       debugPrint("Error fetching stocking modes: $e");
     }
   }
+
   fetchLanguages() async {
     await getdata();
     try {
@@ -527,6 +556,7 @@ List<Map<String,dynamic>> communities=[];
       debugPrint("Error fetching stocking modes: $e");
     }
   }
+
   fetcheducationlevels() async {
     await getdata();
     try {
@@ -542,11 +572,13 @@ List<Map<String,dynamic>> communities=[];
       debugPrint("Error fetching education levels: $e");
     }
   }
+
   fetchFarmers() async {
     try {
       await getdata();
 
-      Query query = db.collection('customers')
+      Query query = db
+          .collection('customers')
           .where("companyid", isEqualTo: companyid);
 
       if (accesslevel != 'super admin') {
@@ -590,6 +622,7 @@ List<Map<String,dynamic>> communities=[];
     farmerlist.removeWhere((c) => c.id == id);
     notifyListeners();
   }
+
   fetchCommunities() async {
     await getdata();
     try {
@@ -609,8 +642,10 @@ List<Map<String,dynamic>> communities=[];
   Future<void> syncTransactionToReport(String transactionId) async {
     final db = FirebaseFirestore.instance;
 
-    final txDoc =
-    await db.collection('stock_transactions').doc(transactionId).get();
+    final txDoc = await db
+        .collection('stock_transactions')
+        .doc(transactionId)
+        .get();
 
     if (!txDoc.exists) {
       throw Exception("Transaction not found");
@@ -624,8 +659,7 @@ List<Map<String,dynamic>> communities=[];
     final String companyId = txData['companyid'];
     final String today = txData['date'];
 
-    final List<Map<String, dynamic>> items =
-    (txData['items'] as List<dynamic>)
+    final List<Map<String, dynamic>> items = (txData['items'] as List<dynamic>)
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
@@ -656,24 +690,22 @@ List<Map<String,dynamic>> communities=[];
           "branchstockin_value": FieldValue.increment(0),
           "branchtransaction_count": FieldValue.increment(1),
           "lastupdate": FieldValue.serverTimestamp(),
-        }
+        },
       },
 
-      "items": {
-        branchId: <String, dynamic>{},
-      }
+      "items": {branchId: <String, dynamic>{}},
     };
 
     // Get references to the ORIGINAL nested maps
     final Map<String, dynamic> itemsMap =
-    reportData["items"] as Map<String, dynamic>;
+        reportData["items"] as Map<String, dynamic>;
 
     final Map<String, dynamic> branchItems =
-    itemsMap[branchId] as Map<String, dynamic>;
+        itemsMap[branchId] as Map<String, dynamic>;
 
     final Map<String, dynamic> branchBalance =
-    (reportData["branchbalance"] as Map<String, dynamic>)[branchId]
-    as Map<String, dynamic>;
+        (reportData["branchbalance"] as Map<String, dynamic>)[branchId]
+            as Map<String, dynamic>;
 
     // Build item report
     for (final raw in items) {
@@ -709,56 +741,41 @@ List<Map<String,dynamic>> communities=[];
     }
 
     // Update branch totals
-    branchBalance["branch_newstock"] =
-        FieldValue.increment(totalPieces);
+    branchBalance["branch_newstock"] = FieldValue.increment(totalPieces);
 
-    branchBalance["branch_newstockvalue"] =
-        FieldValue.increment(totalValue);
+    branchBalance["branch_newstockvalue"] = FieldValue.increment(totalValue);
 
-    branchBalance["branchstockin_balance"] =
-        FieldValue.increment(totalPieces);
+    branchBalance["branchstockin_balance"] = FieldValue.increment(totalPieces);
 
-    branchBalance["branchstockin_value"] =
-        FieldValue.increment(totalValue);
+    branchBalance["branchstockin_value"] = FieldValue.increment(totalValue);
 
     // Save stock report
-    batch.set(
-      dailyRef,
-      reportData,
-      SetOptions(merge: true),
-    );
+    batch.set(dailyRef, reportData, SetOptions(merge: true));
 
     // Update dashboard stats
-    batch.set(
-      statsRef,
-      {
-        "companyId": companyId,
-        "updatedAt": FieldValue.serverTimestamp(),
-        "stock_in_total": FieldValue.increment(totalValue),
-        "branchstock": {
-          branchId: {
-            "branchname": branchName,
-            "stock_value": FieldValue.increment(totalValue),
-            "lastupdate": FieldValue.serverTimestamp(),
-          }
-        }
+    batch.set(statsRef, {
+      "companyId": companyId,
+      "updatedAt": FieldValue.serverTimestamp(),
+      "stock_in_total": FieldValue.increment(totalValue),
+      "branchstock": {
+        branchId: {
+          "branchname": branchName,
+          "stock_value": FieldValue.increment(totalValue),
+          "lastupdate": FieldValue.serverTimestamp(),
+        },
       },
-      SetOptions(merge: true),
-    );
+    }, SetOptions(merge: true));
 
     // Mark synced
-    batch.update(
-      db.collection("stock_transactions").doc(transactionId),
-      {
-        "syncstatus": true,
-        "lastSyncedAt": FieldValue.serverTimestamp(),
-      },
-    );
+    batch.update(db.collection("stock_transactions").doc(transactionId), {
+      "syncstatus": true,
+      "lastSyncedAt": FieldValue.serverTimestamp(),
+    });
 
     await batch.commit();
   }
 
-   deleteLedgersForCompany(String companyId) async {
+  deleteLedgersForCompany(String companyId) async {
     try {
       // Query all ledgers for the given company
       final snapshot = await db
@@ -783,7 +800,9 @@ List<Map<String,dynamic>> communities=[];
         await batch.commit();
       }
 
-      debugPrint("Deleted ${snapshot.docs.length} ledgers for company $companyId");
+      debugPrint(
+        "Deleted ${snapshot.docs.length} ledgers for company $companyId",
+      );
     } catch (e) {
       debugPrint("Error deleting ledgers for company $companyId: $e");
     }
@@ -795,25 +814,42 @@ List<Map<String,dynamic>> communities=[];
   List<Sale> _sales = [];
   List<Sale> get salesTosupply => _sales;
 
-
-   loadSales({DateTime? startDate, DateTime? endDate,}) async {
+  loadSales({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? selectedBranchId,
+  }) async {
     _loading = true;
     notifyListeners();
     await getdata();
 
     try {
-      Query query = db.collection('sales')
+      Query query = db
+          .collection('sales')
           .where('companyId', isEqualTo: companyid)
           .where('branchType', isEqualTo: 'Sales Point');
 
       if (startDate == null && endDate == null) {
         final today = DateTime.now();
         final startOfDay = DateTime(today.year, today.month, today.day);
-        final endOfDay = DateTime(today.year, today.month, today.day, 23, 59, 59);
+        final endOfDay = DateTime(
+          today.year,
+          today.month,
+          today.day,
+          23,
+          59,
+          59,
+        );
 
         query = query
-            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-            .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay));
+            .where(
+              'createdAt',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where(
+              'createdAt',
+              isLessThanOrEqualTo: Timestamp.fromDate(endOfDay),
+            );
       } else {
         if (startDate != null) {
           final startOfDay = DateTime(
@@ -821,7 +857,10 @@ List<Map<String,dynamic>> communities=[];
             startDate.month,
             startDate.day,
           );
-          query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay));
+          query = query.where(
+            'createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+          );
         }
         if (endDate != null) {
           final startOfNextDay = DateTime(
@@ -829,38 +868,56 @@ List<Map<String,dynamic>> communities=[];
             endDate.month,
             endDate.day + 1,
           );
-          query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(startOfNextDay));
+          query = query.where(
+            'createdAt',
+            isLessThanOrEqualTo: Timestamp.fromDate(startOfNextDay),
+          );
         }
-
       }
 
       query = query.orderBy('createdAt', descending: true);
 
       final snapshot = await query.get();
-      _sales = snapshot.docs.map((doc) {
-        final sale = Sale.fromFirestore(doc);
-        final includeByMode = sale.transMode == 'credit' || (sale.transMode == 'cash' && sale.paymentStatus != 'pending');
+      _sales = snapshot.docs
+          .map((doc) {
+            final sale = Sale.fromFirestore(doc);
+            final includeByMode =
+                sale.transMode == 'credit' ||
+                (sale.transMode == 'cash' && sale.paymentStatus != 'pending');
 
-        if (!includeByMode) return null;
+            if (!includeByMode) return null;
 
-        if (accesslevel != 'super admin') {
-          final filteredItems = sale.items.where((item) => item.branchid == branchid).toList();
+            final isSuperAdmin =
+                accesslevel.toLowerCase().trim() == 'super admin';
+            final branchFilter = selectedBranchId?.trim().isNotEmpty == true
+                ? selectedBranchId!.trim()
+                : isSuperAdmin
+                ? null
+                : salesWarehouseId ?? branchid;
 
-          if (filteredItems.isEmpty) {
-            return null;
-          }
+            if (branchFilter != null && branchFilter.isNotEmpty) {
+              final filteredItems = sale.items
+                  .where(
+                    (item) =>
+                        item.branchid.trim().toLowerCase() ==
+                        branchFilter.toLowerCase(),
+                  )
+                  .toList();
 
-          return sale.copyWith(
-            items: filteredItems,
-            itemCount: filteredItems.length,
-          );
-        }
+              if (filteredItems.isEmpty) {
+                return null;
+              }
 
-        return sale;
-      })
+              return sale.copyWith(
+                items: filteredItems,
+                itemCount: filteredItems.length,
+              );
+            }
+
+            return sale;
+          })
           .whereType<Sale>()
           .toList();
-
     } catch (e) {
       debugPrint(e.toString());
     }
@@ -869,9 +926,7 @@ List<Map<String,dynamic>> communities=[];
     notifyListeners();
   }
 
-
-
- syncStockTransfers(String docId) async {
+  syncStockTransfers(String docId) async {
     final db = FirebaseFirestore.instance;
 
     final transferDoc = await db.collection('stock_transfer').doc(docId).get();
@@ -943,7 +998,7 @@ List<Map<String,dynamic>> communities=[];
             "name": receiveBranchName,
             "updatedby": updatedBy,
             "lastupdate": FieldValue.serverTimestamp(),
-          }
+          },
         },
         "lastModified": FieldValue.serverTimestamp(),
         "lastStockTransferId": transferId,
@@ -960,7 +1015,6 @@ List<Map<String,dynamic>> communities=[];
         "stockout_balance": FieldValue.increment(pieces),
         "transaction_count": FieldValue.increment(1),
         "lastupdate": FieldValue.serverTimestamp(),
-
       };
 
       receiveItemsUpdate[itemId] = {
@@ -973,7 +1027,6 @@ List<Map<String,dynamic>> communities=[];
         "stockin_balance": FieldValue.increment(pieces),
         "transaction_count": FieldValue.increment(1),
         "lastupdate": FieldValue.serverTimestamp(),
-
       };
     }
 
@@ -988,23 +1041,43 @@ List<Map<String,dynamic>> communities=[];
         sourceBranchId: {
           "branchId": sourceBranchId,
           "branchName": sourceBranchName,
-          "branchtransfer_qty": FieldValue.increment(items.fold<double>(0, (sum, i) => sum + (i['pieces'] ?? 0).toDouble())),
-          "branchstockout_balance": FieldValue.increment(items.fold<double>(0, (sum, i) => sum + (i['pieces'] ?? 0).toDouble())),
+          "branchtransfer_qty": FieldValue.increment(
+            items.fold<double>(
+              0,
+              (sum, i) => sum + (i['pieces'] ?? 0).toDouble(),
+            ),
+          ),
+          "branchstockout_balance": FieldValue.increment(
+            items.fold<double>(
+              0,
+              (sum, i) => sum + (i['pieces'] ?? 0).toDouble(),
+            ),
+          ),
 
           "branchtransaction_count": FieldValue.increment(1),
         },
         receiveBranchId: {
           "branchId": receiveBranchId,
           "branchName": receiveBranchName,
-        "branchtransferRecieved_qty": FieldValue.increment(items.fold<double>(0, (sum, i) => sum + (i['pieces'] ?? 0).toDouble())),
-         "branchstockin_balance": FieldValue.increment(items.fold<double>(0, (sum, i) => sum + (i['pieces'] ?? 0).toDouble())),
+          "branchtransferRecieved_qty": FieldValue.increment(
+            items.fold<double>(
+              0,
+              (sum, i) => sum + (i['pieces'] ?? 0).toDouble(),
+            ),
+          ),
+          "branchstockin_balance": FieldValue.increment(
+            items.fold<double>(
+              0,
+              (sum, i) => sum + (i['pieces'] ?? 0).toDouble(),
+            ),
+          ),
           "branchtransaction_count": FieldValue.increment(1),
-        }
+        },
       },
       "items": {
         sourceBranchId: sourceItemsUpdate,
         receiveBranchId: receiveItemsUpdate,
-      }
+      },
     }, SetOptions(merge: true));
 
     batch.set(dashboardRef, {
@@ -1017,13 +1090,15 @@ List<Map<String,dynamic>> communities=[];
         receiveBranchId: {
           "branchname": receiveBranchName,
           "stock_value": FieldValue.increment(receiveStockValue),
-        }
+        },
       },
       "updatedAt": FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     await batch.commit();
-    debugPrint("Processed stock transfer $transferId. for $reportId Updated ${items.length} items.");
+    debugPrint(
+      "Processed stock transfer $transferId. for $reportId Updated ${items.length} items.",
+    );
   }
 
   String formatInvoiceDate(dynamic value) {
@@ -1039,9 +1114,9 @@ List<Map<String,dynamic>> communities=[];
   //String today = formatInvoiceDate(widget.headerData['invoicedate']);
 
   Future<void> syncsingleTransactionToReport(
-      String transactionId,
-      Map<String, dynamic> selectedItem,
-      ) async {
+    String transactionId,
+    Map<String, dynamic> selectedItem,
+  ) async {
     final db = FirebaseFirestore.instance;
 
     final txDoc = await db
@@ -1054,21 +1129,15 @@ List<Map<String,dynamic>> communities=[];
     }
 
     // Convert the document into a normal Dart Map
-    final txData = Map<String, dynamic>.from(
-      txDoc.data()!,
-    );
+    final txData = Map<String, dynamic>.from(txDoc.data()!);
 
-    final String branchId =
-        txData['branchid']?.toString() ?? '';
+    final String branchId = txData['branchid']?.toString() ?? '';
 
-    final String branchName =
-        txData['branchname']?.toString() ?? '';
+    final String branchName = txData['branchname']?.toString() ?? '';
 
-    final String companyId =
-        txData['companyid']?.toString() ?? '';
+    final String companyId = txData['companyid']?.toString() ?? '';
 
-    final String today =
-        txData['date']?.toString() ?? '';
+    final String today = txData['date']?.toString() ?? '';
 
     if (branchId.isEmpty) {
       throw Exception("Branch ID is missing");
@@ -1082,45 +1151,33 @@ List<Map<String,dynamic>> communities=[];
       throw Exception("Transaction date is missing");
     }
 
+    final item = Map<String, dynamic>.from(selectedItem);
 
-    final item = Map<String, dynamic>.from(
-      selectedItem,
-    );
+    final int pieces = (item["pieces"] as num?)?.toInt() ?? 0;
 
-    final int pieces =
-        (item["pieces"] as num?)?.toInt() ?? 0;
+    final double price = (item["price"] as num?)?.toDouble() ?? 0;
 
-    final double price =
-        (item["price"] as num?)?.toDouble() ?? 0;
+    final double value = pieces * price;
 
-    final double value =
-        pieces * price;
-
-    final String itemId =
-        item["itemid"]?.toString() ?? '';
+    final String itemId = item["itemid"]?.toString() ?? '';
 
     if (itemId.isEmpty) {
       throw Exception("Selected item has no itemid");
     }
 
-    final summaryId =
-        "${companyId}_$today";
+    final summaryId = "${companyId}_$today";
 
-    final dailyRef =
-    db.collection('stockreport').doc(summaryId);
+    final dailyRef = db.collection('stockreport').doc(summaryId);
 
-    final statsRef =
-    db.collection('dashbaord_stats').doc(companyId);
+    final statsRef = db.collection('dashbaord_stats').doc(companyId);
 
     final batch = db.batch();
 
     // Ttotals for singe item
 
-    final double totalPieces =
-    pieces.toDouble();
+    final double totalPieces = pieces.toDouble();
 
-    final double totalValue =
-        value;
+    final double totalValue = value;
 
     final Map<String, dynamic> reportData = {
       "summarydate": today,
@@ -1134,39 +1191,31 @@ List<Map<String,dynamic>> communities=[];
           "branchId": branchId,
           "branchName": branchName,
 
-          "branch_newstock":
-          FieldValue.increment(0),
+          "branch_newstock": FieldValue.increment(0),
 
-          "branch_newstockvalue":
-          FieldValue.increment(0),
+          "branch_newstockvalue": FieldValue.increment(0),
 
-          "branchstockin_balance":
-          FieldValue.increment(0),
+          "branchstockin_balance": FieldValue.increment(0),
 
-          "branchtransaction_count":
-          FieldValue.increment(1),
+          "branchtransaction_count": FieldValue.increment(1),
 
-          "lastupdate":
-          FieldValue.serverTimestamp(),
-        }
+          "lastupdate": FieldValue.serverTimestamp(),
+        },
       },
 
-      "items": {
-        branchId: <String, dynamic>{},
-      }
+      "items": {branchId: <String, dynamic>{}},
     };
 
     // Get references to the ORIGINAL nested maps
     final Map<String, dynamic> itemsMap =
-    reportData["items"] as Map<String, dynamic>;
+        reportData["items"] as Map<String, dynamic>;
 
     final Map<String, dynamic> branchItems =
-    itemsMap[branchId] as Map<String, dynamic>;
+        itemsMap[branchId] as Map<String, dynamic>;
 
     final Map<String, dynamic> branchBalance =
-    (reportData["branchbalance"]
-    as Map<String, dynamic>)[branchId]
-    as Map<String, dynamic>;
+        (reportData["branchbalance"] as Map<String, dynamic>)[branchId]
+            as Map<String, dynamic>;
 
     // ONLY ADD THE SELECTED ITEM
 
@@ -1176,74 +1225,50 @@ List<Map<String,dynamic>> communities=[];
       "barcode": item["barcode"],
       "boxpieces": item["boxpieces"],
 
-      "newstock":
-      FieldValue.increment(pieces),
+      "newstock": FieldValue.increment(pieces),
 
-      "newstock_value":
-      FieldValue.increment(value),
+      "newstock_value": FieldValue.increment(value),
 
-      "transaction_count":
-      FieldValue.increment(1),
+      "transaction_count": FieldValue.increment(1),
 
-      "lastupdate":
-      FieldValue.serverTimestamp(),
+      "lastupdate": FieldValue.serverTimestamp(),
     };
 
     // UPDATE BRANCH TOTALS
-    branchBalance["branch_newstock"] =
-        FieldValue.increment(totalPieces);
+    branchBalance["branch_newstock"] = FieldValue.increment(totalPieces);
 
-    branchBalance["branch_newstockvalue"] =
-        FieldValue.increment(totalValue);
+    branchBalance["branch_newstockvalue"] = FieldValue.increment(totalValue);
 
-    branchBalance["branchstockin_balance"] =
-        FieldValue.increment(totalPieces);
+    branchBalance["branchstockin_balance"] = FieldValue.increment(totalPieces);
 
-    branchBalance["branchstockin_value"] =
-        FieldValue.increment(totalValue);
+    branchBalance["branchstockin_value"] = FieldValue.increment(totalValue);
 
-    batch.set(
-      dailyRef,
-      reportData,
-      SetOptions(merge: true),
-    );
+    batch.set(dailyRef, reportData, SetOptions(merge: true));
 
     // ----------------------------------------------------------
     // UPDATE DASHBOARD STATS
-    batch.set(
-      statsRef,
-      {
-        "companyId": companyId,
-        "updatedAt":
-        FieldValue.serverTimestamp(),
+    batch.set(statsRef, {
+      "companyId": companyId,
+      "updatedAt": FieldValue.serverTimestamp(),
 
-        "stock_in_total":
-        FieldValue.increment(totalValue),
+      "stock_in_total": FieldValue.increment(totalValue),
 
-        "branchstock": {
-          branchId: {
-            "branchname": branchName,
+      "branchstock": {
+        branchId: {
+          "branchname": branchName,
 
-            "stock_value":
-            FieldValue.increment(totalValue),
+          "stock_value": FieldValue.increment(totalValue),
 
-            "lastupdate":
-            FieldValue.serverTimestamp(),
-          }
-        }
+          "lastupdate": FieldValue.serverTimestamp(),
+        },
       },
-      SetOptions(merge: true),
-    );
-
+    }, SetOptions(merge: true));
 
     await markItemAsSynced(transactionId, itemId);
     await batch.commit();
   }
 
-  Future<void> markItemAsSynced(
-      String transactionId,
-      String itemId,
-      ) async {
+  Future<void> markItemAsSynced(String transactionId, String itemId) async {
     final transactionRef = db
         .collection('stock_transactions')
         .doc(transactionId);
@@ -1268,9 +1293,7 @@ List<Map<String,dynamic>> communities=[];
 
     // Copy all items
     final List<Map<String, dynamic>> items = rawItems
-        .map(
-          (item) => Map<String, dynamic>.from(item as Map),
-    )
+        .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
 
     bool found = false;
@@ -1291,15 +1314,11 @@ List<Map<String,dynamic>> communities=[];
     }
 
     if (!found) {
-      throw Exception(
-        'Item $itemId was not found in transaction',
-      );
+      throw Exception('Item $itemId was not found in transaction');
     }
 
     // Write the complete array back.
-    await transactionRef.update({
-      'items': items,
-    });
+    await transactionRef.update({'items': items});
   }
   /*
   Future<void> downloadstocktemplate(BuildContext context) async {
@@ -1369,19 +1388,12 @@ List<Map<String,dynamic>> communities=[];
 
     final file = File('${downloadsDir.path}${Platform.pathSeparator}$fileName');
 
-    await file.writeAsBytes(
-      byteData.buffer.asUint8List(),
-      flush: true,
-    );
+    await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
 
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('File saved to ${file.path}'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('File saved to ${file.path}')));
     }
   }
-
 }
-

@@ -15,44 +15,44 @@ import '../providers/routes.dart';
 
 class _WarehousePalette {
   _WarehousePalette(ThemeData theme)
-      : isLight = theme.brightness == Brightness.light,
-        surface = theme.brightness == Brightness.light
-            ? theme.colorScheme.surface
-            : Constants.bgCard,
-        background = theme.brightness == Brightness.light
-            ? theme.colorScheme.surface
-            : Constants.bgDark,
-        elevatedSurface = theme.brightness == Brightness.light
-            ? theme.colorScheme.surfaceContainerHighest
-            : Constants.bgInput,
-        gradientSurface = theme.brightness == Brightness.light
-            ? theme.colorScheme.surfaceContainerHighest
-            : const Color(0xFF1E2645),
-        primaryText = theme.brightness == Brightness.light
-            ? theme.colorScheme.onSurface
-            : Constants.textPrimary,
-        secondaryText = theme.brightness == Brightness.light
-            ? theme.colorScheme.onSurfaceVariant
-            : Constants.textSecondary,
-        mutedText = theme.brightness == Brightness.light
-            ? theme.colorScheme.onSurfaceVariant
-            : Constants.textMuted,
-        border = theme.brightness == Brightness.light
-            ? theme.colorScheme.outlineVariant
-            : Constants.borderColor,
-        amber = Constants.amber,
-        amberFill = Constants.amberFill,
-        green = Constants.green,
-        accent = Constants.accent,
-        amberBackground = theme.brightness == Brightness.light
-            ? const Color(0xFFFFF4DF)
-            : Constants.amberBg,
-        greenBackground = theme.brightness == Brightness.light
-            ? const Color(0xFFE8F5EC)
-            : Constants.greenBg,
-        onAccent = theme.brightness == Brightness.light
-            ? theme.colorScheme.onSurface
-            : Constants.bgDark;
+    : isLight = theme.brightness == Brightness.light,
+      surface = theme.brightness == Brightness.light
+          ? theme.colorScheme.surface
+          : Constants.bgCard,
+      background = theme.brightness == Brightness.light
+          ? theme.colorScheme.surface
+          : Constants.bgDark,
+      elevatedSurface = theme.brightness == Brightness.light
+          ? theme.colorScheme.surfaceContainerHighest
+          : Constants.bgInput,
+      gradientSurface = theme.brightness == Brightness.light
+          ? theme.colorScheme.surfaceContainerHighest
+          : const Color(0xFF1E2645),
+      primaryText = theme.brightness == Brightness.light
+          ? theme.colorScheme.onSurface
+          : Constants.textPrimary,
+      secondaryText = theme.brightness == Brightness.light
+          ? theme.colorScheme.onSurfaceVariant
+          : Constants.textSecondary,
+      mutedText = theme.brightness == Brightness.light
+          ? theme.colorScheme.onSurfaceVariant
+          : Constants.textMuted,
+      border = theme.brightness == Brightness.light
+          ? theme.colorScheme.outlineVariant
+          : Constants.borderColor,
+      amber = Constants.amber,
+      amberFill = Constants.amberFill,
+      green = Constants.green,
+      accent = Constants.accent,
+      amberBackground = theme.brightness == Brightness.light
+          ? const Color(0xFFFFF4DF)
+          : Constants.amberBg,
+      greenBackground = theme.brightness == Brightness.light
+          ? const Color(0xFFE8F5EC)
+          : Constants.greenBg,
+      onAccent = theme.brightness == Brightness.light
+          ? theme.colorScheme.onSurface
+          : Constants.bgDark;
 
   final bool isLight;
   final Color surface;
@@ -143,6 +143,7 @@ class Sale {
       supplyStatus: supplyStatus ?? this.supplyStatus,
     );
   }
+
   Sale({
     required this.id,
     required this.receiptNumber,
@@ -246,22 +247,16 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
   // Access control
   bool _isSuperAdmin = false;
   bool _hasSearchedByReceipt = false;
+  String? _selectedBranchId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAccessLevel();
       _loadDataWithCurrentRange();
     });
 
     searchController.addListener(_onSearchChanged);
-  }
-
-  void _checkAccessLevel() {
-    final provider = Provider.of<StockProvider>(context, listen: false);
-    _isSuperAdmin = provider.accesslevel == 'super admin';
-    setState(() {});
   }
 
   void _loadDataWithCurrentRange() {
@@ -275,7 +270,125 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
     }
   }
 
-  _loadData({DateTime? startDate, DateTime? endDate,}) async {
+  List<String> _availableBranchIds(
+    StockProvider provider, {
+    required bool isSuperAdmin,
+  }) {
+    if (isSuperAdmin) {
+      return provider.branches
+          .map((branch) => branch.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toList();
+    }
+
+    final branchIds = <String>[];
+    final seenIds = <String>{};
+    for (final branchId in provider.salesWarehouseIds) {
+      final id = branchId.trim();
+      if (id.isNotEmpty && seenIds.add(id.toLowerCase())) {
+        branchIds.add(id);
+      }
+    }
+    if (branchIds.isEmpty && provider.branchid.trim().isNotEmpty) {
+      branchIds.add(provider.branchid.trim());
+    }
+    return branchIds;
+  }
+
+  String _branchLabel(StockProvider provider, String branchId) {
+    for (final branch in provider.branches) {
+      if (branch.id.trim().toLowerCase() == branchId.toLowerCase()) {
+        return branch.branchname.trim().isEmpty ? branchId : branch.branchname;
+      }
+    }
+
+    final assignedIndex = provider.salesWarehouseIds.indexWhere(
+      (id) => id.trim().toLowerCase() == branchId.toLowerCase(),
+    );
+    if (assignedIndex >= 0 &&
+        assignedIndex < provider.salesWarehouseNames.length &&
+        provider.salesWarehouseNames[assignedIndex].trim().isNotEmpty) {
+      return provider.salesWarehouseNames[assignedIndex];
+    }
+    return branchId;
+  }
+
+  Widget _buildBranchSelector(
+    StockProvider provider,
+    _WarehousePalette colors,
+    List<String> branchIds,
+    bool compact,
+  ) {
+    final options = <String>[if (_isSuperAdmin) '', ...branchIds];
+    final selectedId =
+        _selectedBranchId ?? (_isSuperAdmin ? '' : branchIds.first);
+    final selectedValue = options.contains(selectedId)
+        ? selectedId
+        : options.first;
+    final selectedLabel = selectedValue.isEmpty
+        ? 'All branches'
+        : _branchLabel(provider, selectedValue);
+
+    return Tooltip(
+      message: 'Supply branch: $selectedLabel',
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: compact ? 52 : 170),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selectedValue,
+            isExpanded: true,
+            icon: const SizedBox.shrink(),
+            dropdownColor: colors.surface,
+            style: TextStyle(color: colors.primaryText, fontSize: 14),
+            selectedItemBuilder: (context) => options.map<Widget>((branchId) {
+              if (compact) {
+                return const Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.warehouse_outlined, size: 18),
+                      Icon(Icons.arrow_drop_down, size: 20),
+                    ],
+                  ),
+                );
+              }
+              final label = branchId.isEmpty
+                  ? 'All branches'
+                  : _branchLabel(provider, branchId);
+              return Row(
+                children: [
+                  Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              );
+            }).toList(),
+            items: options
+                .map(
+                  (branchId) => DropdownMenuItem<String>(
+                    value: branchId,
+                    child: Text(
+                      branchId.isEmpty
+                          ? 'All branches'
+                          : _branchLabel(provider, branchId),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: _isLoading
+                ? null
+                : (branchId) {
+                    if (branchId == null) return;
+                    setState(() => _selectedBranchId = branchId);
+                    _loadDataWithCurrentRange();
+                  },
+          ),
+        ),
+      ),
+    );
+  }
+
+  _loadData({DateTime? startDate, DateTime? endDate}) async {
     if (_isLoading) return;
 
     setState(() {
@@ -284,7 +397,35 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
 
     try {
       final provider = Provider.of<StockProvider>(context, listen: false);
+      await provider.getdata();
+      await provider.fetchBranches();
+
+      final isSuperAdmin = provider.accesslevel.toLowerCase().trim() == 'super admin';
+      final branchIds = _availableBranchIds(provider,
+        isSuperAdmin: isSuperAdmin,
+      );
+      final defaultBranchId = isSuperAdmin
+          ? ''
+          : branchIds.contains(provider.salesWarehouseId)
+          ? provider.salesWarehouseId!
+          : branchIds.isNotEmpty
+          ? branchIds.first
+          : '';
+      final selectedBranchId = isSuperAdmin
+          ? (_selectedBranchId ?? '')
+          : branchIds.contains(_selectedBranchId)
+          ? _selectedBranchId!
+          : defaultBranchId;
+
+      if (mounted) {
+        setState(() {
+          _isSuperAdmin = isSuperAdmin;
+          _selectedBranchId = selectedBranchId;
+        });
+      }
+
       await provider.loadSales(
+        selectedBranchId: selectedBranchId.isEmpty ? null : selectedBranchId,
         startDate: startDate,
         endDate: endDate,
       );
@@ -326,11 +467,11 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
       searchTerm = newSearchTerm;
       // Only allow viewing items if searching by receipt number or super admin
       if (!_isSuperAdmin) {
-        _hasSearchedByReceipt = isSearchingByReceipt && newSearchTerm.isNotEmpty;
+        _hasSearchedByReceipt =
+            isSearchingByReceipt && newSearchTerm.isNotEmpty;
       }
     });
   }
-
 
   Future<void> _selectDateRange(BuildContext context) async {
     var selectedRange = selectedDateRange;
@@ -360,8 +501,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
               ),
             ),
 
-            monthViewSettings:
-            DateRangePickerMonthViewSettings(
+            monthViewSettings: DateRangePickerMonthViewSettings(
               viewHeaderStyle: DateRangePickerViewHeaderStyle(
                 textStyle: TextStyle(
                   color: colors.secondaryText,
@@ -370,21 +510,14 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
               ),
             ),
 
-            monthCellStyle:
-            DateRangePickerMonthCellStyle(
-              textStyle: TextStyle(
-                color: colors.primaryText,
-              ),
+            monthCellStyle: DateRangePickerMonthCellStyle(
+              textStyle: TextStyle(color: colors.primaryText),
               todayTextStyle: TextStyle(
                 color: Colors.blueAccent,
                 fontWeight: FontWeight.bold,
               ),
-              weekendTextStyle: TextStyle(
-                color: colors.secondaryText,
-              ),
-              disabledDatesTextStyle: TextStyle(
-                color: colors.mutedText,
-              ),
+              weekendTextStyle: TextStyle(color: colors.secondaryText),
+              disabledDatesTextStyle: TextStyle(color: colors.mutedText),
             ),
 
             selectionColor: Colors.blueAccent,
@@ -398,20 +531,15 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
               fontWeight: FontWeight.w600,
             ),
 
-            selectionMode:
-            DateRangePickerSelectionMode.range,
+            selectionMode: DateRangePickerSelectionMode.range,
 
             initialSelectedRange: selectedRange == null
                 ? null
-                : PickerDateRange(
-              selectedRange!.start,
-              selectedRange!.end,
-            ),
+                : PickerDateRange(selectedRange!.start, selectedRange!.end),
 
             onSelectionChanged: (args) {
               if (args.value is PickerDateRange) {
-                final range =
-                args.value as PickerDateRange;
+                final range = args.value as PickerDateRange;
 
                 if (range.startDate == null) {
                   return;
@@ -419,8 +547,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
 
                 selectedRange = DateTimeRange(
                   start: range.startDate!,
-                  end: range.endDate ??
-                      range.startDate!,
+                  end: range.endDate ?? range.startDate!,
                 );
               }
             },
@@ -434,9 +561,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
             },
             child: Text(
               'Cancel',
-              style: TextStyle(
-                color: colors.secondaryText,
-              ),
+              style: TextStyle(color: colors.secondaryText),
             ),
           ),
 
@@ -468,7 +593,6 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
     );
   }
 
-
   String get dateRangeLabel {
     if (selectedDateRange == null) return 'Select date range';
     final format = DateFormat('MMM d, yyyy');
@@ -487,11 +611,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
     return allSales.where((s) {
       // Date filter
       if (selectedDateRange != null) {
-        final saleDate = DateTime(
-          s.date.year,
-          s.date.month,
-          s.date.day,
-        );
+        final saleDate = DateTime(s.date.year, s.date.month, s.date.day);
         final start = DateTime(
           selectedDateRange!.start.year,
           selectedDateRange!.start.month,
@@ -519,12 +639,11 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
         if (!hay.contains(searchTerm.toLowerCase())) return false;
       }
       return true;
-    }).toList()
-      ..sort((a, b) {
-        final dateCompare = b.date.compareTo(a.date);
-        if (dateCompare != 0) return dateCompare;
-        return b.time.compareTo(a.time);
-      });
+    }).toList()..sort((a, b) {
+      final dateCompare = b.date.compareTo(a.date);
+      if (dateCompare != 0) return dateCompare;
+      return b.time.compareTo(a.time);
+    });
   }
 
   Map<String, List<Sale>> groupByDay(List<Sale> list) {
@@ -543,16 +662,14 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
       SnackBar(
         content: Row(
           children: [
-            Icon(
-              Icons.check_circle,
-              color: colors.green,
-              size: 16,
-            ),
+            Icon(Icons.check_circle, color: colors.green, size: 16),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(color: colors.isLight ? colors.primaryText : Colors.white),
+                style: TextStyle(
+                  color: colors.isLight ? colors.primaryText : Colors.white,
+                ),
               ),
             ),
           ],
@@ -582,6 +699,12 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 600;
     final colors = _WarehousePalette(Theme.of(context));
+    final provider = Provider.of<StockProvider>(context, listen: false);
+    final branchIds = _availableBranchIds(
+      provider,
+      isSuperAdmin: _isSuperAdmin,
+    );
+    final showBranchSelector = _isSuperAdmin || branchIds.length > 1;
 
     // Stats
     final pendingCount = allSales.where((s) => s.isPending).length;
@@ -598,6 +721,13 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
         foregroundColor: colors.primaryText,
         elevation: 0,
         actions: [
+          if (showBranchSelector)
+            _buildBranchSelector(
+              provider,
+              colors,
+              branchIds,
+              screenWidth < 430,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _loadDataWithCurrentRange,
@@ -606,9 +736,9 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
           PopupMenuButton<String>(
             onSelected: (selectedValue) {
               if (selectedValue == 'logout') {
-                LogoutDialog.show(context, );
+                LogoutDialog.show(context);
               } else if (selectedValue == 'password') {
-                ChangePasswordDialog.changePassword(context,);
+                ChangePasswordDialog.changePassword(context);
               } else if (selectedValue == 'profile') {
                 Navigator.pushNamed(context, Routes.staffprofile);
               }
@@ -656,419 +786,836 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
           ),
           child: _isLoading
               ? Center(
-            child: CircularProgressIndicator(
-              color: colors.amberFill,
-            ),
-          )
+                  child: CircularProgressIndicator(color: colors.amberFill),
+                )
               : Column(
-            children: [
-              // Stats Row with Clickable Items
-              Container(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-                decoration: BoxDecoration(
-                  color: colors.background,
-                  border: Border(
-                    bottom: BorderSide(color: colors.border, width: 0.5),
-                  ),
-                ),
-                child: Row(
                   children: [
-                    _StatItem(
-                      label: 'Pending',
-                      value: '$pendingCount',
-                      color: colors.amber,
-                      isActive: statusFilter == 'pending',
-                      onTap: () {
-                        setState(() {
-                          statusFilter = statusFilter == 'pending' ? 'all' : 'pending';
-                        });
-                      },
-                    ),
-                    _StatItem(
-                      label: 'Partial',
-                      value: '$partialCount',
-                      color: colors.accent,
-                      isActive: statusFilter == 'partial',
-                      onTap: () {
-                        setState(() {
-                          statusFilter = statusFilter == 'partial' ? 'all' : 'partial';
-                        });
-                      },
-                    ),
-                    _StatItem(
-                      label: 'Completed',
-                      value: '$completedCount',
-                      color: colors.green,
-                      isActive: statusFilter == 'completed',
-                      onTap: () {
-                        setState(() {
-                          statusFilter = statusFilter == 'completed' ? 'all' : 'completed';
-                        });
-                      },
-                    ),
-                    _StatItem(
-                      label: 'Total',
-                      value: '$totalqueued',
-                      color: colors.primaryText,
-                      isActive: statusFilter == 'all',
-                      onTap: () {
-                        setState(() {
-                          statusFilter = 'all';
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-              // Filter Bar
-              _FilterBar(
-                searchController: searchController,
-                dateRangeLabel: dateRangeLabel,
-                onDateRangeTap: () => _selectDateRange(context),
-                isSuperAdmin: _isSuperAdmin,
-              ),
-
-              // Access Control Info Banner
-              if (!_isSuperAdmin && !_hasSearchedByReceipt && searchTerm.isEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.amberBackground,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.amber.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: colors.amber,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Search by receipt number to view and supply items',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colors.primaryText,
-                            decoration: TextDecoration.none,
-                          ),
+                    // Stats Row with Clickable Items
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        border: Border(
+                          bottom: BorderSide(color: colors.border, width: 0.5),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-              // List
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    isDesktop ? 24 : 14,
-                    16,
-                    isDesktop ? 24 : 14,
-                    100,
-                  ),
-                  child: data.isEmpty
-                      ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inventory_2_outlined,
-                          size: 40,
-                          color: colors.mutedText,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'No receipts to supply',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
+                      child: Row(
+                        children: [
+                          _StatItem(
+                            label: 'Pending',
+                            value: '$pendingCount',
+                            color: colors.amber,
+                            isActive: statusFilter == 'pending',
+                            onTap: () {
+                              setState(() {
+                                statusFilter = statusFilter == 'pending'
+                                    ? 'all'
+                                    : 'pending';
+                              });
+                            },
+                          ),
+                          _StatItem(
+                            label: 'Partial',
+                            value: '$partialCount',
+                            color: colors.accent,
+                            isActive: statusFilter == 'partial',
+                            onTap: () {
+                              setState(() {
+                                statusFilter = statusFilter == 'partial'
+                                    ? 'all'
+                                    : 'partial';
+                              });
+                            },
+                          ),
+                          _StatItem(
+                            label: 'Completed',
+                            value: '$completedCount',
+                            color: colors.green,
+                            isActive: statusFilter == 'completed',
+                            onTap: () {
+                              setState(() {
+                                statusFilter = statusFilter == 'completed'
+                                    ? 'all'
+                                    : 'completed';
+                              });
+                            },
+                          ),
+                          _StatItem(
+                            label: 'Total',
+                            value: '$totalqueued',
                             color: colors.primaryText,
-                            decoration: TextDecoration.none,
+                            isActive: statusFilter == 'all',
+                            onTap: () {
+                              setState(() {
+                                statusFilter = 'all';
+                              });
+                            },
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Nothing matches this filter for the selected date range.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: colors.secondaryText,
-                            decoration: TextDecoration.none,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  )
-                      : ListView(
-                    children: [
-                      for (var day in groupByDay(data).keys.toList()
-                        ..sort((a, b) => b.compareTo(a)))
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+
+                    // Filter Bar
+                    _FilterBar(
+                      searchController: searchController,
+                      dateRangeLabel: dateRangeLabel,
+                      onDateRangeTap: () => _selectDateRange(context),
+                      isSuperAdmin: _isSuperAdmin,
+                    ),
+
+                    // Access Control Info Banner
+                    if (!_isSuperAdmin &&
+                        !_hasSearchedByReceipt &&
+                        searchTerm.isEmpty)
+                      Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.amberBackground,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: colors.amber.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 6),
+                            Icon(
+                              Icons.info_outline,
+                              color: colors.amber,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
                               child: Text(
-                                _formatDayLabel(day),
+                                'Search by receipt number to view and supply items',
                                 style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.6,
-                                  color: colors.secondaryText,
+                                  fontSize: 13,
+                                  color: colors.primaryText,
                                   decoration: TextDecoration.none,
                                 ),
                               ),
                             ),
-                            for (var sale in groupByDay(data)[day]!)
-                              _TicketCard(
-                                sale: sale,
-                                isExpanded: expandedId == sale.id,
-                                canViewItems: _isSuperAdmin || _hasSearchedByReceipt,
-                                onToggle: () {
-                                  // Only allow toggling if can view items
-                                  if (_isSuperAdmin || _hasSearchedByReceipt) {
-                                    if (mounted) {
-                                      setState(() {
-                                        expandedId = expandedId == sale.id
-                                            ? null
-                                            : sale.id;
-                                      });
-                                    }
-                                  }
-                                },
-                                onSupplyItem: (itemName) async {
-                                  if (!_isSuperAdmin && !_hasSearchedByReceipt) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Please search by receipt number first'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    LoadingDialog.show(context, message: 'Updating item supply...');
-                                    final provider = Provider.of<StockProvider>(context, listen: false);
-
-                                    // Get current supplied items
-                                    final doc = await provider.db.collection('sales').doc(sale.id).get();
-                                    final data = doc.data() as Map<String, dynamic>;
-                                    String? targetItemKey;
-                                    final rawItems = data['items'];
-
-                                    if (rawItems == null || rawItems is! Map) {
-                                      throw 'Sale has no items map.';
-                                    }
-                                    for (final entry in rawItems.entries) {
-                                      final itemKey = entry.key.toString();
-                                      final itemData = entry.value;
-
-                                      if (itemData is! Map) continue;
-
-                                      final name = itemData['item']?.toString().trim() ?? '';
-
-                                      if (name.toLowerCase() == itemName.toString().trim().toLowerCase()) {
-                                        targetItemKey = itemKey;
-                                        break;
-                                      }
-                                    }
-
-                                    if (targetItemKey == null) {
-                                      throw 'Item "$itemName" was not found in this sale.';
-                                    }
-                                    final targetItemData =
-                                    Map<String, dynamic>.from(rawItems[targetItemKey] as Map);
-
-                                    final alreadySupplied =
-                                        targetItemData['supplystatus'] == true;
-
-                                    if (alreadySupplied) {
-                                      showToast('$itemName has already been supplied.');
-                                      return;
-                                    }
-
-                                    final saleRef = provider.db.collection('sales').doc(sale.id);
-                                    await saleRef.update({
-                                      'items.$targetItemKey.isSupplied': true,
-                                      'items.$targetItemKey.supplyDate': FieldValue.serverTimestamp(),
-                                      'items.$targetItemKey.supplyStaff': provider.staff,
-                                    });
-                                    List<String> suppliedItems = List<String>.from(data['suppliedItems'] ?? []);
-
-                                    // Add item if not already supplied
-                                    if (!suppliedItems.contains(itemName)) {
-                                      suppliedItems.add(itemName);
-                                    }
-
-                                    // Determine supply status
-                                    String supplyStatus = 'partial';
-                                    final totalItems = sale.items.length;
-                                    if (suppliedItems.length == totalItems) {
-                                      supplyStatus = 'completed';
-                                    }
-
-                                     provider.db.collection('sales').doc(sale.id).set({
-                                      'suppliedItems': suppliedItems,
-                                      'supplyStatus': supplyStatus,
-                                      'supplyat': FieldValue.serverTimestamp(),
-                                      'supplyby': provider.staff,
-                                      'isSupplied': supplyStatus == 'completed',
-                                    }, SetOptions(merge: true));
-
-                                    if (mounted) {
-                                      // Update local state
-                                      setState(() {
-                                        final item = sale.items.firstWhere((i) => i.name == itemName);
-                                        item.isSupplied = true;
-                                        sale.supplyStatus = supplyStatus;
-                                      });
-
-                                      showToast(
-                                        '$itemName supplied successfully',
-                                      );
-                                    }
-                                  } catch (e) {
-                                    debugPrint("Error updating item supply: $e");
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Error: ${e.toString()}'),
-                                          backgroundColor: Colors.red,
-                                          behavior: SnackBarBehavior.floating,
-                                          margin: const EdgeInsets.all(16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  } finally {
-                                    LoadingDialog.hide();
-                                  }
-                                },
-                                onSupplyAll: () async {
-                                  if (sale.isFullySupplied) return;
-
-                                  if (!_isSuperAdmin && !_hasSearchedByReceipt) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Please search by receipt number first'),
-                                        backgroundColor: Colors.red,
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  try {
-                                    LoadingDialog.show(
-                                      context,
-                                      message: 'Supplying all items...',
-                                    );
-
-                                    final provider = Provider.of<StockProvider>(
-                                      context,
-                                      listen: false,
-                                    );
-
-                                    final saleRef = provider.db.collection('sales').doc(sale.id);
-
-                                    // Get the latest Firestore version
-                                    final doc = await saleRef.get();
-
-                                    if (!doc.exists) {
-                                      throw 'Sale document not found.';
-                                    }
-
-                                    final data = doc.data() as Map<String, dynamic>;
-
-                                    final rawItems = data['items'];
-
-                                    if (rawItems == null || rawItems is! Map) {
-                                      throw 'Sale has no items map.';
-                                    }
-
-                                    final Map<String, dynamic> itemUpdates = {};
-
-                                    final List<String> allItemNames = [];
-
-                                    for (final entry in rawItems.entries) {
-                                      final itemKey = entry.key.toString();
-                                      final itemData = entry.value;
-
-                                      if (itemData is! Map) continue;
-
-                                      final itemName = itemData['item']?.toString().trim() ?? '';
-
-                                      if (itemName.isNotEmpty) {
-                                        allItemNames.add(itemName);
-                                      }
-
-                                      itemUpdates['items.$itemKey.isSupplied'] = true;
-                                      itemUpdates['items.$itemKey.supplyDate'] = FieldValue.serverTimestamp();
-                                      itemUpdates['items.$itemKey.supplyStaff'] = provider.staff;
-
-                                    }
-                                     saleRef.update({
-                                      ...itemUpdates,
-
-                                      'suppliedItems': allItemNames,
-                                      'supplyStatus': 'completed',
-                                      'supplyat': FieldValue.serverTimestamp(),
-                                      'supplyby': provider.staff,
-                                      'isSupplied': true,
-                                    });
-
-                                    if (mounted) {
-                                      setState(() {
-                                        for (final item in sale.items) {
-                                          item.isSupplied = true;
-                                        }
-
-                                        sale.supplyStatus = 'completed';
-                                      });
-
-                                      showToast(
-                                        'All items supplied for receipt #${sale.receiptNumber.substring(
-                                          sale.receiptNumber.length - 8,
-                                        )}',
-                                      );
-                                    }
-                                  } catch (e) {
-                                    debugPrint("Error updating supply info: $e");
-
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Error: ${e.toString()}'),
-                                          backgroundColor: Colors.red,
-                                          behavior: SnackBarBehavior.floating,
-                                          margin: const EdgeInsets.all(16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  } finally {
-                                    LoadingDialog.hide();
-                                  }
-                                },
-
-                              ),
                           ],
                         ),
-                    ],
-                  ),
+                      ),
+
+                    // List
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          isDesktop ? 24 : 14,
+                          16,
+                          isDesktop ? 24 : 14,
+                          100,
+                        ),
+                        child: data.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inventory_2_outlined,
+                                      size: 40,
+                                      color: colors.mutedText,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'No receipts to supply',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        color: colors.primaryText,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Nothing matches this filter for the selected date range.',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: colors.secondaryText,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView(
+                                children: [
+                                  for (var day
+                                      in groupByDay(data).keys.toList()
+                                        ..sort((a, b) => b.compareTo(a)))
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 6,
+                                          ),
+                                          child: Text(
+                                            _formatDayLabel(day),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.6,
+                                              color: colors.secondaryText,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                          ),
+                                        ),
+                                        for (var sale in groupByDay(data)[day]!)
+                                          _TicketCard(
+                                            sale: sale,
+                                            isExpanded: expandedId == sale.id,
+                                            canViewItems:
+                                                _isSuperAdmin ||
+                                                _hasSearchedByReceipt,
+                                            onToggle: () {
+                                              // Only allow toggling if can view items
+                                              if (_isSuperAdmin ||
+                                                  _hasSearchedByReceipt) {
+                                                if (mounted) {
+                                                  setState(() {
+                                                    expandedId =
+                                                        expandedId == sale.id
+                                                        ? null
+                                                        : sale.id;
+                                                  });
+                                                }
+                                              }
+                                            },
+                                            onSupplyItem: (itemName) async {
+                                              if (!_isSuperAdmin &&
+                                                  !_hasSearchedByReceipt) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Please search by receipt number first',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              try {
+                                                LoadingDialog.show(
+                                                  context,
+                                                  message:
+                                                      'Updating item supply...',
+                                                );
+                                                final provider =
+                                                    Provider.of<StockProvider>(
+                                                      context,
+                                                      listen: false,
+                                                    );
+
+                                                // Get current supplied items
+                                                final doc = await provider.db
+                                                    .collection('sales')
+                                                    .doc(sale.id)
+                                                    .get();
+                                                final data =
+                                                    doc.data()
+                                                        as Map<String, dynamic>;
+                                                String? targetItemKey;
+                                                final rawItems = data['items'];
+
+                                                if (rawItems == null ||
+                                                    rawItems is! Map) {
+                                                  throw 'Sale has no items map.';
+                                                }
+                                                for (final entry
+                                                    in rawItems.entries) {
+                                                  final itemKey = entry.key
+                                                      .toString();
+                                                  final itemData = entry.value;
+
+                                                  if (itemData is! Map)
+                                                    continue;
+
+                                                  final name =
+                                                      itemData['item']
+                                                          ?.toString()
+                                                          .trim() ??
+                                                      '';
+
+                                                  if (name.toLowerCase() ==
+                                                      itemName
+                                                          .toString()
+                                                          .trim()
+                                                          .toLowerCase()) {
+                                                    targetItemKey = itemKey;
+                                                    break;
+                                                  }
+                                                }
+
+                                                if (targetItemKey == null) {
+                                                  throw 'Item "$itemName" was not found in this sale.';
+                                                }
+                                                final targetItemData =
+                                                    Map<String, dynamic>.from(
+                                                      rawItems[targetItemKey]
+                                                          as Map,
+                                                    );
+
+                                                final alreadySupplied =
+                                                    targetItemData['supplystatus'] ==
+                                                    true;
+
+                                                if (alreadySupplied) {
+                                                  showToast(
+                                                    '$itemName has already been supplied.',
+                                                  );
+                                                  return;
+                                                }
+
+                                                final saleRef = provider.db
+                                                    .collection('sales')
+                                                    .doc(sale.id);
+                                                await saleRef.update({
+                                                  'items.$targetItemKey.isSupplied':
+                                                      true,
+                                                  'items.$targetItemKey.supplyDate':
+                                                      FieldValue.serverTimestamp(),
+                                                  'items.$targetItemKey.supplyStaff':
+                                                      provider.staff,
+                                                });
+                                                List<String> suppliedItems =
+                                                    List<String>.from(
+                                                      data['suppliedItems'] ??
+                                                          [],
+                                                    );
+
+                                                // Add item if not already supplied
+                                                if (!suppliedItems.contains(
+                                                  itemName,
+                                                )) {
+                                                  suppliedItems.add(itemName);
+                                                }
+
+                                                // Determine supply status
+                                                String supplyStatus = 'partial';
+                                                final totalItems =
+                                                    sale.items.length;
+                                                if (suppliedItems.length ==
+                                                    totalItems) {
+                                                  supplyStatus = 'completed';
+                                                }
+
+                                                provider.db
+                                                    .collection('sales')
+                                                    .doc(sale.id)
+                                                    .set({
+                                                      'suppliedItems':
+                                                          suppliedItems,
+                                                      'supplyStatus':
+                                                          supplyStatus,
+                                                      'supplyat':
+                                                          FieldValue.serverTimestamp(),
+                                                      'supplyby':
+                                                          provider.staff,
+                                                      'isSupplied':
+                                                          supplyStatus ==
+                                                          'completed',
+                                                    }, SetOptions(merge: true));
+
+                                                if (mounted) {
+                                                  // Update local state
+                                                  setState(() {
+                                                    final item = sale.items
+                                                        .firstWhere(
+                                                          (i) =>
+                                                              i.name ==
+                                                              itemName,
+                                                        );
+                                                    item.isSupplied = true;
+                                                    sale.supplyStatus =
+                                                        supplyStatus;
+                                                  });
+
+                                                  showToast(
+                                                    '$itemName supplied successfully',
+                                                  );
+                                                }
+                                              } catch (e) {
+                                                debugPrint(
+                                                  "Error updating item supply: $e",
+                                                );
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        'Error: ${e.toString()}',
+                                                      ),
+                                                      backgroundColor:
+                                                          Colors.red,
+                                                      behavior: SnackBarBehavior
+                                                          .floating,
+                                                      margin:
+                                                          const EdgeInsets.all(
+                                                            16,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              } finally {
+                                                LoadingDialog.hide();
+                                              }
+                                            },
+
+                                            onSupplyAll: () async {
+                                              if (sale.isFullySupplied) return;
+
+                                              if (!_isSuperAdmin &&
+                                                  !_hasSearchedByReceipt) {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Please search by receipt number first',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              try {
+                                                LoadingDialog.show(
+                                                  context,
+                                                  message: 'Supplying items...',
+                                                );
+
+                                                final provider =
+                                                    Provider.of<StockProvider>(
+                                                      context,
+                                                      listen: false,
+                                                    );
+
+                                                final loginBranchId = provider
+                                                    .branchid
+                                                    .toString()
+                                                    .trim();
+
+                                                if (loginBranchId.isEmpty) {
+                                                  throw 'Unable to determine your branch.';
+                                                }
+
+                                                final saleRef = provider.db
+                                                    .collection('sales')
+                                                    .doc(sale.id);
+
+                                                final doc = await saleRef.get();
+
+                                                if (!doc.exists) {
+                                                  throw 'Sale document not found.';
+                                                }
+
+                                                final data =
+                                                    doc.data()
+                                                        as Map<String, dynamic>;
+                                                final rawItems = data['items'];
+
+                                                if (rawItems == null ||
+                                                    rawItems is! Map) {
+                                                  throw 'Sale has no items map.';
+                                                }
+
+                                                final Map<String, dynamic>
+                                                itemUpdates = {};
+                                                final List<String>
+                                                suppliedItemNames = [];
+
+                                                int matchingItems = 0;
+                                                bool allBranchItemsSupplied =
+                                                    true;
+
+                                                for (final entry
+                                                    in rawItems.entries) {
+                                                  final itemKey = entry.key
+                                                      .toString();
+                                                  final itemData = entry.value;
+
+                                                  if (itemData is! Map)
+                                                    continue;
+
+                                                  final itemBranchId =
+                                                      itemData['branchid']
+                                                          ?.toString()
+                                                          .trim() ??
+                                                      '';
+
+                                                  // Process only items belonging to login user's branch
+                                                  if (itemBranchId !=
+                                                      loginBranchId)
+                                                    continue;
+
+                                                  matchingItems++;
+
+                                                  final isSupplied =
+                                                      itemData['isSupplied'] ==
+                                                      true;
+
+                                                  if (!isSupplied) {
+                                                    allBranchItemsSupplied =
+                                                        false;
+
+                                                    final itemName =
+                                                        itemData['item']
+                                                            ?.toString()
+                                                            .trim() ??
+                                                        '';
+
+                                                    if (itemName.isNotEmpty) {
+                                                      suppliedItemNames.add(
+                                                        itemName,
+                                                      );
+                                                    }
+
+                                                    itemUpdates['items.$itemKey.isSupplied'] =
+                                                        true;
+                                                    itemUpdates['items.$itemKey.supplyDate'] =
+                                                        FieldValue.serverTimestamp();
+                                                    itemUpdates['items.$itemKey.supplyStaff'] =
+                                                        provider.staff;
+                                                  }
+                                                }
+
+                                                if (matchingItems == 0) {
+                                                  throw 'No items found for your branch.';
+                                                }
+
+                                                if (itemUpdates.isEmpty) {
+                                                  throw 'All items in your branch have already been supplied.';
+                                                }
+
+                                                // After this operation, all items in this branch are supplied.
+                                                allBranchItemsSupplied = true;
+
+                                                // Check whether every item across every branch is supplied
+                                                bool allSaleItemsSupplied =
+                                                    true;
+
+                                                for (final entry
+                                                    in rawItems.entries) {
+                                                  final itemKey = entry.key
+                                                      .toString();
+                                                  final itemData = entry.value;
+
+                                                  if (itemData is! Map)
+                                                    continue;
+
+                                                  final isBeingSupplied =
+                                                      itemUpdates.containsKey(
+                                                        'items.$itemKey.isSupplied',
+                                                      );
+
+                                                  final isAlreadySupplied =
+                                                      itemData['isSupplied'] ==
+                                                      true;
+
+                                                  if (!isBeingSupplied &&
+                                                      !isAlreadySupplied) {
+                                                    allSaleItemsSupplied =
+                                                        false;
+                                                    break;
+                                                  }
+                                                }
+
+                                                // Update branch-specific completion
+                                                await saleRef.update({
+                                                  ...itemUpdates,
+
+                                                  // Branch-specific status
+                                                  'branchSupplyStatus.$loginBranchId':
+                                                      'completed',
+
+                                                  // Sale-wide status
+                                                  'supplyStatus':
+                                                      allSaleItemsSupplied
+                                                      ? 'completed'
+                                                      : 'pending',
+
+                                                  'isSupplied':
+                                                      allSaleItemsSupplied,
+
+                                                  'suppliedItems':
+                                                      FieldValue.arrayUnion(
+                                                        suppliedItemNames,
+                                                      ),
+
+                                                  'branchSupplyUpdatedAt.$loginBranchId':
+                                                      FieldValue.serverTimestamp(),
+
+                                                  'branchSupplyUpdatedBy.$loginBranchId':
+                                                      provider.staff,
+
+                                                  if (allSaleItemsSupplied) ...{
+                                                    'supplyat':
+                                                        FieldValue.serverTimestamp(),
+                                                    'supplyby': provider.staff,
+                                                  },
+                                                });
+
+                                                if (mounted) {
+                                                  setState(() {
+                                                    for (final item
+                                                        in sale.items) {
+                                                      if (item.branchid
+                                                              .toString()
+                                                              .trim() ==
+                                                          loginBranchId) {
+                                                        item.isSupplied = true;
+                                                      }
+                                                    }
+
+                                                    // Update local branch status
+                                                    sale.supplyStatus =
+                                                        allSaleItemsSupplied
+                                                        ? 'completed'
+                                                        : 'pending';
+                                                  });
+
+                                                  showToast(
+                                                    allSaleItemsSupplied
+                                                        ? 'All items across all branches supplied successfully.'
+                                                        : 'All items for your branch supplied successfully.',
+                                                  );
+                                                }
+                                              } catch (e) {
+                                                debugPrint(
+                                                  'Error updating supply info: $e',
+                                                );
+
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        'Error: ${e.toString()}',
+                                                      ),
+                                                      backgroundColor:
+                                                          Colors.red,
+                                                      behavior: SnackBarBehavior
+                                                          .floating,
+                                                      margin:
+                                                          const EdgeInsets.all(
+                                                            16,
+                                                          ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              } finally {
+                                                LoadingDialog.hide();
+                                              }
+                                            },
+
+                                            // onSupplyAll: () async {
+                                            //   if (sale.isFullySupplied) return;
+                                            //
+                                            //   if (!_isSuperAdmin && !_hasSearchedByReceipt) {
+                                            //     ScaffoldMessenger.of(context).showSnackBar(
+                                            //       const SnackBar(
+                                            //         content: Text('Please search by receipt number first'),
+                                            //         backgroundColor: Colors.red,
+                                            //       ),
+                                            //     );
+                                            //     return;
+                                            //   }
+                                            //
+                                            //   try {
+                                            //     LoadingDialog.show(
+                                            //       context,
+                                            //       message: 'Supplying items...',
+                                            //     );
+                                            //
+                                            //     final provider = Provider.of<StockProvider>(
+                                            //       context,
+                                            //       listen: false,
+                                            //     );
+                                            //
+                                            //     // Logged-in user's branch
+                                            //     final loginBranchId = provider.branchid.toString().trim();
+                                            //
+                                            //     if (loginBranchId.isEmpty) {
+                                            //       throw 'Unable to determine your branch.';
+                                            //     }
+                                            //
+                                            //     final saleRef = provider.db.collection('sales').doc(sale.id);
+                                            //
+                                            //     // Get latest Firestore document
+                                            //     final doc = await saleRef.get();
+                                            //
+                                            //     if (!doc.exists) {
+                                            //       throw 'Sale document not found.';
+                                            //     }
+                                            //
+                                            //     final data = doc.data() as Map<String, dynamic>;
+                                            //
+                                            //     final rawItems = data['items'];
+                                            //
+                                            //     if (rawItems == null || rawItems is! Map) {
+                                            //       throw 'Sale has no items map.';
+                                            //     }
+                                            //
+                                            //     final Map<String, dynamic> itemUpdates = {};
+                                            //     final List<String> suppliedItemNames = [];
+                                            //
+                                            //     int matchingItems = 0;
+                                            //     int alreadySupplied = 0;
+                                            //
+                                            //     for (final entry in rawItems.entries) {
+                                            //       final itemKey = entry.key.toString();
+                                            //       final itemData = entry.value;
+                                            //
+                                            //       if (itemData is! Map) continue;
+                                            //
+                                            //       // Match item branch with logged-in user's branch
+                                            //       final itemBranchId =
+                                            //           itemData['branchid']?.toString().trim() ?? '';
+                                            //
+                                            //       if (itemBranchId != loginBranchId) {
+                                            //         continue;
+                                            //       }
+                                            //
+                                            //       matchingItems++;
+                                            //
+                                            //       final itemName = itemData['item']?.toString().trim() ?? '';
+                                            //
+                                            //       if (itemName.isNotEmpty) {
+                                            //         suppliedItemNames.add(itemName);
+                                            //       }
+                                            //
+                                            //       final isSupplied = itemData['isSupplied'] == true;
+                                            //
+                                            //       if (isSupplied) {
+                                            //         alreadySupplied++;
+                                            //         continue;
+                                            //       }
+                                            //
+                                            //       itemUpdates['items.$itemKey.isSupplied'] = true;
+                                            //       itemUpdates['items.$itemKey.supplyDate'] =FieldValue.serverTimestamp();
+                                            //       itemUpdates['items.$itemKey.supplyStaff'] = provider.staff;
+                                            //     }
+                                            //
+                                            //     if (matchingItems == 0) {
+                                            //       throw 'No items found for your branch.';
+                                            //     }
+                                            //
+                                            //     if (itemUpdates.isEmpty) {
+                                            //       throw 'All items in your branch have already been supplied.';
+                                            //     }
+                                            //
+                                            //     // Check whether ALL items across ALL branches are supplied
+                                            //     bool allItemsSupplied = true;
+                                            //
+                                            //     for (final entry in rawItems.entries) {
+                                            //       final itemData = entry.value;
+                                            //
+                                            //       if (itemData is! Map) continue;
+                                            //
+                                            //       final itemKey = entry.key.toString();
+                                            //
+                                            //       final isBeingSupplied = itemUpdates.containsKey(
+                                            //         'items.$itemKey.isSupplied',
+                                            //       );
+                                            //
+                                            //       final isAlreadySupplied = itemData['isSupplied'] == true;
+                                            //
+                                            //       if (!isBeingSupplied && !isAlreadySupplied) {
+                                            //         allItemsSupplied = false;
+                                            //         break;
+                                            //       }
+                                            //     }
+                                            //
+                                            //     // Update only matching branch items
+                                            //     await saleRef.update({
+                                            //       ...itemUpdates,
+                                            //
+                                            //       // Sale-level completion only when every branch is supplied
+                                            //       'supplyStatus': allItemsSupplied ? 'completed' : 'partial',
+                                            //       'isSupplied': allItemsSupplied,
+                                            //
+                                            //       // Keep track of supplied items for this operation
+                                            //       'suppliedItems': FieldValue.arrayUnion(suppliedItemNames),
+                                            //
+                                            //       if (allItemsSupplied) ...{
+                                            //         'supplyat': FieldValue.serverTimestamp(),
+                                            //         'supplyby': provider.staff,
+                                            //       },
+                                            //     });
+                                            //
+                                            //     if (mounted) {
+                                            //       setState(() {
+                                            //         for (final item in sale.items) {
+                                            //           if (item.branchid.toString().trim() == loginBranchId) {
+                                            //             item.isSupplied = true;
+                                            //           }
+                                            //         }
+                                            //
+                                            //         sale.supplyStatus = allItemsSupplied
+                                            //             ? 'completed'
+                                            //             : 'partial';
+                                            //       });
+                                            //
+                                            //       showToast(
+                                            //         'Items supplied successfully for your branch.',
+                                            //       );
+                                            //     }
+                                            //   } catch (e) {
+                                            //     debugPrint('Error updating supply info: $e');
+                                            //
+                                            //     if (mounted) {
+                                            //       ScaffoldMessenger.of(context).showSnackBar(
+                                            //         SnackBar(
+                                            //           content: Text('Error: ${e.toString()}'),
+                                            //           backgroundColor: Colors.red,
+                                            //           behavior: SnackBarBehavior.floating,
+                                            //           margin: const EdgeInsets.all(16),
+                                            //           shape: RoundedRectangleBorder(
+                                            //             borderRadius: BorderRadius.circular(10),
+                                            //           ),
+                                            //         ),
+                                            //       );
+                                            //     }
+                                            //   } finally {
+                                            //     LoadingDialog.hide();
+                                            //   }
+                                            // },
+                                          ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -1077,8 +1624,9 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
   String _formatDayLabel(String dateYmd) {
     final now = DateTime.now();
     final today = DateFormat('yyyy-MM-dd').format(now);
-    final yesterday =
-    DateFormat('yyyy-MM-dd').format(now.subtract(const Duration(days: 1)));
+    final yesterday = DateFormat(
+      'yyyy-MM-dd',
+    ).format(now.subtract(const Duration(days: 1)));
 
     if (dateYmd == today) return 'Today · $dateYmd';
     if (dateYmd == yesterday) return 'Yesterday · $dateYmd';
@@ -1128,7 +1676,6 @@ class _StatItem extends StatelessWidget {
             children: [
               Row(
                 children: [
-
                   Text(
                     value,
                     style: TextStyle(
@@ -1142,11 +1689,7 @@ class _StatItem extends StatelessWidget {
                   ),
                   if (isActive) ...[
                     const SizedBox(width: 4),
-                    Icon(
-                      Icons.filter_alt,
-                      size: 14,
-                      color: color,
-                    ),
+                    Icon(Icons.filter_alt, size: 14, color: color),
                   ],
                 ],
               ),
@@ -1208,16 +1751,10 @@ class _FilterBar extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    colors.surface,
-                    colors.gradientSurface,
-                  ],
+                  colors: [colors.surface, colors.gradientSurface],
                 ),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colors.border,
-                  width: 1.5,
-                ),
+                border: Border.all(color: colors.border, width: 1.5),
                 boxShadow: [
                   BoxShadow(
                     color: colors.amberFill.withOpacity(0.05),
@@ -1324,11 +1861,7 @@ class _FilterBar extends StatelessWidget {
                     onTap: () {
                       searchController.clear();
                     },
-                    child: Icon(
-                      Icons.clear,
-                      size: 16,
-                      color: colors.mutedText,
-                    ),
+                    child: Icon(Icons.clear, size: 16, color: colors.mutedText),
                   ),
               ],
             ),
@@ -1427,7 +1960,10 @@ class _TicketCard extends StatelessWidget {
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: statusBgColor,
                           borderRadius: BorderRadius.circular(20),
@@ -1435,11 +1971,7 @@ class _TicketCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              statusIcon,
-                              size: 12,
-                              color: statusColor,
-                            ),
+                            Icon(statusIcon, size: 12, color: statusColor),
                             const SizedBox(width: 4),
                             Text(
                               statusText,
@@ -1503,10 +2035,7 @@ class _TicketCard extends StatelessWidget {
           // Divider
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Container(
-              height: 1.5,
-              color: colors.border,
-            ),
+            child: Container(height: 1.5, color: colors.border),
           ),
 
           // Expanded items with supply buttons
@@ -1517,7 +2046,10 @@ class _TicketCard extends StatelessWidget {
                 children: sale.items.map((item) {
                   final isItemSupplied = item.isSupplied;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1525,9 +2057,13 @@ class _TicketCard extends StatelessWidget {
                           child: Row(
                             children: [
                               Icon(
-                                isItemSupplied ? Icons.check_circle : Icons.circle_outlined,
+                                isItemSupplied
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
                                 size: 16,
-                                color: isItemSupplied ? colors.green : colors.mutedText,
+                                color: isItemSupplied
+                                    ? colors.green
+                                    : colors.mutedText,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -1535,8 +2071,12 @@ class _TicketCard extends StatelessWidget {
                                   item.name,
                                   style: TextStyle(
                                     fontSize: 12.5,
-                                    color: isItemSupplied ? colors.secondaryText : colors.primaryText,
-                                    decoration: isItemSupplied ? TextDecoration.lineThrough : TextDecoration.none,
+                                    color: isItemSupplied
+                                        ? colors.secondaryText
+                                        : colors.primaryText,
+                                    decoration: isItemSupplied
+                                        ? TextDecoration.lineThrough
+                                        : TextDecoration.none,
                                     decorationColor: colors.secondaryText,
                                   ),
                                 ),
@@ -1549,7 +2089,9 @@ class _TicketCard extends StatelessWidget {
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12.5,
-                            color: isItemSupplied ? colors.secondaryText : colors.primaryText,
+                            color: isItemSupplied
+                                ? colors.secondaryText
+                                : colors.primaryText,
                             decoration: TextDecoration.none,
                           ),
                         ),
@@ -1558,7 +2100,10 @@ class _TicketCard extends StatelessWidget {
                           GestureDetector(
                             onTap: () => onSupplyItem(item.name),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: colors.amberFill,
                                 borderRadius: BorderRadius.circular(6),
@@ -1575,11 +2120,7 @@ class _TicketCard extends StatelessWidget {
                             ),
                           )
                         else if (isItemSupplied)
-                          Icon(
-                            Icons.check,
-                            size: 16,
-                            color: colors.green,
-                          ),
+                          Icon(Icons.check, size: 16, color: colors.green),
                       ],
                     ),
                   );
@@ -1593,11 +2134,7 @@ class _TicketCard extends StatelessWidget {
               child: Center(
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.lock_outline,
-                      size: 24,
-                      color: colors.mutedText,
-                    ),
+                    Icon(Icons.lock_outline, size: 24, color: colors.mutedText),
                     const SizedBox(height: 8),
                     Text(
                       'Search by receipt number to view items',
@@ -1622,7 +2159,9 @@ class _TicketCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        isExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
                         size: 16,
                         color: colors.secondaryText,
                       ),
@@ -1647,7 +2186,10 @@ class _TicketCard extends StatelessWidget {
                       child: GestureDetector(
                         onTap: onSupplyAll,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.amberFill,
                             borderRadius: BorderRadius.circular(9),
@@ -1681,7 +2223,10 @@ class _TicketCard extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.border,
                           borderRadius: BorderRadius.circular(9),
@@ -1714,7 +2259,10 @@ class _TicketCard extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: colors.border,
                           borderRadius: BorderRadius.circular(9),
