@@ -60,6 +60,8 @@ class _PrintPreviewWidgetState extends State<PrintPreviewWidget> {
           customername: widget.invoiceData.customerName ?? '',
           datetime: DateTime.now(),
           receiptNumber: widget.invoiceData.receiptNumber,
+          address: widget.invoiceData.address,
+          branch: widget.invoiceData.branchName,
           dailyNumber: widget.invoiceData.dailyreceiptno,
           paymentMethod: widget.invoiceData.transMode,
           payable: widget.invoiceData.totalamount,

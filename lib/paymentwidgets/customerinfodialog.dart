@@ -993,6 +993,7 @@ class CustomerInfoDialog {
                 id: saleDocId,
                 companyId: datafeed.companyid,
                 companyname: datafeed.company,
+                address: datafeed.branchaddress,
                 branchId: resolvedBranchId,
                 branchName: resolvedBranchName,
                 branchType: datafeed.isSalesPoint

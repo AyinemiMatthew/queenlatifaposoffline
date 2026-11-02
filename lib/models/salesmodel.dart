@@ -8,6 +8,7 @@ class SalesModel {
   String branchId;
   String branchName;
   String? branchType;
+  String? address;
 
   String? createdBy;
   String? approvedby;
@@ -115,6 +116,7 @@ class SalesModel {
     this.paymentCardLast4,
     this.paymentCardReference,
     this.branchType,
+    this.address,
     this.staffemail,
     this.dateymd,
     this.supplyat,
@@ -160,6 +162,7 @@ class SalesModel {
       "timestamp": timestamp,
       "items": items,
       "branchType": branchType,
+      "address":address,
       "payments": payments,
       'paymentStatus': paymentStatus,
       'dateymd': dateymd,
@@ -219,6 +222,7 @@ class SalesModel {
       isreturned: map['isreturned'] ?? false,
       pricingtype: map['pricingtype'] ?? '',
       branchType: map['branchType'] ?? '',
+      address: map['address'] ?? '',
       createdAt: map['createdAt'],
       receiptat: map['receiptat'],
       printedat: map['printedat'],

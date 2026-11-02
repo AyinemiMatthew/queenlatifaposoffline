@@ -97,7 +97,7 @@ Future<void> printSalesModelReceipt(BuildContext context, SalesModel sv) async {
       subTotal: payable + discount,
       change: (sv.change ?? 0).toDouble(),
       branch: sv.branchName,
-      address: datafeed.branchaddress,
+      address: sv.address,
       receiptName: 'DUPLICATE RECEIPT',
       Customertin: '',
       Suppliertin: '',
