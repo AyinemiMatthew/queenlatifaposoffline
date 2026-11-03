@@ -5,6 +5,7 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:provider/provider.dart';
 
 import 'stock_item_history_page.dart';
+import '../widgets/stockmovementexcel.dart';
 
 class _MovementColumn {
   final String label;
@@ -128,6 +129,27 @@ class _StockMovementPageState extends State<StockMovementPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _exportExcel(List<Map<String, dynamic>> transactions) async {
+    final now = DateTime.now();
+    try {
+      await exportStockMovementExcel(
+        transactions: transactions,
+        itemName: widget.itemName,
+        branchName: widget.branchName ?? 'All Branches',
+        startDate:
+            widget.dateRange?.start ?? DateTime(now.year, now.month, now.day),
+        endDate:
+            widget.dateRange?.end ?? DateTime(now.year, now.month, now.day),
+        boxPiece: widget.boxpiece,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Excel export failed: $error')));
+    }
   }
 
   Widget _miniStatstring(String title, dynamic value) {
@@ -560,6 +582,13 @@ class _StockMovementPageState extends State<StockMovementPage> {
                   tooltip: 'Search',
                   onPressed: () => setState(() => _searchExpanded = true),
                   icon: const Icon(Icons.search),
+                ),
+                IconButton(
+                  tooltip: 'Download Excel',
+                  icon: const Icon(Icons.grid_on_outlined, size: 21),
+                  onPressed: transactions.isEmpty
+                      ? null
+                      : () => _exportExcel(transactions),
                 ),
                 IconButton(
                   tooltip: 'Print',

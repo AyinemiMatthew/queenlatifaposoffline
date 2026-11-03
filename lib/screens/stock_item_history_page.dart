@@ -59,77 +59,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
   Color get _borderColor => _colors.outlineVariant;
   Color get _accentColor => _colors.secondary;
 
-  String _elapsedSince(DateTime? date, [DateTime? endDate]) {
-    if (date == null) return '-';
-
-    final seconds = (endDate ?? DateTime.now())
-        .difference(date)
-        .inSeconds
-        .clamp(0, 31536000 * 1000);
-    if (seconds < 60) return '$seconds ${seconds == 1 ? 'second' : 'seconds'}';
-    if (seconds < 3600) {
-      final minutes = seconds ~/ 60;
-      return '$minutes ${minutes == 1 ? 'minute' : 'minutes'}';
-    }
-    if (seconds < 86400) {
-      final hours = seconds ~/ 3600;
-      return '$hours ${hours == 1 ? 'hour' : 'hours'}';
-    }
-    if (seconds < 604800) {
-      final days = seconds ~/ 86400;
-      return '$days ${days == 1 ? 'day' : 'days'}';
-    }
-    if (seconds < 2592000) {
-      final weeks = seconds ~/ 604800;
-      return '$weeks ${weeks == 1 ? 'week' : 'weeks'}';
-    }
-    if (seconds < 31536000) {
-      final months = seconds ~/ 2592000;
-      return '$months ${months == 1 ? 'month' : 'months'}';
-    }
-    final years = seconds ~/ 31536000;
-    return '$years ${years == 1 ? 'year' : 'years'}';
-  }
-
-  bool _isSale(ItemHistoryEntry entry) =>
-      entry.type == 'Cash Sale' || entry.type == 'Credit Sale';
-
-  bool _isStockIn(ItemHistoryEntry entry) =>
-      entry.sign == '+' && entry.type != 'Sales Return';
-
-  String _ageSinceLatestEvent(
-    ItemHistoryEntry entry,
-    List<ItemHistoryEntry> history,
-    bool Function(ItemHistoryEntry) isRelevantEvent,
-  ) {
-    final date = entry.date;
-    if (date == null) return '-';
-
-    final index = history.indexOf(entry);
-    if (index == -1) return '-';
-    for (var i = index + 1; i < history.length; i++) {
-      final event = history[i];
-      final eventDate = event.date;
-      if (isRelevantEvent(event) &&
-          eventDate != null &&
-          !eventDate.isAfter(date)) {
-        return _elapsedSince(eventDate, date);
-      }
-    }
-    return '-';
-  }
-
-  String _stockAge(
-    ItemHistoryEntry entry,
-    List<ItemHistoryEntry> history,
-  ) => _ageSinceLatestEvent(entry, history, _isStockIn);
-
-  String _salesAge(
-    ItemHistoryEntry entry,
-    List<ItemHistoryEntry> history,
-  ) => _ageSinceLatestEvent(entry, history, _isSale);
-
-  Widget _ageDetail(String label, String value) => Column(
+  Widget _historyDetail(String label, String value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -240,10 +170,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
     }
   }
 
-  Widget _mobileList(
-    List<ItemHistoryEntry> pagedEntries,
-    List<ItemHistoryEntry> allEntries,
-  ) {
+  Widget _mobileList(List<ItemHistoryEntry> pagedEntries) {
     return ListView.builder(
       controller: _vc,
       padding: const EdgeInsets.all(8),
@@ -339,15 +266,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                   runSpacing: 8,
                   children: [
                     if (_showEntryDate)
-                      _ageDetail('Entry Date', t.invoiceDate ?? '-'),
-                    _ageDetail(
-                      'Stock Age',
-                      _stockAge(t, allEntries),
-                    ),
-                    _ageDetail(
-                      'Sales Age',
-                      _salesAge(t, allEntries),
-                    ),
+                      _historyDetail('Entry Date', t.invoiceDate ?? '-'),
                   ],
                 ),
                 if (_showRecordId && t.transactionid.isNotEmpty)
@@ -384,8 +303,6 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
             const _DetailColumn('#', 30),
             if (_showEntryDate) const _DetailColumn('Entry Date', 130),
             const _DetailColumn('Txn Date', 90),
-            const _DetailColumn('Stock Age', 90),
-            const _DetailColumn('Sales Age', 90),
             const _DetailColumn('Type', 100),
             if (isKS008) const _DetailColumn('Carton', 70),
             const _DetailColumn('-Qty (pcs)', 60),
@@ -483,26 +400,6 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                                 invoiceDateStr,
                                 style: TextStyle(
                                   color: _textColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                _stockAge(
-                                  t,
-                                  datafeed.itemHistoryEntries,
-                                ),
-                                style: TextStyle(
-                                  color: _secondaryTextColor,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                _salesAge(
-                                  t,
-                                  datafeed.itemHistoryEntries,
-                                ),
-                                style: TextStyle(
-                                  color: _secondaryTextColor,
                                   fontSize: 12,
                                 ),
                               ),
@@ -851,10 +748,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                         ),
                       )
                     : isSmall
-                    ? _mobileList(
-                        pagedEntries,
-                        datafeed.itemHistoryEntries,
-                      )
+                    ? _mobileList(pagedEntries)
                     : _desktopTable(datafeed, pagedEntries, page),
               ),
             ],

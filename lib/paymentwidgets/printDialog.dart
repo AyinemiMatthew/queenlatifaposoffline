@@ -612,7 +612,7 @@ Future<void> printReceipt({
                   salesProvider.showMessage(
                     context,
                     queuedOffline
-                        ? 'Sale saved safely on this device; waiting for internet to sync. Receipt: $receiptNumber'
+                        ? 'Sale saved ,waiting for internet to sync. Receipt: $receiptNumber'
                         : shouldPrint
                         ? 'Receipt printed: $receiptNumber'
                         : 'Sale saved: $receiptNumber',
@@ -754,6 +754,7 @@ Future<void> printReceipt({
                       : await datafeed.nextDailyReceiptNumber(
                           datafeed.branchid,
                         );
+
                   final saleData = SalesModel(
                     id: docId,
                     companyId: companyId,
@@ -828,6 +829,7 @@ Future<void> printReceipt({
                         .doc(docId)
                         .set(saleData.toMap());
                   }
+
                   if (!queuedOffline) {
                     final skipCheck = !datafeed.stockCheckEnabled ||
                         salesProvider.isServiceOnlySale(salesProvider.salesItems);

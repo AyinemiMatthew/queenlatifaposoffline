@@ -989,6 +989,7 @@ class CustomerInfoDialog {
               final dailyNumber = await datafeed.nextDailyReceiptNumber(
                 datafeed.branchid,
               );
+
               final saleData = SalesModel(
                 id: saleDocId,
                 companyId: datafeed.companyid,

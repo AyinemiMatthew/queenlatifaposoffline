@@ -1017,13 +1017,20 @@ class _SalesPageState extends State<SalesPage> {
           ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
       final week = '${now.year}.$weekNumber';
       final formattedDate = salesProvider.saleDate;
+      final saleBranchId = datafeed.isSalesPoint
+          ? datafeed.branchid
+          : activeBranchId;
+      final saleBranchName = datafeed.isSalesPoint
+          ? datafeed.branch
+          : activeBranchName;
 
       final saleData = SalesModel(
         id: saleDocId,
         companyId: datafeed.companyid,
         companyname: datafeed.company,
-        branchId: activeBranchId,
-        branchName: activeBranchName,
+        branchId: saleBranchId,
+        branchName: saleBranchName,
+        address: datafeed.isSalesPoint ? datafeed.branchaddress : null,
         branchType: datafeed.isSalesPoint ? 'Sales Point' : branchtype,
         pricingtype: datafeed.isSalesPoint ? 'Sales Point' : branchtype,
         staffPosition: datafeed.staffPosition,
@@ -2216,42 +2223,45 @@ class _SalesPageState extends State<SalesPage> {
                                                                               ? cartonMode.wp
                                                                               : (singleMode?.wp ??
                                                                                     '0');
-                                                                          return ListTile(
-                                                                            dense:
-                                                                                true,
-                                                                            leading: const Icon(
-                                                                              Icons.inventory_2,
-                                                                              color: Colors.blue,
-                                                                              size: 20,
-                                                                            ),
-                                                                            title: Text(
-                                                                              item.name,
-                                                                              style: TextStyle(
-                                                                                color: _primaryText,
-                                                                                fontSize: 14,
-                                                                                fontWeight: FontWeight.w500,
+                                                                          return Material(
+                                                                            color: Colors.transparent,
+                                                                            child: ListTile(
+                                                                              dense:
+                                                                                  true,
+                                                                              leading: const Icon(
+                                                                                Icons.inventory_2,
+                                                                                color: Colors.blue,
+                                                                                size: 20,
                                                                               ),
-                                                                            ),
-                                                                            subtitle: Text(
-                                                                              'Barcode: ${item.barcode} | Box Price: GHS $boxPrice | Retail Price: GHS ${singleMode?.rp} '
-                                                                              //'| Boxes Balance: ${cartonsLeft.toStringAsFixed(2)}'
-                                                                              ' | Pieces: ${netPieces.toStringAsFixed(0)}',
-                                                                              style: TextStyle(
+                                                                              title: Text(
+                                                                                item.name,
+                                                                                style: TextStyle(
+                                                                                  color: _primaryText,
+                                                                                  fontSize: 14,
+                                                                                  fontWeight: FontWeight.w500,
+                                                                                ),
+                                                                              ),
+                                                                              subtitle: Text(
+                                                                                'Barcode: ${item.barcode} | Box Price: GHS $boxPrice | Retail Price: GHS ${singleMode?.rp} '
+                                                                                //'| Boxes Balance: ${cartonsLeft.toStringAsFixed(2)}'
+                                                                                ' | Pieces: ${netPieces.toStringAsFixed(0)}',
+                                                                                style: TextStyle(
+                                                                                  color: _secondaryText,
+                                                                                  fontSize: 11,
+                                                                                ),
+                                                                              ),
+                                                                              trailing: Icon(
+                                                                                Icons.arrow_forward_ios,
                                                                                 color: _secondaryText,
-                                                                                fontSize: 11,
+                                                                                size: 14,
                                                                               ),
+                                                                              onTap: () {
+                                                                                _selectItem(
+                                                                                  item,
+                                                                                  value,
+                                                                                );
+                                                                              },
                                                                             ),
-                                                                            trailing: Icon(
-                                                                              Icons.arrow_forward_ios,
-                                                                              color: _secondaryText,
-                                                                              size: 14,
-                                                                            ),
-                                                                            onTap: () {
-                                                                              _selectItem(
-                                                                                item,
-                                                                                value,
-                                                                              );
-                                                                            },
                                                                           );
                                                                         },
                                                                   ),
