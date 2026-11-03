@@ -1229,9 +1229,7 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                                                   throw 'Sale document not found.';
                                                 }
 
-                                                final data =
-                                                    doc.data()
-                                                        as Map<String, dynamic>;
+                                                final data =doc.data() as Map<String, dynamic>;
                                                 final rawItems = data['items'];
 
                                                 if (rawItems == null ||
@@ -1250,52 +1248,34 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
 
                                                 for (final entry
                                                     in rawItems.entries) {
-                                                  final itemKey = entry.key
-                                                      .toString();
+                                                  final itemKey = entry.key.toString();
                                                   final itemData = entry.value;
 
                                                   if (itemData is! Map)
                                                     continue;
 
-                                                  final itemBranchId =
-                                                      itemData['branchid']
-                                                          ?.toString()
-                                                          .trim() ??
-                                                      '';
+                                                  final itemBranchId =itemData['branchid']?.toString().trim() ??'';
 
                                                   // Process only items belonging to login user's branch
-                                                  if (itemBranchId !=
-                                                      loginBranchId)
+                                                  if (itemBranchId !=loginBranchId)
                                                     continue;
 
                                                   matchingItems++;
 
-                                                  final isSupplied =
-                                                      itemData['isSupplied'] ==
-                                                      true;
+                                                  final isSupplied =itemData['isSupplied'] ==true;
 
                                                   if (!isSupplied) {
-                                                    allBranchItemsSupplied =
-                                                        false;
+                                                    allBranchItemsSupplied = false;
 
-                                                    final itemName =
-                                                        itemData['item']
-                                                            ?.toString()
-                                                            .trim() ??
-                                                        '';
+                                                    final itemName =itemData['item'] ?.toString().trim() ??'';
 
                                                     if (itemName.isNotEmpty) {
-                                                      suppliedItemNames.add(
-                                                        itemName,
-                                                      );
+                                                      suppliedItemNames.add(itemName,);
                                                     }
 
-                                                    itemUpdates['items.$itemKey.isSupplied'] =
-                                                        true;
-                                                    itemUpdates['items.$itemKey.supplyDate'] =
-                                                        FieldValue.serverTimestamp();
-                                                    itemUpdates['items.$itemKey.supplyStaff'] =
-                                                        provider.staff;
+                                                    itemUpdates['items.$itemKey.isSupplied'] =true;
+                                                    itemUpdates['items.$itemKey.supplyDate'] = FieldValue.serverTimestamp();
+                                                    itemUpdates['items.$itemKey.supplyStaff'] =provider.staff;
                                                   }
                                                 }
 
@@ -1311,26 +1291,21 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                                                 allBranchItemsSupplied = true;
 
                                                 // Check whether every item across every branch is supplied
-                                                bool allSaleItemsSupplied =
-                                                    true;
+                                                bool allSaleItemsSupplied =true;
 
                                                 for (final entry
                                                     in rawItems.entries) {
-                                                  final itemKey = entry.key
-                                                      .toString();
+                                                  final itemKey = entry.key.toString();
                                                   final itemData = entry.value;
 
                                                   if (itemData is! Map)
                                                     continue;
 
-                                                  final isBeingSupplied =
-                                                      itemUpdates.containsKey(
+                                                  final isBeingSupplied = itemUpdates.containsKey(
                                                         'items.$itemKey.isSupplied',
                                                       );
 
-                                                  final isAlreadySupplied =
-                                                      itemData['isSupplied'] ==
-                                                      true;
+                                                  final isAlreadySupplied = itemData['isSupplied'] ==true;
 
                                                   if (!isBeingSupplied &&
                                                       !isAlreadySupplied) {
@@ -1345,32 +1320,21 @@ class _SupplyQueueHomeState extends State<SupplyQueueHome> {
                                                   ...itemUpdates,
 
                                                   // Branch-specific status
-                                                  'branchSupplyStatus.$loginBranchId':
-                                                      'completed',
+                                                  'branchSupplyStatus.$loginBranchId':'completed',
 
                                                   // Sale-wide status
-                                                  'supplyStatus':
-                                                      allSaleItemsSupplied
-                                                      ? 'completed'
-                                                      : 'pending',
+                                                  'supplyStatus': allSaleItemsSupplied ? 'completed' : 'pending',
 
-                                                  'isSupplied':
-                                                      allSaleItemsSupplied,
+                                                  'isSupplied': allSaleItemsSupplied,
 
-                                                  'suppliedItems':
-                                                      FieldValue.arrayUnion(
-                                                        suppliedItemNames,
-                                                      ),
+                                                  'suppliedItems':FieldValue.arrayUnion(suppliedItemNames, ),
 
-                                                  'branchSupplyUpdatedAt.$loginBranchId':
-                                                      FieldValue.serverTimestamp(),
+                                                  'branchSupplyUpdatedAt.$loginBranchId':FieldValue.serverTimestamp(),
 
-                                                  'branchSupplyUpdatedBy.$loginBranchId':
-                                                      provider.staff,
+                                                  'branchSupplyUpdatedBy.$loginBranchId':provider.staff,
 
                                                   if (allSaleItemsSupplied) ...{
-                                                    'supplyat':
-                                                        FieldValue.serverTimestamp(),
+                                                    'supplyat':FieldValue.serverTimestamp(),
                                                     'supplyby': provider.staff,
                                                   },
                                                 });
