@@ -75,23 +75,28 @@ Future<void> generateInvoicePdf(Map<String, dynamic> data, List<Map<String, dyna
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
-                  "From: ${data['supplywarehousename'] ?? 'Not Specified'}",
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.grey700,
-                  ),
+                  "Transfer ID: ${data['transferid'] ?? 'Not Specified'}",
+                  // style: pw.TextStyle(
+                  //   fontWeight: pw.FontWeight.bold,
+                  //   color: PdfColors.grey700,
+                  // ),
                 ),
                 pw.SizedBox(height: 8),
+                pw.Text(
+                  "From: ${data['supplywarehousename'] ?? 'Not Specified'}",
+                  // style: pw.TextStyle(
+                  //   fontWeight: pw.FontWeight.bold,
+                  //   color: PdfColors.grey700,
+                  // ),
+                ),
 
                 pw.SizedBox(height: 8),
                 pw.Text(
                   "To: ${data['recievebranchname'] ?? 'Not Specified'}",
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColors.grey700,
-                  ),
+                  // style: pw.TextStyle(
+                  //   fontWeight: pw.FontWeight.bold,
+                  //   color: PdfColors.grey700,
+                  // ),
                 ),
                 pw.SizedBox(height: 8),
 

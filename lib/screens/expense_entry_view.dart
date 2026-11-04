@@ -56,16 +56,6 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       });
   }
 
-  // Stream<List<ExpenseEntryModel>> fetchExpenses() {
-  //   return FirebaseFirestore.instance
-  //       .collection('expenses')
-  //       .snapshots()
-  //       .map((snapshot) {
-  //     return snapshot.docs.map((doc) {
-  //       return ExpenseEntryModel.fromJson(doc.data());
-  //     }).toList();
-  //   });
-  // }
 
   Future<void> getAll() async {
     try {
@@ -99,25 +89,6 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
   @override
   void initState() {
     getAll();
-    // List<String> names=["KOLOG","John","Abiro"];
-    // List<int> ages=[20,24,44];
-    // Map<String,dynamic> aa={"name":"koloh"};
-
-    // final noww = fetchExpenses();
-    //
-    // print(noww);
-
-    // List<Map<String,dynamic>> dd= [{"name":["DON","PAPA"]},{"name":"Dan"},{"name":"Adamu"}];
-    // for(var namesdata in dd){
-    //   try{
-    //     dd.sort();
-    //     print(dd);
-    //   }catch(e){
-    //     print(e);
-    //
-    //   }
-    //
-    // }
 
     super.initState();
     _expensesFuture = _getExpenses();
@@ -329,41 +300,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
         },
         build: (context) {
           return [
-            /// =========================
-            /// COMPANY NAME
-            /// =========================
-            // pw.Center(
-            //   child: pw.Text(
-            //     datafeed.company,
-            //     style: pw.TextStyle(
-            //       fontSize: 24,
-            //       fontWeight: pw.FontWeight.bold,
-            //       color: PdfColors.blue900,
-            //     ),
-            //   ),
-            // ),
-            //
-            // pw.SizedBox(height: 5),
-            //
-            // /// =========================
-            // /// TITLE
-            // /// =========================
-            // pw.Center(
-            //   child: pw.Text(
-            //     'EXPENSE ENTRIES REPORT',
-            //     style: const pw.TextStyle(
-            //       fontSize: 18,
-            //       color: PdfColors.grey700,
-            //     ),
-            //   ),
-            // ),
-            //
-            // pw.SizedBox(height: 15),
-            // pw.Divider(),
 
-            /// =========================
-            /// LEFT & RIGHT INFO
-            /// =========================
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -803,7 +740,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      _infoRow('Branch:', expense.branchName),
+                      _infoRow('Branch:', expense.expensebranchName ?? expense.branchName),
                       _infoRow(
                         'Date:',
                         DateFormat('dd MMM yyyy').format(DateTime.now()),
@@ -1338,6 +1275,16 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                           Expanded(
                                             flex: 3,
                                             child: Text(
+                                              'Branch',
+                                              style: TextStyle(
+                                                color: textColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 3,
+                                            child: Text(
                                               'Expense Name',
                                               style: TextStyle(
                                                 color: textColor,
@@ -1456,6 +1403,18 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                                     maxLines: 2,
                                                     overflow:
                                                         TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: Text(
+                                                    expense.expensebranchName,
+                                                    style: TextStyle(
+                                                      color: textColor,
+                                                    ),
+                                                    maxLines: 2,
+                                                    overflow:
+                                                    TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 Expanded(

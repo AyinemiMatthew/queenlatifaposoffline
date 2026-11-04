@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/models/expense_entry_model.dart';
 import 'package:kologsoft/models/sub_account_model.dart';
@@ -41,6 +42,11 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
 
   Map<String, List<String>> linkedAccounts = {};
 
+  // ---- Branch options (new) ----
+  List<String> _branches = [];
+  Map<String, String> _branchIds = {}; // branch name -> branch doc id
+  String? _selectedBranch;
+
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
   Color get _textColor => Theme.of(context).colorScheme.onSurface;
   Color get _mutedColor => Theme.of(context).colorScheme.onSurfaceVariant;
@@ -48,6 +54,18 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       _isLightTheme ? Colors.white : const Color(0xFF182232);
   Color get _borderColor =>
       _isLightTheme ? Colors.grey.shade300 : Colors.white12;
+
+  // ---- Design tokens (new, UI only) ----
+  Color get _pageColor =>
+      _isLightTheme ? const Color(0xFFF3F5F8) : const Color(0xFF101624);
+  Color get _cardColor =>
+      _isLightTheme ? Colors.white : const Color(0xFF182232);
+  Color get _primaryButtonColor => _isLightTheme
+      ? const Color(0xFF1F2430)
+      : Theme.of(context).colorScheme.primary;
+  Color get _primaryButtonTextColor =>
+      _isLightTheme ? Colors.white : Theme.of(context).colorScheme.onPrimary;
+  static const double _fieldRadius = 16;
 
   bool _isLoadingLinkedAccounts = false;
 
@@ -60,6 +78,40 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     }
     _fetchExpenseCategories();
     _fetchPaymentMethods();
+    _fetchBranches();
+  }
+
+  void _fetchBranches() async {
+    try {
+      final datafeed = context.read<Datafeed>();
+      final snapshot = await datafeed.db
+          .collection('branches')
+          .where('companyid', isEqualTo: datafeed.companyid)
+          .get();
+
+      final names = <String>[];
+      final ids = <String, String>{};
+      for (var doc in snapshot.docs) {
+        final name = doc.data()['branchname']?.toString() ?? '';
+        if (name.isNotEmpty) {
+          names.add(name);
+          ids[name] = doc.id;
+        }
+      }
+      final current = datafeed.branch?.toString() ?? '';
+      if (current.isNotEmpty && !names.contains(current)) {
+        names.insert(0, current);
+        ids[current] = datafeed.branchid?.toString() ?? '';
+      }
+
+      setState(() {
+        _branches = names;
+        _branchIds = ids;
+        _selectedBranch = current.isNotEmpty ? current : null;
+      });
+    } catch (e) {
+      debugPrint("Error loading branches: $e");
+    }
   }
 
   void _fetchPaymentMethods() async {
@@ -160,7 +212,133 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     _selectedPaymentMethod = expense.paymentMethod;
     _expenseDate = expense.expenseDate ?? DateTime.now();
   }
+  Widget _buildSearchableDropdown({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required IconData icon,
+    required void Function(String?) onChanged,
+  }) {
+    return FormField<String>(
+      // Rebuilds when the value changes (including the reset after saving)
+      key: ValueKey(value),
+      initialValue: value,
+      validator: (v) {
+        if (v == null || v.isEmpty) {
+          return 'Please select $label';
+        }
+        return null;
+      },
+      builder: (state) {
+        return InkWell(
+          borderRadius: BorderRadius.circular(_fieldRadius),
+          onTap: () async {
+            final picked = await _showSearchSheet(label, items, value);
+            if (picked != null) {
+              state.didChange(picked);
+              onChanged(picked);
+            }
+          },
+          child: InputDecorator(
+            isEmpty: value == null || value.isEmpty,
+            decoration: _fieldDecoration(label: label, icon: icon).copyWith(
+              errorText: state.errorText,
+              suffixIcon: Icon(Icons.arrow_drop_down, color: _mutedColor),
+            ),
+            child: Text(
+              value ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: _textColor, fontSize: 16),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
+  /// Bottom sheet with a search box that filters the list as you type.
+  Future<String?> _showSearchSheet(
+      String title,
+      List<String> items,
+      String? current,
+      ) {
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filtered = items
+                .where((e) => e.toLowerCase().contains(query.toLowerCase()))
+                .toList();
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(sheetContext).size.height * 0.6,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                      child: TextField(
+                        autofocus: true,
+                        style: TextStyle(color: _textColor),
+                        decoration: _fieldDecoration(
+                          label: 'Search $title',
+                          icon: Icons.search,
+                        ),
+                        onChanged: (v) => setSheetState(() => query = v),
+                      ),
+                    ),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? Center(
+                        child: Text(
+                          'No matches found',
+                          style: TextStyle(color: _mutedColor),
+                        ),
+                      )
+                          : ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final item = filtered[index];
+                          final selected = item == current;
+                          return ListTile(
+                            title: Text(
+                              item,
+                              style: TextStyle(color: _textColor),
+                            ),
+                            trailing: selected
+                                ? Icon(
+                              Icons.check,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                            )
+                                : null,
+                            onTap: () =>
+                                Navigator.pop(sheetContext, item),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
   @override
   void dispose() {
     _expenseNameController.dispose();
@@ -242,7 +420,10 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       final staffPosition = datafeed.staffPosition;
       final branchName = datafeed.branch;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-
+      final expensebranchName = _selectedBranch ?? datafeed.branch;
+      final expensebranchId = _selectedBranch != null
+          ? (_branchIds[_selectedBranch] ?? datafeed.branchid)
+          : datafeed.branchid;
       final docId = '${companyid}_${expenseName}_${staffPosition}_$timestamp'
           .toLowerCase()
           .replaceAll(RegExp(r'\s+'), '_');
@@ -250,6 +431,8 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       final expense = ExpenseEntryModel(
         id: widget.expense?.id ?? docId,
         expenseName: expenseName,
+        expensebranchId: expensebranchId,
+        expensebranchName: expensebranchName,
         description: _descriptionController.text.trim(),
         amount: double.parse(_amountController.text.trim()),
         category: _selectedCategory,
@@ -353,10 +536,11 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _isLightTheme ? Colors.white : const Color(0xFF101624),
+      backgroundColor: _pageColor,
       appBar: AppBar(
         title: Text(widget.expense == null ? 'New Expenses' : 'Edit Expense'),
         backgroundColor: _isLightTheme
@@ -394,51 +578,88 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
           children: [
             Center(
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 720),
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: _cardColor,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(
+                        _isLightTheme ? 0.12 : 0.35,
+                      ),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Expense Name
-                    _buildTextField(
-                      controller: _expenseNameController,
-                      label: 'Expense Name',
-                      hint: 'e.g., Office Supplies Purchase',
-                      icon: Icons.receipt_long,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter expense name';
-                        }
-                        return null;
-                      },
+                    // Card header
+                    Text(
+                      'Expense Details',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: _textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Provide the expense, payment and branch information for this entry.',
+                      style: TextStyle(fontSize: 14, color: _mutedColor),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Expense Name | Amount
+                    _fieldRow(
+                      _buildTextField(
+                        controller: _expenseNameController,
+                        label: 'Expense Name',
+                        hint: 'e.g., Office Supplies Purchase',
+                        icon: Icons.receipt_long,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter expense name';
+                          }
+                          return null;
+                        },
+                      ),
+                      _buildTextField(
+                        controller: _amountController,
+                        label: 'Amount',
+                        hint: '0.00',
+                        icon: Icons.attach_money,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          TextInputFormatter.withFunction(
+                                (oldValue, newValue) =>
+                            RegExp(r'^\d*\.?\d*$').hasMatch(newValue.text) ? newValue : oldValue,
+                          ),
+                        ],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter amount';
+                          }
+                          final text = value.trim();
+                          if (!RegExp(r'^(\d+\.?\d*|\.\d+)$').hasMatch(text)) {
+                            return 'Enter a valid number, e.g. 25 or 25.50';
+                          }
+                          final amount = double.tryParse(text);
+                          if (amount == null || amount <= 0) {
+                            return 'Please enter a valid amount';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Amount
-                    _buildTextField(
-                      controller: _amountController,
-                      label: 'Amount',
-                      hint: '0.00',
-                      icon: Icons.attach_money,
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter amount';
-                        }
-                        final amount = double.tryParse(value.trim());
-                        if (amount == null || amount <= 0) {
-                          return 'Please enter a valid amount';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Category
-                    _buildDropdown(
+                    // Category (full width)
+                    _buildSearchableDropdown(
                       label: 'Category',
-                      value: _selectedCategory.isEmpty
-                          ? null
-                          : _selectedCategory,
+                      value: _selectedCategory.isEmpty ? null : _selectedCategory,
                       items: _categories,
                       icon: Icons.category,
                       onChanged: (value) {
@@ -449,59 +670,60 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Payment Method
-                    _buildDropdown(
-                      label: 'Payment Method',
-                      value: _selectedPaymentMethod.isEmpty
-                          ? null
-                          : _selectedPaymentMethod,
-                      items: linkedAccounts.keys.toList(),
-                      icon: Icons.payment,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedPaymentMethod = value ?? '';
-                          _selectedAccount = null;
-                        });
-                        if (value != null && value.isNotEmpty) {
+                    // Payment Method | Branch
+                    _fieldRow(
+                      _buildDropdown(
+                        label: 'Payment Method',
+                        value: _selectedPaymentMethod.isEmpty
+                            ? null
+                            : _selectedPaymentMethod,
+                        items: linkedAccounts.keys.toList(),
+                        icon: Icons.payment,
+                        onChanged: (value) {
                           setState(() {
-                            _linkedAccounts = linkedAccounts[value]!.toList();
+                            _selectedPaymentMethod = value ?? '';
+                            _selectedAccount = null;
                           });
-                          // _fetchLinkedAccounts(value);
-                        } else {
-                          setState(() {
-                            _linkedAccounts = linkedAccounts[value]!.toList();
-                          });
-                        }
-                      },
+                          if (value != null && value.isNotEmpty) {
+                            setState(() {
+                              _linkedAccounts = linkedAccounts[value]!.toList();
+                            });
+                            // _fetchLinkedAccounts(value);
+                          } else {
+                            setState(() {
+                              _linkedAccounts = linkedAccounts[value]!.toList();
+                            });
+                          }
+                        },
+                      ),
+                      _buildBranchDropdown(),
                     ),
                     const SizedBox(height: 16),
 
-                    // Payment Account
+                    // Payment Account (full width)
                     _buildLinkedAccountDropdown(),
-
                     const SizedBox(height: 16),
 
-                    // Vendor Name
-                    _buildTextField(
-                      controller: _vendorNameController,
-                      label: 'Vendor/Supplier Name',
-                      hint: 'Optional',
-                      icon: Icons.business,
-                      required: false,
+                    // Vendor Name | Receipt Number
+                    _fieldRow(
+                      _buildTextField(
+                        controller: _vendorNameController,
+                        label: 'Vendor/Supplier Name',
+                        hint: 'Optional',
+                        icon: Icons.business,
+                        required: false,
+                      ),
+                      _buildTextField(
+                        controller: _receiptNumberController,
+                        label: 'Receipt/Invoice Number',
+                        hint: 'Optional',
+                        icon: Icons.receipt,
+                        required: false,
+                      ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Receipt Number
-                    _buildTextField(
-                      controller: _receiptNumberController,
-                      label: 'Receipt/Invoice Number',
-                      hint: 'Optional',
-                      icon: Icons.receipt,
-                      required: false,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Description
+                    // Description (full width)
                     _buildTextField(
                       controller: _descriptionController,
                       label: 'Description',
@@ -520,88 +742,75 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Save Button
-                    Center(
-                      child: Wrap(
-                        spacing: 15,
-                        runSpacing: 15,
-                        children: [
-                          SizedBox(
-                            width: 270,
-                            child: ElevatedButton(
-                              onPressed: _isSaving ? null : _saveExpense,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: _isSaving
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      widget.expense == null
-                                          ? 'Save Expense'
-                                          : 'Update Expense',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
-                                      ),
-                                    ),
+                    // Buttons: wide primary + compact outlined
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _isSaving ? null : _saveExpense,
+                            icon: _isSaving
+                                ? const SizedBox.shrink()
+                                : Icon(
+                              Icons.arrow_forward,
+                              color: _primaryButtonTextColor,
                             ),
-                          ),
-                          SizedBox(
-                            width: 270,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  Routes.expenseview,
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: BorderSide(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outline,
-                                  ),
-                                ),
+                            label: _isSaving
+                                ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: _primaryButtonTextColor,
                               ),
-                              child: Text(
-                                "View",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Theme.of(context).colorScheme.primary,
+                            )
+                                : Text(
+                              widget.expense == null
+                                  ? 'Save Expense'
+                                  : 'Update Expense',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: _primaryButtonTextColor,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryButtonColor,
+                              foregroundColor: _primaryButtonTextColor,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  _fieldRadius,
                                 ),
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 16),
+                        OutlinedButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, Routes.expenseview);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _textColor,
+                            side: BorderSide(color: _borderColor),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 20,
+                              horizontal: 28,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(_fieldRadius),
+                            ),
+                          ),
+                          child: const Text(
+                            'View',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -613,6 +822,58 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     );
   }
 
+  /// Two fields side by side on wide screens, stacked on narrow ones.
+  Widget _fieldRow(Widget left, Widget right) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 520) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [left, const SizedBox(height: 16), right],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: left),
+            const SizedBox(width: 16),
+            Expanded(child: right),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Shared pill-style decoration used by every field.
+  InputDecoration _fieldDecoration({
+    required String label,
+    required IconData icon,
+    String? hint,
+  }) {
+    OutlineInputBorder border(Color color, [double width = 1]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_fieldRadius),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: _mutedColor),
+      labelStyle: TextStyle(color: _mutedColor),
+      hintStyle: TextStyle(color: _mutedColor),
+      filled: true,
+      fillColor: _fieldColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      border: border(_borderColor),
+      enabledBorder: border(_borderColor),
+      disabledBorder: border(_borderColor),
+      focusedBorder: border(Theme.of(context).colorScheme.primary, 2),
+      errorBorder: border(Colors.red),
+      focusedErrorBorder: border(Colors.red, 2),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -620,6 +881,7 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     required IconData icon,
     String? Function(String?)? validator,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
     bool required = true,
   }) {
@@ -628,34 +890,7 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       keyboardType: keyboardType,
       maxLines: maxLines,
       style: TextStyle(color: _textColor),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: _mutedColor),
-        labelStyle: TextStyle(color: _mutedColor),
-        hintStyle: TextStyle(color: _mutedColor),
-        filled: true,
-        fillColor: _fieldColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
-            width: 2,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-      ),
+      decoration: _fieldDecoration(label: label, icon: icon, hint: hint),
       validator: required ? validator : null,
     );
   }
@@ -669,28 +904,9 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
   }) {
     return DropdownButtonFormField<String>(
       value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: _mutedColor),
-        labelStyle: TextStyle(color: _mutedColor),
-        filled: true,
-        fillColor: _fieldColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
-            width: 2,
-          ),
-        ),
-      ),
+      isExpanded: true,
+      borderRadius: BorderRadius.circular(_fieldRadius),
+      decoration: _fieldDecoration(label: label, icon: icon),
       dropdownColor: _fieldColor,
       style: TextStyle(color: _textColor),
       items: items.map((String item) {
@@ -706,37 +922,44 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
     );
   }
 
+  // NEW: Branch dropdown
+  Widget _buildBranchDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _branches.contains(_selectedBranch) ? _selectedBranch : null,
+      isExpanded: true,
+      borderRadius: BorderRadius.circular(_fieldRadius),
+      decoration: _fieldDecoration(
+        label: 'Branch',
+        icon: Icons.location_city,
+      ),
+      dropdownColor: _fieldColor,
+      style: TextStyle(color: _textColor),
+      items: _branches.map((String branch) {
+        return DropdownMenuItem<String>(value: branch, child: Text(branch));
+      }).toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedBranch = value;
+        });
+      },
+    );
+  }
+
   Widget _buildLinkedAccountDropdown() {
     final hasMethod = _selectedPaymentMethod.isNotEmpty;
     final hasAccounts = _linkedAccounts.isNotEmpty;
 
     return DropdownButtonFormField<String>(
       value: _selectedAccount,
+      isExpanded: true,
+      borderRadius: BorderRadius.circular(_fieldRadius),
       disabledHint: Text(
         !hasMethod ? 'Select payment method first' : 'No accounts available',
         style: TextStyle(color: _mutedColor),
       ),
-      decoration: InputDecoration(
-        labelText: 'Payment Account',
-        prefixIcon: Icon(Icons.account_balance_outlined, color: _mutedColor),
-        labelStyle: TextStyle(color: _mutedColor),
-        filled: true,
-        fillColor: _fieldColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
-            width: 2,
-          ),
-        ),
+      decoration: _fieldDecoration(
+        label: 'Payment Account',
+        icon: Icons.account_balance_outlined,
       ),
       dropdownColor: _fieldColor,
       style: TextStyle(color: _textColor),
@@ -744,10 +967,10 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
       onChanged: (!hasMethod || !hasAccounts)
           ? null
           : (value) {
-              setState(() {
-                _selectedAccount = value;
-              });
-            },
+        setState(() {
+          _selectedAccount = value;
+        });
+      },
 
       items: _linkedAccounts.map((accountName) {
         return DropdownMenuItem<String>(
@@ -772,29 +995,9 @@ class _ExpenseEntryState extends State<ExpenseEntry> {
   }) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(_fieldRadius),
       child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(Icons.calendar_today, color: _mutedColor),
-          labelStyle: TextStyle(color: _mutedColor),
-          filled: true,
-          fillColor: _fieldColor,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: _borderColor),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: _borderColor),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: Theme.of(context).colorScheme.primary,
-              width: 2,
-            ),
-          ),
-        ),
+        decoration: _fieldDecoration(label: label, icon: Icons.calendar_today),
         child: Text(
           DateFormat('MMM dd, yyyy').format(date),
           style: TextStyle(color: _textColor, fontSize: 16),

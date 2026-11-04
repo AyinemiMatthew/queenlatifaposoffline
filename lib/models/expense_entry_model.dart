@@ -1,6 +1,8 @@
 class ExpenseEntryModel {
   String id;
   String expenseName;
+  String expensebranchId;
+  String expensebranchName;
   String description;
   double amount;
   String category;
@@ -26,6 +28,8 @@ class ExpenseEntryModel {
   ExpenseEntryModel({
     this.id = '',
     this.expenseName = '',
+    this.expensebranchId='',
+    this.expensebranchName='',
     this.description = '',
     this.amount = 0.0,
     this.category = '',
@@ -52,6 +56,9 @@ class ExpenseEntryModel {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'expenseName': expenseName,
+      'expensebranchName': expensebranchName,
+      'expensebranchId': expensebranchId,
       'expenseName': expenseName,
       'description': description,
       'amount': amount,
@@ -81,6 +88,8 @@ class ExpenseEntryModel {
     return ExpenseEntryModel(
       id: json['id'] ?? '',
       expenseName: json['expenseName'] ?? '',
+      expensebranchName: json['expensebranchName'] ?? '',
+      expensebranchId: json['expensebranchId'] ?? '',
       description: json['description'] ?? '',
       amount: (json['amount'] ?? 0).toDouble(),
       category: json['category'] ?? '',
