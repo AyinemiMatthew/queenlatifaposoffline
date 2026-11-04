@@ -110,29 +110,6 @@ class _StockListTableState extends State<StockListTable> {
         );
   }
 
-  // Future<void> _loadData() async {
-  //   setState(() => _isLoading = true);
-  //
-  //   try {
-  //     final provider = Provider.of<StockProvider>(context, listen: false);
-  //     final snapshot = await provider.stockStream(
-  //       collectionName: 'stock_transactions',
-  //       startDate: _isDateRangeActive ? _startDate : null,
-  //       endDate: _isDateRangeActive ? _endDate : null,
-  //       branchfield: 'staffbranchid', datefield: 'invoicedate',
-  //     ).first;
-  //
-  //     if (snapshot != null) {
-  //       _allData = snapshot;
-  //       _totalCount = _allData.length;
-  //       _applySearchAndPagination();
-  //     }
-  //   } catch (e) {
-  //     print("Error loading data: $e");
-  //   } finally {
-  //     setState(() => _isLoading = false);
-  //   }
-  // }
 
   void _applySearchAndPagination() {
     var filtered = _allData.where((doc) {
