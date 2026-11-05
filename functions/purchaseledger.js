@@ -78,7 +78,16 @@ module.exports.postPurchaseToLedger = async (purchaseData = {}, purchaseId) => {
     const supplierId = purchaseData.supplierid || purchaseData.supplierId || null;
     const supplierName = purchaseData.suppliername || purchaseData.supplierName || null;
     const staff = purchaseData.createdby || purchaseData.createdBy || purchaseData.staff || 'system';
-
+// Detail text appended to every ledger description (for supplier reports)
+const purchaseTypeLabel = (purchaseData.purchasetype || purchaseData.purchaseType || 'N/A').toString();
+const itemsDetail = items.map((it) => {
+  const name = it?.item || it?.name || 'Unknown item';
+  const qty = it?.quantity ?? it?.qty ?? 0;
+  const pieces = it?.pieces ?? qty;
+  const originalCp = it?.originalcp ?? it?.originalCP ?? it?.originalCostPrice ?? 'N/A';
+  return `${name} (Qty: ${qty}, Pieces: ${pieces}, CP: ${originalCp})`;
+}).join('; ');
+const detailSuffix = ` |${purchaseTypeLabel} purchase| Items: ${itemsDetail || 'N/A'}`;
     const itemsTotal = items.reduce((s, it) => s + toNumber(it?.total), 0);
     const finalGross = gross > 0 ? gross : (returnValue > 0 ? returnValue : (itemsTotal || paymentEntries.reduce((s, p) => s + toNumber(p?.amount), 0) + discountAmount));
     const netAmount = Math.max(0, finalGross - discountAmount);
@@ -97,6 +106,7 @@ module.exports.postPurchaseToLedger = async (purchaseData = {}, purchaseId) => {
       const meta = resolveAccountMeta(entry.account);
       const enriched = {
         ...entry,
+        description: `${entry.description || ''}${detailSuffix}`,
         accountClass: meta && meta.classCode ? meta.classCode : undefined,
         accountSubClass: meta && meta.subCode ? meta.subCode : undefined,
         accountType: meta && meta.type ? meta.type : undefined,

@@ -1071,14 +1071,14 @@ class _StockReportPageState extends State<StockReportPage> {
 
                                         Expanded(
                                           child: _footerStat(
-                                            'Total Cost Value',
+                                            'Total Cost Value(GHS)',
                                             _formatMoney(stockTotal),
                                             dense: compactFooter,
                                           ),
                                         ),
                                         Expanded(
                                           child: _footerStat(
-                                            'Total Selling Value',
+                                            'Total Selling Value(GHS)',
                                             _formatMoney(sellTotal),
                                             dense: compactFooter,
                                           ),
@@ -1173,8 +1173,8 @@ class _StockReportPageState extends State<StockReportPage> {
 
       const _StockColumn('Pieces Balance', 95, numeric: true),
       const _StockColumn('Cartons Balance', 105, numeric: true),
-      const _StockColumn('Cost Value', 110, numeric: true),
-      const _StockColumn('Selling Value', 115, numeric: true),
+      const _StockColumn('Cost Value(GHS)', 110, numeric: true),
+      const _StockColumn('Selling Value(GHS)', 115, numeric: true),
     ];
   }
 
@@ -1482,9 +1482,9 @@ class _StockReportPageState extends State<StockReportPage> {
                 _miniStat2("Transfer In", transferIn),
                 _miniStat2("Carton", cartonQtyBal),
 
-                _miniStat2("Cost Value", _formatMoney(item['stock_value'])),
+                _miniStat2("Cost Value(GHS)", _formatMoney(item['stock_value'])),
                 _miniStat2(
-                  "Selling Value",
+                  "Selling Value(GHS)",
                   _formatMoney(item['selling_value']),
                 ),
               ],
@@ -1725,7 +1725,7 @@ class _StockReportPageState extends State<StockReportPage> {
 
   String _formatMoney(dynamic value) {
     final amount = _num(value);
-    return 'GHS ${_nf.format(amount.abs() < 0.005 ? 0 : amount)}';
+    return ' ${_nf.format(amount.abs() < 0.005 ? 0 : amount)}';
   }
 
   void showStockTransactionsDialog(

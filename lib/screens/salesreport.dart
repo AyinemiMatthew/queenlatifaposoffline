@@ -3191,7 +3191,7 @@ class _SalesReportState extends State<SalesReport> {
                 decoration: const pw.BoxDecoration(color: totalRowBg),
                 children: [
                   cell('', bold: true, header: true),
-                  cell('GRAND TOTAL', bold: true, header: true),
+                  cell('GRAND TOTAL (GHS)', bold: true, header: true),
                   cell(fmtQty(totalQty), right: true, bold: true, header: true),
                   cell(
                     fmt(totalCashSales),

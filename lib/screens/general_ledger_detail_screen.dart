@@ -101,10 +101,10 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
       _value(row, 'number').isEmpty ? '${index + 1}' : _value(row, 'number'),
       _value(row, 'date'),
       _value(row, 'description'),
-      _money(row, 'openingBalance'),
-      _money(row, 'debit'),
-      _money(row, 'credit'),
-      _money(row, 'balance'),
+      _money(row, 'openingBalance(GHS)'),
+      _money(row, 'debit(GHS)'),
+      _money(row, 'credit(GHS)'),
+      _money(row, 'balance(GHS)'),
     ];
   }
 

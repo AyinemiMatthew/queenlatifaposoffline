@@ -115,9 +115,9 @@ class _DebtorReportState extends State<DebtorReport> {
   }) {
     final theme = Theme.of(context);
     final totals = [
-      ('Debit total', 'GHS ${totalDebit.toStringAsFixed(2)}'),
-      ('Credit total', 'GHS ${totalCredit.toStringAsFixed(2)}'),
-      ('Balance total', 'GHS ${totalBalance.toStringAsFixed(2)}'),
+      ('Debit total(GHS)', ' ${totalDebit.toStringAsFixed(2)}'),
+      ('Credit total(GHS)', ' ${totalCredit.toStringAsFixed(2)}'),
+      ('Balance total(GHS)', (totalBalance.toStringAsFixed(2))),
     ];
 
     return SafeArea(
@@ -965,67 +965,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                 builder: (context, constraints) {
                                   final isDesktop = constraints.maxWidth > 700;
                                   if (isDesktop) {
-                                    // return Scrollbar(
-                                    //   controller: _verticalController,
-                                    //   thumbVisibility: true,
-                                    //   trackVisibility: true,
-                                    //   child: SingleChildScrollView(
-                                    //     controller: _verticalController,
-                                    //     child: Scrollbar(
-                                    //       controller: _horizontalController,
-                                    //       thumbVisibility: true,
-                                    //       trackVisibility: true,
-                                    //       notificationPredicate: (n) => n.depth == 1,
-                                    //       child: SingleChildScrollView(
-                                    //         controller: _horizontalController,
-                                    //         scrollDirection: Axis.horizontal,
-                                    //         child: DataTable(
-                                    //           showCheckboxColumn: false,
-                                    //           columnSpacing: 60,
-                                    //           headingRowColor: MaterialStateProperty.all(theme.colorScheme.surfaceVariant),
-                                    //           dataRowColor: MaterialStateProperty.all(theme.colorScheme.surface),
-                                    //           headingTextStyle: theme.textTheme.bodyMedium?.copyWith(
-                                    //               color: theme.colorScheme.onSurface,
-                                    //               fontWeight: FontWeight.bold),
-                                    //           columns: const [
-                                    //             DataColumn(label: Text('#')),
-                                    //             DataColumn(label: Text('Customer')),
-                                    //             DataColumn(label: Text('Branch')),
-                                    //             DataColumn(label: Text('Total Debt')),
-                                    //             DataColumn(label: Text('Paid')),
-                                    //             DataColumn(label: Text('Credit Limit')),
-                                    //             DataColumn(label: Text('Balance')),
-                                    //           ],
-                                    //           rows: [
-                                    //             ...filteredRows.asMap().entries.map((entry) {
-                                    //               final index = entry.key;
-                                    //               final debtor = entry.value;
-                                    //               return DataRow(
-                                    //                 onSelectChanged: (_) => _showCustomerDetail(
-                                    //                   context,
-                                    //                   customerId: debtor['customerId']?.toString() ?? '',
-                                    //                   customerName: debtor['customerName']?.toString() ?? 'Customer',
-                                    //                   selectedBranch: effectiveBranch,
-                                    //                   contact: debtor['contact']?.toString(),
-                                    //                   creditLimit: debtor['creditLimit']?.toString(),
-                                    //                 ),
-                                    //                 cells: [
-                                    //                   DataCell(Text('${index + 1}')),
-                                    //                   DataCell(Text(debtor['customerName']?.toString() ?? '')),
-                                    //                   DataCell(Text(debtor['branchName']?.toString() ?? '')),
-                                    //                   DataCell(Text((debtor['creditBalance'] as double?)?.toStringAsFixed(2) ?? '0.00')),
-                                    //                   DataCell(Text((debtor['amountPaid'] as double?)?.toStringAsFixed(2) ?? '0.00')),
-                                    //                   DataCell(Text(debtor['creditLimit']?.toString() ?? '-')),
-                                    //                   DataCell(Text((debtor['balance'] as double?)?.toStringAsFixed(2) ?? '0.00')),
-                                    //                 ],
-                                    //               );
-                                    //             }),
-                                    //           ],
-                                    //         ),
-                                    //       ),
-                                    //     ),
-                                    //   ),
-                                    // );
+
                                     return LayoutBuilder(
                                       builder: (context, constraints) {
                                         const widths = [32, 240, 150, 150, 150];
@@ -1154,7 +1094,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                               ),
                                                         ),
                                                         Text(
-                                                          'Debit',
+                                                          'Debit(GHS)',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1168,7 +1108,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                               ),
                                                         ),
                                                         Text(
-                                                          'Credit',
+                                                          'Credit(GHS)',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1182,7 +1122,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                               ),
                                                         ),
                                                         Text(
-                                                          'Balance',
+                                                          'Balance(GHS)',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1341,7 +1281,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                       child: rowOf([
                                                         const SizedBox.shrink(),
                                                         Text(
-                                                          'Total',
+                                                          'Total(GHS)',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1355,7 +1295,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                               ),
                                                         ),
                                                         Text(
-                                                          'GHS ${totalDebit.toStringAsFixed(2)}',
+                                                          ' ${totalDebit.toStringAsFixed(2)}',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1369,7 +1309,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                               ),
                                                         ),
                                                         Text(
-                                                          'GHS ${totalCredit.toStringAsFixed(2)}',
+                                                          ' ${totalCredit.toStringAsFixed(2)}',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1383,7 +1323,7 @@ class _DebtorReportState extends State<DebtorReport> {
                                                               ),
                                                         ),
                                                         Text(
-                                                          'GHS ${totalBalance.toStringAsFixed(2)}',
+                                                          ' ${totalBalance.toStringAsFixed(2)}',
                                                           style: theme
                                                               .textTheme
                                                               .bodyMedium
@@ -1596,83 +1536,7 @@ class _DebtorReportState extends State<DebtorReport> {
                   ),
                 ],
               ),
-              // content: SizedBox(
-              //   width: double.maxFinite,
-              //   height: MediaQuery.sizeOf(context).height * 0.72,
-              //   child: isLoading
-              //       ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
-              //       : transactions.isEmpty
-              //       ? Center(child: Text('No debt payments found', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.72))))
-              //       : Column(
-              //     crossAxisAlignment: CrossAxisAlignment.start,
-              //     children: [
-              //       Padding(
-              //         padding: const EdgeInsets.only(bottom: 12),
-              //         child: Wrap(
-              //           spacing: 10,
-              //           runSpacing: 8,
-              //           children: [
-              //             _chip(context, 'Transactions', '${transactions.length}'),
-              //             _chip(context, 'Total amount', 'GHS ${totalAmount.toStringAsFixed(2)}'),
-              //           ],
-              //         ),
-              //       ),
-              //       Expanded(
-              //         child: Scrollbar(
-              //           controller: _dvController,
-              //           thumbVisibility: true,
-              //           trackVisibility: true,
-              //           child: SingleChildScrollView(
-              //             controller: _dvController,
-              //             child: Scrollbar(
-              //               controller: _dhController,
-              //               thumbVisibility: true,
-              //               trackVisibility: true,
-              //               notificationPredicate: (n) => n.depth == 1,
-              //               child: SingleChildScrollView(
-              //                 controller: _dhController,
-              //                 scrollDirection: Axis.horizontal,
-              //                 child: DataTable(
-              //                   showCheckboxColumn: false,
-              //                   columnSpacing: 18,
-              //                   headingRowColor: MaterialStateProperty.all(Theme.of(context).colorScheme.surfaceVariant),
-              //                   dataRowColor: MaterialStateProperty.all(Theme.of(context).colorScheme.surface),
-              //                   headingTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              //                       color: Theme.of(context).colorScheme.onSurface,
-              //                       fontWeight: FontWeight.bold),
-              //                   columns: const [
-              //                     DataColumn(label: Text('#')),
-              //                     DataColumn(label: Text('Date')),
-              //                     DataColumn(label: Text('Customer')),
-              //                     DataColumn(label: Text('Amount')),
-              //                     DataColumn(label: Text('Payment')),
-              //                     DataColumn(label: Text('Reference')),
-              //                     DataColumn(label: Text('Staff')),
-              //                   ],
-              //                   rows: transactions.asMap().entries.map((entry) {
-              //                     final idx = entry.key;
-              //                     final tx = entry.value;
-              //                     return DataRow(
-              //                       cells: [
-              //                         DataCell(Text('${idx + 1}')),
-              //                         DataCell(Text(tx['date']?.toString() ?? '-')),
-              //                         DataCell(Text(tx['customername']?.toString() ?? '-')),
-              //                         DataCell(Text((tx['amount'] is num ? (tx['amount'] as num).toStringAsFixed(2) : double.tryParse(tx['amount']?.toString() ?? '0')?.toStringAsFixed(2)) ?? '0.00')),
-              //                         DataCell(Text(tx['paymentmethod']?.toString() ?? '-')),
-              //                         DataCell(Text(tx['reference']?.toString() ?? tx['id']?.toString() ?? '-')),
-              //                         DataCell(Text(tx['createdby']?.toString() ?? tx['staff']?.toString() ?? '-')),
-              //                       ],
-              //                     );
-              //                   }).toList(),
-              //                 ),
-              //               ),
-              //             ),
-              //           ),
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
+
               content: SizedBox(
                 width: double.maxFinite,
                 height: MediaQuery.sizeOf(context).height * 0.72,

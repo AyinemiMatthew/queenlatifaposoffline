@@ -443,7 +443,8 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
               : _borderColor,
         ),
       ),
-      child: Wrap(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Status dot
           Container(

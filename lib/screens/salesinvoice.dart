@@ -292,7 +292,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                         ),
                                       ),
                                       Text(
-                                        'GHS ${item['totalamount']}',
+                                        ' ${item['totalamount']}',
                                         style: TextStyle(
                                           color: _textColor,
                                           fontWeight: FontWeight.bold,
@@ -314,7 +314,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                         'Pieces in receipt',
                                         totalQty.toStringAsFixed(0),
                                       ),
-                                      _pair('Price', 'GHS ${item['price']}'),
+                                      _pair('Price(GHS)', ' ${item['price']}'),
                                       _pair('Discount', '${item['discount']}'),
                                       _pair(
                                         'Price Mode',
@@ -324,8 +324,8 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                       ),
                                       if (item['cp'] != null)
                                         _pair(
-                                          'Cost Price',
-                                          'GHS ${item['cp']}',
+                                          'Cost Price(GHS)',
+                                          ' ${item['cp']}',
                                         ),
                                       if (item['barcode'] != null)
                                         _pair('Barcode', '${item['barcode']}'),
@@ -341,7 +341,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'TOTAL AMOUNT',
+                                'TOTAL AMOUNT(GHS)',
                                 style: TextStyle(
                                   color: _mutedTextColor,
                                   fontSize: 11,
@@ -349,7 +349,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
                                 ),
                               ),
                               Text(
-                                'GHS ${numberFormat.format(totalamountt)}',
+                                ' ${numberFormat.format(totalamountt)}',
                                 style: TextStyle(
                                   color: _textColor,
                                   fontSize: 20,
@@ -686,7 +686,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
       _SalesColumn('Entry Date', 100),
       _SalesColumn('Trx Date', 100),
       _SalesColumn('Mode', 90),
-      _SalesColumn('Total', 100, numeric: true),
+      _SalesColumn('Total(GHS)', 100),
       _SalesColumn('Action', 90),
     ];
   }
@@ -933,8 +933,8 @@ class _SalesInvoiceState extends State<SalesInvoice> {
         style: TextStyle(color: _textColor, fontSize: 13),
       ),
       Text(
-        'GHS ${nf.format(total)}',
-        textAlign: TextAlign.right,
+        ' ${nf.format(total)}',
+        textAlign: TextAlign.center,
         style: TextStyle(color: _textColor, fontSize: 13),
       ),
       Row(
@@ -1099,7 +1099,7 @@ class _SalesInvoiceState extends State<SalesInvoice> {
 
                                 const Spacer(),
                                 Text(
-                                  'GHS ${nf.format(total)}',
+                                  ' ${nf.format(total)}',
                                   style: TextStyle(
                                     color: _textColor,
                                     fontWeight: FontWeight.w900,

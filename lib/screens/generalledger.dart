@@ -475,7 +475,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          "Opening Balance",
+                                                          "Opening Balance (GHS)",
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -483,7 +483,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          "Debit",
+                                                          "Debit (GHS)",
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -491,7 +491,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          "Credit",
+                                                          "Credit(GHS)",
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -499,7 +499,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          "Balance",
+                                                          "Balance(GHS)",
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
