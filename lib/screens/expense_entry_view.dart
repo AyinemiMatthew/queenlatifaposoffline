@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:excel/excel.dart' as xl;
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:intl/intl.dart';
@@ -30,24 +34,30 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
   final TextEditingController _searchController = TextEditingController();
   late Future<List<ExpenseEntryModel>> _expensesFuture;
 
+  // ---- pagination state (NEW) ----
+  int _page = 0;
+  int _pageSize = 10;
+  String _lastQuery = '';
+  static const List<int> _pageSizes = [10, 25, 50, 100];
+
   Future<List<ExpenseEntryModel>> _getExpenses() async {
     final datafeed = context.read<Datafeed>();
     final snapshot = await db.collection('expenses').get();
 
     return snapshot.docs
         .map((doc) {
-          final data = doc.data();
-          data['id'] = (data['id'] ?? '').toString().isNotEmpty
-              ? data['id']
-              : doc.id;
-          return ExpenseEntryModel.fromJson(data);
-        })
+      final data = doc.data();
+      data['id'] = (data['id'] ?? '').toString().isNotEmpty
+          ? data['id']
+          : doc.id;
+      return ExpenseEntryModel.fromJson(data);
+    })
         .where(
           (expense) =>
-              expense.deletedby.isEmpty &&
-              (datafeed.companyid.isEmpty ||
-                  expense.companyid == datafeed.companyid),
-        )
+      expense.deletedby.isEmpty &&
+          (datafeed.companyid.isEmpty ||
+              expense.companyid == datafeed.companyid),
+    )
         .toList()
       ..sort((a, b) {
         final aDate = a.expenseDate ?? a.date ?? DateTime(1900);
@@ -89,7 +99,6 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
   @override
   void initState() {
     getAll();
-
     super.initState();
     _expensesFuture = _getExpenses();
   }
@@ -119,9 +128,9 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
       final expenseDate = expense.expenseDate ?? expense.date;
       final matchesDate =
           _selectedDateRange == null ||
-          (expenseDate != null &&
-              !expenseDate.isBefore(_selectedDateRange!.start) &&
-              !expenseDate.isAfter(_selectedDateRange!.end));
+              (expenseDate != null &&
+                  !expenseDate.isBefore(_selectedDateRange!.start) &&
+                  !expenseDate.isAfter(_selectedDateRange!.end));
       return matchesQuery && matchesDate;
     }).toList();
 
@@ -147,13 +156,13 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
           data: theme.brightness == Brightness.dark
               ? theme
               : theme.copyWith(
-                  colorScheme: theme.colorScheme.copyWith(
-                    surface: Colors.white,
-                  ),
-                  dialogTheme: theme.dialogTheme.copyWith(
-                    backgroundColor: Colors.white,
-                  ),
-                ),
+            colorScheme: theme.colorScheme.copyWith(
+              surface: Colors.white,
+            ),
+            dialogTheme: theme.dialogTheme.copyWith(
+              backgroundColor: Colors.white,
+            ),
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420, maxHeight: 560),
@@ -167,60 +176,226 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     if (picked != null) {
       setState(() {
         _selectedDateRange = picked;
+        _page = 0; // NEW: back to the first page
       });
     }
   }
 
-  Future<void> _downloadExpenses(List<ExpenseEntryModel> expenses) async {
-    final rows = [
-      [
-        'Date',
-        'Expense',
-        'Category',
-        'Vendor',
-        'Amount',
-        'Payment Method',
-        'Receipt',
-        'Description',
-      ],
-      ...expenses.map((expense) {
-        final expenseDate =
-            expense.expenseDate ?? expense.date ?? DateTime.now();
-        return [
-          DateFormat('yyyy-MM-dd').format(expenseDate),
-          expense.expenseName,
-          expense.category,
-          expense.vendorName,
-          expense.amount.toStringAsFixed(2),
-          expense.paymentMethod,
-          expense.receiptNumber,
-          expense.description,
-        ];
-      }),
-    ];
 
-    final csv = rows
-        .map(
-          (row) => row
-              .map((cell) => '"${cell.toString().replaceAll('"', '""')}"')
-              .join(','),
-        )
-        .join('\n');
+  Future<void> _exportExpensesExcel(List<ExpenseEntryModel> items) async {
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nothing to export')),
+      );
+      return;
+    }
+    try {
+      final excel = xl.Excel.createExcel();
+      final sheet = excel['Expenses'];
+      excel.setDefaultSheet('Expenses');
+      excel.delete('Sheet1');
 
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File(
-      '${directory.path}/expenses_${DateFormat('yyyyMMdd_Hmmss').format(DateTime.now())}.csv',
+      xl.CellValue t(String v) => xl.TextCellValue(v);
+      xl.CellValue n(double v) => xl.DoubleCellValue(v);
+
+      sheet.appendRow([
+        t('Date'),
+        t('Invoice No.'),
+        t('Branch'),
+        t('Expense Name'),
+        t('Vendor'),
+        t('Category'),
+        t('Payment Method'),
+        t('Payment Account'),
+        t('Amount'),
+        t('Receipt No.'),
+        t('Description'),
+      ]);
+
+      double total = 0;
+      for (final e in items) {
+        final d = e.expenseDate ?? e.date ?? DateTime.now();
+        total += e.amount;
+        sheet.appendRow([
+          t(DateFormat('dd/MM/yyyy').format(d)),
+          t(e.createdAtTimestamp?.toString() ?? ''),
+          t(e.expensebranchName),
+          t(e.expenseName),
+          t(e.vendorName),
+          t(e.category),
+          t(e.paymentMethod),
+          t(e.subAccountName),
+          n(e.amount),
+          t(e.receiptNumber),
+          t(e.description),
+        ]);
+      }
+      sheet.appendRow([
+        t(''), t(''), t(''), t(''), t(''), t(''), t(''),
+        t('Total'),
+        n(total),
+      ]);
+
+      final out = excel.encode();
+      if (out == null) throw 'Could not build the Excel file';
+
+      await FileSaver.instance.saveFile(
+        name: 'expenses_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}',
+        bytes: Uint8List.fromList(out),
+        fileExtension: 'xlsx', // use `ext:` on file_saver 0.2.x
+        mimeType: MimeType.microsoftExcel,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Excel file saved'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Excel export failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // NEW: delete dialog moved out of the row so the 3-dot menu can call it.
+  Future<void> _confirmAndDelete(
+      ExpenseEntryModel expense,
+      ColorScheme colors,
+      bool isDark,
+      ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDark ? colors.surface : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Delete Expense',
+            style: TextStyle(color: colors.onSurface),
+          ),
+          content: Text(
+            'Delete ${expense.expenseName}?',
+            style: TextStyle(color: colors.onSurfaceVariant),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
-    await file.writeAsString(csv);
 
-    if (!mounted) return;
+    if (confirm == true) {
+      await _deleteExpense(expense);
+    }
+  }
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Downloaded to ${file.path}')));
+  // NEW: pagination footer used under both the table and the card list.
+  Widget _expensePager({
+    required int total,
+    required int page,
+    required ColorScheme colors,
+    required Color panelHeaderColor,
+    required Color secondaryTextColor,
+  }) {
+    final pages = total == 0 ? 1 : (total / _pageSize).ceil();
+    final start = total == 0 ? 0 : page * _pageSize + 1;
+    final end = total == 0 ? 0 : ((page + 1) * _pageSize).clamp(0, total);
 
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(file.path)], subject: 'Expense Entries'),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: panelHeaderColor,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+        border: Border(top: BorderSide(color: colors.outlineVariant)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        runSpacing: 2,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Rows per page',
+                style: TextStyle(color: secondaryTextColor, fontSize: 13),
+              ),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _pageSize,
+                underline: const SizedBox.shrink(),
+                borderRadius: BorderRadius.circular(12),
+                items: _pageSizes
+                    .map((e) => DropdownMenuItem(value: e, child: Text('$e')))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _pageSize = v;
+                      _page = 0;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$start-$end of $total',
+                style: TextStyle(color: secondaryTextColor, fontSize: 13),
+              ),
+              IconButton(
+                tooltip: 'First page',
+                onPressed: page > 0 ? () => setState(() => _page = 0) : null,
+                icon: const Icon(Icons.first_page_rounded),
+              ),
+              IconButton(
+                tooltip: 'Previous',
+                onPressed:
+                page > 0 ? () => setState(() => _page = page - 1) : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Text(
+                '${page + 1} / $pages',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              IconButton(
+                tooltip: 'Next',
+                onPressed: page < pages - 1
+                    ? () => setState(() => _page = page + 1)
+                    : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+              IconButton(
+                tooltip: 'Last page',
+                onPressed: page < pages - 1
+                    ? () => setState(() => _page = pages - 1)
+                    : null,
+                icon: const Icon(Icons.last_page_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -237,7 +412,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     for (final e in expenses) {
       categoryTotals.update(
         e.category,
-        (value) => value + e.amount,
+            (value) => value + e.amount,
         ifAbsent: () => e.amount,
       );
     }
@@ -423,60 +598,6 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
               ),
             ),
 
-            // pw.SizedBox(height: 30),
-            //
-            // /// =========================
-            // /// GRAND TOTAL BY CATEGORY
-            // /// =========================
-            // pw.Text(
-            //   'GRAND TOTAL BY CATEGORY',
-            //   style: pw.TextStyle(
-            //     fontSize: 14,
-            //     fontWeight: pw.FontWeight.bold,
-            //     color: PdfColors.blue900,
-            //   ),
-            // ),
-            //
-            // pw.SizedBox(height: 10),
-            //
-            // pw.TableHelper.fromTextArray(
-            //   border: pw.TableBorder.all(
-            //     color: PdfColors.grey300,
-            //   ),
-            //   headerDecoration:
-            //   const pw.BoxDecoration(
-            //     color: PdfColors.blue50,
-            //   ),
-            //   headers: const [
-            //     'Category',
-            //     'Amount',
-            //   ],
-            //   data: categoryTotals.entries
-            //       .map(
-            //         (e) => [
-            //       e.key,
-            //       NumberFormat.currency(
-            //         symbol: 'GHS ',
-            //       ).format(e.value),
-            //     ],
-            //   )
-            //       .toList(),
-            // ),
-            //
-            // pw.SizedBox(height: 40),
-            //
-            // pw.Divider(),
-            //
-            // /// =========================
-            // /// FOOTER
-            // /// =========================
-            // pw.Text(
-            //   'Generated on: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
-            //   style: const pw.TextStyle(
-            //     fontSize: 9,
-            //     color: PdfColors.grey600,
-            //   ),
-            // ),
           ];
         },
       ),
@@ -593,7 +714,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                         final dialogTheme = Theme.of(context);
                         return AlertDialog(
                           backgroundColor:
-                              dialogTheme.brightness == Brightness.dark
+                          dialogTheme.brightness == Brightness.dark
                               ? dialogTheme.colorScheme.surface
                               : Colors.white,
                           shape: RoundedRectangleBorder(
@@ -619,7 +740,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                             TextButton(
                               style: TextButton.styleFrom(
                                 foregroundColor:
-                                    dialogTheme.brightness == Brightness.dark
+                                dialogTheme.brightness == Brightness.dark
                                     ? Colors.white
                                     : dialogTheme.colorScheme.primary,
                               ),
@@ -773,7 +894,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                       _tableHeader('EXPENSE'),
                       _tableHeader('CATEGORY'),
                       _tableHeader('PAYMENT ACCOUNT'),
-                      _tableHeader('AMOUNT'),
+                      _tableHeader('AMOUNT (GHS)'),
                     ],
                   ),
                   pw.TableRow(
@@ -789,7 +910,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                       _tableCell(expense.subAccountName),
                       _tableCell(
                         NumberFormat.currency(
-                          symbol: 'GHS ',
+                          symbol: ''
                         ).format(expense.amount),
                       ),
                     ],
@@ -907,6 +1028,10 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
         ? const Color(0xFF22304A)
         : colors.surfaceContainerHighest;
     final amountColor = isDark ? Colors.white : Colors.green.shade800;
+    // NEW: stripe colour for alternate rows
+    final stripeColor = isDark
+        ? Colors.white.withValues(alpha: 0.04)
+        : colors.primary.withValues(alpha: 0.05);
 
     return Scaffold(
       backgroundColor: screenColor,
@@ -916,17 +1041,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
         foregroundColor: textColor,
         iconTheme: IconThemeData(color: textColor),
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(
-      //         builder: (_) => const ExpenseEntry(),
-      //       ),
-      //     ).then((_) => _refreshExpenses());
-      //   },
-      //   child: const Icon(Icons.add),
-      // ),
+
       body: FutureBuilder<List<ExpenseEntryModel>>(
         future: _expensesFuture,
         builder: (context, snapshot) {
@@ -972,7 +1087,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
 
           double amount = expenses.fold(
             0,
-            (total, expense) => total + expense.amount,
+                (total, expense) => total + expense.amount,
           );
 
           return Center(
@@ -991,7 +1106,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                             cursorColor: colors.primary,
                             decoration: InputDecoration(
                               hintText:
-                                  "Search expenses by name, category, vendor...",
+                              "Search expenses by name, category, vendor...",
                               hintStyle: TextStyle(
                                 color: secondaryTextColor,
                                 fontSize: 12,
@@ -1044,6 +1159,24 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                           ),
                           icon: const Icon(Icons.print_outlined),
                           onPressed: () => _printExpenses(_visibleExpenses),
+                        ),
+                        // NEW: Excel download button
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Download Excel',
+                          style: IconButton.styleFrom(
+                            foregroundColor: textColor,
+                            backgroundColor: actionBackgroundColor,
+                            disabledForegroundColor: colors.onSurface
+                                .withValues(alpha: 0.38),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: colors.outlineVariant),
+                            ),
+                          ),
+                          icon: const Icon(Icons.table_chart_outlined),
+                          onPressed: () =>
+                              _exportExpensesExcel(_visibleExpenses),
                         ),
                       ],
                     ),
@@ -1127,6 +1260,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                             onPressed: () {
                               setState(() {
                                 _selectedDateRange = null;
+                                _page = 0; // NEW
                               });
                             },
                             child: Text(
@@ -1143,6 +1277,13 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                     child: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _searchController,
                       builder: (context, value, child) {
+                        // NEW: a new search always starts from page 1
+                        final currentQuery = _searchController.text.trim();
+                        if (currentQuery != _lastQuery) {
+                          _lastQuery = currentQuery;
+                          _page = 0;
+                        }
+
                         final filtered = _filterExpenses(expenses);
                         _visibleExpenses = filtered;
 
@@ -1157,6 +1298,53 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                             ),
                           );
                         }
+
+                        // NEW: pagination over the filtered list
+                        final totalPages = (filtered.length / _pageSize).ceil();
+                        final page = totalPages == 0
+                            ? 0
+                            : (_page > totalPages - 1 ? totalPages - 1 : _page);
+                        final pageItems = filtered
+                            .skip(page * _pageSize)
+                            .take(_pageSize)
+                            .toList();
+                        final pager = _expensePager(
+                          total: filtered.length,
+                          page: page,
+                          colors: colors,
+                          panelHeaderColor: panelHeaderColor,
+                          secondaryTextColor: secondaryTextColor,
+                        );
+
+                        Widget headCell(String label, int flex) => Expanded(
+                          flex: flex,
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+
+                        Widget bodyCell(
+                            String text,
+                            int flex, {
+                              Color? color,
+                              FontWeight? weight,
+                            }) =>
+                            Expanded(
+                              flex: flex,
+                              child: Text(
+                                text,
+                                style: TextStyle(
+                                  color: color ?? secondaryTextColor,
+                                  fontWeight: weight,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
 
                         return Padding(
                           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -1218,22 +1406,24 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                             horizontal: 12,
                                             vertical: 8,
                                           ),
-                                          itemCount: filtered.length,
+                                          itemCount: pageItems.length,
                                           separatorBuilder: (_, __) =>
-                                              const SizedBox(height: 8),
+                                          const SizedBox(height: 8),
                                           itemBuilder: (context, index) {
                                             return _buildExpenseCard(
-                                              filtered[index],
+                                              pageItems[index],
                                             );
                                           },
                                         ),
                                       ),
+                                      pager,
                                     ],
                                   );
                                 }
 
                                 return Column(
                                   children: [
+                                    // ---------------- Table header ----------------
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
@@ -1252,100 +1442,20 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                       ),
                                       child: Row(
                                         children: [
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Date',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Invoice No.',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Branch',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Expense Name',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Vendor',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Category',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Payment Method',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Payment Account',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Amount',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
+                                          headCell('Date', 3),
+                                          headCell('Invoice No.', 3),
+                                          headCell('Branch', 3),
+                                          headCell('Expense Name', 3),
+                                          headCell('Vendor', 3),
+                                          headCell('Category', 3),
+                                          headCell('Payment Method', 2),
+                                          headCell('Payment Account', 2),
+                                          headCell('Amount (GHS)', 2),
                                           SizedBox(
-                                            width: 112,
+                                            width: 56,
                                             child: Text(
                                               'Actions',
+                                              textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 color: textColor,
                                                 fontWeight: FontWeight.bold,
@@ -1355,296 +1465,193 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                         ],
                                       ),
                                     ),
+
+                                    // ---------------- Striped rows (this page) ----------------
                                     Expanded(
                                       child: ListView.separated(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 4,
-                                        ),
-                                        itemCount: filtered.length,
+                                        padding: EdgeInsets.zero,
+                                        itemCount: pageItems.length,
                                         separatorBuilder: (_, __) => Divider(
                                           height: 1,
                                           color: colors.outlineVariant,
                                         ),
                                         itemBuilder: (context, index) {
-                                          final expense = filtered[index];
+                                          final expense = pageItems[index];
                                           final expenseDate =
                                               expense.expenseDate ??
-                                              expense.date ??
-                                              DateTime.now();
-                                          return Padding(
+                                                  expense.date ??
+                                                  DateTime.now();
+
+                                          return Container(
+                                            color: index.isEven
+                                                ? Colors.transparent
+                                                : stripeColor,
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 12,
-                                              vertical: 10,
+                                              vertical: 8,
                                             ),
                                             child: Row(
                                               crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                              CrossAxisAlignment.center,
                                               children: [
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Text(
-                                                    DateFormat(
-                                                      'dd/MM/yyyy',
-                                                    ).format(expenseDate),
-                                                    style: TextStyle(
-                                                      color: secondaryTextColor,
-                                                    ),
-                                                  ),
+                                                bodyCell(
+                                                  DateFormat(
+                                                    'dd/MM/yyyy',
+                                                  ).format(expenseDate),
+                                                  3,
                                                 ),
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Text(
-                                                    expense.createdAtTimestamp
-                                                            ?.toString() ??
-                                                        '',
-                                                    style: TextStyle(
-                                                      color: textColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
+                                                bodyCell(
+                                                  expense.createdAtTimestamp
+                                                      ?.toString() ??
+                                                      '',
+                                                  3,
+                                                  color: textColor,
                                                 ),
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Text(
-                                                    expense.expensebranchName,
-                                                    style: TextStyle(
-                                                      color: textColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                    TextOverflow.ellipsis,
-                                                  ),
+                                                bodyCell(
+                                                  expense.expensebranchName,
+                                                  3,
+                                                  color: textColor,
                                                 ),
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Text(
-                                                    expense.expenseName,
-                                                    style: TextStyle(
-                                                      color: textColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
+                                                bodyCell(
+                                                  expense.expenseName,
+                                                  3,
+                                                  color: textColor,
                                                 ),
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Text(
-                                                    expense.vendorName,
-                                                    style: TextStyle(
-                                                      color: secondaryTextColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
+                                                bodyCell(expense.vendorName, 3),
+                                                bodyCell(expense.category, 3),
+                                                bodyCell(
+                                                  expense.paymentMethod,
+                                                  2,
                                                 ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Text(
-                                                    expense.category,
-                                                    style: TextStyle(
-                                                      color: secondaryTextColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
+                                                bodyCell(
+                                                  expense.subAccountName,
+                                                  2,
                                                 ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Text(
-                                                    expense.paymentMethod,
-                                                    style: TextStyle(
-                                                      color: secondaryTextColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
+                                                bodyCell(
+                                                  NumberFormat.currency(
+                                                    symbol: '',
+                                                  ).format(expense.amount),
+                                                  2,
+                                                  color: amountColor,
+                                                  weight: FontWeight.bold,
                                                 ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Text(
-                                                    expense.subAccountName,
-                                                    style: TextStyle(
-                                                      color: secondaryTextColor,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Text(
-                                                    NumberFormat.currency(
-                                                      symbol: '₵',
-                                                    ).format(expense.amount),
-                                                    style: TextStyle(
-                                                      color: amountColor,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
+
+                                                // ---------------- 3-dot actions menu ----------------
                                                 SizedBox(
-                                                  width: 112,
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      if (datafeed.canEdit(
-                                                        AppModules.accounts,
-                                                      ))
-                                                        IconButton(
-                                                          tooltip: 'Edit',
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                2,
-                                                              ),
-                                                          constraints:
-                                                              const BoxConstraints(
-                                                                minWidth: 28,
-                                                                minHeight: 28,
-                                                              ),
-                                                          iconSize: 18,
-                                                          icon: const Icon(
-                                                            Icons.edit,
-                                                            color:
-                                                                Colors.orange,
-                                                          ),
-                                                          onPressed: () {
+                                                  width: 56,
+                                                  child: Center(
+                                                    child: PopupMenuButton<String>(
+                                                      tooltip: 'Actions',
+                                                      icon: Icon(
+                                                        Icons.more_vert,
+                                                        color:
+                                                        secondaryTextColor,
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                      shape:
+                                                      RoundedRectangleBorder(
+                                                        borderRadius:
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
+                                                      ),
+                                                      onSelected: (value) async {
+                                                        switch (value) {
+                                                          case 'edit':
                                                             Navigator.push(
                                                               context,
                                                               MaterialPageRoute(
                                                                 builder: (_) =>
                                                                     ExpenseEntry(
                                                                       expense:
-                                                                          expense,
+                                                                      expense,
                                                                     ),
                                                               ),
                                                             ).then(
-                                                              (_) =>
+                                                                  (_) =>
                                                                   _refreshExpenses(),
                                                             );
-                                                          },
-                                                        ),
-                                                      if (datafeed.canDelete(
-                                                        AppModules.accounts,
-                                                      ))
-                                                        IconButton(
-                                                          tooltip: 'Delete',
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                2,
-                                                              ),
-                                                          constraints:
-                                                              const BoxConstraints(
-                                                                minWidth: 28,
-                                                                minHeight: 28,
-                                                              ),
-                                                          iconSize: 18,
-                                                          icon: const Icon(
-                                                            Icons
-                                                                .delete_forever,
-                                                            color: Colors.red,
-                                                          ),
-                                                          onPressed: () async {
-                                                            final confirm = await showDialog<bool>(
-                                                              context: context,
-                                                              builder: (context) {
-                                                                return AlertDialog(
-                                                                  backgroundColor:
-                                                                      isDark
-                                                                      ? colors
-                                                                            .surface
-                                                                      : Colors
-                                                                            .white,
-                                                                  shape: RoundedRectangleBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          16,
-                                                                        ),
-                                                                  ),
-                                                                  title: Text(
-                                                                    'Delete Expense',
-                                                                    style: TextStyle(
-                                                                      color: colors
-                                                                          .onSurface,
-                                                                    ),
-                                                                  ),
-                                                                  content: Text(
-                                                                    'Delete ${expense.expenseName}?',
-                                                                    style: TextStyle(
-                                                                      color: colors
-                                                                          .onSurfaceVariant,
-                                                                    ),
-                                                                  ),
-                                                                  actions: [
-                                                                    TextButton(
-                                                                      onPressed: () =>
-                                                                          Navigator.pop(
-                                                                            context,
-                                                                            false,
-                                                                          ),
-                                                                      child: const Text(
-                                                                        'Cancel',
-                                                                      ),
-                                                                    ),
-                                                                    ElevatedButton(
-                                                                      style: ElevatedButton.styleFrom(
-                                                                        backgroundColor:
-                                                                            Colors.red,
-                                                                      ),
-                                                                      onPressed: () =>
-                                                                          Navigator.pop(
-                                                                            context,
-                                                                            true,
-                                                                          ),
-                                                                      child: const Text(
-                                                                        'Delete',
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                );
-                                                              },
+                                                            break;
+                                                          case 'delete':
+                                                            await _confirmAndDelete(
+                                                              expense,
+                                                              colors,
+                                                              isDark,
                                                             );
-
-                                                            if (confirm ==
-                                                                true) {
-                                                              await _deleteExpense(
-                                                                expense,
-                                                              );
-                                                            }
-                                                          },
-                                                        ),
-
-                                                      IconButton(
-                                                        tooltip: 'Print',
-                                                        padding:
-                                                            const EdgeInsets.all(
-                                                              2,
-                                                            ),
-                                                        constraints:
-                                                            const BoxConstraints(
-                                                              minWidth: 28,
-                                                              minHeight: 28,
-                                                            ),
-                                                        iconSize: 18,
-                                                        icon: Icon(
-                                                          Icons.print_outlined,
-                                                          color:
-                                                              secondaryTextColor,
-                                                        ),
-                                                        onPressed: () =>
+                                                            break;
+                                                          case 'print':
                                                             _printExpenseInvoice(
                                                               expense,
+                                                            );
+                                                            break;
+                                                        }
+                                                      },
+                                                      itemBuilder: (_) => [
+                                                        if (datafeed.canEdit(
+                                                          AppModules.accounts,
+                                                        ))
+                                                          const PopupMenuItem<
+                                                              String
+                                                          >(
+                                                            value: 'edit',
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(
+                                                                  Icons.edit,
+                                                                  color: Colors
+                                                                      .orange,
+                                                                  size: 18,
+                                                                ),
+                                                                SizedBox(
+                                                                  width: 10,
+                                                                ),
+                                                                Text('Edit'),
+                                                              ],
                                                             ),
-                                                      ),
-                                                    ],
+                                                          ),
+                                                        if (datafeed.canDelete(
+                                                          AppModules.accounts,
+                                                        ))
+                                                          const PopupMenuItem<
+                                                              String
+                                                          >(
+                                                            value: 'delete',
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .delete_forever,
+                                                                  color:
+                                                                  Colors.red,
+                                                                  size: 18,
+                                                                ),
+                                                                SizedBox(
+                                                                  width: 10,
+                                                                ),
+                                                                Text('Delete'),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        const PopupMenuItem<
+                                                            String
+                                                        >(
+                                                          value: 'print',
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons
+                                                                    .print_outlined,
+                                                                size: 18,
+                                                              ),
+                                                              SizedBox(
+                                                                width: 10,
+                                                              ),
+                                                              Text('Print'),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ],
@@ -1653,6 +1660,9 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                         },
                                       ),
                                     ),
+
+                                    // ---------------- Pagination footer ----------------
+                                    pager,
                                   ],
                                 );
                               },
@@ -1671,7 +1681,6 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
     );
   }
 }
-
 pw.Widget _infoRow(String title, String value) {
   return pw.Padding(
     padding: const pw.EdgeInsets.only(bottom: 4),

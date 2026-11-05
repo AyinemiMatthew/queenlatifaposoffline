@@ -544,8 +544,7 @@ class Datafeed extends ChangeNotifier {
   List<CustomerRegModel> customerlist = [];
   List<damageitemmodel> damages = [];
   bool isloadingdamages = false;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
-  _connectionStatusSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _connectionStatusSub;
 
   List<salereturn> salesreturn = [];
   List<SalesModel> salesview = [];
@@ -740,7 +739,7 @@ class Datafeed extends ChangeNotifier {
         credit = (data['credit'] as num?)?.toDouble() ?? 0;
 
         // Everything except credit is considered cash
-        cash = (totalToday - credit)-discount;
+        cash = (totalToday - credit) - discount;
         momo = 0;
 
         final branches = Map<String, dynamic>.from(data['branchSummary'] ?? {});
@@ -763,7 +762,7 @@ class Datafeed extends ChangeNotifier {
           credit = (branch['credit'] as num?)?.toDouble() ?? 0;
 
           // Everything except credit is considered cash
-          cash = (totalToday - credit) -discount;
+          cash = (totalToday - credit) - discount;
           momo = 0;
 
           branchTotals[branch['branchName'] ?? branchid] = totalToday;
@@ -1121,7 +1120,6 @@ class Datafeed extends ChangeNotifier {
   Future<void> _initItemCache() async {
     try {
       await itemCache.init();
-      debugPrint('Item cache initialized');
     } catch (e) {
       debugPrint('Error initializing item cache: $e');
     }
@@ -1307,10 +1305,7 @@ class Datafeed extends ChangeNotifier {
   }) async {
     isloadingdamages = true;
     final locallyPendingDamages = damages
-        .where(
-          (damage) =>
-              damage.pendingSync && damage.companyid == companyid,
-        )
+        .where((damage) => damage.pendingSync && damage.companyid == companyid)
         .toList();
     damages = locallyPendingDamages;
     notifyListeners();
@@ -1428,10 +1423,7 @@ class Datafeed extends ChangeNotifier {
     String? selectedBranch,
   }) async {
     final locallyPendingReturns = salesreturn
-        .where(
-          (record) =>
-              record.pendingSync && record.companyid == companyid,
-        )
+        .where((record) => record.pendingSync && record.companyid == companyid)
         .toList();
     try {
       isloadingsalesreturn = true;
@@ -3659,12 +3651,10 @@ class Datafeed extends ChangeNotifier {
     final startStr = _toDateOnly(startDate);
     final endStr = _toDateOnly(endDate);
 
-
     final openingQuery = db
         .collection('stockreport')
         .where('companyid', isEqualTo: companyid)
         .where('summarydate', isLessThan: startStr);
-
 
     final currentQuery = db
         .collection('stockreport')
@@ -5274,9 +5264,57 @@ class Datafeed extends ChangeNotifier {
     }
   }
 
-  login(String email, String password, BuildContext context) async {
+  Future<void> _clearSalesBranchOverride(SharedPreferences prefs) async {
+    await prefs.remove('salesBranchOverrideEmail');
+    await prefs.remove('salesBranchOverrideCompanyId');
+    await prefs.remove('salesBranchOverrideId');
+  }
+
+  Future<void> _clearTemporarySalesBranch(SharedPreferences prefs) async {
+    await prefs.remove('salesPageOriginalBranchId');
+    await prefs.remove('salesPageOriginalBranch');
+    await prefs.remove('salesPageOriginalBranchType');
+    await prefs.remove('salesPageOriginalBranchAddress');
+    await prefs.remove('salesPageOriginalBranchPhone');
+    await prefs.remove('salesPageBranchTemporary');
+  }
+
+  Future<void> _restoreTemporarySalesBranch(SharedPreferences prefs) async {
+    if (prefs.getBool('salesPageBranchTemporary') != true) return;
+
+    final id = prefs.getString('salesPageOriginalBranchId') ?? '';
+    if (id.isNotEmpty) {
+      await prefs.setString('branchid', id);
+      await prefs.setString(
+        'branch',
+        prefs.getString('salesPageOriginalBranch') ?? '',
+      );
+      await prefs.setString(
+        'branchtype',
+        prefs.getString('salesPageOriginalBranchType') ?? '',
+      );
+      await prefs.setString(
+        'branchaddress',
+        prefs.getString('salesPageOriginalBranchAddress') ?? '',
+      );
+      await prefs.setString(
+        'branchphone',
+        prefs.getString('salesPageOriginalBranchPhone') ?? '',
+      );
+    }
+
+    await _clearTemporarySalesBranch(prefs);
+    await _clearSalesBranchOverride(prefs);
+  }
+
+  Future<void> login(
+    String email,
+    String password,
+    BuildContext context,
+  ) async {
     final spref = await SharedPreferences.getInstance();
     try {
+      await _restoreTemporarySalesBranch(spref);
       await auth.signInWithEmailAndPassword(email: email, password: password);
       authenticated = true;
       final userDoc = await db
@@ -5314,10 +5352,14 @@ class Datafeed extends ChangeNotifier {
             .doc(currentStaff!.branchid.toString().toLowerCase())
             .get();
         if (branchdata.exists) {
-          selectedBranch = BranchModel.fromJson(branchdata.data()!);
+          selectedBranch = BranchModel.fromFirestore(branchdata);
         } else {
           throw Exception("Branch data not found");
         }
+        await _clearSalesBranchOverride(spref);
+        branchtype = selectedBranch!.branchtype;
+        branchaddress = selectedBranch!.address;
+        branchphone = selectedBranch!.branchcontact;
 
         if (companydoc.exists) {
           currentCompany = CompanyModel.fromMap(companydoc.data()!);
@@ -5343,8 +5385,8 @@ class Datafeed extends ChangeNotifier {
         spref.setString('companyemail', currentCompany!.email);
         spref.setString('companytype', currentCompany!.type);
         spref.setInt('staffPosition', currentStaff!.position);
-        spref.setString('branch', currentStaff!.branchname);
-        spref.setString('branchid', currentStaff!.branchid);
+        spref.setString('branch', branch);
+        spref.setString('branchid', branchid);
         spref.setString('branchtype', selectedBranch!.branchtype);
         spref.setString('branchaddress', selectedBranch!.address);
         spref.setString('branchphone', selectedBranch!.branchcontact);
@@ -5392,8 +5434,8 @@ class Datafeed extends ChangeNotifier {
         'companyId': currentStaff!.companyid,
         'staffEmail': currentStaff!.email,
         'staffName': currentStaff!.name,
-        'branchId': currentStaff!.branchid,
-        'branchName': currentStaff!.branchname,
+        'branchId': branchid,
+        'branchName': branch,
         'loginTime': FieldValue.serverTimestamp(),
         'logoutTime': null,
         'status': 'logged_in',
@@ -5498,10 +5540,14 @@ class Datafeed extends ChangeNotifier {
           .doc(currentStaff!.branchid.toString().toLowerCase())
           .get();
       if (branchdata.exists) {
-        selectedBranch = BranchModel.fromJson(branchdata.data()!);
+        selectedBranch = BranchModel.fromFirestore(branchdata);
       } else {
         throw Exception("Branch data not found");
       }
+      await _clearSalesBranchOverride(spref);
+      branchtype = selectedBranch!.branchtype;
+      branchaddress = selectedBranch!.address;
+      branchphone = selectedBranch!.branchcontact;
 
       spref.setString('email', currentStaff!.email);
       spref.setString('accesslevel', currentStaff!.accesslevel);
@@ -5514,8 +5560,8 @@ class Datafeed extends ChangeNotifier {
       spref.setString('companyemail', currentCompany!.email);
       spref.setString('companytype', currentCompany?.type ?? 'both');
       spref.setInt('staffPosition', currentStaff!.position);
-      spref.setString('branch', currentStaff!.branchname);
-      spref.setString('branchid', currentStaff!.branchid);
+      spref.setString('branch', branch);
+      spref.setString('branchid', branchid);
       spref.setString('branchtype', selectedBranch!.branchtype);
       spref.setString('branchaddress', selectedBranch!.address);
       spref.setString('branchphone', selectedBranch!.branchcontact);
@@ -5656,6 +5702,8 @@ class Datafeed extends ChangeNotifier {
   getdata() async {
     try {
       final spref = await SharedPreferences.getInstance();
+      await _restoreTemporarySalesBranch(spref);
+      await _clearSalesBranchOverride(spref);
       company = spref.getString('company') ?? '';
       companyid = spref.getString('companyid') ?? '';
       companytype = spref.getString('companytype') ?? '';
@@ -6996,17 +7044,11 @@ class Datafeed extends ChangeNotifier {
     notifyListeners();
 
     try {
-      Query query;
-
+      Query query = db
+          .collection('banktransfers')
+          .where("companyId", isEqualTo: companyid);
       if (sbranch != null && sbranch.isNotEmpty) {
-        query = db
-            .collection('banktransfers')
-            .where("companyId", isEqualTo: companyid)
-            .where("branchId", isEqualTo: sbranch);
-      } else {
-        query = db
-            .collection('banktransfers')
-            .where("companyId", isEqualTo: companyid);
+        query = query.where("branchId", isEqualTo: sbranch);
       }
 
       if (dateRange != null) {
@@ -7331,11 +7373,50 @@ class Datafeed extends ChangeNotifier {
     }
   }
 
-  void setBranch(String id, String name, String address, String phone) {
+  Future<void> setBranch(
+    String id,
+    String name,
+    String address,
+    String phone, {
+    required String type,
+    bool temporarySalesSwitch = false,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (temporarySalesSwitch &&
+        prefs.getBool('salesPageBranchTemporary') != true) {
+      await prefs.setString('salesPageOriginalBranchId', branchid);
+      await prefs.setString('salesPageOriginalBranch', branch);
+      await prefs.setString('salesPageOriginalBranchType', branchtype);
+      await prefs.setString('salesPageOriginalBranchAddress', branchaddress);
+      await prefs.setString('salesPageOriginalBranchPhone', branchphone);
+      await prefs.setBool('salesPageBranchTemporary', true);
+    }
+    await prefs.setString('branchid', id);
+    await prefs.setString('branch', name);
+    await prefs.setString('branchtype', type);
+    await prefs.setString('branchaddress', address);
+    await prefs.setString('branchphone', phone);
+    if (temporarySalesSwitch) {
+      await _clearSalesBranchOverride(prefs);
+    } else {
+      await _clearTemporarySalesBranch(prefs);
+      await _clearSalesBranchOverride(prefs);
+    }
+
     branchid = id;
     branch = name;
+    branchtype = type;
     branchaddress = address;
     branchphone = phone;
+    selectedBranch = BranchModel(
+      id: id,
+      branchname: name,
+      branchtype: type,
+      address: address,
+      branchcontact: phone,
+      companyid: companyid,
+      companyemail: companyemail,
+    );
     notifyListeners();
   }
 
@@ -10217,10 +10298,27 @@ class Datafeed extends ChangeNotifier {
 
             final updated = StaffModel.fromMap(doc.data()!);
             final spref = await SharedPreferences.getInstance();
+            await _clearSalesBranchOverride(spref);
+            BranchModel? effectiveBranch;
+            if (selectedBranch?.id != updated.branchid) {
+              final branchDoc = await db
+                  .collection('branches')
+                  .doc(updated.branchid.toLowerCase())
+                  .get();
+              if (branchDoc.exists) {
+                effectiveBranch = BranchModel.fromFirestore(branchDoc);
+              }
+            }
 
             currentStaff = updated;
-            branch = updated.branchname;
-            branchid = updated.branchid;
+            branch = effectiveBranch?.branchname ?? updated.branchname;
+            branchid = effectiveBranch?.id ?? updated.branchid;
+            if (effectiveBranch != null) {
+              selectedBranch = effectiveBranch;
+              branchtype = effectiveBranch.branchtype;
+              branchaddress = effectiveBranch.address;
+              branchphone = effectiveBranch.branchcontact;
+            }
             canPrint = updated.canPrint;
             canEditPrice = updated.canEditPrice;
             canSelectDate = updated.canSelectDate;
@@ -10251,8 +10349,11 @@ class Datafeed extends ChangeNotifier {
             spref.setString('accesslevel', accesslevel);
             spref.setString('accessLevel', accesslevel);
             spref.setString('staff', staff);
-            spref.setString('branch', branch);
-            spref.setString('branchid', branchid);
+            await spref.setString('branch', branch);
+            await spref.setString('branchid', branchid);
+            await spref.setString('branchtype', branchtype);
+            await spref.setString('branchaddress', branchaddress);
+            await spref.setString('branchphone', branchphone);
             spref.setInt('staffPosition', staffPosition);
             spref.setBool('canPrint', canPrint);
             spref.setBool('canEditPrice', canEditPrice);

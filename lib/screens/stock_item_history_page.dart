@@ -14,6 +14,8 @@ class _DetailColumn {
 
 enum _HistoryColumn { entryDate, recordId }
 
+enum _HistoryAction { print, pdf, entryDate, recordId, excel }
+
 class StockItemHistoryPage extends StatefulWidget {
   final String itemId;
   final String itemName;
@@ -48,8 +50,8 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
   int _page = 0;
   bool _loading = true;
   bool _searchExpanded = false;
-  bool _showEntryDate = false;
-  bool _showRecordId = false;
+  bool _showEntryDate = true;
+  bool _showRecordId = true;
 
   ColorScheme get _colors => Theme.of(context).colorScheme;
   Color get _surfaceColor => _colors.surface;
@@ -75,6 +77,12 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
       ),
     ],
   );
+
+  String _formatEntryDate(String? value) {
+    if (value == null || value.trim().isEmpty) return '-';
+    final parsed = DateTime.tryParse(value);
+    return parsed == null ? value : DateFormat('dd MMM yyyy').format(parsed);
+  }
 
   void _closeSearch(Datafeed datafeed) {
     _search.clear();
@@ -170,10 +178,57 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
     }
   }
 
+  void _performHistoryAction(_HistoryAction action, Datafeed datafeed) {
+    switch (action) {
+      case _HistoryAction.print:
+        _run(
+          'Print failed',
+          () => printItemHistory(
+            context,
+            entries: datafeed.itemHistoryEntries,
+            itemName: widget.itemName,
+            dateLabel: _dateLabel,
+            companyName: datafeed.company,
+          ),
+        );
+        return;
+      case _HistoryAction.pdf:
+        _run(
+          'PDF download failed',
+          () => downloadItemHistoryPdf(
+            entries: datafeed.itemHistoryEntries,
+            itemName: widget.itemName,
+            dateLabel: _dateLabel,
+            companyName: datafeed.company,
+          ),
+        );
+        return;
+      case _HistoryAction.entryDate:
+        setState(() {
+          _showEntryDate = !_showEntryDate;
+        });
+        return;
+      case _HistoryAction.recordId:
+        setState(() => _showRecordId = !_showRecordId);
+        return;
+      case _HistoryAction.excel:
+        _run(
+          'Excel export failed',
+          () => exportItemHistoryExcel(
+            entries: datafeed.itemHistoryEntries,
+            itemName: widget.itemName,
+            dateLabel: _dateLabel,
+            companyName: datafeed.company,
+          ),
+        );
+        return;
+    }
+  }
+
   Widget _mobileList(List<ItemHistoryEntry> pagedEntries) {
     return ListView.builder(
       controller: _vc,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       itemCount: pagedEntries.length,
       itemBuilder: (_, i) {
         final t = pagedEntries[i];
@@ -181,99 +236,202 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
         final box = widget.boxpieces ?? 1;
         final double cartonqty = widget.boxpieces == 0 ? 0 : qty / box;
         final dateStr = t.date != null
-            ? DateFormat('dd MMM yyyy  hh:mm a').format(t.date!)
+            ? DateFormat('dd MMM yyyy, hh:mm a').format(t.date!)
             : '-';
+        final entryDate = _formatEntryDate(t.invoiceDate);
+        final movementColor = _typeColor(t.type);
         return Card(
           color: _surfaceColor,
+          elevation: 0,
           margin: const EdgeInsets.symmetric(vertical: 6),
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: _borderColor),
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: _typeColor(t.type).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        color: movementColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: _typeColor(t.type).withValues(alpha: 0.5),
+                          color: movementColor.withValues(alpha: 0.35),
                         ),
                       ),
                       child: Text(
                         t.type,
                         style: TextStyle(
-                          color: _typeColor(t.type),
+                          color: movementColor,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     const Spacer(),
-                    Text(
-                      dateStr,
-                      style: TextStyle(
-                        color: _secondaryTextColor,
-                        fontSize: 11,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'TRANSACTION DATE',
+                            style: TextStyle(
+                              color: _secondaryTextColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            dateStr,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              color: _secondaryTextColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'QUANTITY',
+                            style: TextStyle(
+                              color: _secondaryTextColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${t.sign}${_quantityFormat.format(t.qty)} pcs',
+                            style: TextStyle(
+                              color: _signColor(t.sign),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${t.sign}${_quantityFormat.format(cartonqty)} Carton',
+                            style: TextStyle(
+                              color: _signColor(t.sign),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'TOTAL',
+                          style: TextStyle(
+                            color: _secondaryTextColor,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'GHS ${t.total.toStringAsFixed(2)}',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: _textColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Divider(height: 1, color: _borderColor),
                 const SizedBox(height: 10),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '${t.sign}${_quantityFormat.format(t.qty)} pcs',
-                      style: TextStyle(
-                        color: _signColor(t.sign),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    Icon(
+                      Icons.storefront_outlined,
+                      size: 15,
+                      color: _secondaryTextColor,
                     ),
-                    Text(
-                      'GHS ${t.total.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: _textColor,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        t.branch,
+                        style: TextStyle(
+                          color: _textColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  '${t.sign}${_quantityFormat.format(cartonqty)} Carton',
-                  style: TextStyle(
-                    color: _signColor(t.sign),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                if (t.staff.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 15,
+                        color: _secondaryTextColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          t.staff,
+                          style: TextStyle(
+                            color: _secondaryTextColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${t.branch} - ${t.staff}',
-                  style: TextStyle(color: _secondaryTextColor, fontSize: 11),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 20,
-                  runSpacing: 8,
-                  children: [
-                    if (_showEntryDate)
-                      _historyDetail('Entry Date', t.invoiceDate ?? '-'),
-                  ],
-                ),
-                if (_showRecordId && t.transactionid.isNotEmpty)
-                  Text(
-                    'Ref: ${t.transactionid}',
-                    style: TextStyle(color: _secondaryTextColor, fontSize: 11),
+                ],
+                if (_showEntryDate ||
+                    (_showRecordId && t.transactionid.isNotEmpty)) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 20,
+                    runSpacing: 10,
+                    children: [
+                      if (_showEntryDate)
+                        _historyDetail('ENTRY DATE', entryDate),
+                      if (_showRecordId && t.transactionid.isNotEmpty)
+                        _historyDetail('REFERENCE', t.transactionid),
+                    ],
                   ),
+                ],
               ],
             ),
           ),
@@ -665,71 +823,101 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                   onPressed: () => setState(() => _searchExpanded = true),
                   icon: const Icon(Icons.search),
                 ),
-                IconButton(
-                  tooltip: 'Print',
-                  icon: const Icon(Icons.print_outlined, size: 20),
-                  onPressed: () => _run(
-                    'Print failed',
-                    () => printItemHistory(
-                      context,
-                      entries: datafeed.itemHistoryEntries,
-                      itemName: widget.itemName,
-                      dateLabel: _dateLabel,
-                      companyName: datafeed.company,
-                    ),
+                if (isSmall)
+                  PopupMenuButton<_HistoryAction>(
+                    tooltip: 'More actions',
+                    onSelected: (action) =>
+                        _performHistoryAction(action, datafeed),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: _HistoryAction.print,
+                        child: ListTile(
+                          leading: Icon(Icons.print_outlined),
+                          title: Text('Print'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _HistoryAction.pdf,
+                        child: ListTile(
+                          leading: Icon(Icons.picture_as_pdf_outlined),
+                          title: Text('Download PDF'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      CheckedPopupMenuItem(
+                        checked: _showEntryDate,
+                        value: _HistoryAction.entryDate,
+                        child: const ListTile(
+                          leading: Icon(Icons.event_outlined),
+                          title: Text('Entry date'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      CheckedPopupMenuItem(
+                        checked: _showRecordId,
+                        value: _HistoryAction.recordId,
+                        child: const ListTile(
+                          leading: Icon(Icons.tag_outlined),
+                          title: Text('Reference'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: _HistoryAction.excel,
+                        child: ListTile(
+                          leading: Icon(Icons.grid_on_outlined),
+                          title: Text('Download Excel'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  IconButton(
+                    tooltip: 'Print',
+                    icon: const Icon(Icons.print_outlined, size: 20),
+                    onPressed: () =>
+                        _performHistoryAction(_HistoryAction.print, datafeed),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Download PDF',
-                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
-                  onPressed: () => _run(
-                    'PDF download failed',
-                    () => downloadItemHistoryPdf(
-                      entries: datafeed.itemHistoryEntries,
-                      itemName: widget.itemName,
-                      dateLabel: _dateLabel,
-                      companyName: datafeed.company,
-                    ),
+                  IconButton(
+                    tooltip: 'Download PDF',
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
+                    onPressed: () =>
+                        _performHistoryAction(_HistoryAction.pdf, datafeed),
                   ),
-                ),
-                PopupMenuButton<_HistoryColumn>(
-                  tooltip: 'Show or hide columns',
-                  icon: const Icon(Icons.view_column_outlined, size: 20),
-                  onSelected: (column) {
-                    setState(() {
-                      if (column == _HistoryColumn.entryDate) {
-                        _showEntryDate = !_showEntryDate;
-                      } else {
-                        _showRecordId = !_showRecordId;
-                      }
-                    });
-                  },
-                  itemBuilder: (context) => [
-                    CheckedPopupMenuItem<_HistoryColumn>(
-                      value: _HistoryColumn.entryDate,
-                      checked: _showEntryDate,
-                      child: const Text('Entry Date'),
-                    ),
-                    CheckedPopupMenuItem<_HistoryColumn>(
-                      value: _HistoryColumn.recordId,
-                      checked: _showRecordId,
-                      child: const Text('Record ID'),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  tooltip: 'Download Excel',
-                  icon: const Icon(Icons.grid_on_outlined, size: 20),
-                  onPressed: () => _run(
-                    'Excel export failed',
-                    () => exportItemHistoryExcel(
-                      entries: datafeed.itemHistoryEntries,
-                      itemName: widget.itemName,
-                      dateLabel: _dateLabel,
-                      companyName: datafeed.company,
-                    ),
+                  PopupMenuButton<_HistoryColumn>(
+                    tooltip: 'Show or hide columns',
+                    icon: const Icon(Icons.view_column_outlined, size: 20),
+                    onSelected: (column) {
+                      setState(() {
+                        if (column == _HistoryColumn.entryDate) {
+                          _showEntryDate = !_showEntryDate;
+                        } else {
+                          _showRecordId = !_showRecordId;
+                        }
+                      });
+                    },
+                    itemBuilder: (context) => [
+                      CheckedPopupMenuItem<_HistoryColumn>(
+                        value: _HistoryColumn.entryDate,
+                        checked: _showEntryDate,
+                        child: const Text('Entry Date'),
+                      ),
+                      CheckedPopupMenuItem<_HistoryColumn>(
+                        value: _HistoryColumn.recordId,
+                        checked: _showRecordId,
+                        child: const Text('Record ID'),
+                      ),
+                    ],
                   ),
-                ),
+                  IconButton(
+                    tooltip: 'Download Excel',
+                    icon: const Icon(Icons.grid_on_outlined, size: 20),
+                    onPressed: () =>
+                        _performHistoryAction(_HistoryAction.excel, datafeed),
+                  ),
+                ],
               ],
             ],
           ),

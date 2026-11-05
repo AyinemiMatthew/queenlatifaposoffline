@@ -1515,18 +1515,16 @@ class _StaffState extends State<Staff> {
                                         staffDoc,
                                       );
 
-                                      if (existingDoc.exists &&
-                                          (isCreating ||
-                                              existingDoc.id.toLowerCase() != id)) {
-                                        throw StateError(
-                                          'A staff account with this email already exists.Change a different email',
-                                        );
-                                      }
-
                                       if (!isCreating &&
                                           docid != originalEmail) {
                                         throw StateError(
                                           'Staff email cannot be changed while editing.',
+                                        );
+                                      }
+
+                                      if (isCreating && existingDoc.exists) {
+                                        throw StateError(
+                                          'A staff account with this email already exists.Change a different email',
                                         );
                                       }
 

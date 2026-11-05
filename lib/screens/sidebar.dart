@@ -1469,6 +1469,24 @@ class Sidebar extends StatelessWidget {
                             );
                           },
                         ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.receipt_long_outlined,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            'Item Upload',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              Routes.uploaditem,
+                            );
+                          },
+                        ),
                       ],
                     ),
                     Divider(color: colorScheme.outlineVariant),

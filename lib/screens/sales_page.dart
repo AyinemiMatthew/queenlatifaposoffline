@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,8 +36,6 @@ class _SalesPageState extends State<SalesPage> {
       _isLightTheme ? _colorScheme.onSurface : Colors.white;
   Color get _secondaryText =>
       _isLightTheme ? _colorScheme.onSurfaceVariant : Colors.white70;
-  Color get _warningText =>
-      _isLightTheme ? Colors.deepOrange.shade700 : Colors.orangeAccent;
   Color get _successText =>
       _isLightTheme ? Colors.green.shade700 : Colors.greenAccent;
   Color get _panelSurface => _isLightTheme
@@ -80,15 +80,30 @@ class _SalesPageState extends State<SalesPage> {
   String _superAdminBranchId = "";
   String _superAdminBranchName = "";
   String _displayBranchName = "";
-  String get _activeBranchId => _superAdminBranchId.isNotEmpty
-      ? _superAdminBranchId
-      : branchid.isNotEmpty
-      ? branchid
-      : Provider.of<Datafeed>(context, listen: false).activeBranchId;
+  String get _activeBranchId {
+    final datafeed = Provider.of<Datafeed>(context, listen: false);
+    if (datafeed.isSalesPoint &&
+        (datafeed.salesWarehouseId?.isNotEmpty ?? false)) {
+      return datafeed.salesWarehouseId!;
+    }
+    return _superAdminBranchId.isNotEmpty
+        ? _superAdminBranchId
+        : branchid.isNotEmpty
+        ? branchid
+        : datafeed.activeBranchId;
+  }
 
-  String get _activeBranchName => _superAdminBranchName.isNotEmpty
-      ? _superAdminBranchName
-      : Provider.of<Datafeed>(context, listen: false).activeBranchName;
+  String get _activeBranchName {
+    final datafeed = Provider.of<Datafeed>(context, listen: false);
+    if (datafeed.isSalesPoint &&
+        (datafeed.salesWarehouseName?.isNotEmpty ?? false)) {
+      return datafeed.salesWarehouseName!;
+    }
+    return _superAdminBranchName.isNotEmpty
+        ? _superAdminBranchName
+        : datafeed.activeBranchName;
+  }
+
   String? cp;
   Map<String, dynamic>? branchbalance;
   final List<Map<String, dynamic>>? items = [];
@@ -98,6 +113,13 @@ class _SalesPageState extends State<SalesPage> {
   final TextEditingController _bulkDiscountController = TextEditingController();
   bool _isSavingDirect = false;
   bool _isNormalizingQuantity = false;
+  late final Datafeed _datafeed;
+  BranchModel? _originalBranch;
+  String? _originalSalesWarehouseId;
+  String? _originalSalesWarehouseName;
+  Future<void>? _branchSwitchFuture;
+  Future<void>? _restoreBranchFuture;
+  bool _hasTemporaryBranchSwitch = false;
 
   bool get _quantityLimitedSalesMode {
     final mode = (_selectedSalesMode ?? '')
@@ -144,7 +166,7 @@ class _SalesPageState extends State<SalesPage> {
     final quantityError = SalesFormValidators.quantity(value);
     if (quantityError != null) return quantityError;
 
-    final quantity = double.parse(value!);
+    final quantity = int.parse(value!);
     if (_quantityLimitedSalesMode && quantity > 1) {
       return 'Quantity for half carton, pack, or quarter is limited to 1';
     }
@@ -163,19 +185,35 @@ class _SalesPageState extends State<SalesPage> {
   @override
   void initState() {
     super.initState();
+    _datafeed = context.read<Datafeed>();
     _quantityController.text = '1';
     Future.microtask(() async {
-      context.read<Datafeed>().fetchItems();
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchDiscountCodes();
-      final value = Provider.of<Datafeed>(context, listen: false);
+      _datafeed.fetchItems();
+      _datafeed.fetchBranches();
+      _datafeed.fetchDiscountCodes();
+      final value = _datafeed;
       await value.getdata();
 
       if (!mounted) return;
+      _originalBranch =
+          value.selectedBranch ??
+          BranchModel(
+            id: value.branchid,
+            branchname: value.branch,
+            branchtype: value.branchtype,
+            address: value.branchaddress,
+            branchcontact: value.branchphone,
+            companyid: value.companyid,
+            companyemail: value.companyemail,
+          );
+      _originalSalesWarehouseId = value.salesWarehouseId;
+      _originalSalesWarehouseName = value.salesWarehouseName;
       if (branchid.isEmpty) {
         branchid = value.branchid;
       }
 
+      _superAdminBranchId = value.branchid;
+      _superAdminBranchName = value.branch;
       _displayBranchName = value.branch;
       _barcodeController.addListener(_onBarcodeChanged);
       _quantityController.addListener(_onQuantityChanged);
@@ -197,21 +235,69 @@ class _SalesPageState extends State<SalesPage> {
     });
   }
 
-  double _currentQuantityValue() {
-    final parsed = double.tryParse(_quantityController.text.trim());
+  Future<void> _restoreOriginalBranch() {
+    final original = _originalBranch;
+    if (!_hasTemporaryBranchSwitch || original == null) {
+      return Future<void>.value();
+    }
+    return _restoreBranchFuture ??= _restoreOriginalBranchNow(original);
+  }
+
+  Future<void> _restoreOriginalBranchNow(BranchModel original) async {
+    try {
+      final pendingSwitch = _branchSwitchFuture;
+      if (pendingSwitch != null) {
+        try {
+          await pendingSwitch;
+        } catch (error, stackTrace) {
+          debugPrint('Sales branch switch failed before restore: $error');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+      final restore = _datafeed.setBranch(
+        original.id,
+        original.branchname,
+        original.address,
+        original.branchcontact,
+        type: original.branchtype,
+      );
+      _restoreBranchFuture = restore;
+      await restore;
+      _datafeed.setSalesWarehouse(
+        _originalSalesWarehouseId,
+        _originalSalesWarehouseName,
+      );
+      _hasTemporaryBranchSwitch = false;
+      if (mounted) {
+        setState(() {
+          branchid = original.id;
+          branchtype = original.branchtype;
+          _superAdminBranchId = original.id;
+          _superAdminBranchName = original.branchname;
+          _displayBranchName = original.branchname;
+        });
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Failed to restore the original sales branch: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    } finally {
+      _restoreBranchFuture = null;
+    }
+  }
+
+  int _currentQuantityValue() {
+    final parsed = int.tryParse(_quantityController.text.trim());
     if (parsed == null || parsed <= 0) return 1;
     return parsed;
   }
 
-  void _setQuantityValue(double value) {
+  void _setQuantityValue(int value) {
     final normalized = _quantityLimitedSalesMode
-        ? (value > 1 ? 1.0 : value)
+        ? (value > 1 ? 1 : value)
         : value <= 0
         ? 1
         : value;
-    final text = normalized % 1 == 0
-        ? normalized.toStringAsFixed(0)
-        : normalized.toString();
+    final text = normalized.toString();
     _quantityController.text = text;
     _quantityController.selection = TextSelection.collapsed(
       offset: text.length,
@@ -229,7 +315,7 @@ class _SalesPageState extends State<SalesPage> {
 
   String _calculateGrossAmount() {
     final price = double.tryParse(_priceController.text.trim()) ?? 0.0;
-    final qty = double.tryParse(_quantityController.text.trim()) ?? 0.0;
+    final qty = (int.tryParse(_quantityController.text.trim()) ?? 0).toDouble();
 
     final gross = price * qty;
 
@@ -345,6 +431,9 @@ class _SalesPageState extends State<SalesPage> {
 
   @override
   void dispose() {
+    if (_hasTemporaryBranchSwitch) {
+      unawaited(_restoreOriginalBranch());
+    }
     _barcodeController.removeListener(_onBarcodeChanged);
     _quantityController.removeListener(_onQuantityChanged);
     _discountController.removeListener(_calculateTotals);
@@ -391,7 +480,7 @@ class _SalesPageState extends State<SalesPage> {
   void _onQuantityChanged() {
     if (_isNormalizingQuantity) return;
 
-    final enteredQuantity = double.tryParse(_quantityController.text.trim());
+    final enteredQuantity = int.tryParse(_quantityController.text.trim());
     if (_quantityLimitedSalesMode &&
         enteredQuantity != null &&
         enteredQuantity > 1) {
@@ -406,7 +495,7 @@ class _SalesPageState extends State<SalesPage> {
   }
 
   void _handleQuantityInput(String value) {
-    final enteredQuantity = double.tryParse(value.trim());
+    final enteredQuantity = int.tryParse(value.trim());
     if (_quantityLimitedSalesMode &&
         enteredQuantity != null &&
         enteredQuantity > 1) {
@@ -436,6 +525,36 @@ class _SalesPageState extends State<SalesPage> {
       (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
       'salesbranch';
 
+  bool _isWarehouseType(String? t) =>
+      (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') == 'warehouse';
+
+  List<BranchModel> _assignedWarehousesForItem(
+    Datafeed datafeed,
+    SalesProvider salesProvider,
+    ItemModel? item,
+  ) {
+    final assignedIds = datafeed.salesWarehouseIds
+        .map((id) => id.toLowerCase())
+        .toSet();
+    final warehouses = datafeed.branches
+        .where(
+          (branch) =>
+              assignedIds.contains(branch.id.toLowerCase()) &&
+              _isWarehouseType(branch.branchtype),
+        )
+        .toList();
+    if (item == null ||
+        item.producttype.toLowerCase().trim() == 'service' ||
+        !datafeed.stockCheckEnabled) {
+      return warehouses;
+    }
+    return warehouses.where((warehouse) {
+      final balance =
+          item.branchbalance?[warehouse.id] as Map<String, dynamic>? ?? {};
+      return salesProvider.parseNetPieces(balance) > 0;
+    }).toList();
+  }
+
   Widget _buildSalesWarehouseSelector(Datafeed datafeed) {
     InputDecoration deco(String label) => InputDecoration(
       labelText: label,
@@ -460,18 +579,11 @@ class _SalesPageState extends State<SalesPage> {
     if (datafeed.canSellAnyBranch) {
       final sp = Provider.of<SalesProvider>(context, listen: false);
 
-      final assignedIds = datafeed.salesWarehouseIds
-          .map((e) => e.toLowerCase())
-          .toSet();
-
       final allBranches = datafeed.branches
           .where((b) {
-            if (_isSalesPointType(b.branchtype)) return false;
             final isSalesBranch = _isSalesBranchType(b.branchtype);
-            final isAssignedWarehouse = assignedIds.contains(
-              b.id.toLowerCase(),
-            );
-            return isSalesBranch || isAssignedWarehouse;
+            final isSalesPointBranch = _isSalesPointType(b.branchtype);
+            return isSalesBranch || isSalesPointBranch;
           })
           .fold<Map<String, BranchModel>>({}, (map, b) {
             if (!map.containsKey(b.id)) map[b.id] = b;
@@ -490,41 +602,19 @@ class _SalesPageState extends State<SalesPage> {
         );
       }
 
-      if (_selectedItem == null) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12.0),
-          child: DropdownButtonFormField<String>(
-            key: const ValueKey('branch_no_item'),
-            value: null,
-            isExpanded: true,
-            dropdownColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-            decoration: deco('Sell From (Branch / Warehouse)'),
-            hint: Text(
-              'Select an item first',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            items: const [],
-            onChanged: null,
-          ),
-        );
-      }
-
-      final item = _selectedItem!;
-      final isService = item.producttype.toLowerCase().trim() == 'service';
-      final bool filterByBalance = !isService && datafeed.stockCheckEnabled;
+      final item = _selectedItem;
+      final isService =
+          (item?.producttype ?? '').toLowerCase().trim() == 'service';
+      final bool filterByBalance =
+          item != null && !isService && datafeed.stockCheckEnabled;
 
       double balanceOf(String id) {
-        final bal = item.branchbalance?[id] as Map<String, dynamic>? ?? {};
+        final bal = item?.branchbalance?[id] as Map<String, dynamic>? ?? {};
         return sp.parseNetPieces(bal);
       }
 
       double boxQty = 1.0;
-      final modes = item.modes;
+      final modes = item?.modes;
       if (modes != null) {
         final carton = modes.where((m) => m.name.toLowerCase() == 'carton');
         final single = modes.where((m) => m.name.toLowerCase() == 'single');
@@ -537,14 +627,20 @@ class _SalesPageState extends State<SalesPage> {
       }
 
       final available = filterByBalance
-          ? allBranches.where((b) => balanceOf(b.id) > 0).toList()
+          ? allBranches
+                .where(
+                  (b) => _isSalesPointType(b.branchtype) || balanceOf(b.id) > 0,
+                )
+                .toList()
           : allBranches;
 
       if (available.isEmpty) {
         return Padding(
           padding: EdgeInsets.only(bottom: 12.0),
           child: Text(
-            'Selected item has no balance in your warehouses or sales branches.',
+            item == null
+                ? 'No sales branches or sales points are available.'
+                : 'No sales branches or sales points have stock for this item.',
             style: TextStyle(
               color: _colorScheme.onSurfaceVariant,
               fontSize: 13,
@@ -553,51 +649,92 @@ class _SalesPageState extends State<SalesPage> {
         );
       }
 
-      void applyBranch(BranchModel b) {
-        datafeed.setBranch(b.id, b.branchname, b.address, b.branchcontact);
-        if (datafeed.salesWarehouseIds.contains(b.id)) {
-          datafeed.setSalesWarehouse(b.id, b.branchname);
+      Future<void> applyBranch(BranchModel b) async {
+        try {
+          final branchChanged = datafeed.branchid != b.id;
+          _hasTemporaryBranchSwitch = true;
+          final switchBranch = datafeed.setBranch(
+            b.id,
+            b.branchname,
+            b.address,
+            b.branchcontact,
+            type: b.branchtype,
+            temporarySalesSwitch: true,
+          );
+          _branchSwitchFuture = switchBranch;
+          await switchBranch;
+          if (identical(_branchSwitchFuture, switchBranch)) {
+            _branchSwitchFuture = null;
+          }
+          if (!mounted) return;
+          if (branchChanged) {
+            sp.clearCurrentCart();
+            _resetForm(clearSelectedItem: true);
+          }
+          String branchForPricing = b.id;
+          if (_isSalesPointType(b.branchtype)) {
+            final assignedWarehouses = _assignedWarehousesForItem(
+              datafeed,
+              sp,
+              _selectedItem,
+            );
+            final warehouse = assignedWarehouses
+                .where(
+                  (warehouse) =>
+                      warehouse.id.toLowerCase() ==
+                      (datafeed.salesWarehouseId ?? '').toLowerCase(),
+                )
+                .firstOrNull;
+            datafeed.setSalesWarehouse(warehouse?.id, warehouse?.branchname);
+            branchForPricing = datafeed.salesWarehouseId ?? b.id;
+          } else {
+            datafeed.setSalesWarehouse(null, null);
+          }
+          if (!mounted) return;
+          setState(() {
+            branchid = b.id;
+            branchtype = b.branchtype;
+            _superAdminBranchId = b.id;
+            _superAdminBranchName = b.branchname;
+            _displayBranchName = b.branchname;
+            _refreshPricingForBranch(branchForPricing);
+          });
+        } catch (error) {
+          _branchSwitchFuture = null;
+          if (!mounted) return;
+          snackMsg(context, 'Could not switch branch: $error', Colors.red);
         }
-        setState(() {
-          branchid = b.id;
-          branchtype = b.branchtype;
-          _superAdminBranchId = b.id;
-          _superAdminBranchName = b.branchname;
-          _displayBranchName = b.branchname;
-          _refreshPricingForBranch(b.id);
-        });
       }
 
       final availableIds = available.map((b) => b.id).toList();
       final current = _superAdminBranchId.isNotEmpty
           ? _superAdminBranchId
           : datafeed.branchid;
-      final bool needsCorrection = !availableIds.contains(current);
-      final String safeValue = needsCorrection ? availableIds.first : current;
+      final safeValue = availableIds.contains(current) ? current : null;
 
-      if (needsCorrection) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          applyBranch(available.first);
-        });
-      }
-
-      return Padding(
+      final branchDropdown = Padding(
         padding: const EdgeInsets.only(bottom: 12.0),
         child: DropdownButtonFormField<String>(
-          key: ValueKey('branch_${item.id}_$safeValue'),
+          key: ValueKey('branch_${item?.id ?? 'none'}_$safeValue'),
           value: safeValue,
           isExpanded: true,
           dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: deco('Sell From (Branch / Warehouse)'),
+          decoration: deco('Sell From (Sales Branch / Sales Point)'),
+          hint: Text(
+            'Select a sales branch or point',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
           items: available.map((b) {
             final pcs = balanceOf(b.id);
             final boxes = boxQty > 0 ? pcs / boxQty : 0.0;
             final typeLabel = b.branchtype.isNotEmpty
                 ? ' (${b.branchtype})'
                 : '';
-            final label = isService
+            final label =
+                item == null || isService || _isSalesPointType(b.branchtype)
                 ? '${b.branchname}$typeLabel'
                 : '${b.branchname}$typeLabel - ${pcs.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes';
             return DropdownMenuItem<String>(
@@ -611,173 +748,284 @@ class _SalesPageState extends State<SalesPage> {
               ),
             );
           }).toList(),
-          onChanged: (v) {
+          onChanged: (v) async {
             if (v == null) return;
-            applyBranch(available.firstWhere((b) => b.id == v));
+            final selected = available.firstWhere((b) => b.id == v);
+            await applyBranch(selected);
           },
         ),
       );
-    }
+      if (!datafeed.isSalesPoint) return branchDropdown;
 
-    if (!datafeed.isSalesPoint) {
-      if (datafeed.branchid.isEmpty) return const SizedBox.shrink();
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12.0),
-        child: DropdownButtonFormField<String>(
-          key: ValueKey('own_branch_${datafeed.branchid}'),
-          value: datafeed.branchid,
-          isExpanded: true,
-          dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: deco('Branch'),
-          items: [
-            DropdownMenuItem<String>(
-              value: datafeed.branchid,
+      final assignedWarehouses = datafeed.branches
+          .where(
+            (branch) =>
+                datafeed.salesWarehouseIds.any(
+                  (id) => id.toLowerCase() == branch.id.toLowerCase(),
+                ) &&
+                _isWarehouseType(branch.branchtype),
+          )
+          .toList();
+      if (assignedWarehouses.isEmpty) {
+        return Column(
+          children: [
+            branchDropdown,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                datafeed.branch,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
+                'No warehouse is assigned to your staff account for this Sales Point.',
+                style: TextStyle(color: _colorScheme.error),
               ),
             ),
           ],
-          onChanged: null,
-        ),
-      );
-    }
-    if (_selectedItem == null) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: 12.0),
-        child: Text(
-          'Select an item first to choose warehouse.',
-          style: TextStyle(color: _secondaryText),
-        ),
-      );
-    }
-    final isService =
-        (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
-    if (isService) {
-      return const SizedBox.shrink();
-    }
-    final salesProvider = Provider.of<SalesProvider>(context, listen: false);
-    final ids = datafeed.stockCheckEnabled
-        ? salesProvider.availableSalesWarehousesForItem(
-            datafeed,
-            _selectedItem!,
-          )
-        : datafeed.salesWarehouseIds.toSet().toList();
-    if (ids.isEmpty) {
-      if (datafeed.salesWarehouseIds.isEmpty) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 12.0),
-          child: Text(
-            'No warehouses assigned to your account. Contact admin.',
-            style: TextStyle(color: _warningText, fontSize: 13),
+        );
+      }
+
+      if (item == null || isService) {
+        return Column(
+          children: [
+            branchDropdown,
+            if (item == null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Select an item to see assigned warehouses with stock.',
+                  style: TextStyle(color: _secondaryText),
+                ),
+              ),
+          ],
+        );
+      }
+
+      final itemWarehouses = _assignedWarehousesForItem(datafeed, sp, item);
+      if (itemWarehouses.isEmpty) {
+        return Column(
+          children: [
+            branchDropdown,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'No assigned warehouse has stock for this item.',
+                style: TextStyle(color: _colorScheme.error),
+              ),
+            ),
+          ],
+        );
+      }
+
+      final warehouseIds = itemWarehouses.map((e) => e.id).toSet();
+      final currentWarehouse = datafeed.salesWarehouseId;
+      final selectedWarehouseId =
+          currentWarehouse != null && warehouseIds.contains(currentWarehouse)
+          ? currentWarehouse
+          : itemWarehouses.first.id;
+      if (selectedWarehouseId != currentWarehouse) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted ||
+              !datafeed.isSalesPoint ||
+              _selectedItem?.id != item.id) {
+            return;
+          }
+          final warehouse = itemWarehouses.firstWhere(
+            (item) => item.id == selectedWarehouseId,
+          );
+          datafeed.setSalesWarehouse(warehouse.id, warehouse.branchname);
+          _refreshPricingForBranch(warehouse.id);
+        });
+      }
+
+      return Column(
+        children: [
+          branchDropdown,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: DropdownButtonFormField<String>(
+              key: ValueKey(
+                'assigned_warehouse_${item.id}_$selectedWarehouseId',
+              ),
+              initialValue: selectedWarehouseId,
+              isExpanded: true,
+              dropdownColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+              decoration: deco('Sell From Assigned Warehouse'),
+              items: itemWarehouses.map((warehouse) {
+                final balance =
+                    item.branchbalance?[warehouse.id]
+                        as Map<String, dynamic>? ??
+                    {};
+                final pieces = sp.parseNetPieces(balance);
+                return DropdownMenuItem<String>(
+                  value: warehouse.id,
+                  child: Text(
+                    '${warehouse.branchname} - ${pieces.toStringAsFixed(0)} pcs',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (id) {
+                if (id == null) return;
+                final warehouse = itemWarehouses.firstWhere(
+                  (candidate) => candidate.id == id,
+                );
+                datafeed.setSalesWarehouse(id, warehouse.branchname);
+                _refreshPricingForBranch(id);
+                setState(() {});
+              },
+            ),
           ),
-        );
-      }
-      return Padding(
-        padding: EdgeInsets.only(bottom: 12.0),
-        child: Text(
-          'Selected item has no balance in your assigned warehouses.',
-          style: TextStyle(color: _warningText, fontSize: 13),
-        ),
+        ],
       );
     }
 
-    final nameById = <String, String>{};
-    for (
-      int i = 0;
-      i < datafeed.salesWarehouseIds.length &&
-          i < datafeed.salesWarehouseNames.length;
-      i++
-    ) {
-      final srcId = datafeed.salesWarehouseIds[i];
-      final srcName = datafeed.salesWarehouseNames[i];
-      if (srcName.isNotEmpty) {
-        nameById[srcId] = srcName;
-      }
-    }
-
-    for (final id in ids) {
-      if (!nameById.containsKey(id) || nameById[id]!.isEmpty) {
-        final branch = datafeed.branches.firstWhere(
-          (b) => b.id == id,
-          orElse: () => BranchModel(),
-        );
-        nameById[id] = branch.branchname.isNotEmpty ? branch.branchname : id;
-      }
-    }
-
-    final dedupedIds = ids.toSet().toList();
-
-    final activeId = datafeed.salesWarehouseId;
-    final bool needsCorrection =
-        activeId == null || !dedupedIds.contains(activeId);
-
-    final String safeValue = needsCorrection ? dedupedIds.first : activeId;
-
-    if (needsCorrection) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        datafeed.setSalesWarehouse(
-          dedupedIds.first,
-          nameById[dedupedIds.first] ?? '',
-        );
-      });
-    }
-
-    return Padding(
+    if (datafeed.branchid.isEmpty) return const SizedBox.shrink();
+    final branchDropdown = Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: DropdownButtonFormField<String>(
-        key: ValueKey('wh_${_selectedItem!.id}_$safeValue'),
-        value: safeValue,
+        key: ValueKey('own_branch_${datafeed.branchid}'),
+        value: datafeed.branchid,
         isExpanded: true,
         dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-        decoration: deco('Sell From Warehouse'),
-        items: dedupedIds.map((id) {
-          final balance =
-              _selectedItem?.branchbalance?[id] as Map<String, dynamic>? ?? {};
-          final netPieces = salesProvider.parseNetPieces(balance);
-
-          double boxQty = 1.0;
-          final modes = _selectedItem?.modes;
-          if (modes != null) {
-            final carton = modes.where((m) => m.name.toLowerCase() == 'carton');
-            final single = modes.where((m) => m.name.toLowerCase() == 'single');
-            final qtyString = carton.isNotEmpty
-                ? carton.first.qty
-                : single.isNotEmpty
-                ? single.first.qty
-                : '1';
-            boxQty = double.tryParse(qtyString) ?? 1.0;
-          }
-
-          final boxes = boxQty > 0 ? (netPieces / boxQty) : 0.0;
-          final label =
-              '${nameById[id] ?? id} - ${netPieces.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes';
-          return DropdownMenuItem<String>(
-            value: id,
+        decoration: deco('Branch'),
+        items: [
+          DropdownMenuItem<String>(
+            value: datafeed.branchid,
             child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
+              datafeed.branch,
               style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-          );
-        }).toList(),
-        // onChanged: (v) {
-        //   if (v == null) return;
-        //   datafeed.setSalesWarehouse(v, nameById[v] ?? '');
-        // },
-        onChanged: (v) {
-          if (v == null) return;
-          datafeed.setSalesWarehouse(v, nameById[v] ?? '');
-          _refreshPricingForBranch(v);
-          setState(() {});
-        },
-        validator: SalesFormValidators.warehouse,
+          ),
+        ],
+        onChanged: null,
       ),
+    );
+    if (!datafeed.isSalesPoint) return branchDropdown;
+
+    final item = _selectedItem;
+    if (item == null) {
+      return Column(
+        children: [
+          branchDropdown,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Select an item first to choose warehouse.',
+              style: TextStyle(color: _secondaryText),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (item.producttype.toLowerCase().trim() == 'service') {
+      return branchDropdown;
+    }
+
+    final salesProvider = Provider.of<SalesProvider>(context, listen: false);
+    final assignedIds = datafeed.salesWarehouseIds
+        .map((id) => id.toLowerCase())
+        .toSet();
+    final itemWarehouseIds = salesProvider
+        .availableSalesWarehousesForItem(datafeed, item)
+        .map((id) => id.toLowerCase())
+        .toSet();
+    final itemWarehouses = datafeed.branches
+        .where(
+          (branch) =>
+              assignedIds.contains(branch.id.toLowerCase()) &&
+              itemWarehouseIds.contains(branch.id.toLowerCase()) &&
+              _isWarehouseType(branch.branchtype),
+        )
+        .toList();
+
+    if (itemWarehouses.isEmpty) {
+      return Column(
+        children: [
+          branchDropdown,
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'No assigned warehouse has a balance for this item.',
+              style: TextStyle(color: _colorScheme.error),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final currentWarehouse = datafeed.salesWarehouseId;
+    final selectedWarehouseId =
+        itemWarehouses.any((warehouse) => warehouse.id == currentWarehouse)
+        ? currentWarehouse!
+        : itemWarehouses.first.id;
+    if (selectedWarehouseId != currentWarehouse) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            datafeed.canSellAnyBranch ||
+            !datafeed.isSalesPoint ||
+            _selectedItem?.id != item.id) {
+          return;
+        }
+        final warehouse = itemWarehouses.firstWhere(
+          (entry) => entry.id == selectedWarehouseId,
+        );
+        datafeed.setSalesWarehouse(warehouse.id, warehouse.branchname);
+        _refreshPricingForBranch(warehouse.id);
+      });
+    }
+
+    double boxQty = 1;
+    final carton = item.modes?.where(
+      (mode) => mode.name.toLowerCase() == 'carton',
+    );
+    if (carton != null && carton.isNotEmpty) {
+      boxQty = double.tryParse(carton.first.qty) ?? 1;
+    }
+
+    return Column(
+      children: [
+        branchDropdown,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey(
+              'own_assigned_warehouse_${item.id}_$selectedWarehouseId',
+            ),
+            initialValue: selectedWarehouseId,
+            isExpanded: true,
+            dropdownColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            decoration: deco('Sell From Assigned Warehouse'),
+            items: itemWarehouses.map((warehouse) {
+              final balance =
+                  item.branchbalance?[warehouse.id] as Map<String, dynamic>? ??
+                  {};
+              final pieces = salesProvider.parseNetPieces(balance);
+              final boxes = boxQty > 0 ? pieces / boxQty : 0;
+              return DropdownMenuItem<String>(
+                value: warehouse.id,
+                child: Text(
+                  '${warehouse.branchname} - ${pieces.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: (id) {
+              if (id == null) return;
+              final warehouse = itemWarehouses.firstWhere(
+                (entry) => entry.id == id,
+              );
+              datafeed.setSalesWarehouse(id, warehouse.branchname);
+              _refreshPricingForBranch(id);
+              setState(() {});
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -789,7 +1037,22 @@ class _SalesPageState extends State<SalesPage> {
           (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
       if (!isService &&
-          !datafeed.canSellAnyBranch &&
+          datafeed.isSalesPoint &&
+          !datafeed.salesWarehouseIds.any(
+            (id) =>
+                id.toLowerCase() ==
+                (datafeed.salesWarehouseId ?? '').toLowerCase(),
+          )) {
+        snackMsg(
+          context,
+          'Select an assigned warehouse to sell from this Sales Point.',
+          Colors.orange,
+        );
+        return;
+      }
+
+      if (!isService &&
+          datafeed.isSalesPoint &&
           !salesProvider.ensureSalesWarehouseSelected(
             context,
             datafeed,
@@ -800,31 +1063,9 @@ class _SalesPageState extends State<SalesPage> {
       final activeBranchId = _activeBranchId;
       final activeBranchName = _activeBranchName;
 
-      final bool useSalesWarehouse =
-          !isService &&
-          datafeed.isSalesPoint &&
-          !datafeed.canSellAnyBranch &&
-          (datafeed.salesWarehouseId?.isNotEmpty ?? false);
-
-      final balanceBranchId = useSalesWarehouse
-          ? datafeed.salesWarehouseId!
-          : activeBranchId;
-
-      final balanceBranchName = useSalesWarehouse
-          ? (datafeed.branches
-                    .firstWhere(
-                      (b) => b.id == balanceBranchId,
-                      orElse: () => BranchModel(),
-                    )
-                    .branchname
-                    .isNotEmpty
-                ? datafeed.branches
-                      .firstWhere((b) => b.id == balanceBranchId)
-                      .branchname
-                : balanceBranchId)
-          : activeBranchName;
-
-      final balanceBranchType = useSalesWarehouse
+      final balanceBranchId = activeBranchId;
+      final balanceBranchName = activeBranchName;
+      final balanceBranchType = datafeed.isSalesPoint
           ? datafeed.branches
                 .firstWhere(
                   (b) => b.id == balanceBranchId,
@@ -1089,11 +1330,7 @@ class _SalesPageState extends State<SalesPage> {
       }
 
       if (context.mounted) {
-        snackMsg(
-          context,
-          'Sale saved successfully!',
-          Colors.green,
-        );
+        snackMsg(context, 'Sale saved successfully!', Colors.green);
         Provider.of<SalesProvider>(context, listen: false).clearCurrentCart();
       }
     } catch (e) {
@@ -1107,7 +1344,7 @@ class _SalesPageState extends State<SalesPage> {
     }
   }
 
-  void _resetForm() {
+  void _resetForm({bool clearSelectedItem = false}) {
     _itemController.clear();
     _barcodeController.clear();
     _quantityController.text = '1';
@@ -1116,7 +1353,7 @@ class _SalesPageState extends State<SalesPage> {
     _totalPiecesController.clear();
     _totalAmountController.clear();
     setState(() {
-      //  _selectedItem = null;
+      if (clearSelectedItem) _selectedItem = null;
       _selectedSalesMode = null;
       _selectedPriceMode = null;
       _currentModeData = null;
@@ -1206,36 +1443,26 @@ class _SalesPageState extends State<SalesPage> {
   void _selectItem(ItemModel? item, Datafeed datafeed) {
     if (item == null) return;
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
+    if (datafeed.isSalesPoint &&
+        item.producttype.toLowerCase().trim() != 'service') {
+      if (datafeed.canSellAnyBranch) {
+        final warehouses = _assignedWarehousesForItem(
+          datafeed,
+          salesProvider,
+          item,
+        );
+        final warehouse =
+            warehouses
+                .where((entry) => entry.id == datafeed.salesWarehouseId)
+                .firstOrNull ??
+            (warehouses.isEmpty ? null : warehouses.first);
+        datafeed.setSalesWarehouse(warehouse?.id, warehouse?.branchname);
+      } else {
+        salesProvider.ensureSalesWarehouse(datafeed, item);
+      }
+    }
     setState(() {
       _selectedItem = item;
-
-      if (datafeed.isSalesPoint && !datafeed.canSellAnyBranch) {
-        final available = datafeed.stockCheckEnabled
-            ? salesProvider.availableSalesWarehousesForItem(datafeed, item)
-            : datafeed.salesWarehouseIds.toSet().toList();
-
-        if (available.isNotEmpty &&
-            !available.contains(datafeed.salesWarehouseId)) {
-          final selectedId = available.first;
-          String selectedName = '';
-
-          final index = datafeed.salesWarehouseIds.indexOf(selectedId);
-
-          if (index >= 0 && index < datafeed.salesWarehouseNames.length) {
-            selectedName = datafeed.salesWarehouseNames[index];
-          }
-
-          if (selectedName.isEmpty) {
-            final branch = datafeed.branches.firstWhere(
-              (b) => b.id == selectedId,
-              orElse: () => BranchModel(),
-            );
-            selectedName = branch.branchname;
-          }
-
-          datafeed.setSalesWarehouse(selectedId, selectedName);
-        }
-      }
 
       /// Fill text fields
       _itemController.text = item.name;
@@ -1245,8 +1472,7 @@ class _SalesPageState extends State<SalesPage> {
 
       final branchPrices = item.branchprices;
       final modes = item.modes;
-      final String branchId =
-          (datafeed.canSellAnyBranch && _activeBranchId.isNotEmpty)
+      final branchId = _activeBranchId.isNotEmpty
           ? _activeBranchId
           : datafeed.activeBranchId;
 
@@ -1369,7 +1595,7 @@ class _SalesPageState extends State<SalesPage> {
       _currentModeData = null;
       return;
     }
-    final double qty = double.tryParse(_quantityController.text) ?? 0;
+    final int qty = int.tryParse(_quantityController.text) ?? 0;
     final datafeed = context.read<Datafeed>();
     final pricingBranchId =
         datafeed.canSellAnyBranch && _activeBranchId.isNotEmpty
@@ -1588,6 +1814,22 @@ class _SalesPageState extends State<SalesPage> {
           child: Scaffold(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
+              leading: Navigator.of(context).canPop()
+                  ? PopScope<Object?>(
+                      canPop: !_hasTemporaryBranchSwitch,
+                      onPopInvokedWithResult: (didPop, result) async {
+                        if (didPop || !_hasTemporaryBranchSwitch) return;
+                        await _restoreOriginalBranch();
+                        if (mounted) {
+                          Navigator.of(context).pop(result);
+                        }
+                      },
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_back, color: _primaryText),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    )
+                  : null,
               title: Text(
                 "SALES TRANSACTIONS ${(_displayBranchName.isNotEmpty ? _displayBranchName : value.branch).toString().toUpperCase()}",
                 style: TextStyle(
@@ -2224,10 +2466,10 @@ class _SalesPageState extends State<SalesPage> {
                                                                               : (singleMode?.wp ??
                                                                                     '0');
                                                                           return Material(
-                                                                            color: Colors.transparent,
+                                                                            color:
+                                                                                Colors.transparent,
                                                                             child: ListTile(
-                                                                              dense:
-                                                                                  true,
+                                                                              dense: true,
                                                                               leading: const Icon(
                                                                                 Icons.inventory_2,
                                                                                 color: Colors.blue,
@@ -2627,16 +2869,24 @@ class _SalesPageState extends State<SalesPage> {
                                                                         .w600,
                                                               ),
                                                               keyboardType:
-                                                                  const TextInputType.numberWithOptions(
-                                                                    decimal:
-                                                                        true,
-                                                                  ),
+                                                                  TextInputType
+                                                                      .number,
                                                               inputFormatters: [
-                                                                FilteringTextInputFormatter.allow(
-                                                                  RegExp(
-                                                                    r'^(0(\.\d*)?|[1-9]\d*(\.\d*)?)?$',
-                                                                  ),
-                                                                ),
+                                                                TextInputFormatter.withFunction((
+                                                                  oldValue,
+                                                                  newValue,
+                                                                ) {
+                                                                  return newValue
+                                                                              .text
+                                                                              .isEmpty ||
+                                                                          RegExp(
+                                                                            r'^[0-9]+$',
+                                                                          ).hasMatch(
+                                                                            newValue.text,
+                                                                          )
+                                                                      ? newValue
+                                                                      : oldValue;
+                                                                }),
                                                               ],
                                                               decoration: InputDecoration(
                                                                 labelText:

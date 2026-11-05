@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dropdown_search/dropdown_search.dart' hide Mode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -31,9 +32,14 @@ class _DamagesState extends State<Damages> {
       'salespoint';
 
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
-  Color get _textColor => _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
-  Color get _secondaryTextColor => _isLightTheme ? Theme.of(context).colorScheme.onSurfaceVariant : Colors.white70;
-  Color get _dividerColor => _isLightTheme ? Theme.of(context).colorScheme.outlineVariant : Colors.white24;
+  Color get _textColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _dividerColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : Colors.white24;
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();
@@ -1687,76 +1693,176 @@ class _DamagesState extends State<Damages> {
                                                 },
                                               ),
                                               SizedBox(height: 10),
-                                              DropdownButtonFormField<String>(
-                                                value:
-                                                    value.selectedSupplier?.id,
-                                                dropdownColor: Theme.of(
-                                                  context,
-                                                ).colorScheme.surface,
-                                                style: TextStyle(
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.onSurface,
+                                              DropdownSearch<String>(
+                                                key: ValueKey(
+                                                  value.selectedSupplier?.id,
                                                 ),
-                                                decoration: InputDecoration(
-                                                  labelText: 'Supplier',
-                                                  labelStyle: TextStyle(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                                  ),
-                                                  border: OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                  ),
-                                                  enabledBorder:
-                                                      OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                        borderSide: BorderSide(
-                                                          color: Theme.of(
-                                                            context,
-                                                          ).colorScheme.outline,
-                                                        ),
-                                                      ),
-                                                  focusedBorder:
-                                                      OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12,
-                                                            ),
-                                                        borderSide: BorderSide(
-                                                          color: Theme.of(
-                                                            context,
-                                                          ).colorScheme.primary,
-                                                        ),
-                                                      ),
-                                                  fillColor: Theme.of(context)
-                                                      .colorScheme
-                                                      .surfaceContainerHighest,
-                                                  filled: true,
-                                                ),
-                                                items: value.suppliers.map((
-                                                  suplier,
-                                                ) {
-                                                  return DropdownMenuItem<
-                                                    String
-                                                  >(
-                                                    value: suplier.id,
-                                                    child: Text(
-                                                      suplier.supplier,
+                                                selectedItem:
+                                                    value.suppliers.any(
+                                                      (supplier) =>
+                                                          supplier.id ==
+                                                          value
+                                                              .selectedSupplier
+                                                              ?.id,
+                                                    )
+                                                    ? value.selectedSupplier!.id
+                                                    : null,
+                                                items:
+                                                    (
+                                                      filter,
+                                                      infiniteScrollProps,
+                                                    ) => value.suppliers
+                                                        .map(
+                                                          (supplier) =>
+                                                              supplier.id,
+                                                        )
+                                                        .toList(),
+                                                itemAsString: (supplierId) =>
+                                                    value.suppliers
+                                                        .firstWhere(
+                                                          (supplier) =>
+                                                              supplier.id ==
+                                                              supplierId,
+                                                        )
+                                                        .supplier,
+                                                decoratorProps: DropDownDecoratorProps(
+                                                  decoration: InputDecoration(
+                                                    labelText: 'Supplier',
+                                                    labelStyle: TextStyle(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onSurfaceVariant,
                                                     ),
-                                                  );
-                                                }).toList(),
-                                                onChanged: (val) {
-                                                  if (val != null)
-                                                    value.selectSupplier(val);
+                                                    border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                    ),
+                                                    enabledBorder:
+                                                        OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .outline,
+                                                          ),
+                                                        ),
+                                                    focusedBorder:
+                                                        OutlineInputBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                12,
+                                                              ),
+                                                          borderSide: BorderSide(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          ),
+                                                        ),
+                                                    fillColor: Theme.of(context)
+                                                        .colorScheme
+                                                        .surfaceContainerHighest,
+                                                    filled: true,
+                                                  ),
+                                                ),
+                                                popupProps: PopupProps.menu(
+                                                  showSearchBox: true,
+                                                  searchFieldProps: TextFieldProps(
+                                                    style: TextStyle(
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).colorScheme.onSurface,
+                                                    ),
+                                                    decoration: InputDecoration(
+                                                      hintText:
+                                                          'Search suppliers...',
+                                                      hintStyle: TextStyle(
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                      prefixIcon: const Icon(
+                                                        Icons.search,
+                                                      ),
+                                                      filled: true,
+                                                      fillColor: Theme.of(context)
+                                                          .colorScheme
+                                                          .surfaceContainerHighest,
+                                                    ),
+                                                  ),
+                                                  menuProps: MenuProps(
+                                                    backgroundColor:
+                                                        Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest,
+                                                  ),
+                                                  itemBuilder:
+                                                      (
+                                                        context,
+                                                        supplierId,
+                                                        isDisabled,
+                                                        isSelected,
+                                                      ) => ListTile(
+                                                        title: Text(
+                                                          value.suppliers
+                                                              .firstWhere(
+                                                                (supplier) =>
+                                                                    supplier
+                                                                        .id ==
+                                                                    supplierId,
+                                                              )
+                                                              .supplier,
+                                                          style: TextStyle(
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .onSurface,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                ),
+                                                dropdownBuilder:
+                                                    (
+                                                      context,
+                                                      supplierId,
+                                                    ) => Text(
+                                                      supplierId == null
+                                                          ? ''
+                                                          : value.suppliers
+                                                                .firstWhere(
+                                                                  (supplier) =>
+                                                                      supplier
+                                                                          .id ==
+                                                                      supplierId,
+                                                                )
+                                                                .supplier,
+                                                      style: TextStyle(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onSurface,
+                                                      ),
+                                                    ),
+                                                onSelected: (supplierId) {
+                                                  if (supplierId != null) {
+                                                    value.selectSupplier(
+                                                      supplierId,
+                                                    );
+                                                  }
                                                 },
-                                                validator: (val) => val == null
+                                                validator: (supplierId) =>
+                                                    supplierId == null
                                                     ? 'Please select Supplier'
                                                     : null,
                                               ),

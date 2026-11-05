@@ -1,7 +1,15 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:excel/excel.dart' as xls;
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
 
 import '../models/appModuls.dart';
 import '../models/itemregmodel.dart';
@@ -15,6 +23,8 @@ class ItemListPage extends StatefulWidget {
   @override
   State<ItemListPage> createState() => _ItemListPageState();
 }
+
+enum _ItemExportAction { pdf, print, word, excel, csv }
 
 class _ItemListPageState extends State<ItemListPage> {
   final FirebaseFirestore db = FirebaseFirestore.instance;
@@ -109,6 +119,54 @@ class _ItemListPageState extends State<ItemListPage> {
                   : const Text("Registered Items", key: ValueKey('title')),
             ),
             actions: [
+              PopupMenuButton<_ItemExportAction>(
+                tooltip: 'Export items',
+                onSelected: (action) =>
+                    _exportItems(action, filteredItems, value.company),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: _ItemExportAction.pdf,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.picture_as_pdf_outlined),
+                      title: Text('Download PDF'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ItemExportAction.print,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.print_outlined),
+                      title: Text('Print / Save as PDF'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ItemExportAction.word,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.description_outlined),
+                      title: Text('Download Word (.doc)'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ItemExportAction.excel,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.table_view_outlined),
+                      title: Text('Download Excel'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _ItemExportAction.csv,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.subject_outlined),
+                      title: Text('Download CSV'),
+                    ),
+                  ),
+                ],
+                icon: const Icon(Icons.file_download_outlined),
+              ),
               IconButton(
                 icon: Icon(_isSearching ? Icons.close : Icons.search),
                 style: IconButton.styleFrom(
@@ -173,6 +231,254 @@ class _ItemListPageState extends State<ItemListPage> {
           ),
         );
       },
+    );
+  }
+
+  static const List<String> _exportHeaders = [
+    '#',
+    'Name',
+    'Barcode',
+    'Category',
+    'Type',
+    'Cost Price',
+    'Retail Price',
+    'Wholesale Price',
+    'Supplier Price',
+    'Status',
+  ];
+
+  List<String> _exportItemRow(ItemModel item, int index) {
+    final single = item.modes?.where((mode) => mode.id == 'single').firstOrNull;
+    final carton = item.modes?.where((mode) => mode.id == 'carton').firstOrNull;
+    return [
+      '${index + 1}',
+      item.name,
+      item.barcode,
+      item.pcategory,
+      item.producttype,
+      item.cp,
+      single?.rp ?? '',
+      carton?.wp ?? '',
+      carton?.sp ?? '',
+      item.isActive ? 'Active' : 'Inactive',
+    ];
+  }
+
+  Future<void> _exportItems(
+    _ItemExportAction action,
+    List<ItemModel> items,
+    String companyName,
+  ) async {
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('There are no items to export.')),
+      );
+      return;
+    }
+
+    try {
+      final exportDate = DateFormat('MMM-dd-yyyy').format(DateTime.now());
+      final safeCompanyName = companyName.trim().isEmpty
+          ? 'Company'
+          : companyName.trim().replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-');
+      final fileName =
+          '$safeCompanyName-registered-items-${items.length}-records-$exportDate';
+      final rows = items
+          .asMap()
+          .entries
+          .map((entry) => _exportItemRow(entry.value, entry.key))
+          .toList();
+
+      switch (action) {
+        case _ItemExportAction.pdf:
+        case _ItemExportAction.print:
+          final document = _buildItemsPdf(items, rows, companyName);
+          if (action == _ItemExportAction.print) {
+            await Printing.layoutPdf(
+              onLayout: (_) => document.save(),
+              name: fileName,
+            );
+          } else {
+            await FileSaver.instance.saveFile(
+              name: fileName,
+              bytes: Uint8List.fromList(await document.save()),
+              fileExtension: 'pdf',
+              mimeType: MimeType.pdf,
+            );
+          }
+        case _ItemExportAction.word:
+          final html = _buildItemsWordHtml(items, rows, companyName);
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(utf8.encode(html)),
+            fileExtension: 'doc',
+            mimeType: MimeType.other,
+          );
+        case _ItemExportAction.excel:
+          await _saveItemsExcel(fileName, rows, companyName);
+        case _ItemExportAction.csv:
+          final csv = [
+            _exportHeaders,
+            ...rows,
+          ].map((row) => row.map(_escapeCsvCell).join(',')).join('\r\n');
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(utf8.encode('\uFEFF$csv')),
+            fileExtension: 'csv',
+            mimeType: MimeType.other,
+          );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Items exported successfully.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not export items: $error')),
+        );
+      }
+    }
+  }
+
+  String _escapeCsvCell(String value) {
+    if (!value.contains(',') &&
+        !value.contains('"') &&
+        !value.contains('\n') &&
+        !value.contains('\r')) {
+      return value;
+    }
+    return '"${value.replaceAll('"', '""')}"';
+  }
+
+  pw.Document _buildItemsPdf(
+    List<ItemModel> items,
+    List<List<String>> rows,
+    String companyName,
+  ) {
+    final document = pw.Document(title: 'Registered Items');
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        build: (context) => [
+          pw.Text(
+            companyName.isEmpty ? 'REGISTERED ITEMS' : companyName,
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Registered items - ${items.length} records - '
+            '${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: _exportHeaders,
+            data: rows,
+            headerStyle: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+            headerDecoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF415A77),
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 7),
+            cellPadding: const pw.EdgeInsets.all(5),
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+          ),
+        ],
+      ),
+    );
+    return document;
+  }
+
+  String _buildItemsWordHtml(
+    List<ItemModel> items,
+    List<List<String>> rows,
+    String companyName,
+  ) {
+    String escapeHtml(String value) => value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+
+    final header = _exportHeaders
+        .map((value) => '<th>${escapeHtml(value)}</th>')
+        .join();
+    final body = rows
+        .map(
+          (row) =>
+              '<tr>${row.map((value) => '<td>${escapeHtml(value)}</td>').join()}</tr>',
+        )
+        .join();
+
+    return '''
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Registered Items</title>
+<style>
+body { font-family: Arial, sans-serif; }
+h1 { color: #415a77; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #999; padding: 6px; text-align: left; }
+th { background: #dce4ec; }
+</style></head>
+<body>
+<h1>${escapeHtml(companyName.isEmpty ? 'Registered Items' : companyName)}</h1>
+<p>Registered items - ${items.length} records - ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}</p>
+<table><thead><tr>$header</tr></thead><tbody>$body</tbody></table>
+</body></html>
+''';
+  }
+
+  Future<void> _saveItemsExcel(
+    String fileName,
+    List<List<String>> rows,
+    String companyName,
+  ) async {
+    final workbook = xls.Excel.createExcel();
+    const sheetName = 'Registered Items';
+    final sheet = workbook[sheetName];
+    workbook.delete('Sheet1');
+
+    if (companyName.isNotEmpty) {
+      sheet.appendRow([xls.TextCellValue(companyName)]);
+    }
+    sheet.appendRow(_exportHeaders.map(xls.TextCellValue.new).toList());
+    final headerRow = sheet.maxRows - 1;
+    final headerStyle = xls.CellStyle(
+      bold: true,
+      backgroundColorHex: xls.ExcelColor.fromHexString('#DCE4EC'),
+    );
+    for (var column = 0; column < _exportHeaders.length; column++) {
+      sheet
+              .cell(
+                xls.CellIndex.indexByColumnRow(
+                  columnIndex: column,
+                  rowIndex: headerRow,
+                ),
+              )
+              .cellStyle =
+          headerStyle;
+    }
+    for (final row in rows) {
+      sheet.appendRow(row.map(xls.TextCellValue.new).toList());
+    }
+
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      throw Exception('Could not create the Excel file.');
+    }
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
     );
   }
 

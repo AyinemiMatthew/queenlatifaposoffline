@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dropdown_search/dropdown_search.dart' hide Mode;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/models/ReasonsModel.dart';
@@ -973,17 +974,6 @@ class _SalesreturnState extends State<Salesreturn> {
   }
 
   Widget _buildSupplierDropdown(Datafeed df) {
-    final supplierItems = df.suppliers
-        .map(
-          (supplier) => DropdownMenuItem<String>(
-            value: supplier.id,
-            child: Text(
-              supplier.supplier,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-            ),
-          ),
-        )
-        .toList();
     final hasSelectedSupplier = df.suppliers.any(
       (supplier) => supplier.id == _selectedSupplierId,
     );
@@ -992,44 +982,63 @@ class _SalesreturnState extends State<Salesreturn> {
         : _supplierLocked && (_selectedSupplierName?.isNotEmpty ?? false)
         ? _supplierWithoutId
         : null;
-    if (selectedId == _supplierWithoutId) {
-      supplierItems.add(
-        DropdownMenuItem<String>(
-          value: _supplierWithoutId,
-          child: Text(
-            _selectedSupplierName!,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          ),
-        ),
-      );
+    final colorScheme = Theme.of(context).colorScheme;
+    String supplierName(String? supplierId) {
+      if (supplierId == _supplierWithoutId) return _selectedSupplierName ?? '';
+      return df.suppliers
+              .where((supplier) => supplier.id == supplierId)
+              .firstOrNull
+              ?.supplier ??
+          '';
     }
 
-    return DropdownButtonFormField<String>(
+    return DropdownSearch<String>(
       key: ValueKey(selectedId),
-      initialValue: selectedId,
-      hint: Text(
-        df.suppliers.isEmpty ? 'No suppliers available' : 'Select Supplier',
-        style: TextStyle(color: _mutedTextColor),
+      selectedItem: selectedId,
+      items: (filter, infiniteScrollProps) => [
+        ...df.suppliers.map((supplier) => supplier.id),
+        if (selectedId == _supplierWithoutId) _supplierWithoutId,
+      ],
+      itemAsString: supplierName,
+      decoratorProps: DropDownDecoratorProps(
+        decoration: _fieldInput("Select Supplier", Icons.business),
       ),
-      dropdownColor: Theme.of(context).colorScheme.surface,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface,
-        fontSize: 15,
+      popupProps: PopupProps.menu(
+        showSearchBox: true,
+        searchFieldProps: TextFieldProps(
+          style: TextStyle(color: colorScheme.onSurface),
+          decoration: InputDecoration(
+            hintText: 'Search suppliers...',
+            hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: colorScheme.surfaceContainerHighest,
+          ),
+        ),
+        menuProps: MenuProps(
+          backgroundColor: colorScheme.surfaceContainerHighest,
+        ),
+        itemBuilder: (context, supplierId, isDisabled, isSelected) => ListTile(
+          title: Text(
+            supplierName(supplierId),
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+        ),
       ),
-      iconEnabledColor: _secondaryTextColor,
-      decoration: _fieldInput("Select Supplier", Icons.business),
-      items: supplierItems,
-      onChanged: _supplierLocked
-          ? null
-          : (value) {
-              final supplier = df.suppliers
-                  .where((supplier) => supplier.id == value)
-                  .firstOrNull;
-              setState(() {
-                _selectedSupplierId = value;
-                _selectedSupplierName = supplier?.supplier;
-              });
-            },
+      dropdownBuilder: (context, supplierId) => Text(
+        supplierName(supplierId),
+        style: TextStyle(color: colorScheme.onSurface),
+      ),
+      enabled: !_supplierLocked,
+      onSelected: (value) {
+        final supplier = df.suppliers
+            .where((supplier) => supplier.id == value)
+            .firstOrNull;
+        setState(() {
+          _selectedSupplierId = value;
+          _selectedSupplierName = supplier?.supplier;
+        });
+      },
     );
   }
 

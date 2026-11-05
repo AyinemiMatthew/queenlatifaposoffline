@@ -109,6 +109,7 @@ import '../screens/transactionsupplyreport.dart';
 import '../screens/transferlisttable.dart';
 import '../screens/uploadreceipt.dart';
 import '../screens/uploadreceiptview.dart';
+import '../screens/uploaditem.dart';
 import '../screens/uploadstock.dart';
 import '../screens/uploadtransfer.dart';
 import '../screens/viewfarmers.dart';
@@ -830,6 +831,17 @@ final pages = {
       'systemadmin',
     ],
     child: uploadReceiptViewPage(),
+  ),
+  Routes.uploaditem: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: ItemUploadPage(),
   ),
 
   Routes.closesale: (context) => RouteGuard(

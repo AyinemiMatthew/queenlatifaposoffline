@@ -514,16 +514,6 @@ class SalesProvider extends Datafeed {
         if (direct.isNotEmpty) return direct;
       }
 
-      /// SALES POINT FALLBACK
-      if (datafeed.isSalesPoint && datafeed.branchid.isNotEmpty) {
-        final rawFallback = balances[datafeed.branchid];
-
-        if (rawFallback is Map) {
-          final fallback = Map<String, dynamic>.from(rawFallback);
-          if (fallback.isNotEmpty) return fallback;
-        }
-      }
-
       return {};
     } catch (e, stack) {
       debugPrint('resolveBranchBalance error: $e');
@@ -758,7 +748,6 @@ class SalesProvider extends Datafeed {
   ) {
     try {
       final allowedIds = (datafeed.salesWarehouseIds).toSet();
-      print(allowedIds);
       final balanceKeys = (item.branchbalance ?? {}).keys
           .map((e) => e.toString())
           .toSet();

@@ -143,13 +143,16 @@ class _communityRegistrationState extends State<communityRegistration> {
     String? hint,
     Widget? suffix,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: borderColor),
-      floatingLabelStyle: TextStyle(color: isDark ? Colors.white : borderColor),
+      labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      floatingLabelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
       hintText: hint,
-      hintStyle: TextStyle(color: borderColor),
-      prefixIcon: prefix != null ? Icon(prefix, color: borderColor) : null,
+      hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      prefixIcon: prefix != null
+          ? Icon(prefix, color: colorScheme.onSurfaceVariant)
+          : null,
       suffixIcon: suffix,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -519,7 +522,7 @@ class _communityRegistrationState extends State<communityRegistration> {
                                     width: 200,
                                     child: OutlinedButton.icon(
                                       style: OutlinedButton.styleFrom(
-                                        foregroundColor: colorScheme.onPrimary,
+                                        foregroundColor: colorScheme.primary,
                                         side: BorderSide(
                                           color: colorScheme.primary,
                                         ),
@@ -534,12 +537,12 @@ class _communityRegistrationState extends State<communityRegistration> {
                                       ),
                                       icon: Icon(
                                         Icons.view_list,
-                                        color: colorScheme.onPrimary,
+                                        color: colorScheme.primary,
                                       ),
                                       label: Text(
                                         "View",
                                         style: TextStyle(
-                                          color: colorScheme.onPrimary,
+                                          color: colorScheme.primary,
                                         ),
                                       ),
                                       onPressed: () {

@@ -976,18 +976,37 @@ class _CompanyRegPageState extends State<CompanyRegPage> {
 
   Widget _buildTypeRadio(String label, String value) {
     final canEdit = widget.docId == null || widget.isSystemAdmin;
-    return RadioListTile<String>(
-      title: Text(
-        label,
-        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+    final colorScheme = Theme.of(context).colorScheme;
+    final labelColor = canEdit
+        ? colorScheme.onSurface
+        : colorScheme.onSurfaceVariant;
+
+    return InkWell(
+      onTap: canEdit ? () => setState(() => _branchType = value) : null,
+      child: Row(
+        children: [
+          Radio<String>(
+            value: value,
+            groupValue: _branchType,
+            activeColor: colorScheme.primary,
+            onChanged: canEdit
+                ? (selectedValue) {
+                    if (selectedValue != null) {
+                      setState(() => _branchType = selectedValue);
+                    }
+                  }
+                : null,
+          ),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: labelColor),
+            ),
+          ),
+        ],
       ),
-      value: value,
-      groupValue: _branchType,
-      activeColor: _kAccent,
-      contentPadding: EdgeInsets.zero,
-      onChanged: canEdit
-          ? (v) => setState(() => _branchType = v ?? _branchType)
-          : null,
     );
   }
 

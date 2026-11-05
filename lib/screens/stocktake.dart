@@ -24,6 +24,10 @@ class _StockTakePalette {
       isDark ? const Color(0xFF1B2A3E) : Colors.white;
   Color get primary =>
       isDark ? const Color(0xFF3B8BEB) : colorScheme.primary;
+  Color get updateButtonBackground =>
+      isDark ? primary : colorScheme.secondary;
+  Color get updateButtonForeground =>
+      isDark ? colorScheme.onPrimary : colorScheme.onSecondary;
   Color get headerHighlight =>
       isDark ? const Color(0xFF1A3A5C) : colorScheme.primaryContainer;
   Color get text => isDark ? Colors.white : colorScheme.onSurface;
@@ -1503,9 +1507,9 @@ class _StockTakeState extends State<StockTake> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: _palette.primary,
+          backgroundColor: _palette.updateButtonBackground,
           disabledBackgroundColor: _palette.disabledBackground,
-          foregroundColor: _palette.text,
+          foregroundColor: _palette.updateButtonForeground,
           disabledForegroundColor: _palette.disabledForeground,
           elevation: 0,
           padding: const EdgeInsets.symmetric(

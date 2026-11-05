@@ -1,5 +1,3 @@
-
-
 class SalesFormValidators {
   SalesFormValidators._(); // static-only helper
 
@@ -37,13 +35,14 @@ class SalesFormValidators {
     return null;
   }
 
-  /// Quantity field – positive number, no leading zeros on integers.
+  /// Quantity field – positive whole number, no leading zeros.
   static String? quantity(String? value) {
     if (value == null || value.isEmpty) return 'Enter quantity';
-    final qty = double.tryParse(value);
-    if (qty == null || qty <= 0) return 'Quantity must be greater than zero';
-    final validFormat = RegExp(r'^(0|[1-9]\d*)(\.\d+)?$').hasMatch(value);
-    if (!validFormat) return 'Use decimals without leading zeros';
+    final qty = int.tryParse(value);
+    if (qty == null) return 'Quantity must be a whole number';
+    if (qty <= 0) return 'Quantity must be greater than zero';
+    final validFormat = RegExp(r'^[1-9]\d*$').hasMatch(value);
+    if (!validFormat) return 'Use a whole number without leading zeros';
     return null;
   }
 

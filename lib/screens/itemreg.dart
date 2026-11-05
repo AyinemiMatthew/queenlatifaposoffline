@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dropdown_search/dropdown_search.dart' hide Mode;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' hide Uint8List;
 import 'package:flutter/material.dart';
@@ -1563,35 +1564,82 @@ class _ItemRegPageState extends State<ItemRegPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: safeCategoryValue,
-                                  isExpanded: true,
-                                  dropdownColor: Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                                  style: TextStyle(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface,
+                                child: DropdownSearch<String>(
+                                  key: ValueKey(safeCategoryValue),
+                                  selectedItem: safeCategoryValue,
+                                  items: (filter, infiniteScrollProps) =>
+                                      uniqueCategories.values.toList(),
+                                  decoratorProps: DropDownDecoratorProps(
+                                    decoration: _buildDropdownDecoration(
+                                      'Product category',
+                                    ),
                                   ),
-                                  decoration: _buildDropdownDecoration(
-                                    'Product category',
-                                  ),
-                                  items: uniqueCategories.values
-                                      .map(
-                                        (name) => DropdownMenuItem<String>(
-                                          value: name,
-                                          child: Text(name),
+                                  popupProps: PopupProps.menu(
+                                    showSearchBox: true,
+                                    searchFieldProps: TextFieldProps(
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'Search categories...',
+                                        hintStyle: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
-                                      )
-                                      .toList(),
-                                  onChanged: _productCategoryLocked
-                                      ? null
-                                      : (v) => setState(() {
-                                          _productCategory = v;
-                                          _formKey.currentState?.validate();
-                                        }),
-                                  validator: (v) => v == null
+                                        prefixIcon: const Icon(Icons.search),
+                                        filled: true,
+                                        fillColor: Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHighest,
+                                      ),
+                                    ),
+                                    menuProps: MenuProps(
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
+                                    ),
+                                    itemBuilder:
+                                        (
+                                          context,
+                                          category,
+                                          isDisabled,
+                                          isSelected,
+                                        ) => ListTile(
+                                          title: Text(
+                                            category,
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                  ),
+                                  dropdownBuilder: (context, selectedItem) =>
+                                      Text(
+                                        selectedItem ?? '',
+                                        style: TextStyle(
+                                          color: selectedItem == null
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                        ),
+                                      ),
+                                  enabled: !_productCategoryLocked,
+                                  onSelected: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _productCategory = value;
+                                      _formKey.currentState?.validate();
+                                    });
+                                  },
+                                  validator: (value) => value == null
                                       ? 'Select product category'
                                       : null,
                                 ),

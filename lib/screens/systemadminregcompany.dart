@@ -261,7 +261,9 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                     labelText: 'VAT Rate (decimal)',
                                     hintText: 'e.g. 0.15 for 15%',
                                     labelStyle: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                     hintStyle: TextStyle(
                                       color: Theme.of(
@@ -270,23 +272,31 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                     ),
                                     prefixIcon: Icon(
                                       Icons.percent,
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                     helperText:
                                         'Enter as decimal (e.g. 0.15 for 15%)',
                                     helperStyle: TextStyle(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide(
-                                        color: Theme.of(context).colorScheme.outline,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.outline,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide(
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                     ),
                                     fillColor: Theme.of(
@@ -326,11 +336,15 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                             decoration: InputDecoration(
                               labelText: 'Custom Domains (comma separated)',
                               labelStyle: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                               prefixIcon: Icon(
                                 Icons.public,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -363,11 +377,17 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                             dropdownColor: Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest,
-                            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
                             decoration: InputDecoration(
                               labelText: "Branch",
                               labelStyle: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -409,39 +429,50 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
 
                           Align(
                             alignment: Alignment.topLeft,
-                            child: const Text(
+                            child: Text(
                               "Select type",
-                              style: TextStyle(color: Colors.white70),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                           ),
 
                           RadioListTile(
-                            title: const Text(
+                            title: Text(
                               "Retail",
-                              style: TextStyle(color: Colors.white70),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                             value: "retail",
                             groupValue: _branchType,
+                            activeColor: Theme.of(context).colorScheme.primary,
                             onChanged: (v) =>
                                 setState(() => _branchType = v.toString()),
                           ),
                           RadioListTile(
-                            title: const Text(
+                            title: Text(
                               "Wholesale",
-                              style: TextStyle(color: Colors.white70),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                             value: "wholesale",
                             groupValue: _branchType,
+                            activeColor: Theme.of(context).colorScheme.primary,
                             onChanged: (v) =>
                                 setState(() => _branchType = v.toString()),
                           ),
                           RadioListTile(
-                            title: const Text(
+                            title: Text(
                               "Both",
-                              style: TextStyle(color: Colors.white70),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                             value: "both",
                             groupValue: _branchType,
+                            activeColor: Theme.of(context).colorScheme.primary,
                             onChanged: (v) =>
                                 setState(() => _branchType = v.toString()),
                           ),
@@ -604,7 +635,7 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
                                               phone: _phoneController.text
                                                   .trim(),
                                               accesslevel:
-                                                  'admin', // Default to admin for company owner
+                                                  'super admin',
                                               allowedPaymentMethods: const [
                                                 'cash',
                                                 'credit',
@@ -742,8 +773,13 @@ class _CompanyRegPageAdminState extends State<CompanyRegPageAdmin> {
       validator: (v) => v == null || v.isEmpty ? "Required" : null,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        labelStyle: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
