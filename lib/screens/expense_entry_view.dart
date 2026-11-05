@@ -1253,7 +1253,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            flex: 2,
+                                            flex: 3,
                                             child: Text(
                                               'Date',
                                               style: TextStyle(
@@ -1303,7 +1303,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                             ),
                                           ),
                                           Expanded(
-                                            flex: 2,
+                                            flex: 3,
                                             child: Text(
                                               'Category',
                                               style: TextStyle(
@@ -1381,7 +1381,7 @@ class _ExpenseEntryViewState extends State<ExpenseEntryView> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Expanded(
-                                                  flex: 2,
+                                                  flex: 3,
                                                   child: Text(
                                                     DateFormat(
                                                       'dd/MM/yyyy',

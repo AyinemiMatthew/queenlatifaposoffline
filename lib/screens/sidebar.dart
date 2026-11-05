@@ -1305,7 +1305,7 @@ class Sidebar extends StatelessWidget {
                           style: TextStyle(color: colorScheme.onSurfaceVariant),
                           ),
                           onTap: () {
-                            Navigator.pushNamed(context, Routes.supplierreport);
+                            Navigator.pushNamed(context, Routes.supplierreportpage);
                           },
                         ),
                         ListTile(

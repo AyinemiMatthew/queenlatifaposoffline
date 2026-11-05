@@ -100,6 +100,7 @@ import '../screens/stockrequestlist.dart';
 import '../screens/stocksupply.dart';
 import '../screens/stocktake.dart';
 import '../screens/stockvaluepage.dart';
+import '../screens/supplier_report.dart';
 import '../screens/supplierlist.dart';
 import '../screens/supplier_balance_report.dart';
 import '../screens/supplierscreen.dart';
@@ -245,6 +246,7 @@ class Routes {
   static const String stocktake = '/stocktake';
   static const String reordercount = '/reordercount';
   static const String pagereceipt = '/pagereceipt';
+  static const String supplierreportpage = '/SupplierReportPage';
 }
 
 final pages = {
@@ -257,10 +259,8 @@ final pages = {
       const RouteGuard(child: SupplierRegistration()),
   Routes.stockingmode: (context) => const RouteGuard(child: StockingMode()),
   Routes.supplierlist: (context) => const RouteGuard(child: SupplierListPage()),
-  Routes.companyreg: (context) => RouteGuard(
-    allowedAccessLevels: ['admin', 'super admin', 'systemadmin'],
-    child: CompanyRegPage(),
-  ),
+  Routes.companyreg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'systemadmin'], child: CompanyRegPage(),),
+  Routes.supplierreportpage: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'systemadmin'], child: SupplierReportPage(),),
   Routes.companylist: (context) => RouteGuard(
     allowedAccessLevels: ['admin', 'super admin', 'systemadmin'],
     child: CompanyListPage(),
