@@ -4357,6 +4357,14 @@ class Datafeed extends ChangeNotifier {
                   .trim();
           if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
 
+          if (filterBranch != null) {
+            final transactionBranch = (data['branchId'] ?? data['branchid'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            if (transactionBranch != filterBranch.toLowerCase()) continue;
+          }
+
           sales.add({
             'type': 'sale',
             'date': data['dateymd'] ?? '',
@@ -4388,10 +4396,12 @@ class Datafeed extends ChangeNotifier {
           final staffemail = (data['receiptemail'] ?? '').toString().trim();
           if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
 
-          if (selectedBranch != null &&
-              selectedBranch.isNotEmpty &&
-              data['branchId']?.toString() != selectedBranch) {
-            continue;
+          if (filterBranch != null) {
+            final transactionBranch = (data['branchId'] ?? data['branchid'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            if (transactionBranch != filterBranch.toLowerCase()) continue;
           }
 
           sales.add({

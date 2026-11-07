@@ -600,22 +600,7 @@ class StockProvider extends Datafeed {
     }
   }
 
-  // fetchFarmers() async {
-  //   try {
-  //     await getdata();
-  //     final snap = await db .collection('customers').where("companyid", isEqualTo: companyid)
-  //         .orderBy('createdat', descending: true)
-  //         .get(const GetOptions(source: Source.serverAndCache));
-  //
-  //     farmerlist = snap.docs.map((doc) {
-  //       return FarmerRegModel.fromMap(doc.data(), doc.id);
-  //     }).toList();
-  //
-  //     notifyListeners();
-  //   } catch (e) {
-  //     debugPrint("Error fetching customer list: $e");
-  //   }
-  // }
+
 
   deleteFarmer(String id) async {
     await db.collection('customers').doc(id).delete();
