@@ -705,19 +705,19 @@ class Sidebar extends StatelessWidget {
                           },
                         ),
 
-                        // ListTile(
-                        //   leading: Icon(
-                        //     Icons.upload_file,
-                        //     color: colorScheme.onSurface,
-                        //   ),
-                        //   title: Text(
-                        //     'Upload stock',
-                        //     style: TextStyle(color: colorScheme.onSurface),
-                        //   ),
-                        //   onTap: () {
-                        //     Navigator.pushNamed(context, Routes.uploadstock);
-                        //   },
-                        // ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.upload_file,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Upload stock',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.uploadstock);
+                          },
+                        ),
                         // ListTile(
                         //   leading: Icon(
                         //     Icons.transfer_within_a_station,
@@ -1306,6 +1306,19 @@ class Sidebar extends StatelessWidget {
                           ),
                           onTap: () {
                             Navigator.pushNamed(context, Routes.supplierreportpage);
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.account_balance_wallet,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Debtors Report',
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.debtor_report);
                           },
                         ),
                         ListTile(

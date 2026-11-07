@@ -56,6 +56,7 @@ import '../screens/creditopenbalancelist.dart';
 import '../screens/crop_registration.dart';
 import '../screens/customer_registration.dart';
 import '../screens/damagesslist.dart';
+import '../screens/debtor_report.dart';
 import '../screens/debtorreport.dart';
 import '../screens/deletedstock.dart';
 import '../screens/discounmangerpage.dart';
@@ -64,6 +65,7 @@ import '../screens/farmer_reg.dart';
 import '../screens/finishedstockreport.dart';
 import '../screens/generalledger.dart';
 import '../screens/home_dashboard.dart';
+import '../screens/import_stock_page.dart';
 import '../screens/itemlist.dart';
 import '../screens/itemreg.dart';
 import '../screens/languageregistration.dart';
@@ -101,6 +103,7 @@ import '../screens/stocksupply.dart';
 import '../screens/stocktake.dart';
 import '../screens/stockvaluepage.dart';
 import '../screens/supplier_report.dart';
+import '../screens/supplier_report_v3.dart';
 import '../screens/supplierlist.dart';
 import '../screens/supplierscreen.dart';
 import '../screens/synitemnotinstockreport.dart';
@@ -246,6 +249,7 @@ class Routes {
   static const String reordercount = '/reordercount';
   static const String pagereceipt = '/pagereceipt';
   static const String supplierreportpage = '/SupplierReportPage';
+  static const String debtor_report = '/debtor_report';
 }
 
 final pages = {
@@ -260,6 +264,7 @@ final pages = {
   Routes.supplierlist: (context) => const RouteGuard(child: SupplierListPage()),
   Routes.companyreg: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'systemadmin'], child: CompanyRegPage(),),
   Routes.supplierreportpage: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'systemadmin'], child: SupplierReportPage(),),
+  Routes.uploadstock: (context) => RouteGuard(allowedAccessLevels: ['admin', 'super admin', 'systemadmin'], child: ImportStockPage(),),
   Routes.companylist: (context) => RouteGuard(
     allowedAccessLevels: ['admin', 'super admin', 'systemadmin'],
     child: CompanyListPage(),
@@ -1149,6 +1154,17 @@ final pages = {
     ],
     child: DeletedStockScreen(),
   ),
+  Routes.debtor_report: (context) => RouteGuard(
+    allowedAccessLevels: [
+      'admin',
+      'super admin',
+      'operations officers',
+      'stock officer',
+      'accountant',
+      'systemadmin',
+    ],
+    child: DebtorReportPage(),
+  ),
   Routes.momoreport: (context) => RouteGuard(
     allowedAccessLevels: [
       'admin',
@@ -1212,10 +1228,10 @@ final pages = {
     allowedAccessLevels: ['super admin', 'systemadmin'],
     child: StockCostAnalysisPage(),
   ),
-  Routes.uploadstock: (context) => RouteGuard(
-    allowedAccessLevels: ['super admin', 'systemadmin'],
-    child: StockUploadPage(),
-  ),
+  // Routes.uploadstock: (context) => RouteGuard(
+  //   allowedAccessLevels: ['super admin', 'systemadmin'],
+  //   child: StockUploadPage(),
+  // ),
   Routes.uploadstocktransfer: (context) => RouteGuard(
     allowedAccessLevels: ['super admin', 'systemadmin'],
     child: StockTransferUploadPage(),
