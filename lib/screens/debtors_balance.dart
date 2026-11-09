@@ -1,3 +1,4 @@
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kologsoft/models/debtorsbalmodel.dart';
@@ -43,7 +44,7 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       final customerDoc = customerQuery.docs.first;
       final customerData = customerDoc.data();
       final customerContact = customerData['contact']?.toString() ?? '';
-      final docId = '${companyId}_$customerContact';
+      final docId = '${companyId.toLowerCase()}_$customerContact';
 
       final debt = DebtorsBalModel(
         id: widget.debtors?.id ?? docId,
@@ -62,34 +63,22 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
         updatedat: DateTime.now(),
       );
 
-      double currentCredit =
-          double.tryParse(customerData['creditBalance']?.toString() ?? '0') ??
-          0.0;
+      double currentCredit = double.tryParse(customerData['creditBalance']?.toString() ?? '0') ?? 0.0;
       double oldAmount = 0.0;
       if (widget.debtors != null) {
-        // Editing: get the previous amount
         oldAmount = double.tryParse(widget.debtors!.amount) ?? 0.0;
       }
 
       // Save debtor balance
+      final docRef = datafeed.db.collection('debtorsbalance');
       if (widget.debtors == null) {
-        await datafeed.db
-            .collection('debtorsbalance')
-            .doc(docId)
-            .set(debt.toMap());
+        await docRef.doc(docId).set(debt.toMap());
       } else {
-        await datafeed.db
-            .collection('debtorsbalance')
-            .doc(debt.id)
-            .update(debt.toMap());
+        await docRef.doc(debt.id).update(debt.toMap());
       }
 
-      // Update creditBalance in customers collection
-      // If editing, subtract old amount and add new amount
       final newCredit = currentCredit - oldAmount + amount;
-      await datafeed.db.collection('customers').doc(customerDoc.id).update({
-        'creditBalance': newCredit,
-      });
+      await docRef.doc(customerDoc.id).update({'creditBalance': newCredit,});
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -133,12 +122,12 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
   @override
   void initState() {
     super.initState();
-    //_loadPaymentAccounts();
+
     if (widget.debtors != null) {
       _amountController.text = widget.debtors!.amount;
       _dateController.text = widget.debtors!.date.toString();
       _selectedDebtor = widget.debtors!.name;
-      //_populateForm();
+
     }
     _fetchDebtors();
   }
@@ -152,17 +141,13 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       final accessLevel = datafeed.accesslevel.toLowerCase();
       final companyId = datafeed.companyid;
       final branchId = datafeed.branchid;
-      var query = datafeed.db
-          .collection('customers')
-          .where('companyid', isEqualTo: companyId);
+      var query = datafeed.db.collection('customers').where('companyid', isEqualTo: companyId);
+
       if (accessLevel != 'super admin' && branchId.isNotEmpty) {
         query = query.where('branchid', isEqualTo: branchId);
       }
       final snapshot = await query.get();
-      final names = snapshot.docs
-          .map((doc) => doc.data()['name']?.toString() ?? '')
-          .where((name) => name.isNotEmpty)
-          .toList();
+      final names = snapshot.docs.map((doc) => doc.data()['name']?.toString() ?? '').where((name) => name.isNotEmpty).toList();
       setState(() {
         _debtors = names;
       });
@@ -214,7 +199,7 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                           child: Column(
                             children: [
                               _buildDropdown(
-                                label: "Debtors",
+                                label: "",
                                 value: _selectedDebtor.isEmpty
                                     ? null
                                     : _selectedDebtor,
@@ -358,46 +343,7 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                     ? 'Select date'
                                     : null,
                               ),
-                              // TextFormField(
-                              //   controller: _dateController,
-                              //   readOnly: true,
-                              //   style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-                              //   decoration: InputDecoration(
-                              //     labelText: 'Date',
-                              //     labelStyle: const TextStyle(color: Colors.white70),
-                              //     border: OutlineInputBorder(
-                              //       borderRadius: BorderRadius.circular(12),
-                              //     ),
-                              //     enabledBorder: OutlineInputBorder(
-                              //       borderRadius: BorderRadius.circular(12),
-                              //       borderSide: const BorderSide(color: Colors.white24),
-                              //     ),
-                              //     focusedBorder: OutlineInputBorder(
-                              //       borderRadius: BorderRadius.circular(12),
-                              //       borderSide: const BorderSide(color: Colors.blue),
-                              //     ),
-                              //     fillColor: const Color(0xFF22304A),
-                              //     filled: true,
-                              //     suffixIcon: Icon(Icons.calendar_today, color: Colors.white70),
-                              //   ),
-                              //   onTap: () async {
-                              //     FocusScope.of(context).requestFocus(FocusNode());
-                              //     DateTime? pickedDate = await showDatePicker(
-                              //       context: context,
-                              //       initialDate: DateTime.now(),
-                              //       firstDate: DateTime(2000),
-                              //       lastDate: DateTime(2100),
-                              //     );
-                              //     if (pickedDate != null) {
-                              //       _dateController.text =
-                              //           "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-                              //     }
-                              //   },
-                              //   validator: (value) =>
-                              //       value == null || value.isEmpty
-                              //           ? 'Select date'
-                              //           : null,
-                              // ),
+
                               const SizedBox(height: 30),
                               Wrap(
                                 spacing: 15,
@@ -478,38 +424,148 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
     );
   }
 
+  // Widget _buildDropdown({
+  //   required String label,
+  //   required String? value,
+  //   required List<String> items,
+  //   required void Function(String?) onChanged,
+  // }) {
+  //   return DropdownButtonFormField<String>(
+  //     value: value,
+  //     decoration: InputDecoration(
+  //       labelText: label,
+  //       labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+  //       filled: true,
+  //       fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+  //       border: OutlineInputBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //         borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+  //       ),
+  //       enabledBorder: OutlineInputBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //         borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+  //       ),
+  //       focusedBorder: OutlineInputBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //         borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+  //       ),
+  //     ),
+  //     dropdownColor: Theme.of(context).colorScheme.surface,
+  //     style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+  //     items: items.map((String item) {
+  //       return DropdownMenuItem<String>(value: item, child: Text(item));
+  //     }).toList(),
+  //     onChanged: onChanged,
+  //     validator: (value) {
+  //       if (value == null || value.isEmpty) {
+  //         return 'Please select $label';
+  //       }
+  //       return null;
+  //     },
+  //   );
+  // }
+
   Widget _buildDropdown({
     required String label,
     required String? value,
     required List<String> items,
     required void Function(String?) onChanged,
   }) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+    return DropdownSearch<String>(
+      selectedItem: value,
+
+      items: (filter, infiniteScrollProps) => items,
+
+      decoratorProps: DropDownDecoratorProps(
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          filled: true,
+          fillColor:
+          Theme.of(context).colorScheme.surfaceContainerHighest,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 2,
+            ),
+          ),
         ),
       ),
-      dropdownColor: Theme.of(context).colorScheme.surface,
-      style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-      items: items.map((String item) {
-        return DropdownMenuItem<String>(value: item, child: Text(item));
-      }).toList(),
-      onChanged: onChanged,
+
+      popupProps: PopupProps.menu(
+        showSearchBox: true,
+        fit: FlexFit.loose,
+
+        searchFieldProps: TextFieldProps(
+          decoration: InputDecoration(
+            hintText: 'Search ',
+            filled: true,
+            fillColor:
+            Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+
+        menuProps: MenuProps(
+          backgroundColor:
+          Theme.of(context).colorScheme.surface,
+        ),
+
+        itemBuilder: (
+            context,
+            item,
+            isDisabled,
+            isSelected,
+            ) {
+          return ListTile(
+            title: Text(
+              item,
+              style: TextStyle(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface,
+              ),
+            ),
+          );
+        },
+      ),
+
+      dropdownBuilder: (context, selectedItem) {
+        return Text(
+          selectedItem ?? 'Select Debtors',
+          style: TextStyle(
+            color: selectedItem == null
+                ? Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                : Theme.of(context)
+                .colorScheme
+                .onSurface,
+          ),
+        );
+      },
+
+      onSelected: onChanged,
+
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please select $label';

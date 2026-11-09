@@ -1804,6 +1804,41 @@ if (purchaseType === 'credit' && after.supplierid) {
   }
 }
       if (updates.length > 0) {
+
+// -----------------------------------------------------------------------------
+// EDIT 1: put this at the TOP of your `if (updates.length > 0) {` block,
+//         before the `batch.set(dailyRef, ...)` call.
+// -----------------------------------------------------------------------------
+
+// ---- transform guard (max 500 per document per commit; keep a margin) ----
+const MAX_TRANSFORMS_PER_DOC = 450;
+const TRANSFORMS_PER_ITEM = 7;       // lastupdate + 6 increments
+const HEADER_TRANSFORMS = 8;         // company + branch totals on dailyRef
+
+const buildItemReport = (entry) => ({
+  ...entry,
+  newstock: admin.firestore.FieldValue.increment(entry.newstock),
+  newstock_value: admin.firestore.FieldValue.increment(entry.newstock_value),
+  stockin_balance: admin.firestore.FieldValue.increment(entry.stockin_balance),
+  stockin_value: admin.firestore.FieldValue.increment(entry.stockin_value),
+  cartonqty_in: admin.firestore.FieldValue.increment(entry.cartonqty_in),
+  transaction_count: admin.firestore.FieldValue.increment(entry.transaction_count),
+});
+
+const itemEntries = Object.entries(stockReportItems);
+const firstChunkSize = Math.max(
+  1,
+  Math.floor((MAX_TRANSFORMS_PER_DOC - HEADER_TRANSFORMS) / TRANSFORMS_PER_ITEM)
+); // 63 items next to the header
+const otherChunkSize = Math.max(
+  1,
+  Math.floor(MAX_TRANSFORMS_PER_DOC / TRANSFORMS_PER_ITEM)
+); // 64 items per extra commit
+
+const itemChunks = [itemEntries.slice(0, firstChunkSize)];
+for (let i = firstChunkSize; i < itemEntries.length; i += otherChunkSize) {
+  itemChunks.push(itemEntries.slice(i, i + otherChunkSize));
+}
         batch.set(
           dailyRef,
           {
@@ -1823,22 +1858,18 @@ if (purchaseType === 'credit' && after.supplierid) {
                 branchtransaction_count: admin.firestore.FieldValue.increment(stockReportBranchTotals.branchtransaction_count),
               },
             },
-            items: {
-              [branchId]: Object.fromEntries(
-                Object.entries(stockReportItems).map(([itemId, entry]) => [
-                  itemId,
-                  {
-                    ...entry,
-                    newstock: admin.firestore.FieldValue.increment(entry.newstock),
-                    newstock_value: admin.firestore.FieldValue.increment(entry.newstock_value),
-                    stockin_balance: admin.firestore.FieldValue.increment(entry.stockin_balance),
-                    stockin_value: admin.firestore.FieldValue.increment(entry.stockin_value),
-                    cartonqty_in: admin.firestore.FieldValue.increment(entry.cartonqty_in),
-                    transaction_count: admin.firestore.FieldValue.increment(entry.transaction_count),
-                  },
-                ])
-              ),
-            },
+
+            // EDIT 2: inside your existing batch.set(dailyRef, {...}), replace ONLY the
+            //         `items: { ... }` property with this. The first chunk goes in the
+
+
+                        items: {
+                          [branchId]: Object.fromEntries(
+                            itemChunks[0].map(([itemId, entry]) => [itemId, buildItemReport(entry)])
+                          ),
+                        },
+
+
           },
           { merge: true }
         );
@@ -1876,6 +1907,42 @@ if (purchaseType === 'credit' && after.supplierid) {
 
        }
        await batch.commit();
+
+// EDIT 3: right AFTER your existing `await batch.commit();`
+//         (and before the logger.info line), add this. It writes any items
+//         that did not fit in the first commit, one safe-sized commit at a time.
+// -----------------------------------------------------------------------------
+
+          for (let c = 1; c < itemChunks.length; c++) {
+            try {
+              const chunkBatch = db.batch();
+              chunkBatch.set(
+                dailyRef,
+                {
+                  items: {
+                    [branchId]: Object.fromEntries(
+                      itemChunks[c].map(([itemId, entry]) => [itemId, buildItemReport(entry)])
+                    ),
+                  },
+                },
+                { merge: true }
+              );
+              await chunkBatch.commit();
+            } catch (chunkErr) {
+              // The main batch (stock balances, sync flag) is already committed,
+              // so do NOT throw: a retry would double-apply the increments.
+              logger.error(
+                `Stock report items chunk ${c + 1}/${itemChunks.length} failed for ${transactionId}:`,
+                chunkErr
+              );
+              await transactionRef.set(
+                {
+                  stockreportError: `chunk ${c + 1}/${itemChunks.length}: ${chunkErr.message}`,
+                },
+                { merge: true }
+              );
+            }
+          }
           logger.info(`Processed stock transaction ${transactionId}. Updated ${updates.length} items.`);
 
       } else {

@@ -124,7 +124,8 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
 
   final headers = <String>[
     '#',
-    'DATE',
+    'ENTRY DATE',
+    'TXN DATE',
     'TYPE',
     '±QTY',
     'PRICE',
@@ -132,29 +133,30 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
     'MODE',
     'BRANCH',
     'STAFF',
-    'TRNX ID',
+    'RECORD ID',
   ];
 
-  const leftCols = {0, 1, 2, 6, 7, 8, 9};
+  const leftCols = {0, 1, 2, 3, 7, 8, 9, 10};
 
   final colWidths = <int, pw.TableColumnWidth>{
     0: const pw.FixedColumnWidth(20),
     1: const pw.FlexColumnWidth(2.2),
-    2: const pw.FlexColumnWidth(1.8),
-    3: const pw.FlexColumnWidth(1),
+    2: const pw.FlexColumnWidth(1.4),
+    3: const pw.FlexColumnWidth(1.6),
     4: const pw.FlexColumnWidth(1),
-    5: const pw.FlexColumnWidth(1.3),
-    6: const pw.FlexColumnWidth(1.2),
-    7: const pw.FlexColumnWidth(1.6),
-    8: const pw.FlexColumnWidth(1.6),
-    9: const pw.FlexColumnWidth(2.2),
+    5: const pw.FlexColumnWidth(1),
+    6: const pw.FlexColumnWidth(1.3),
+    7: const pw.FlexColumnWidth(1.2),
+    8: const pw.FlexColumnWidth(1.2),
+    9: const pw.FlexColumnWidth(1.2),
+    10: const pw.FlexColumnWidth(2.2),
   };
 
   final border = pw.TableBorder.all(color: PdfColors.grey300, width: 0.8);
 
   pdf.addPage(
     pw.MultiPage(
-      pageFormat: PdfPageFormat.a4.portrait,
+      pageFormat: PdfPageFormat.a4.landscape,
       margin: const pw.EdgeInsets.all(24),
       footer: (ctx) => pw.Column(
         children: [
@@ -268,6 +270,13 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
                 children: [
                   cell('${e.key + 1}', right: false),
                   cell(fmtDate(t.date), right: false, size: 6.5),
+                  cell(
+                    (t.invoiceDate as String?)?.trim().isNotEmpty == true
+                        ? t.invoiceDate as String
+                        : '-',
+                    right: false,
+                    size: 6.5,
+                  ),
                   cell(t.type as String, right: false),
                   cell(
                     qtyStr,
@@ -388,7 +397,8 @@ Future<void> exportItemHistoryExcel({
   // --- Headers ---
   final headers = <String>[
     '#',
-    'DATE',
+    'ENTRY DATE',
+    'TXN DATE',
     'TYPE',
     '±QTY',
     'PRICE',
@@ -396,7 +406,7 @@ Future<void> exportItemHistoryExcel({
     'MODE',
     'BRANCH',
     'STAFF',
-    'TRNX ID',
+    'RECORD ID',
   ];
   sheet.appendRow(headers.map((h) => xls.TextCellValue(h)).toList());
   final headerRowIdx = sheet.maxRows - 1;
@@ -421,6 +431,11 @@ Future<void> exportItemHistoryExcel({
     sheet.appendRow([
       xls.IntCellValue(i + 1),
       xls.TextCellValue(fmtDate(t.date)),
+      xls.TextCellValue(
+        (t.invoiceDate as String?)?.trim().isNotEmpty == true
+            ? t.invoiceDate as String
+            : '-',
+      ),
       xls.TextCellValue(t.type as String),
       xls.TextCellValue('$sign${quantityFormat.format(qty)}'),
       xls.DoubleCellValue((t.price as double)),

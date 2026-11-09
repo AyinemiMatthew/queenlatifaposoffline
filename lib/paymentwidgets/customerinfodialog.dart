@@ -39,7 +39,6 @@ class CustomerInfoDialog {
     final datafeed = Provider.of<Datafeed>(context, listen: false);
     final TextEditingController amountPaidController = TextEditingController();
 
-    await datafeed.getdata();
     String company = datafeed.company;
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
 
@@ -90,6 +89,7 @@ class CustomerInfoDialog {
     bool reciepted = false;
     bool status = false;
     bool isSaving = false;
+    bool? activeSubmitIsA4;
 
     Timestamp? printedAt;
     Timestamp? receiptAt;
@@ -641,12 +641,16 @@ class CustomerInfoDialog {
           }
 
           Future<void> submitSale({required bool printA4}) async {
+            if (isSaving) return;
             final formattedDate = context.read<SalesProvider>().saleDate;
             final isValid = validateInputs();
             if (!isValid) return;
             final bool isCreditNow = paymentMethod == 'credit';
             final String transactionType = isCreditNow ? 'credit' : 'cash';
-            setState(() => isSaving = true);
+            setState(() {
+              isSaving = true;
+              activeSubmitIsA4 = printA4;
+            });
 
             final momoTransactionIds = paymentMethod == 'momo'
                 ? getMomoTransactionMap()
@@ -1231,7 +1235,10 @@ class CustomerInfoDialog {
               }
             } finally {
               if (context.mounted) {
-                setState(() => isSaving = false);
+                setState(() {
+                  isSaving = false;
+                  activeSubmitIsA4 = null;
+                });
               }
             }
           }
@@ -2305,7 +2312,7 @@ class CustomerInfoDialog {
                                         ? null
                                         : () async =>
                                               submitSale(printA4: false),
-                                    child: isSaving
+                                    child: isSaving && activeSubmitIsA4 == false
                                         ? SizedBox(
                                             height: 20,
                                             width: 20,
@@ -2340,7 +2347,7 @@ class CustomerInfoDialog {
                                           ? null
                                           : () async =>
                                                 submitSale(printA4: true),
-                                      child: isSaving
+                                      child: isSaving && activeSubmitIsA4 == true
                                           ? SizedBox(
                                               height: 20,
                                               width: 20,

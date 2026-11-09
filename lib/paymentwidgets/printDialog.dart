@@ -60,10 +60,6 @@ Future<void> printReceipt({
   final isService =
       (selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-  if (!isService &&  datafeed.stockCheckEnabled&&
-      !await salesProvider.validateCartStockOnSave(context, salesItems, datafeed)) {
-    return;
-  }
   final amountPaidController = TextEditingController(
     text: salesProvider.calculateTaxableTotal().toStringAsFixed(2),
   );
@@ -268,9 +264,18 @@ Future<void> printReceipt({
             ],
           ),
           actions: [
+            ValueListenableBuilder<String>(
+              valueListenable: processState,
+              builder: (context, actionState, _) {
+                final isBusy = actionState != "idle";
+                return Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
             if (shouldPrint)
             TextButton(
-              onPressed: () async {
+              onPressed: isBusy ? null : () async {
                 if (_availablePrinters.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -328,12 +333,13 @@ Future<void> printReceipt({
               ),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isBusy ? null : () => Navigator.pop(context),
               child: Text( 'Cancel',
                 style: TextStyle(color: dialogColors.onSurfaceVariant),
               ),
             ),
 
+            const SizedBox(width: double.infinity, height: 0),
 
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -343,7 +349,7 @@ Future<void> printReceipt({
                 ),
               ),
 
-              onPressed: _isSaving ? null : () async {
+              onPressed: isBusy ? null : () async {
 
                 if (_isSaving || processState.value == "loading") return;
 
@@ -665,7 +671,7 @@ Future<void> printReceipt({
                 ),
               ),
 
-              onPressed: _isSaving ? null : () async {
+              onPressed: isBusy ? null : () async {
 
                 if (_isSaving || processState.value == "loadinga4") return;
 
@@ -971,6 +977,10 @@ Future<void> printReceipt({
                 },
               ),
             )
+                  ],
+                );
+              },
+            ),
           ],
         );
       },

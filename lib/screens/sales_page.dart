@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +30,8 @@ class SalesPage extends StatefulWidget {
 class _SalesPageState extends State<SalesPage> {
   ColorScheme get _colorScheme => Theme.of(context).colorScheme;
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  bool _canSwitchBranches(Datafeed datafeed) =>
+      datafeed.canSellAnyBranch && datafeed.isSuperAdmin;
   Color get _primaryText =>
       _isLightTheme ? _colorScheme.onSurface : Colors.white;
   Color get _secondaryText =>
@@ -113,13 +113,8 @@ class _SalesPageState extends State<SalesPage> {
   final TextEditingController _bulkDiscountController = TextEditingController();
   bool _isSavingDirect = false;
   bool _isNormalizingQuantity = false;
+  bool _isSwitchingBranch = false;
   late final Datafeed _datafeed;
-  BranchModel? _originalBranch;
-  String? _originalSalesWarehouseId;
-  String? _originalSalesWarehouseName;
-  Future<void>? _branchSwitchFuture;
-  Future<void>? _restoreBranchFuture;
-  bool _hasTemporaryBranchSwitch = false;
 
   bool get _quantityLimitedSalesMode {
     final mode = (_selectedSalesMode ?? '')
@@ -131,6 +126,132 @@ class _SalesPageState extends State<SalesPage> {
         RegExp(r'\bquarter\b').hasMatch(mode) ||
         mode.contains('1/4') ||
         mode.contains('¼');
+  }
+
+  void _clearAllSalesCarts(SalesProvider salesProvider) {
+    final currentCartId = salesProvider.currentCartId;
+    final cartIds = salesProvider.customerCarts.keys.toList();
+    for (final cartId in cartIds) {
+      salesProvider.switchCart(cartId);
+      salesProvider.clearCurrentCart();
+    }
+    if (salesProvider.customerCarts.containsKey(currentCartId)) {
+      salesProvider.switchCart(currentCartId);
+    }
+  }
+
+  bool _ensureSelectedBranchCart(
+    Datafeed datafeed,
+    SalesProvider salesProvider, {
+    String? itemBranchId,
+  }) {
+    if (_isSwitchingBranch) {
+      snackMsg(
+        context,
+        'Please wait for the branch switch to finish.',
+        Colors.orange,
+      );
+      return false;
+    }
+
+    if (!_canSwitchBranches(datafeed) || !_isSalesBranchType(branchtype)) {
+      return true;
+    }
+
+    final selectedBranchId = _superAdminBranchId.isNotEmpty
+        ? _superAdminBranchId
+        : branchid.isNotEmpty
+        ? branchid
+        : datafeed.activeBranchId;
+    final expectedBranchId = selectedBranchId.trim().toLowerCase();
+    final activeBranchId = _activeBranchId.trim().toLowerCase();
+    final itemBranch = (itemBranchId ?? activeBranchId).trim().toLowerCase();
+    final cartHasDifferentBranch = salesProvider.salesItems.any(
+      (item) =>
+          (item['branchid']?.toString() ?? '').trim().toLowerCase() !=
+          expectedBranchId,
+    );
+
+    if (expectedBranchId.isEmpty ||
+        activeBranchId != expectedBranchId ||
+        itemBranch != expectedBranchId ||
+        cartHasDifferentBranch) {
+      snackMsg(
+        context,
+        'All items in this sale must use the selected branch. Clear or switch the sale branch before continuing.',
+        Colors.red,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _switchSalesBranch(
+    Datafeed datafeed,
+    SalesProvider salesProvider,
+    BranchModel branch,
+  ) async {
+    if (_isSwitchingBranch || !_canSwitchBranches(datafeed)) return;
+
+    final currentBranchId = _superAdminBranchId.isNotEmpty
+        ? _superAdminBranchId
+        : this.branchid.isNotEmpty
+        ? this.branchid
+        : datafeed.branchid;
+    final branchChanged =
+        currentBranchId.trim().toLowerCase() != branch.id.trim().toLowerCase();
+
+    setState(() {
+      _isSwitchingBranch = true;
+    });
+
+    try {
+      await datafeed.switchCurrentStaffBranch(branch);
+      if (branchChanged) {
+        _clearAllSalesCarts(salesProvider);
+      }
+      if (!mounted) return;
+      if (branchChanged) {
+        _resetForm(clearSelectedItem: true);
+      }
+
+      var branchForPricing = branch.id;
+      if (_isSalesPointType(branch.branchtype)) {
+        final assignedWarehouses = _assignedWarehousesForItem(
+          datafeed,
+          salesProvider,
+          _selectedItem,
+        );
+        final warehouse = assignedWarehouses
+            .where(
+              (warehouse) =>
+                  warehouse.id.toLowerCase() ==
+                  (datafeed.salesWarehouseId ?? '').toLowerCase(),
+            )
+            .firstOrNull;
+        datafeed.setSalesWarehouse(warehouse?.id, warehouse?.branchname);
+        branchForPricing = datafeed.salesWarehouseId ?? branch.id;
+      } else {
+        datafeed.setSalesWarehouse(null, null);
+      }
+
+      setState(() {
+        branchid = branch.id;
+        branchtype = branch.branchtype;
+        _superAdminBranchId = branch.id;
+        _superAdminBranchName = branch.branchname;
+        _displayBranchName = branch.branchname;
+        _refreshPricingForBranch(branchForPricing);
+      });
+    } catch (error) {
+      if (mounted) {
+        snackMsg(context, 'Could not switch branch: $error', Colors.red);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSwitchingBranch = false);
+      }
+    }
   }
 
   bool _isFullCartonMode(String mode) {
@@ -195,19 +316,6 @@ class _SalesPageState extends State<SalesPage> {
       await value.getdata();
 
       if (!mounted) return;
-      _originalBranch =
-          value.selectedBranch ??
-          BranchModel(
-            id: value.branchid,
-            branchname: value.branch,
-            branchtype: value.branchtype,
-            address: value.branchaddress,
-            branchcontact: value.branchphone,
-            companyid: value.companyid,
-            companyemail: value.companyemail,
-          );
-      _originalSalesWarehouseId = value.salesWarehouseId;
-      _originalSalesWarehouseName = value.salesWarehouseName;
       if (branchid.isEmpty) {
         branchid = value.branchid;
       }
@@ -233,56 +341,6 @@ class _SalesPageState extends State<SalesPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SalesProvider>().setSaleDate(_selectedDate);
     });
-  }
-
-  Future<void> _restoreOriginalBranch() {
-    final original = _originalBranch;
-    if (!_hasTemporaryBranchSwitch || original == null) {
-      return Future<void>.value();
-    }
-    return _restoreBranchFuture ??= _restoreOriginalBranchNow(original);
-  }
-
-  Future<void> _restoreOriginalBranchNow(BranchModel original) async {
-    try {
-      final pendingSwitch = _branchSwitchFuture;
-      if (pendingSwitch != null) {
-        try {
-          await pendingSwitch;
-        } catch (error, stackTrace) {
-          debugPrint('Sales branch switch failed before restore: $error');
-          debugPrintStack(stackTrace: stackTrace);
-        }
-      }
-      final restore = _datafeed.setBranch(
-        original.id,
-        original.branchname,
-        original.address,
-        original.branchcontact,
-        type: original.branchtype,
-      );
-      _restoreBranchFuture = restore;
-      await restore;
-      _datafeed.setSalesWarehouse(
-        _originalSalesWarehouseId,
-        _originalSalesWarehouseName,
-      );
-      _hasTemporaryBranchSwitch = false;
-      if (mounted) {
-        setState(() {
-          branchid = original.id;
-          branchtype = original.branchtype;
-          _superAdminBranchId = original.id;
-          _superAdminBranchName = original.branchname;
-          _displayBranchName = original.branchname;
-        });
-      }
-    } catch (error, stackTrace) {
-      debugPrint('Failed to restore the original sales branch: $error');
-      debugPrintStack(stackTrace: stackTrace);
-    } finally {
-      _restoreBranchFuture = null;
-    }
   }
 
   int _currentQuantityValue() {
@@ -431,9 +489,6 @@ class _SalesPageState extends State<SalesPage> {
 
   @override
   void dispose() {
-    if (_hasTemporaryBranchSwitch) {
-      unawaited(_restoreOriginalBranch());
-    }
     _barcodeController.removeListener(_onBarcodeChanged);
     _quantityController.removeListener(_onQuantityChanged);
     _discountController.removeListener(_calculateTotals);
@@ -576,7 +631,7 @@ class _SalesPageState extends State<SalesPage> {
       ),
     );
 
-    if (datafeed.canSellAnyBranch) {
+    if (_canSwitchBranches(datafeed)) {
       final sp = Provider.of<SalesProvider>(context, listen: false);
 
       final allBranches = datafeed.branches
@@ -649,63 +704,6 @@ class _SalesPageState extends State<SalesPage> {
         );
       }
 
-      Future<void> applyBranch(BranchModel b) async {
-        try {
-          final branchChanged = datafeed.branchid != b.id;
-          _hasTemporaryBranchSwitch = true;
-          final switchBranch = datafeed.setBranch(
-            b.id,
-            b.branchname,
-            b.address,
-            b.branchcontact,
-            type: b.branchtype,
-            temporarySalesSwitch: true,
-          );
-          _branchSwitchFuture = switchBranch;
-          await switchBranch;
-          if (identical(_branchSwitchFuture, switchBranch)) {
-            _branchSwitchFuture = null;
-          }
-          if (!mounted) return;
-          if (branchChanged) {
-            sp.clearCurrentCart();
-            _resetForm(clearSelectedItem: true);
-          }
-          String branchForPricing = b.id;
-          if (_isSalesPointType(b.branchtype)) {
-            final assignedWarehouses = _assignedWarehousesForItem(
-              datafeed,
-              sp,
-              _selectedItem,
-            );
-            final warehouse = assignedWarehouses
-                .where(
-                  (warehouse) =>
-                      warehouse.id.toLowerCase() ==
-                      (datafeed.salesWarehouseId ?? '').toLowerCase(),
-                )
-                .firstOrNull;
-            datafeed.setSalesWarehouse(warehouse?.id, warehouse?.branchname);
-            branchForPricing = datafeed.salesWarehouseId ?? b.id;
-          } else {
-            datafeed.setSalesWarehouse(null, null);
-          }
-          if (!mounted) return;
-          setState(() {
-            branchid = b.id;
-            branchtype = b.branchtype;
-            _superAdminBranchId = b.id;
-            _superAdminBranchName = b.branchname;
-            _displayBranchName = b.branchname;
-            _refreshPricingForBranch(branchForPricing);
-          });
-        } catch (error) {
-          _branchSwitchFuture = null;
-          if (!mounted) return;
-          snackMsg(context, 'Could not switch branch: $error', Colors.red);
-        }
-      }
-
       final availableIds = available.map((b) => b.id).toList();
       final current = _superAdminBranchId.isNotEmpty
           ? _superAdminBranchId
@@ -720,7 +718,13 @@ class _SalesPageState extends State<SalesPage> {
           isExpanded: true,
           dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: deco('Sell From (Sales Branch / Sales Point)'),
+          decoration: deco(
+            'Sell From (Sales Branch / Sales Point)',
+          ).copyWith(
+            helperText: _canSwitchBranches(datafeed)
+                ? 'Select a branch to switch. Switching clears all open sales carts.'
+                : 'Your account is not permitted to switch branches.',
+          ),
           hint: Text(
             'Select a sales branch or point',
             style: TextStyle(
@@ -748,14 +752,21 @@ class _SalesPageState extends State<SalesPage> {
               ),
             );
           }).toList(),
-          onChanged: (v) async {
-            if (v == null) return;
-            final selected = available.firstWhere((b) => b.id == v);
-            await applyBranch(selected);
-          },
+          onChanged:
+              !_canSwitchBranches(datafeed) || _isSwitchingBranch
+              ? null
+              : (v) async {
+                  if (v == null) return;
+                  final selected = available.firstWhere((b) => b.id == v);
+                  await _switchSalesBranch(datafeed, sp, selected);
+                },
         ),
       );
-      if (!datafeed.isSalesPoint) return branchDropdown;
+      final branchSelector = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [branchDropdown],
+      );
+      if (!datafeed.isSalesPoint) return branchSelector;
 
       final assignedWarehouses = datafeed.branches
           .where(
@@ -769,7 +780,7 @@ class _SalesPageState extends State<SalesPage> {
       if (assignedWarehouses.isEmpty) {
         return Column(
           children: [
-            branchDropdown,
+            branchSelector,
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
@@ -784,7 +795,7 @@ class _SalesPageState extends State<SalesPage> {
       if (item == null || isService) {
         return Column(
           children: [
-            branchDropdown,
+            branchSelector,
             if (item == null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -801,7 +812,7 @@ class _SalesPageState extends State<SalesPage> {
       if (itemWarehouses.isEmpty) {
         return Column(
           children: [
-            branchDropdown,
+            branchSelector,
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
@@ -836,7 +847,7 @@ class _SalesPageState extends State<SalesPage> {
 
       return Column(
         children: [
-          branchDropdown,
+          branchSelector,
           Padding(
             padding: const EdgeInsets.only(bottom: 12.0),
             child: DropdownButtonFormField<String>(
@@ -963,7 +974,7 @@ class _SalesPageState extends State<SalesPage> {
     if (selectedWarehouseId != currentWarehouse) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted ||
-            datafeed.canSellAnyBranch ||
+            _canSwitchBranches(datafeed) ||
             !datafeed.isSalesPoint ||
             _selectedItem?.id != item.id) {
           return;
@@ -1073,6 +1084,13 @@ class _SalesPageState extends State<SalesPage> {
                 )
                 .branchtype
           : branchtype;
+      if (!_ensureSelectedBranchCart(
+        datafeed,
+        salesProvider,
+        itemBranchId: balanceBranchId,
+      )) {
+        return;
+      }
       final totalPieces = double.tryParse(_totalPiecesController.text) ?? 0;
 
       if (!isService && datafeed.stockCheckEnabled) {
@@ -1205,6 +1223,7 @@ class _SalesPageState extends State<SalesPage> {
         snackMsg(context, 'Please add items to the sale first', Colors.red);
       return;
     }
+    if (!_ensureSelectedBranchCart(datafeed, salesProvider)) return;
 
     final activeBranchId = _activeBranchId;
     final activeBranchName = _activeBranchName;
@@ -1369,6 +1388,7 @@ class _SalesPageState extends State<SalesPage> {
   Future<void> _printReceipt() async {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final value = Provider.of<Datafeed>(context, listen: false);
+    if (!_ensureSelectedBranchCart(value, salesProvider)) return;
     if (value.isOffline && value.stockCheckEnabled) {
       snackMsg(
         context,
@@ -1392,23 +1412,6 @@ class _SalesPageState extends State<SalesPage> {
       return;
     }
 
-    final isService =
-        (_selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
-
-    if (!isService && value.stockCheckEnabled) {
-      bool isValid = await salesProvider.validateCartStockOnSaves(
-        _activeBranchId,
-      );
-
-      if (!isValid) {
-        snackMsg(
-          context,
-          'Insufficient stock detected. Please adjust cart.',
-          Colors.red,
-        );
-        return;
-      }
-    }
     await printReceipt(
       context: context,
       salesItems: salesProvider.salesItems,
@@ -1445,7 +1448,7 @@ class _SalesPageState extends State<SalesPage> {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     if (datafeed.isSalesPoint &&
         item.producttype.toLowerCase().trim() != 'service') {
-      if (datafeed.canSellAnyBranch) {
+      if (_canSwitchBranches(datafeed)) {
         final warehouses = _assignedWarehousesForItem(
           datafeed,
           salesProvider,
@@ -1598,7 +1601,7 @@ class _SalesPageState extends State<SalesPage> {
     final int qty = int.tryParse(_quantityController.text) ?? 0;
     final datafeed = context.read<Datafeed>();
     final pricingBranchId =
-        datafeed.canSellAnyBranch && _activeBranchId.isNotEmpty
+        _canSwitchBranches(datafeed) && _activeBranchId.isNotEmpty
         ? _activeBranchId
         : datafeed.activeBranchId;
     final branchPricing = _selectedItem!.branchprices?[pricingBranchId];
@@ -1815,19 +1818,9 @@ class _SalesPageState extends State<SalesPage> {
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             appBar: AppBar(
               leading: Navigator.of(context).canPop()
-                  ? PopScope<Object?>(
-                      canPop: !_hasTemporaryBranchSwitch,
-                      onPopInvokedWithResult: (didPop, result) async {
-                        if (didPop || !_hasTemporaryBranchSwitch) return;
-                        await _restoreOriginalBranch();
-                        if (mounted) {
-                          Navigator.of(context).pop(result);
-                        }
-                      },
-                      child: IconButton(
-                        icon: Icon(Icons.arrow_back, color: _primaryText),
-                        onPressed: () => Navigator.of(context).maybePop(),
-                      ),
+                  ? IconButton(
+                      icon: Icon(Icons.arrow_back, color: _primaryText),
+                      onPressed: () => Navigator.of(context).maybePop(),
                     )
                   : null,
               title: Text(
@@ -4010,36 +4003,15 @@ class _SalesPageState extends State<SalesPage> {
                                                                   context,
                                                                   listen: false,
                                                                 );
+                                                            if (!_ensureSelectedBranchCart(
+                                                              value,
+                                                              salesProvider,
+                                                            )) {
+                                                              return;
+                                                            }
                                                             final activeBranchId =
                                                                 _activeBranchId;
 
-                                                            final isService =
-                                                                (_selectedItem
-                                                                            ?.producttype ??
-                                                                        '')
-                                                                    .toLowerCase()
-                                                                    .trim() ==
-                                                                'service';
-
-                                                            if (!isService &&
-                                                                value
-                                                                    .stockCheckEnabled) {
-                                                              bool
-                                                              isValid = await salesProvider
-                                                                  .validateCartStockOnSaves(
-                                                                    activeBranchId,
-                                                                  );
-
-                                                              if (!isValid) {
-                                                                snackMsg(
-                                                                  context,
-                                                                  'Insufficient stock detected. Please adjust cart.',
-                                                                  Colors.red,
-                                                                );
-
-                                                                return;
-                                                              }
-                                                            }
                                                             CustomerInfoDialog.show(
                                                               context: context,
                                                               // activeBranchId: value.activeBranchId,
@@ -4093,6 +4065,12 @@ class _SalesPageState extends State<SalesPage> {
                                         onDeleteCart: salesProvider.deleteCart,
                                         onPrintReceipt: _printReceipt,
                                         onMomo: () {
+                                          if (!_ensureSelectedBranchCart(
+                                            value,
+                                            salesProvider,
+                                          )) {
+                                            return;
+                                          }
                                           MomoDialog.showMomo(
                                             context: context,
                                             salesItems:
@@ -4102,6 +4080,12 @@ class _SalesPageState extends State<SalesPage> {
                                         onNewTransaction:
                                             salesProvider.createNewCart,
                                         onCustomerInfo: () {
+                                          if (!_ensureSelectedBranchCart(
+                                            value,
+                                            salesProvider,
+                                          )) {
+                                            return;
+                                          }
                                           CustomerInfoDialog.show(
                                             context: context,
                                             activeBranchId: _activeBranchId,
