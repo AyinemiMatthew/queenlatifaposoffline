@@ -1070,9 +1070,7 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
   );
 }
 
-// ===========================================================================
-// PAGE 2: Supplier statement (from the `ledgers` collection)
-// ===========================================================================
+//  Supplier statement (from the `ledgers` collection)
 
 class SupplierStatementPage extends StatefulWidget {
   final String supplierId;

@@ -568,7 +568,15 @@ class _ImportStockPageState extends State<ImportStockPage> {
         batchOps++;
 
         // Build stock transaction item entry (mirroring newstock.dart)
-        final getunitcp =  row.unitCostPrice/row.stockQuantity;
+        final unitCostPrice = row.unitCostPrice ?? 0.0;
+        final stockQuantity = row.stockQuantity ?? 0.0;
+
+        final getunitcp = stockQuantity > 0 &&
+            stockQuantity.isFinite &&
+            unitCostPrice.isFinite
+            ? unitCostPrice / stockQuantity
+            : 0.0;
+        //final getunitcp =  row.unitCostPrice/row.stockQuantity;
         final itemTotalValue = row.stockQuantity * getunitcp;
         grandGrossTotal += itemTotalValue;
 
