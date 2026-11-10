@@ -422,9 +422,6 @@ DebtorStatement _buildStatement(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Shared UI pieces
-// ---------------------------------------------------------------------------
 
 class _BalanceChip extends StatelessWidget {
   final double balance;
@@ -666,9 +663,6 @@ class _CompactRangeDialogState extends State<_CompactRangeDialog> {
   }
 }
 
-// ===========================================================================
-// PAGE 1: Debtor list (from the `customers` collection)
-// ===========================================================================
 
 class _DebtorRow {
   final String id;
@@ -676,7 +670,9 @@ class _DebtorRow {
   final String contact;
   final String branch;
   final String type;
-  final double balance; // customers.creditBalance = amount the customer owes
+  final double balance;
+  final double amountpaid;
+  double get netBalance => balance - amountpaid;
 
   _DebtorRow(
       this.id,
@@ -685,6 +681,7 @@ class _DebtorRow {
       this.branch,
       this.type,
       this.balance,
+      this.amountpaid,
       );
 }
 
@@ -709,7 +706,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
       context,
       name: r.name,
       phone: r.contact,
-      amount: r.balance,
+      amount: r.netBalance,
       company: context.read<Datafeed>().company,
     );
   }
@@ -828,7 +825,6 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
     }
   }
 
-  // ---------------------------- Excel --------------------------------------
 
   Future<void> _exportDebtorsExcel() async {
     final rows = _exportRows;
@@ -941,6 +937,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
               m['branchname']?.toString() ?? '',
               m['customertype']?.toString() ?? '',
               _num(m['creditBalance']),
+              _num(m['amountpaid']),
             );
           }).toList()
             ..sort(
@@ -956,7 +953,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
           _exportRows = rows; // used by the app bar PDF / Excel buttons
 
           // Total covers every debtor matching the filters, not only this page
-          final totalBalance = rows.fold<double>(0, (s, r) => s + r.balance);
+          final totalBalance = rows.fold<double>(0, (s, r) => s + r.netBalance);
 
           // ---- pagination ----
           final pages = (rows.length / _pageSize).ceil();
@@ -1106,7 +1103,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
                 flex: 2,
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: _BalanceChip(r.balance),
+                  child: _BalanceChip(r.netBalance),
                 ),
               ),
               SizedBox(
@@ -1120,7 +1117,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
                       icon: const Icon(Icons.sms_outlined, size: 20),
                       color: cs.primary,
                       onPressed:
-                      r.balance > 0.004 ? () => _remind(r) : null,
+                      r.netBalance > 0.004 ? () => _remind(r) : null,
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
