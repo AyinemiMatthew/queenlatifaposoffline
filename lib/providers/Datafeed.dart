@@ -4358,10 +4358,11 @@ class Datafeed extends ChangeNotifier {
           if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
 
           if (filterBranch != null) {
-            final transactionBranch = (data['branchId'] ?? data['branchid'] ?? '')
-                .toString()
-                .trim()
-                .toLowerCase();
+            final transactionBranch =
+                (data['branchId'] ?? data['branchid'] ?? '')
+                    .toString()
+                    .trim()
+                    .toLowerCase();
             if (transactionBranch != filterBranch.toLowerCase()) continue;
           }
 
@@ -4397,10 +4398,11 @@ class Datafeed extends ChangeNotifier {
           if (staffemail.toLowerCase() != staffEmail.toLowerCase()) continue;
 
           if (filterBranch != null) {
-            final transactionBranch = (data['branchId'] ?? data['branchid'] ?? '')
-                .toString()
-                .trim()
-                .toLowerCase();
+            final transactionBranch =
+                (data['branchId'] ?? data['branchid'] ?? '')
+                    .toString()
+                    .trim()
+                    .toLowerCase();
             if (transactionBranch != filterBranch.toLowerCase()) continue;
           }
 
@@ -7383,6 +7385,114 @@ class Datafeed extends ChangeNotifier {
     }
   }
 
+  Future<void> switchCurrentStaffBranch(BranchModel targetBranch) async {
+    final email = (auth.currentUser?.email ?? staffemail).trim().toLowerCase();
+    if (email.isEmpty) {
+      throw StateError(
+        'Cannot switch branch without a signed-in staff account.',
+      );
+    }
+
+    final staffRef = db.collection('staff').doc(email);
+    final branchRef = db
+        .collection('branches')
+        .doc(targetBranch.id.trim().toLowerCase());
+    Map<String, dynamic>? updatedStaffData;
+    late String previousBranchId;
+    late String previousBranchName;
+
+    try {
+      updatedStaffData = await db.runTransaction<Map<String, dynamic>>((
+        transaction,
+      ) async {
+        final staffDoc = await transaction.get(staffRef);
+        final branchDoc = await transaction.get(branchRef);
+        final staffData = staffDoc.data();
+        final branchData = branchDoc.data();
+
+        if (!staffDoc.exists || staffData == null) {
+          throw StateError('The signed-in staff record no longer exists.');
+        }
+        if ((staffData['companyid'] ?? '').toString().trim().toLowerCase() !=
+            companyid.trim().toLowerCase()) {
+          throw StateError('The staff record does not belong to this company.');
+        }
+        final staffRole = (staffData['accesslevel'] ?? '')
+            .toString()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[\s_-]+'), '');
+        final isSuperAdmin = staffRole == 'superadmin';
+        if (staffData['canSellAnyBranch'] != true || !isSuperAdmin) {
+          throw StateError(
+            'This staff account is not allowed to switch branches.',
+          );
+        }
+        if (!branchDoc.exists || branchData == null) {
+          throw StateError('The selected branch no longer exists.');
+        }
+        if ((branchData['companyid'] ?? '').toString().trim().toLowerCase() !=
+            companyid.trim().toLowerCase()) {
+          throw StateError(
+            'The selected branch does not belong to this company.',
+          );
+        }
+
+        final previousData = Map<String, dynamic>.from(staffData);
+        previousBranchId = (staffData['branchid'] ?? '').toString();
+        previousBranchName = (staffData['branchname'] ?? '').toString();
+        transaction.update(staffRef, {
+          'branchid': targetBranch.id,
+          'branchname': targetBranch.branchname,
+        });
+        return previousData..addAll({
+          'branchid': targetBranch.id,
+          'branchname': targetBranch.branchname,
+        });
+      });
+
+      final updatedStaff = StaffModel.fromMap(updatedStaffData);
+      await setBranch(
+        targetBranch.id,
+        targetBranch.branchname,
+        targetBranch.address,
+        targetBranch.branchcontact,
+        type: targetBranch.branchtype,
+      );
+
+      currentStaff = updatedStaff;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      if (updatedStaffData != null) {
+        try {
+          await db.runTransaction<void>((transaction) async {
+            final staffDoc = await transaction.get(staffRef);
+            final staffData = staffDoc.data();
+            if (!staffDoc.exists || staffData == null) {
+              throw StateError('The staff record disappeared during rollback.');
+            }
+            if ((staffData['branchid'] ?? '').toString() != targetBranch.id) {
+              throw StateError(
+                'The staff branch changed again before rollback; leaving the newer assignment intact.',
+              );
+            }
+            transaction.update(staffRef, {
+              'branchid': previousBranchId,
+              'branchname': previousBranchName,
+            });
+          });
+        } catch (rollbackError, rollbackStackTrace) {
+          Error.throwWithStackTrace(
+            StateError(
+              'Branch switch failed: $error. The staff branch assignment could not be restored: $rollbackError',
+            ),
+            rollbackStackTrace,
+          );
+        }
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
   Future<void> setBranch(
     String id,
     String name,
@@ -7392,25 +7502,116 @@ class Datafeed extends ChangeNotifier {
     bool temporarySalesSwitch = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    if (temporarySalesSwitch &&
-        prefs.getBool('salesPageBranchTemporary') != true) {
-      await prefs.setString('salesPageOriginalBranchId', branchid);
-      await prefs.setString('salesPageOriginalBranch', branch);
-      await prefs.setString('salesPageOriginalBranchType', branchtype);
-      await prefs.setString('salesPageOriginalBranchAddress', branchaddress);
-      await prefs.setString('salesPageOriginalBranchPhone', branchphone);
-      await prefs.setBool('salesPageBranchTemporary', true);
+    const preferenceKeys = [
+      'branchid',
+      'branch',
+      'branchtype',
+      'branchaddress',
+      'branchphone',
+      'salesPageOriginalBranchId',
+      'salesPageOriginalBranch',
+      'salesPageOriginalBranchType',
+      'salesPageOriginalBranchAddress',
+      'salesPageOriginalBranchPhone',
+      'salesPageBranchTemporary',
+      'salesBranchOverrideEmail',
+      'salesBranchOverrideCompanyId',
+      'salesBranchOverrideId',
+    ];
+    final previousPreferences = <String, Object?>{
+      for (final key in preferenceKeys) key: prefs.get(key),
+    };
+
+    Future<void> saveString(String key, String value) async {
+      if (!await prefs.setString(key, value)) {
+        throw StateError('Could not save the active branch preference "$key".');
+      }
     }
-    await prefs.setString('branchid', id);
-    await prefs.setString('branch', name);
-    await prefs.setString('branchtype', type);
-    await prefs.setString('branchaddress', address);
-    await prefs.setString('branchphone', phone);
-    if (temporarySalesSwitch) {
-      await _clearSalesBranchOverride(prefs);
-    } else {
-      await _clearTemporarySalesBranch(prefs);
-      await _clearSalesBranchOverride(prefs);
+
+    Future<void> removePreference(String key) async {
+      if (!await prefs.remove(key)) {
+        throw StateError('Could not clear the branch preference "$key".');
+      }
+    }
+
+    Future<void> restorePreferences() async {
+      for (final entry in previousPreferences.entries) {
+        final value = entry.value;
+        if (value == null) {
+          if (!await prefs.remove(entry.key)) {
+            throw StateError(
+              'Could not restore the previous branch preference "${entry.key}".',
+            );
+          }
+        } else if (value is String) {
+          if (!await prefs.setString(entry.key, value)) {
+            throw StateError(
+              'Could not restore the previous branch preference "${entry.key}".',
+            );
+          }
+        } else if (value is bool) {
+          if (!await prefs.setBool(entry.key, value)) {
+            throw StateError(
+              'Could not restore the previous branch preference "${entry.key}".',
+            );
+          }
+        } else {
+          throw StateError(
+            'Cannot restore branch preference "${entry.key}" of type ${value.runtimeType}.',
+          );
+        }
+      }
+    }
+
+    try {
+      if (temporarySalesSwitch &&
+          prefs.getBool('salesPageBranchTemporary') != true) {
+        await saveString('salesPageOriginalBranchId', branchid);
+        await saveString('salesPageOriginalBranch', branch);
+        await saveString('salesPageOriginalBranchType', branchtype);
+        await saveString('salesPageOriginalBranchAddress', branchaddress);
+        await saveString('salesPageOriginalBranchPhone', branchphone);
+        if (!await prefs.setBool('salesPageBranchTemporary', true)) {
+          throw StateError('Could not save the temporary branch state.');
+        }
+      }
+
+      if (!temporarySalesSwitch) {
+        // Clear this flag first so a restart cannot restore an obsolete branch.
+        await removePreference('salesPageBranchTemporary');
+        for (final key in [
+          'salesPageOriginalBranchId',
+          'salesPageOriginalBranch',
+          'salesPageOriginalBranchType',
+          'salesPageOriginalBranchAddress',
+          'salesPageOriginalBranchPhone',
+          'salesBranchOverrideEmail',
+          'salesBranchOverrideCompanyId',
+          'salesBranchOverrideId',
+        ]) {
+          await removePreference(key);
+        }
+      } else {
+        await _clearSalesBranchOverride(prefs);
+      }
+
+      await saveString('branchid', id);
+      await saveString('branch', name);
+      await saveString('branchtype', type);
+      await saveString('branchaddress', address);
+      await saveString('branchphone', phone);
+    } catch (error, stackTrace) {
+      try {
+        await restorePreferences();
+      } catch (rollbackError, rollbackStackTrace) {
+        Error.throwWithStackTrace(
+          StateError(
+            'Could not switch branches: $error. Restoring the previous branch preferences also failed: $rollbackError',
+          ),
+          rollbackStackTrace,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
     }
 
     branchid = id;
