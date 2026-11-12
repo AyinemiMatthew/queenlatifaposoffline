@@ -40,6 +40,8 @@ class SMSProvider extends ChangeNotifier {
         type: 'single',
         status: 'pending',
         createdAt: Timestamp.now(),
+
+
       );
 
       await _firestore
@@ -191,7 +193,6 @@ class SMSProvider extends ChangeNotifier {
           .collection('sms_logs')
           .add(smsRecord.toMap());
 
-      // TODO: Integrate with SMS service provider here
 
       _isLoading = false;
       notifyListeners();

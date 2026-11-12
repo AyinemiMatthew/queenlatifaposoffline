@@ -15,7 +15,6 @@ import 'package:kologsoft/screens/home_dashboard.dart';
 import 'package:kologsoft/services/domain_detector.dart';
 import 'package:kologsoft/theme/app_theme.dart';
 import 'package:provider/provider.dart';
-
 import 'firebase_options.dart';
 import 'package:kologsoft/providers/StockProvider.dart';
 

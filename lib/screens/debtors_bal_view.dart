@@ -26,12 +26,14 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
         .where('companyId', isEqualTo: stockprovider.companyid)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            return DebtorsBalModel.fromJson(doc.data());
-          }).toList();
+      return snapshot.docs.map((doc) {
+        return DebtorsBalModel.fromJson({
+          ...doc.data(),
+          'transid': doc.id,
         });
+      }).toList();
+    });
   }
-
   @override
   void dispose() {
     searchController.dispose();
@@ -179,24 +181,15 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
 
                                   InkWell(
                                     onTap: () async {
-                                      print(d.id);
-                                      await db
-                                          .collection('debtorsbalance')
-                                          .doc(d.id)
-                                          .delete();
-                                      await db
-                                          .collection('customers')
-                                          .doc(d.id.toLowerCase())
-                                          .update({
-                                            'creditBalance':
-                                                FieldValue.increment(
-                                                  -double.parse(d.amount),
-                                                ),
-                                          });
+                                      print(d.transid);
+                                      print(d.amount);
+                                      await db.collection('debtorsbalance').doc(d.transid).delete();
+                                      await db.collection('customers').doc(d.id).
+                                      update({'creditBalance': FieldValue.increment(-double.parse(d.amount),),});
                                     },
                                     child: const Icon(
                                       Icons.delete_forever,
-                                      color: Colors.red,
+                                      color: Colors.redAccent,
                                     ),
                                   ),
                                 ],

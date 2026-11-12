@@ -806,8 +806,7 @@ class CustomerInfoDialog {
                   'companyid': datafeed.companyid,
                   'branchid': datafeed.branchid,
                   'staff': datafeed.staff,
-                  'message':
-                      "Dear $customerName, goods valued at $smsCreditbalance have been supplied on credit to your account. Kindly settle the outstanding balance promptly. Thank you.",
+                  'message':"Dear $customerName, goods valued at $smsCreditbalance have been supplied on credit to your account. Kindly settle the outstanding balance promptly. Thank you.",
                   'senderid': "",
                   'recipient': customerPhone,
                   'type': 'single',
@@ -821,12 +820,10 @@ class CustomerInfoDialog {
                 print("SMS Record: ${datafeed.companyid},$smsCreditbalance");
                 await db.collection('sms_logs').add(smsRecord);
               } else {
-                customerName =
-                    (selectedCreditCustomer?['name'] ??
+                customerName =(selectedCreditCustomer?['name'] ??
                             nameController.text.trim())
                         .toString();
-                customerPhone =
-                    (selectedCreditCustomer?['contact'] ??
+                customerPhone =(selectedCreditCustomer?['contact'] ??
                             selectedCreditCustomer?['phone'] ??
                             phoneController.text.trim())
                         .toString();

@@ -1305,43 +1305,7 @@ class StockProvider extends Datafeed {
     // Write the complete array back.
     await transactionRef.update({'items': items});
   }
-  /*
-  Future<void> downloadstocktemplate(BuildContext context) async {
-    const assetPath = 'assets/stockupload.xlsx';
-    const fileName = 'stockupload.xlsx';
 
-    if (kIsWeb) {
-      // For web: trigger browser download
-      final byteData = await rootBundle.load(assetPath);
-      final bytes = byteData.buffer.asUint8List();
-      final blob = html.Blob([bytes]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.AnchorElement(href: url)
-        ..setAttribute('download', fileName)
-        ..click();
-      html.Url.revokeObjectUrl(url);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download started')),
-      );
-    } else {
-      // For Android/iOS: save to Downloads folder
-      Directory? downloadsDir;
-      if (Platform.isAndroid) {
-        downloadsDir = Directory('/storage/emulated/0/Download');
-      } else if (Platform.isIOS) {
-        downloadsDir = await getApplicationDocumentsDirectory();
-      }
-      if (downloadsDir != null) {
-        final byteData = await rootBundle.load(assetPath);
-        final file = File('${downloadsDir.path}/$fileName');
-        await file.writeAsBytes(byteData.buffer.asUint8List());
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File saved to ${downloadsDir.path}')),
-        );
-      }
-    }
-  }
-*/
 
   Future<void> downloadstocktemplate(BuildContext context) async {
     const assetPath = 'assets/stockupload.xlsx';
@@ -1380,5 +1344,32 @@ class StockProvider extends Datafeed {
         context,
       ).showSnackBar(SnackBar(content: Text('File saved to ${file.path}')));
     }
+  }
+
+  Future<bool>sendSms(String phone, String message)async{
+    try{
+      await getdata();
+      final smsData = {
+        'companyid': companyid,
+        'branchid': branchid,
+        'staff': staff,
+        'message':message,
+        'senderid': "",
+        'recipient': phone,
+        'type': 'single',
+        'bulkFilterType': null,
+        'status': 'pending',
+        'successMessage': '',
+        'failureReason': '',
+        'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      };
+      await db.collection('sms_logs').add(smsData);
+      return true;
+    }catch(e){
+      print("Error sending SMS: $e");
+      return false;
+    }
+
   }
 }

@@ -47,6 +47,7 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       final docId = '${companyId.toLowerCase()}_$customerContact';
 
       final debt = DebtorsBalModel(
+
         id: widget.debtors?.id ?? docId,
         name: debtorName,
         amount: amount.toString(),
@@ -72,13 +73,15 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
       // Save debtor balance
       final docRef = datafeed.db.collection('debtorsbalance');
       if (widget.debtors == null) {
-        await docRef.doc(docId).set(debt.toMap());
+        final paymentId =
+        '${docId}${DateTime.now().millisecondsSinceEpoch}${datafeed.staffPosition}';
+        await docRef.doc(paymentId).set(debt.toMap());
       } else {
-        await docRef.doc(debt.id).update(debt.toMap());
+        await docRef.doc(widget.debtors?.transid).update(debt.toMap());
       }
 
       final newCredit = currentCredit - oldAmount + amount;
-      await docRef.doc(customerDoc.id).update({'creditBalance': newCredit,});
+       await datafeed.db.collection('customers').doc(customerDoc.id).update({'creditBalance': newCredit,});
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

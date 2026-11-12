@@ -14,6 +14,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/Datafeed.dart';
+import '../providers/StockProvider.dart';
+import '../theme/app_theme.dart';
 
 final NumberFormat _money = NumberFormat('#,##0.00');
 final DateFormat _dbDate = DateFormat('yyyy-MM-dd');
@@ -91,19 +93,7 @@ String _defaultSmsMessage({
         'balance of GHS ${_money.format(amount)} with $company. '
         'Kindly settle at your earliest convenience. Thank you.';
 
-/// ONE place that actually sends the SMS.
-/// Right now it opens the phone's SMS app with the number and message
-/// filled in (works on Android / iOS). To send straight from the app through
-/// an SMS gateway (Arkesel, mNotify, Twilio ...) replace this body with your
-/// gateway request and return true when it succeeds.
-Future<bool> _sendSms(String phone, String message) async {
-  try {
-    final uri = Uri.parse('sms:$phone?body=${Uri.encodeComponent(message)}');
-    return await launchUrl(uri);
-  } catch (_) {
-    return false;
-  }
-}
+
 
 Future<void> _showSmsDialog(
     BuildContext context, {
@@ -185,8 +175,11 @@ class _SmsDialogState extends State<_SmsDialog> {
     });
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
-
-    final ok = await _sendSms(number, text);
+    final provider = Provider.of<StockProvider>(
+      context,
+      listen: false,
+    );
+    final ok = await provider.sendSms(number, text);
     if (ok) {
       nav.pop();
       messenger.showSnackBar(
@@ -946,7 +939,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
 
           final q = _query.toLowerCase();
           final rows = all.where((r) {
-            if (_onlyOutstanding && r.balance.abs() < 0.005) return false;
+            if (_onlyOutstanding && r.netBalance.abs() < 0.005) return false;
             return r.name.toLowerCase().contains(q) ||
                 r.contact.toLowerCase().contains(q);
           }).toList();
@@ -1056,14 +1049,14 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
       child: InkWell(
         onTap: () => _open(r),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
           child: Row(
             children: [
               Expanded(
                 flex: 4,
                 child: Row(
                   children: [
-                    _avatar(r, cs),
+
                     const SizedBox(width: 12),
                     Flexible(
                       child: Column(
@@ -1077,14 +1070,14 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
                               fontSize: 15,
                             ),
                           ),
-                          if (r.contact.isNotEmpty)
-                            Text(
-                              r.contact,
-                              style: TextStyle(
-                                color: cs.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
+                          // if (r.contact.isNotEmpty)
+                          //   Text(
+                          //     r.contact,
+                          //     style: TextStyle(
+                          //       color: cs.onSurfaceVariant,
+                          //       fontSize: 12,
+                          //     ),
+                          //   ),
                         ],
                       ),
                     ),
@@ -1106,24 +1099,42 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
                   child: _BalanceChip(r.netBalance),
                 ),
               ),
+              // SizedBox(
+              //   width: 56,
+              //   child: Row(
+              //     mainAxisAlignment: MainAxisAlignment.end,
+              //     children: [
+              //       IconButton(
+              //         tooltip: 'Send SMS reminder',
+              //         visualDensity: VisualDensity.compact,
+              //         icon: const Icon(Icons.sms_outlined, size: 20),
+              //         color: cs.primary,
+              //         onPressed:
+              //         r.netBalance > 0.004 ? () => _remind(r) : null,
+              //       ),
+              //       Icon(
+              //         Icons.chevron_right_rounded,
+              //         size: 20,
+              //         color: cs.onSurfaceVariant,
+              //       ),
+              //     ],
+              //   ),
+              // ),
               SizedBox(
-                width: 72,
+                width: 56,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     IconButton(
                       tooltip: 'Send SMS reminder',
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.sms_outlined, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      iconSize: 18,
+                      icon: Icon(Icons.sms_outlined,color: Colors.blueGrey.shade700),
                       color: cs.primary,
-                      onPressed:
-                      r.netBalance > 0.004 ? () => _remind(r) : null,
+                      onPressed: r.netBalance > 0.004 ? () => _remind(r) : null,
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    Icon(Icons.chevron_right_rounded, size: 20, color: cs.onSurfaceVariant),
                   ],
                 ),
               ),
@@ -1443,10 +1454,6 @@ class _DebtorStatementPageState extends State<DebtorStatementPage> {
     );
   }
 
-  // ---------------------------- PDF ----------------------------------------
-  // PDF and Excel always export every line in the selected period,
-  // not just the page currently shown on screen.
-
   Future<void> _printPdf(DebtorStatement s) async {
     try {
       final doc = pw.Document();
@@ -1548,7 +1555,6 @@ class _DebtorStatementPageState extends State<DebtorStatementPage> {
     }
   }
 
-  // ---------------------------- Excel --------------------------------------
 
   Future<void> _exportExcel(DebtorStatement s) async {
     try {
@@ -1607,7 +1613,6 @@ class _DebtorStatementPageState extends State<DebtorStatementPage> {
     }
   }
 
-  // ---------------------------- UI -----------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -1730,8 +1735,6 @@ class _DebtorStatementPageState extends State<DebtorStatementPage> {
       ),
     );
   }
-
-  // ----- Widescreen: table layout -----
 
   Widget _wideStatement(
       DebtorStatement s,

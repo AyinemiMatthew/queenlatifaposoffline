@@ -1,4 +1,5 @@
 class DebtorsBalModel {
+  String transid;
   String id;
   String name;
   String amount;
@@ -15,6 +16,7 @@ class DebtorsBalModel {
   String activityType;
 
   DebtorsBalModel({
+    this.transid = '',
     this.id = '',
     this.name = '',
     this.amount = '',
@@ -33,6 +35,7 @@ class DebtorsBalModel {
 
   Map<String, dynamic> toMap() {
     return {
+
       'id': id,
       'name': name,
       'amount': amount,
@@ -52,6 +55,8 @@ class DebtorsBalModel {
 
   factory DebtorsBalModel.fromJson(Map<String, dynamic> json) {
     return DebtorsBalModel(
+
+      transid: json['transid'] ?? '',
       id: json['id'] ?? '',
       name: json['name'] ?? '',
       amount: json['amount'] ?? '',
