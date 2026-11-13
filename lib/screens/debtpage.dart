@@ -6,10 +6,14 @@ import 'package:provider/provider.dart';
 import '../models/dashboardStats.dart';
 import '../providers/Datafeed.dart';
 
+
 class TotalDebtWidget extends StatefulWidget {
   final double cwidth;
 
-  const TotalDebtWidget({super.key, required this.cwidth});
+  const TotalDebtWidget({
+    super.key,
+    required this.cwidth,
+  });
 
   @override
   State<TotalDebtWidget> createState() => _TotalDebtWidgetState();
@@ -34,14 +38,24 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
     _animation = Tween<double>(
       begin: 0,
       end: 0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _animateTo(double newValue) {
     _animation = Tween<double>(
       begin: _currentDebt,
       end: newValue,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
 
     _currentDebt = newValue;
 
@@ -50,7 +64,10 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
       ..forward();
   }
 
-  double _debtRatio(double debt, double stockValue) {
+  double _debtRatio(
+      double debt,
+      double stockValue,
+      ) {
     if (stockValue <= 0) {
       return debt > 0 ? 1.0 : 0.0;
     }
@@ -58,26 +75,31 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
     return debt / stockValue;
   }
 
-  Color _debtColor(double debt, double stockValue) {
+  Color _debtColor(
+      double debt,
+      double stockValue,
+      ) {
     final ratio = _debtRatio(debt, stockValue);
-    final isLight = Theme.of(context).brightness == Brightness.light;
 
     if (ratio <= 0.25) {
-      return isLight ? const Color(0xFF15803D) : Colors.greenAccent;
+      return Colors.greenAccent;
     }
 
     if (ratio <= 0.50) {
-      return isLight ? const Color(0xFFB45309) : Colors.orangeAccent;
+      return Colors.orangeAccent;
     }
 
     if (ratio <= 0.75) {
-      return isLight ? const Color(0xFFC2410C) : Colors.deepOrangeAccent;
+      return Colors.deepOrangeAccent;
     }
 
-    return isLight ? const Color(0xFFB91C1C) : Colors.redAccent;
+    return Colors.redAccent;
   }
 
-  String _debtStatus(double debt, double stockValue) {
+  String _debtStatus(
+      double debt,
+      double stockValue,
+      ) {
     // No stock value available
     if (stockValue <= 0) {
       if (debt > 0) {
@@ -87,7 +109,10 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
       return "Healthy";
     }
 
-    final ratio = _debtRatio(debt, stockValue);
+    final ratio = _debtRatio(
+      debt,
+      stockValue,
+    );
 
     if (ratio <= 0.25) {
       return "Healthy";
@@ -104,7 +129,10 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
     return "Critical Risk";
   }
 
-  double _debtPercentage(double debt, double stockValue) {
+  double _debtPercentage(
+      double debt,
+      double stockValue,
+      ) {
     if (stockValue <= 0) {
       return debt > 0 ? 100.0 : 0.0;
     }
@@ -112,66 +140,90 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
     return (debt / stockValue) * 100;
   }
 
+  List<FlSpot> get _trendSpots => const [
+    FlSpot(0, 3),
+    FlSpot(1, 4),
+    FlSpot(2, 3.5),
+    FlSpot(3, 5),
+    FlSpot(4, 6),
+    FlSpot(5, 7),
+    FlSpot(6, 5),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final datafeed = context.watch<Datafeed>();
+    final datafeed = context.read<Datafeed>();
 
     return StreamBuilder<DashboardStats>(
       stream: datafeed.dashboardStatsStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _buildCard(debt: 0, stockValue: 0);
+          return _buildCard(
+            debt: 0,
+            stockValue: 0,
+          );
         }
 
         if (!snapshot.hasData) {
-          return _buildCard(debt: 0, stockValue: 0);
+          return _buildCard(
+            debt: 0,
+            stockValue: 0,
+          );
         }
 
         final dashboard = snapshot.data!;
-        final isSuperAdmin =
-            datafeed.accesslevel.toString().toLowerCase() == 'super admin';
-        final companyStockValue = isSuperAdmin
-            ? dashboard.companyStockValue
-            : dashboard.branchStockValue;
+        final isSuperAdmin = datafeed.accesslevel.toString().toLowerCase() == 'super admin';
+        final comptotaldebt=dashboard.companyCredit+dashboard.companyopening_credit_bal;
+        final branchtotaldebt=dashboard.branchCredit+dashboard.branchopening_credit_bal;
+        final companyCredit =isSuperAdmin? comptotaldebt:branchtotaldebt;
+        final companyStockValue = isSuperAdmin?dashboard.companyStockValue:dashboard.branchStockValue;
 
-        final totalDebt = isSuperAdmin
-            ? dashboard.companyCredit
-            : dashboard.branchCredit;
-        if (totalDebt != _currentDebt) {
+        if (companyCredit != _currentDebt) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && totalDebt != _currentDebt) {
-              _animateTo(totalDebt);
+            if (mounted && companyCredit != _currentDebt) {
+              _animateTo(companyCredit);
             }
           });
         }
-        return _buildCard(debt: totalDebt, stockValue: companyStockValue);
+
+        return _buildCard(
+          debt: companyCredit,
+          stockValue: companyStockValue,
+        );
       },
     );
   }
 
-  Widget _buildCard({required double debt, required double stockValue}) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final color = _debtColor(debt, stockValue);
+  Widget _buildCard({
+    required double debt,
+    required double stockValue,
+  }) {
+    final color = _debtColor(
+      debt,
+      stockValue,
+    );
 
-    final status = _debtStatus(debt, stockValue);
+    final status = _debtStatus(
+      debt,
+      stockValue,
+    );
 
-    final percentage = _debtPercentage(debt, stockValue);
+    final percentage = _debtPercentage(
+      debt,
+      stockValue,
+    );
 
     return Container(
       width: widget.cwidth,
       height: 235,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.onSurface.withValues(alpha: 0.12),
-        ),
+        color: const Color(0xFF182232),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 8,
             offset: const Offset(0, 3),
           ),
         ],
@@ -179,19 +231,25 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 "TOTAL DEBT",
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: colorScheme.onSurface,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               Container(
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: const BorderRadius.all(Radius.circular(4)),
+                  color: color.withOpacity(0.2),
+                  borderRadius: const BorderRadius.all(
+                    Radius.circular(4),
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
@@ -211,13 +269,15 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
             builder: (context, child) {
               final value = _animation.value;
               final isNegative = value < 0;
-              final displayValue = NumberFormat(
-                '#,##0.00',
-              ).format(isNegative ? value.abs() : value);
+              final displayValue = NumberFormat('#,##0.00').format(
+                isNegative ? value.abs() : value,
+              );
 
               return FittedBox(
                 child: Text(
-                  isNegative ? "GHS ($displayValue)" : "GHS $displayValue",
+                  isNegative
+                      ? "GHS ($displayValue)"
+                      : "GHS $displayValue",
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -227,13 +287,30 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
               );
             },
           ),
+          // AnimatedBuilder(
+          //   animation: _animation,
+          //   builder: (context, child) {
+          //     return FittedBox(
+          //       child: Text(
+          //         "GHS ${NumberFormat('#,##0.00').format(_animation.value)}",
+          //         style: TextStyle(
+          //           fontSize: 22,
+          //           fontWeight: FontWeight.bold,
+          //           color: color,
+          //         ),
+          //       ),
+          //     );
+          //   },
+          // ),
+
           const SizedBox(height: 6),
+
 
           Text(
             status,
             style: TextStyle(
               fontSize: 12,
-              color: color,
+              color: color.withOpacity(0.9),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -242,9 +319,9 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
 
           Text(
             "Debt is ${percentage.toStringAsFixed(1)}% of stock value",
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 11,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
             ),
           ),
 
@@ -254,55 +331,52 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
             height: 60,
             child: LineChart(
               LineChartData(
-                minX: 0,
-                maxX: 8,
-                minY: 0,
-                maxY: 100,
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(handleBuiltInTouches: false),
+                gridData: const FlGridData(
+                  show: false,
+                ),
+                titlesData: const FlTitlesData(
+                  show: false,
+                ),
+                borderData: FlBorderData(
+                  show: false,
+                ),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 0),
-                      FlSpot(1, 24),
-                      FlSpot(2, 12),
-                      FlSpot(3, 42),
-                      FlSpot(4, 61),
-                      FlSpot(5, 76),
-                      FlSpot(6, 100),
-                      FlSpot(7, 82),
-                      FlSpot(8, 43),
-                    ],
+                    spots: _trendSpots,
                     isCurved: true,
-                    curveSmoothness: 0.25,
                     color: color,
                     barWidth: 2.5,
-                    dotData: const FlDotData(show: false),
+                    dotData: const FlDotData(
+                      show: false,
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: color.withValues(alpha: 0.15),
+                      color: color.withOpacity(0.15),
                     ),
                   ),
                 ],
               ),
-              duration: const Duration(milliseconds: 250),
             ),
           ),
 
           const Spacer(),
 
+
           Row(
             children: [
-              Icon(Icons.trending_up, color: color, size: 18),
+              Icon(
+                Icons.trending_up,
+                color: color,
+                size: 18,
+              ),
               const SizedBox(width: 6),
 
               Expanded(
                 child: Text(
                   "Stock value: GHS ${NumberFormat('#,##0.00').format(stockValue)}",
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -310,6 +384,7 @@ class _TotalDebtWidgetState extends State<TotalDebtWidget>
               ),
             ],
           ),
+
         ],
       ),
     );
