@@ -7,6 +7,7 @@ import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:kologsoft/providers/cashier_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -39,8 +40,6 @@ int _millis(dynamic v) {
   return 0;
 }
 
-/// Positive = customer owes us (shown in orange), zero = settled (green),
-/// negative = customer has overpaid / holds credit with us (blue).
 Color _balanceColor(double balance) {
   if (balance > 0.004) return const Color(0xFFE65100);
   if (balance < -0.004) return const Color(0xFF1565C0);
@@ -50,13 +49,10 @@ Color _balanceColor(double balance) {
 Color _stripe(ColorScheme cs) => cs.primary.withValues(alpha: 0.05);
 Color _footerTint(ColorScheme cs) => cs.primary.withValues(alpha: 0.09);
 
-/// Standard financial format: negatives are shown as the absolute value
-/// in brackets, e.g. -1,250.50 becomes (1,250.50).
+
 String _acct(double v) =>
     v < -0.004 ? '(${_money.format(v.abs())})' : _money.format(v);
 
-/// Same idea inside Excel: the cell keeps its real (signed) number so it can
-/// still be summed, but is displayed with brackets for negatives.
 final xl.CellStyle _acctExcelStyle = xl.CellStyle(
   numberFormat: xl.NumFormat.custom(formatCode: '#,##0.00;(#,##0.00)'),
 );
@@ -70,9 +66,6 @@ void _styleLastRow(xl.Sheet sheet, List<int> cols) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// SMS reminders
-// ---------------------------------------------------------------------------
 
 /// Ghana-style numbers: 0302282883 -> +233302282883
 String _normalizePhone(String raw) {
@@ -175,7 +168,7 @@ class _SmsDialogState extends State<_SmsDialog> {
     });
     final messenger = ScaffoldMessenger.of(context);
     final nav = Navigator.of(context);
-    final provider = Provider.of<StockProvider>(
+    final provider = Provider.of<CashierProvider>(
       context,
       listen: false,
     );
@@ -332,10 +325,7 @@ class DebtorStatement {
   });
 }
 
-/// Loads every accounts_receivable ledger line for one customer.
-/// Filtering on account == accounts_receivable avoids counting the sales /
-/// cash legs of the same transaction. `debtorId` is queried as well in case
-/// your payment entries use it instead of `customerId`.
+
 Future<List<DebtorLine>> _fetchDebtorLines(
     Datafeed df,
     String customerId,
@@ -662,7 +652,7 @@ class _DebtorRow {
   final String name;
   final String contact;
   final String branch;
-  final String type;
+  final String lastpaid;
   final double balance;
   final double amountpaid;
   double get netBalance => balance - amountpaid;
@@ -672,7 +662,7 @@ class _DebtorRow {
       this.name,
       this.contact,
       this.branch,
-      this.type,
+      this.lastpaid,
       this.balance,
       this.amountpaid,
       );
@@ -739,7 +729,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
 
       final data = <List<String>>[
         for (final r in rows)
-          [r.name, r.contact, r.branch, r.type, _acct(r.balance)],
+          [r.name, r.contact, r.branch, r.lastpaid, _acct(r.balance)],
         ['TOTAL (${rows.length} debtors)', '', '', '', _acct(total)],
       ];
 
@@ -775,7 +765,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
           ),
           build: (_) => [
             pw.TableHelper.fromTextArray(
-              headers: ['Customer', 'Contact', 'Branch', 'Type', 'Outstanding'],
+              headers: ['Customer', 'Contact', 'Branch', 'Last paid', 'Outstanding'],
               data: data,
               headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold,
@@ -838,7 +828,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
         t('Customer'),
         t('Contact'),
         t('Branch'),
-        t('Type'),
+        t('Last paid'),
         t('Outstanding'),
       ]);
 
@@ -849,7 +839,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
           t(r.name),
           t(r.contact),
           t(r.branch),
-          t(r.type),
+          t(r.lastpaid),
           n(r.balance),
         ]);
         _styleLastRow(sheet, [4]);
@@ -907,10 +897,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: df.db
-            .collection('customers')
-            .where('companyid', isEqualTo: df.companyid)
-            .snapshots(),
+        stream: df.db.collection('customers').where('companyid', isEqualTo: df.companyid).snapshots(),
         builder: (context, snap) {
           if (snap.hasError) {
             return Center(child: Text('Error: ${snap.error}'));
@@ -928,7 +915,11 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
               m['name']?.toString() ?? 'Unknown',
               m['contact']?.toString() ?? '',
               m['branchname']?.toString() ?? '',
-              m['customertype']?.toString() ?? '',
+              m['lastpaid'] != null
+                  ? DateFormat('MMM. d-yyyy').format(
+                (m['lastpaid'] as Timestamp).toDate(),
+              )
+                  : 'Never',
               _num(m['creditBalance']),
               _num(m['amountpaid']),
             );
@@ -1090,7 +1081,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
               ),
               Expanded(
                 flex: 2,
-                child: Text(r.type, overflow: TextOverflow.ellipsis),
+                child: Text(r.lastpaid, overflow: TextOverflow.ellipsis),
               ),
               Expanded(
                 flex: 2,
@@ -1184,7 +1175,7 @@ class _DebtorReportPageState extends State<DebtorReportPage> {
               children: [
                 head('Customer', flex: 4),
                 head('Branch'),
-                head('Type'),
+                head('Last paid'),
                 head('Outstanding', a: TextAlign.right),
                 const SizedBox(width: 72),
               ],
@@ -1723,13 +1714,7 @@ class _DebtorStatementPageState extends State<DebtorStatementPage> {
                   ? _wideStatement(s, cs, pageLines, pager)
                   : _mobileStatement(s, cs, pageLines, pager),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Balance = Debit - Credit. Debit is a credit sale, Credit is a payment received. '
-                  'A positive balance is the amount the customer owes. '
-                  'PDF and Excel include every transaction in the selected period.',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-            ),
+
           ],
         ),
       ),

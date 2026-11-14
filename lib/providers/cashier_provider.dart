@@ -317,7 +317,6 @@ class CashierProvider extends Datafeed {
       await getdata();
       Query query = db
           .collection('customers').where('companyid', isEqualTo: companyid)
-          //.where('customertype', isEqualTo: "Credit")
           .where('creditBalance', isNotEqualTo: 0);
       final snapshot = await query.get();
      return debtorlist = snapshot.docs.map((doc) => Debtor.fromFirestore(doc)).toList();
@@ -497,15 +496,13 @@ class CashierProvider extends Datafeed {
           transaction.update(customerRef, {
             'amountpaid': FieldValue.increment(difference),
             'updatedat': FieldValue.serverTimestamp(),
+            'lastpaid': FieldValue.serverTimestamp(),
           });
           if (companyid.isNotEmpty &&
               branchid.isNotEmpty &&
               paymentMethod.isNotEmpty) {
-            transaction
-                .update(db.collection('dashbaord_stats').doc(companyid), {
-                  'companydebtpay_$paymentMethod': FieldValue.increment(
-                    difference,
-                  ),
+            transaction.update(db.collection('dashbaord_stats').doc(companyid), {
+                  'companydebtpay_$paymentMethod': FieldValue.increment(difference,),
                   'branchsales.$branchid.debtpay_$paymentMethod':
                       FieldValue.increment(difference),
                 });
@@ -623,8 +620,6 @@ class CashierProvider extends Datafeed {
     }
   }
 
-  /// Atomically mark MOMO transactions as 'saved' and append the paymentId.
-  /// Returns a map of transactionId -> success(bool) indicating which updates succeeded.
   Future<Map<String, bool>> markMomoTransactionsSaved(List<String> transactionIds, String paymentId) async {
     final results = <String, bool>{};
     final batch = db.batch();
@@ -679,4 +674,32 @@ class CashierProvider extends Datafeed {
     notifyListeners();
     return results;
   }
+
+  Future<bool>sendSms(String phone, String message)async{
+    try{
+      await getdata();
+      final smsData = {
+        'companyid': companyid,
+        'branchid': branchid,
+        'staff': staff,
+        'message':message,
+        'senderid': "",
+        'recipient': phone,
+        'type': 'single',
+        'bulkFilterType': null,
+        'status': 'pending',
+        'successMessage': '',
+        'failureReason': '',
+        'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      };
+      await db.collection('sms_logs').add(smsData);
+      return true;
+    }catch(e){
+      print("Error sending SMS: $e");
+      return false;
+    }
+
+  }
+
 }

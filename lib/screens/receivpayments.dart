@@ -366,7 +366,6 @@ class _ReceivepaymentsPageState extends State<ReceivepaymentsPage> {
         debtor: debtor,
         onPaymentSubmitted: (payment) {
           provider.addPaymentToDebtor(debtor.id, payment);
-          // Refresh the selected debtor after payment
           provider.loadcustomers(_selectedDebtor!.name).then((_) {
             Debtor? updatedDebtor;
             try {
@@ -1561,25 +1560,10 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
       String smsbalance = formatter.format(runningbalance);
 
       await provider.debptpayment(paymentData);
-      final smsRecord = {
-        'companyid': provider.companyid,
-        'branchid': provider.branchid,
-        'staff': provider.staff,
-        'message':
-            "Dear ${payment.customername},We acknowledge receipt of your payment of ${smsamount}.Your remaining balance is ${smsbalance}. Thank you.",
-        'senderid': "",
-        'recipient': widget.debtor.contact,
-        'type': 'single',
-        'bulkFilterType': null,
-        'status': 'pending',
-        'successMessage': '',
-        'failureReason': '',
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
-      };
 
-      await provider.db.collection('sms_logs').add(smsRecord);
-
+      final String message="Dear ${payment.customername},We acknowledge receipt of your payment of ${smsamount}.Your remaining balance is ${smsbalance}. Thank you.";
+      final String phone =widget.debtor.contact;
+      await provider.sendSms(phone, message);
       if (paymentMethodStore == 'momo' && momoTransactionIds != null) {
         for (final transactionId in momoTransactionIds.keys) {
           final query = await FirebaseFirestore.instance
