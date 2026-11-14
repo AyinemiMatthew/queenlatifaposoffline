@@ -1,19 +1,16 @@
-import 'dart:async';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dropdown_search/dropdown_search.dart' hide Mode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/models/itemregmodel.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/SalesProvider.dart';
+import 'package:kologsoft/providers/damage_provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
-import '../models/ReasonsModel.dart';
 import '../models/damageitem.dart';
 import '../models/itemmodel.dart';
-import '../providers/SalesProvider.dart';
 import '../widgets/offline_indicator.dart';
 import 'damagesslist.dart';
 
@@ -27,20 +24,6 @@ class Damages extends StatefulWidget {
 }
 
 class _DamagesState extends State<Damages> {
-  bool _isSalesPointType(String? type) =>
-      (type ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
-      'salespoint';
-
-  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
-  Color get _textColor =>
-      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
-  Color get _secondaryTextColor => _isLightTheme
-      ? Theme.of(context).colorScheme.onSurfaceVariant
-      : Colors.white70;
-  Color get _dividerColor => _isLightTheme
-      ? Theme.of(context).colorScheme.outlineVariant
-      : Colors.white24;
-
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _barcodeController = TextEditingController();
   final TextEditingController _itemController = TextEditingController();
@@ -52,65 +35,51 @@ class _DamagesState extends State<Damages> {
   final TextEditingController _cppriceController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   DateTime? _selectedDate;
-  String? _selectedDamageMode;
-  List<String> _damageMode = [];
-
-  List<Mode>? _itemModes;
-
-  List<Map<String, dynamic>> _suggestions = [];
-  bool _showSuggestions = false;
-  ItemModel? _selectedItem;
   String _searchQuery = '';
-  String grandtotal = '0.0';
-  List<Map<String, dynamic>> _damageItems = [];
+  bool _showSuggestions = false;
 
-  int? _editingIndex;
-  String _branchid = "";
-  String _branchname = "";
-  double _selectedCartonLeft = 0.0;
-  double _singleLeft = 0.0;
-  Map<String, dynamic>? branchbalance;
-  String? _selecteddamagereason;
+  DamageProvider get _damageProvider => context.read<DamageProvider>();
+  List<Map<String, dynamic>> get _damageItems => _damageProvider.items;
+  bool get _isLoading => _damageProvider.isSaving;
+  String get grandtotal => _damageProvider.grandTotalText;
+  String get _branchid => _damageProvider.branchId;
+  String get _branchname => _damageProvider.branchName;
+  double get _selectedCartonLeft => _damageProvider.cartonsLeft;
+  double get _singleLeft => _damageProvider.singleLeft;
+  ItemModel? get _selectedItem => _damageProvider.selectedItem;
+  String? get _selectedDamageMode => _damageProvider.selectedMode;
+  List<String> get _damageMode => _damageProvider.modeNames;
+  String? get _selecteddamagereason => _damageProvider.selectedReason;
+  int? get _editingIndex => _damageProvider.editingIndex;
+  bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
+  Color get _textColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _dividerColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : Colors.white24;
+
+  bool _isSalesPointType(String? type) =>
+      (type ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
+      'salespoint';
 
   @override
   void initState() {
     super.initState();
+    _damageProvider.prepare(damageToEdit: widget.damageitem);
+    final datafeed = context.read<Datafeed>();
+    _selectedDate = DateTime.now();
+    _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate!);
     Future.microtask(() {
-      final datafeed = context.read<Datafeed>();
-
-      setState(() {
-        _branchid = datafeed.branchid;
-        _branchname = datafeed.branch;
-      });
-      context.read<Datafeed>().fetchItems();
-      context.read<Datafeed>().fetchSuppliers();
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchReturnreasons();
-
-      _barcodeController.addListener(_onBarcodeChanged);
-      _quantityController.addListener(_updateTotals);
-      _cppriceController.addListener(_updateTotals);
-      _discountController.addListener(_updateTotals);
+      if (!mounted) return;
+      datafeed.fetchItems();
+      datafeed.fetchSuppliers();
+      datafeed.fetchBranches();
+      datafeed.fetchReturnreasons();
     });
-    if (widget.damageitem != null) {
-      final Map<String, dynamic> itemMap = Map<String, dynamic>.from(
-        widget.damageitem!.item,
-      );
-
-      var indexkeys = itemMap.keys.toList()..sort();
-
-      _damageItems = indexkeys
-          .map((key) => Map<String, dynamic>.from(itemMap[key]))
-          .toList();
-      _syncTotals();
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _recalculateGrandTotal();
-      });
-    } else {
-      _damageItems = [];
-      grandtotal = '0.0';
-    }
+    _barcodeController.addListener(_onBarcodeChanged);
   }
 
   @override
@@ -120,223 +89,60 @@ class _DamagesState extends State<Damages> {
     _itemController.dispose();
     _priceController.dispose();
     _quantityController.dispose();
-    _discountController.removeListener(_updateTotals);
-    _cppriceController.removeListener(_updateTotals);
+    _discountController.dispose();
     _totalPiecesController.dispose();
     _totalAmountController.dispose();
     _cppriceController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
-  void _syncTotals() {
-    double total = 0;
-
-    for (final item in _damageItems) {
-      final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-      final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
-      final modeQty = double.tryParse(item['modeqty']?.toString() ?? '1') ?? 1;
-
-      total += cp * qty * modeQty;
-    }
-
-    setState(() {
-      grandtotal = total.toStringAsFixed(2);
-      _totalAmountController.text = grandtotal;
-    });
+  void _onBarcodeChanged() {
+    _searchQuery = _barcodeController.text.trim();
+    if (mounted) setState(() => _showSuggestions = _searchQuery.isNotEmpty);
   }
 
   Future<void> _scanBarcode() async {
     try {
-      final result = await Navigator.push(
+      final result = await Navigator.push<String>(
         context,
-        MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
+        MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
       );
-
-      if (result != null && result is String) {
-        setState(() {
-          _barcodeController.text = result;
-        });
+      if (result != null && mounted) {
+        _barcodeController.text = result;
         _formKey.currentState?.validate();
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error opening scanner: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  void _onBarcodeChanged() {
-    setState(() {
-      _searchQuery = _barcodeController.text.trim();
-      _showSuggestions = _searchQuery.isNotEmpty;
-    });
-  }
-
-  void _addToSalesPreview() {
-    final datafeed = Provider.of<Datafeed>(context, listen: false);
-    if (_formKey.currentState!.validate()) {
-      final qty = double.tryParse(_quantityController.text) ?? 0;
-      final cp = double.tryParse(_cppriceController.text) ?? 0;
-      if (_selectedCartonLeft <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "No stock available for this item",
-              style: TextStyle(color: Theme.of(context).colorScheme.surface),
-            ),
-          ),
-        );
-        return;
-      }
-
-      if (_selectedDamageMode?.toLowerCase() == 'single') {
-        if (qty > _singleLeft) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Quantity exceeds available single stock"),
-            ),
-          );
-          return;
-        }
-      } else {
-        if (qty > _selectedCartonLeft) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Quantity exceeds available carton stock"),
-            ),
-          );
-          return;
-        }
-      }
-      String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-      final mode = _getSelectedMode();
-
-      final modeQty = double.tryParse(mode?.qty ?? '1') ?? 1;
-
-      final totalPieces = qty * modeQty;
-      final itemGrandTotal = cp * totalPieces;
-      final now = DateTime.now();
-
-      final day = DateFormat('EEEE').format(now);
-      final year = now.year.toString();
-      final month = '${now.year}.${now.month}';
-      final weekNumber =
-          ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
-
-      final week = '${now.year}.$weekNumber';
-      final salesItem = {
-        'itemid': _selectedItem?.id ?? '',
-        'barcode': _barcodeController.text,
-        'cp': _cppriceController.text,
-        'reason': _selecteddamagereason ?? '',
-        'branchid': _branchid,
-        'branchname': _branchname,
-        'modeqty': mode?.qty ?? '1',
-        'item': _itemController.text,
-        'mode': _selectedDamageMode ?? 'single',
-        'quantity': _quantityController.text,
-        'totalpieces': totalPieces,
-        'supplier': datafeed.selectedSupplier?.supplier ?? '',
-        'grandtotal': itemGrandTotal.toStringAsFixed(2),
-        'dateymd': formattedDate,
-        'day': day,
-        'week': week,
-        'month': month,
-        'year': year,
-        'boxpiece':
-            _itemModes
-                ?.firstWhere(
-                  (m) => m.name.toLowerCase() == 'carton',
-                  orElse: () => Mode(
-                    id: '',
-                    name: '',
-                    qty: '1',
-                    cp: '',
-                    rp: '',
-                    wp: '',
-                    sp: '',
-                  ),
-                )
-                .qty ??
-            '1',
-
-        'modes': _itemModes != null
-            ? {
-                for (final m in _itemModes!)
-                  m.name: {
-                    'id': m.id,
-                    'name': m.name,
-                    'qty': m.qty,
-                    'cp': m.cp,
-                    'rp': m.rp,
-                    'wp': m.wp,
-                    'sp': m.sp,
-                  },
-              }
-            : <String, dynamic>{},
-      };
-
-      setState(() {
-        if (_editingIndex != null) {
-          _damageItems[_editingIndex!] = salesItem;
-          _editingIndex = null;
-        } else {
-          _damageItems.add(salesItem);
-        }
-        _recalculateGrandTotal();
-      });
-      _syncTotals();
-      _resetForm();
+    } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Item added to damages preview',
-            style: TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text('Error opening scanner: $error'),
+          backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  Mode? _getSelectedMode() {
-    if (_itemModes == null || _selectedDamageMode == null) return null;
-
-    return _itemModes!.firstWhere(
-      (m) => m.name.toLowerCase() == _selectedDamageMode!.toLowerCase(),
-      orElse: () =>
-          Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''),
+  void _addToSalesPreview() {
+    if (!_formKey.currentState!.validate()) return;
+    final error = _damageProvider.addLine(
+      barcode: _barcodeController.text,
+      itemName: _itemController.text,
+      costPrice: _cppriceController.text,
+      quantity: _quantityController.text,
     );
-  }
-
-  void _updateTotals() {
-    double totalCost = 0;
-    double totalPieces = 0;
-
-    for (var item in _damageItems) {
-      final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-      final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
-      final modeQty = double.tryParse(item['modeqty']?.toString() ?? '1') ?? 1;
-
-      final pieces = qty * modeQty;
-
-      totalPieces += pieces;
-      totalCost += cp * pieces;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
     }
-
-    _totalPiecesController.text = totalPieces.toStringAsFixed(2);
-    _totalAmountController.text = totalCost.toStringAsFixed(2);
-
-    setState(() {
-      grandtotal = totalCost.toStringAsFixed(2);
-    });
+    _resetForm();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Item added to damages preview'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _resetForm() {
@@ -347,176 +153,56 @@ class _DamagesState extends State<Damages> {
     _discountController.clear();
     _totalPiecesController.clear();
     _cppriceController.clear();
-
-    setState(() {
-      _selectedItem = null;
-
-      _selectedDamageMode = null;
-
-      _itemModes = null;
-      _damageMode = [];
-      _selecteddamagereason = null;
-    });
+    _damageProvider.resetSelection();
+    setState(() => _showSuggestions = false);
   }
 
-  void _removeFromSalesPreview(int index) {
-    setState(() {
-      _damageItems.removeAt(index);
-      _recalculateGrandTotal();
-    });
-    _syncTotals();
-  }
-
-  void _recalculateGrandTotal() {
-    double total = 0;
+  void _updateTotals() {
+    double totalPieces = 0;
     for (final item in _damageItems) {
-      final cp = double.tryParse(item['cp']?.toString() ?? '0') ?? 0;
-      final qty = double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+      final quantity =
+          double.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
       final modeQty = double.tryParse(item['modeqty']?.toString() ?? '1') ?? 1;
-      total += cp * qty * modeQty;
+      totalPieces += quantity * modeQty;
     }
-    setState(() {
-      grandtotal = total.toStringAsFixed(2);
-      _totalAmountController.text = grandtotal;
-    });
+    _totalPiecesController.text = totalPieces.toStringAsFixed(2);
+    _totalAmountController.text = grandtotal;
   }
 
-  bool _isLoading = false;
+  void _removeFromSalesPreview(int index) => _damageProvider.removeLine(index);
 
   void _editCartItem(int index) {
-    final item = _damageItems[index];
+    final item = _damageProvider.startEdit(index);
     final datafeed = Provider.of<Datafeed>(context, listen: false);
-
-    _barcodeController.removeListener(_onBarcodeChanged);
-
     final itemId = item['itemid']?.toString() ?? '';
-
-    if (itemId.isNotEmpty) {
-      final foundItem = datafeed.items.firstWhere(
-        (i) => i.id == itemId,
-        orElse: () => ItemModel.fromMap({'id': itemId}),
-      );
-      _selectItem(foundItem, datafeed);
-    }
+    final matchingItems = datafeed.items.where((i) => i.id == itemId);
     setState(() {
-      _editingIndex = index;
       _itemController.text = item['item']?.toString() ?? '';
       _barcodeController.text = item['barcode']?.toString() ?? '';
       _quantityController.text = item['quantity']?.toString() ?? '';
       _totalPiecesController.text = item['totalpieces']?.toString() ?? '';
-      _selectedDamageMode = item['mode']?.toString() ?? '';
       _cppriceController.text = item['cp']?.toString() ?? '';
-      _selecteddamagereason = item['reason']?.toString();
       _showSuggestions = false;
-
-      double total = 0;
-      for (final d in _damageItems) {
-        final cp = double.tryParse(d['cp']?.toString() ?? '0') ?? 0;
-        final qty = double.tryParse(d['quantity']?.toString() ?? '0') ?? 0;
-        final modeQty = double.tryParse(d['modeqty']?.toString() ?? '1') ?? 1;
-        total += cp * qty * modeQty;
-      }
-      grandtotal = total.toStringAsFixed(2);
-      _totalAmountController.text = grandtotal;
     });
-
-    _barcodeController.addListener(_onBarcodeChanged);
+    if (matchingItems.isNotEmpty) {
+      _damageProvider.selectItem(matchingItems.first);
+      _damageProvider.selectMode(item['mode']?.toString());
+    }
+    _updateTotals();
   }
 
   void _selectItem(ItemModel? item, Datafeed datafeed) {
     if (item == null) return;
-
-    final branchId = _branchid;
-
-    final branchbalance =
-        item.branchbalance?[branchId] as Map<String, dynamic>? ?? {};
-
-    final double netPieces =
-        (branchbalance['netpieces'] as num?)?.toDouble() ?? 0.0;
-
-    final mode = item.modes;
-
-    final cartonMode = mode?.firstWhere(
-      (m) => m.name.toLowerCase() == 'carton',
-      orElse: () =>
-          Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''),
-    );
-
-    final singleMode = mode?.firstWhere(
-      (m) => m.name.toLowerCase() == 'single',
-      orElse: () =>
-          Mode(id: '', name: '', qty: '', cp: '', rp: '', wp: '', sp: ''),
-    );
-
-    final boxQty = double.tryParse(cartonMode?.qty ?? '1') ?? 1;
-    final singleQty = double.tryParse(singleMode?.qty ?? '1') ?? 1;
-
-    final double cartonsLeft = boxQty > 0 ? (netPieces / boxQty) : 0;
-    final double singleLeft = singleQty > 0 ? (netPieces / singleQty) : 0;
-
-    List<Mode>? effectivePricing;
-
-    if (item.branchprices != null && item.branchprices!.containsKey(branchId)) {
-      final rawPricing = item.branchprices![branchId]['pricing'];
-
-      if (rawPricing is List) {
-        effectivePricing = (rawPricing)
-            .map((e) {
-              final map = Map<String, dynamic>.from(e as Map);
-              final id = map['id']?.toString() ?? '';
-              return Mode.fromMap(id, map);
-            })
-            .cast<Mode>()
-            .toList();
-      } else if (rawPricing is Map) {
-        effectivePricing = rawPricing.entries
-            .map((entry) {
-              final id = entry.key.toString();
-              final map = Map<String, dynamic>.from(entry.value as Map);
-              return Mode.fromMap(id, map);
-            })
-            .cast<Mode>()
-            .toList();
-      } else {
-        effectivePricing = item.modes;
-      }
-    } else {
-      effectivePricing = item.modes;
-    }
-
+    _damageProvider.selectItem(item);
     setState(() {
-      _selectedItem = item;
-      _selectedCartonLeft = cartonsLeft;
-      _singleLeft = singleLeft;
-      _itemModes = effectivePricing;
-
-      if (_itemModes != null && _itemModes!.isNotEmpty) {
-        _damageMode = _itemModes!.map((e) {
-          return e.name.isNotEmpty ? e.name : e.id;
-        }).toList();
-
-        _damageMode.sort((a, b) {
-          if (a.toLowerCase() == 'single') return -1;
-          if (b.toLowerCase() == 'single') return 1;
-          return 0;
-        });
-
-        _selectedDamageMode = _damageMode.first;
-      } else {
-        _damageMode = ['Single'];
-        _selectedDamageMode = 'Single';
-      }
-
       _itemController.text = item.name;
       _barcodeController.text = item.barcode;
       _cppriceController.text = item.cp;
-
       _showSuggestions = false;
-      _suggestions.clear();
     });
   }
 
-  Future<void> _addDamageReason(Datafeed datafeed) async {
+  Future<void> _addDamageReason() async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
     var isSaving = false;
@@ -557,43 +243,17 @@ class _DamagesState extends State<Damages> {
                         if (!formKey.currentState!.validate()) return;
 
                         final name = controller.text.trim();
-                        ReasonsModel? existingReason;
-                        for (final reason in datafeed.returnitemreasons) {
-                          if (reason.name.toLowerCase() == name.toLowerCase()) {
-                            existingReason = reason;
-                            break;
-                          }
-                        }
-                        if (existingReason != null) {
-                          Navigator.of(dialogContext).pop(existingReason.name);
-                          return;
-                        }
-
                         setDialogState(() {
                           isSaving = true;
                           errorMessage = null;
                         });
 
                         try {
-                          final id = datafeed.normalizeAndSanitize(
-                            '${datafeed.companyid}$name',
+                          final savedName = await _damageProvider.createReason(
+                            name,
                           );
-                          final reason = ReasonsModel(
-                            name: name,
-                            staff: datafeed.staff,
-                            id: id,
-                            date: DateTime.now(),
-                            companyid: datafeed.companyid,
-                            company: datafeed.company,
-                          );
-
-                          await datafeed.db
-                              .collection('return_reasons')
-                              .doc(id)
-                              .set(reason.toMap());
-                          datafeed.returnitemreasons.add(reason);
                           if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop(name);
+                            Navigator.of(dialogContext).pop(savedName);
                           }
                         } catch (error) {
                           setDialogState(() {
@@ -616,7 +276,7 @@ class _DamagesState extends State<Damages> {
       );
 
       if (reasonName != null && mounted) {
-        setState(() => _selecteddamagereason = reasonName);
+        _damageProvider.selectReason(reasonName);
       }
     } finally {
       controller.dispose();
@@ -626,100 +286,28 @@ class _DamagesState extends State<Damages> {
   Future<void> _saveSale() async {
     if (_damageItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No items to save',
-            style: TextStyle(color: Theme.of(context).colorScheme.surface),
-          ),
-          backgroundColor: Colors.orange,
-        ),
+        const SnackBar(content: Text('No items to save')),
       );
-      setState(() {
-        _isLoading = false;
-      });
       return;
     }
     if (_isLoading) return;
-    setState(() {
-      _isLoading = true;
-    });
+
     try {
-      final datafeed = Provider.of<Datafeed>(context, listen: false);
-
-      final companyId = datafeed.companyid;
-      final staffPosition = datafeed.staffPosition;
-
-      final bool isEditing = widget.damageitem != null;
-
-      final String docId;
-      final String trnx;
-
-      if (isEditing) {
-        docId = widget.damageitem!.id;
-        trnx = widget.damageitem!.trxid!;
-      } else {
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        docId = '${_branchid}_${staffPosition}_$timestamp'
-            .toLowerCase()
-            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-        trnx = '${staffPosition}_$timestamp'.toLowerCase().replaceAll(
-          RegExp(r'[^a-z0-9_]'),
-          '',
-        );
-      }
-
-      final Map<String, dynamic> itemsMap = {};
-      for (int i = 0; i < _damageItems.length; i++) {
-        itemsMap['item_$i'] = {..._damageItems[i]};
-      }
-
-      final formattedDate = context.read<SalesProvider>().saleDate;
-
-      final damageitem = damageitemmodel(
-        id: docId,
-        trxid: trnx,
-        itemcount: _damageItems.length.toString(),
-        item: itemsMap,
-        branchid: _branchid,
-        branchname: _branchname,
-        description: '',
-
-        createdby: isEditing ? widget.damageitem!.createdby : datafeed.staff,
-        createdat: isEditing ? widget.damageitem!.createdat : DateTime.now(),
-        staffposition: staffPosition.toString(),
-        companyid: companyId,
-        company: datafeed.company,
-        dateymd: formattedDate,
-        grandtotal: grandtotal,
+      final outcome = await _damageProvider.save(
+        saleDate: context.read<SalesProvider>().saleDate,
+        onSyncError: (error) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not sync damage record: $error')),
+          );
+        },
       );
-
-      final saveFuture = datafeed.db
-          .collection('damageitems')
-          .doc(docId)
-          .set(damageitem.tomap(), SetOptions(merge: true));
-
-      final wasOffline = datafeed.isOffline;
-      damageitemmodel? previousDamage;
-      for (final existingDamage in datafeed.damages) {
-        if (existingDamage.id == docId) {
-          previousDamage = existingDamage;
-          break;
-        }
-      }
-
-      // Always queue the local pending item so desktop/web can save while offline.
-      // Firestore persistence will upload it automatically once connection returns.
-      datafeed.addPendingDamage(damageitem);
-      unawaited(
-        _finishQueuedDamageSave(saveFuture, datafeed, docId, previousDamage),
-      );
-
+      if (outcome == null) return;
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            wasOffline
+            outcome.wasOffline
                 ? 'Damage saved on this device; it will sync when internet is available.'
                 : 'Damage saved locally; it will sync automatically when online.',
             style: const TextStyle(color: Colors.white),
@@ -728,49 +316,12 @@ class _DamagesState extends State<Damages> {
           duration: const Duration(seconds: 3),
         ),
       );
-
-      setState(() {
-        _damageItems.clear();
-        _isLoading = false;
-        _totalAmountController.text = '0.00';
-        grandtotal = '0.00';
-      });
-
-      if (isEditing && mounted) {
-        Navigator.pop(context);
-      }
+      if (outcome.isEditing) Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Error saving damages: $e',
-            style: TextStyle(color: Theme.of(context).colorScheme.surface),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _finishQueuedDamageSave(
-    Future<void> saveFuture,
-    Datafeed datafeed,
-    String docId,
-    damageitemmodel? previousDamage,
-  ) async {
-    try {
-      await saveFuture;
-      datafeed.markDamageSynced(docId);
-    } catch (error) {
-      datafeed.restoreDamageAfterFailedOfflineSave(docId, previousDamage);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not sync damage record: $error'),
+          content: Text('Error saving damages: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -779,8 +330,8 @@ class _DamagesState extends State<Damages> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<Datafeed>(
-      builder: (BuildContext context, Datafeed value, Widget? child) {
+    return Consumer2<Datafeed, DamageProvider>(
+      builder: (BuildContext context, Datafeed value, damageProvider, child) {
         final accesslevel = value.accesslevel;
         final isSuperAdmin = accesslevel.toLowerCase().trim() == 'super admin';
         return Scaffold(
@@ -929,13 +480,12 @@ class _DamagesState extends State<Damages> {
                                                 value:
                                                     value.branches.any(
                                                       (b) =>
-                                                          b.id ==
-                                                              value.branchid &&
+                                                          b.id == _branchid &&
                                                           !_isSalesPointType(
                                                             b.branchtype,
                                                           ),
                                                     )
-                                                    ? value.branchid
+                                                    ? _branchid
                                                     : null,
                                                 dropdownColor: Theme.of(
                                                   context,
@@ -1017,20 +567,15 @@ class _DamagesState extends State<Damages> {
                                                 onChanged: (val) {
                                                   if (val != null) {
                                                     value.selectBranch(val);
-
-                                                    setState(() {
-                                                      _branchid = val;
-                                                      _branchname = value
-                                                          .branches
-                                                          .firstWhere(
-                                                            (b) =>
-                                                                b.id == val &&
-                                                                !_isSalesPointType(
-                                                                  b.branchtype,
-                                                                ),
-                                                          )
-                                                          .branchname;
-                                                    });
+                                                    final branch = value
+                                                        .branches
+                                                        .firstWhere(
+                                                          (b) => b.id == val,
+                                                        );
+                                                    damageProvider.changeBranch(
+                                                      val,
+                                                      branch.branchname,
+                                                    );
 
                                                     if (_selectedItem != null) {
                                                       _selectItem(
@@ -1294,12 +839,7 @@ class _DamagesState extends State<Damages> {
                                                                     ),
                                                                   );
 
-                                                              final singleMode =
-                                                                  mode?.firstWhere(
-                                                                    (m) =>
-                                                                        m.name
-                                                                            .toLowerCase() ==
-                                                                        'single',
+                                                              final singleMode =  mode?.firstWhere((m) => m.name.toLowerCase() == 'single',
                                                                     orElse: () => Mode(
                                                                       id: '',
                                                                       name: '',
@@ -1311,27 +851,14 @@ class _DamagesState extends State<Damages> {
                                                                     ),
                                                                   );
 
-                                                              final boxQty =
-                                                                  double.tryParse(
-                                                                    cartonMode
-                                                                            ?.qty ??
-                                                                        singleMode
-                                                                            ?.qty ??
-                                                                        '1',
-                                                                  );
+                                                              final boxQty = double.tryParse( cartonMode?.qty ?? singleMode?.qty ?? '1', );
 
-                                                              final double
-                                                              cartonsLeft =
-                                                                  boxQty! > 0
-                                                                  ? (netPieces /
-                                                                        boxQty)
-                                                                  : 0.0;
+                                                              final double cartonsLeft = boxQty! > 0 ? (netPieces / boxQty) : 0.0;
 
                                                               return ListTile(
                                                                 dense: true,
                                                                 leading: Icon(
-                                                                  Icons
-                                                                      .inventory_2,
+                                                                  Icons.inventory_2,
                                                                   color: Theme.of(
                                                                     context,
                                                                   ).colorScheme.primary,
@@ -1500,11 +1027,9 @@ class _DamagesState extends State<Damages> {
                                                         );
                                                       }).toList(),
                                                 onChanged: (value) {
-                                                  setState(() {
-                                                    _selectedDamageMode = value;
-                                                  });
-
-                                                  _updateTotals();
+                                                  damageProvider.selectMode(
+                                                    value,
+                                                  );
                                                   _formKey.currentState
                                                       ?.validate();
                                                 },
@@ -1960,10 +1485,8 @@ class _DamagesState extends State<Damages> {
                                                         );
                                                       }).toList(),
                                                       onChanged: (val) {
-                                                        setState(() {
-                                                          _selecteddamagereason =
-                                                              val;
-                                                        });
+                                                        damageProvider
+                                                            .selectReason(val);
                                                       },
                                                       validator: (val) =>
                                                           val == null ||
@@ -1976,8 +1499,8 @@ class _DamagesState extends State<Damages> {
                                                   IconButton(
                                                     tooltip:
                                                         'Add damage reason',
-                                                    onPressed: () =>
-                                                        _addDamageReason(value),
+                                                    onPressed:
+                                                      _addDamageReason,
                                                     icon: const Icon(
                                                       Icons.add_circle_outline,
                                                     ),

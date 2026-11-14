@@ -11,7 +11,7 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'sales_branch_items_page.dart';
 import 'sales_report_shared.dart';
-import '../providers/Datafeed.dart';
+import '../providers/ReportProvider.dart';
 import '../widgets/datepicker.dart';
 
 typedef _BranchRow = BranchRow;
@@ -98,12 +98,7 @@ class _SalesReportState extends State<SalesReport> {
 
   static final NumberFormat _nf = NumberFormat('#,##0.00');
 
-  double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
-
-  bool _isWarehouseType(String? t) =>
-      (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') == 'warehouse';
-
-  bool _canSelect(Datafeed v) => v.isAdminLevel;
+  bool _canSelect(ReportProvider v) => v.isAdminLevel;
 
   bool _isColumnVisible(int column) =>
       !_toggleablePaymentColumns.contains(column) ||
@@ -222,7 +217,7 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
-  Future<void> _pickMobileDateRange(Datafeed value) async {
+  Future<void> _pickMobileDateRange(ReportProvider value) async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
       context: context,
@@ -240,7 +235,7 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
-  Widget _mobileMoreButton(Datafeed value, String branchLabel) {
+  Widget _mobileMoreButton(ReportProvider value, String branchLabel) {
     return PopupMenuButton<String>(
       tooltip: 'More options',
       color: _cardColor,
@@ -252,7 +247,7 @@ class _SalesReportState extends State<SalesReport> {
             break;
           case 'branch':
             final branches = value.branches
-                .where((branch) => !_isWarehouseType(branch.branchtype))
+                .where((branch) => !value.isWarehouseType(branch.branchtype))
                 .where((branch) => branch.id.isNotEmpty)
                 .toList();
             final selected = await _showMobileOptionSheet(
@@ -374,7 +369,7 @@ class _SalesReportState extends State<SalesReport> {
   }
 
   void _openBranchItems(_BranchRow r) {
-    final provider = context.read<Datafeed>();
+    final provider = context.read<ReportProvider>();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SalesBranchItemsPage(
@@ -411,7 +406,7 @@ class _SalesReportState extends State<SalesReport> {
     required List<_BranchRow> rows,
     required _BranchRow t,
   }) {
-    final company = context.read<Datafeed>().company;
+    final company = context.read<ReportProvider>().company;
     switch (action) {
       case 'print':
         return _printReport(
@@ -469,7 +464,7 @@ class _SalesReportState extends State<SalesReport> {
     String? category,
     String? kind,
   }) {
-    final company = context.read<Datafeed>().company;
+    final company = context.read<ReportProvider>().company;
     final start = selectedDate?.start ?? DateTime.now();
     final end = selectedDate?.end ?? DateTime.now();
     switch (action) {
@@ -529,7 +524,7 @@ class _SalesReportState extends State<SalesReport> {
 
     Future.microtask(() {
       if (!mounted) return;
-      final provider = context.read<Datafeed>();
+      final provider = context.read<ReportProvider>();
       provider.fetchBranches();
       provider.updateSearch('');
       _selectedBranch = _canSelect(provider)
@@ -566,7 +561,7 @@ class _SalesReportState extends State<SalesReport> {
     });
   }
 
-  void _closeSearch(Datafeed value) {
+  void _closeSearch(ReportProvider value) {
     setState(() {
       _isSearching = false;
       _mainSearchController.clear();
@@ -574,7 +569,7 @@ class _SalesReportState extends State<SalesReport> {
     value.updateSearch('');
   }
 
-  String _branchLabel(Datafeed value) {
+  String _branchLabel(ReportProvider value) {
     if (!_canSelect(value)) return value.branch;
     if (_selectedBranch == null) return 'All Branches';
     final matches = value.branches
@@ -584,7 +579,7 @@ class _SalesReportState extends State<SalesReport> {
     return matches.first.branchname;
   }
 
-  void _showBranchMenu(BuildContext context, Datafeed value) {
+  void _showBranchMenu(BuildContext context, ReportProvider value) {
     final RenderBox button =
         _branchKey.currentContext!.findRenderObject() as RenderBox;
     final RenderBox overlay =
@@ -616,7 +611,7 @@ class _SalesReportState extends State<SalesReport> {
         ),
         ...{
               for (final b in value.branches.where(
-                (b) => !_isWarehouseType(b.branchtype),
+                (b) => !value.isWarehouseType(b.branchtype),
               ))
                 b.id: b,
             }.values
@@ -639,51 +634,14 @@ class _SalesReportState extends State<SalesReport> {
     });
   }
 
-  Comparable _sortValue(_BranchRow r, int col) {
-    switch (col) {
-      case 1:
-        return r.branchName.toLowerCase();
-      case 2:
-        return r.cashSales;
-      case 3:
-        return r.credit;
-      case 4:
-        return r.totalSales;
-      case 5:
-        return r.returns;
-      case 6:
-        return r.discount;
-      case 7:
-        return r.profit;
-      case 8:
-        return r.cashAtHand;
-      default:
-        return 0.0;
-    }
-  }
-
-  List<_BranchRow> _rows(Datafeed value) {
-    String norm(dynamic v) => (v ?? '').toString().toLowerCase();
-
-    final warehouseIds = value.branches
-        .where((b) => _isWarehouseType(b.branchtype))
-        .map((b) => norm(b.id))
-        .toSet();
-
-    final rows = value
-        .filterbranchsalesreport()
-        .where((m) => !warehouseIds.contains(norm(m['branchId'])))
-        .map((m) => _BranchRow.fromMap(m))
+  List<_BranchRow> _rows(ReportProvider value) {
+    return value
+        .filteredSalesBranchRows(
+          sortColumn: _sortColumn,
+          sortAscending: _sortAscending,
+        )
+        .map(_BranchRow.fromMap)
         .toList();
-
-    final col = _sortColumn;
-    if (col != null) {
-      rows.sort((a, b) {
-        final c = Comparable.compare(_sortValue(a, col), _sortValue(b, col));
-        return _sortAscending ? c : -c;
-      });
-    }
-    return rows;
   }
 
   String _n(double v) => _nf.format(v);
@@ -1260,7 +1218,7 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
-  void _applyFilter(Datafeed value) {
+  void _applyFilter(ReportProvider value) {
     value.applySalesReportFilter(
       selectedBranch: _selectedBranch,
       productType: _selectedType,
@@ -1268,7 +1226,7 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
-  Widget _reportStatusBanner(Datafeed value) {
+  Widget _reportStatusBanner(ReportProvider value) {
     final isOffline = value.salesReportOffline;
     final hasData = value.salesReportHasVisibleData;
     final colorScheme = Theme.of(context).colorScheme;
@@ -1377,7 +1335,7 @@ class _SalesReportState extends State<SalesReport> {
     });
   }
 
-  void _pickType(Datafeed value) {
+  void _pickType(ReportProvider value) {
     _showFilterMenu(
       _typeKey,
       'All Product Types',
@@ -1390,7 +1348,7 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
-  void _pickCategory(Datafeed value) {
+  void _pickCategory(ReportProvider value) {
     debugPrint('CATEGORY OPTIONS: ${value.salesReportCategories}');
     _showFilterMenu(
       _categoryKey,
@@ -1414,7 +1372,7 @@ class _SalesReportState extends State<SalesReport> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<Datafeed>(
+    return Consumer<ReportProvider>(
       builder: (context, value, child) {
         final canSelect = _canSelect(value);
         final rows = _rows(value);
@@ -1499,7 +1457,9 @@ class _SalesReportState extends State<SalesReport> {
                                 ),
                                 onChanged: (text) {
                                   setState(() {});
-                                  context.read<Datafeed>().updateSearch(text);
+                                  context.read<ReportProvider>().updateSearch(
+                                    text,
+                                  );
                                 },
                               ),
                             ),
@@ -1520,7 +1480,7 @@ class _SalesReportState extends State<SalesReport> {
                             ),
                             onPressed: () {
                               setState(() => _mainSearchController.clear());
-                              context.read<Datafeed>().updateSearch('');
+                              context.read<ReportProvider>().updateSearch('');
                               _searchFocusNode.requestFocus();
                             },
                           ),
@@ -1596,7 +1556,7 @@ class _SalesReportState extends State<SalesReport> {
                               ),
                               onDateSelected: (selection) {
                                 setState(() => selectedDate = selection);
-                                context.read<Datafeed>().fetchsalesreport(
+                                context.read<ReportProvider>().fetchsalesreport(
                                   selectedDate: selectedDate,
                                   selectedBranch: _selectedBranch,
                                   productType: _selectedType,
@@ -2200,19 +2160,32 @@ class _SalesReportState extends State<SalesReport> {
                     cell(dateStr),
                     cell((t['pcategory'] ?? '').toString()),
                     cell(
-                      ret ? '-${qf(_num(t['qty']))}' : qf(_num(t['qty'])),
+                      ret
+                          ? '-${qf(ReportProvider.toNumber(t['qty']))}'
+                          : qf(ReportProvider.toNumber(t['qty'])),
                       right: true,
                       color: red,
                     ),
-                    cell(nf.format(_num(t['price'])), right: true),
-                    cell(sg(_num(t['discount'])), right: true, color: red),
                     cell(
-                      sg(_num(t['total'])),
+                      nf.format(ReportProvider.toNumber(t['price'])),
+                      right: true,
+                    ),
+                    cell(
+                      sg(ReportProvider.toNumber(t['discount'])),
+                      right: true,
+                      color: red,
+                    ),
+                    cell(
+                      sg(ReportProvider.toNumber(t['total'])),
                       right: true,
                       isBold: true,
                       color: red,
                     ),
-                    cell(sg(_num(t['profit'])), right: true, color: red),
+                    cell(
+                      sg(ReportProvider.toNumber(t['profit'])),
+                      right: true,
+                      color: red,
+                    ),
                     cell(typeStr, color: red),
                     cell((t['salesMode'] ?? '').toString()),
                     cell((t['customer'] ?? '').toString()),
@@ -2421,17 +2394,17 @@ class _SalesReportState extends State<SalesReport> {
                 : 'Cash Return')
           : 'Sale / ${(t['transMode'] ?? '').toString()}';
 
-      final qty = _num(t['qty']);
+      final qty = ReportProvider.toNumber(t['qty']);
 
       sheet.appendRow([
         xls.IntCellValue(i + 1),
         xls.TextCellValue(dateStr),
         xls.TextCellValue((t['pcategory'] ?? '').toString()),
         xls.DoubleCellValue(ret ? -qty : qty),
-        xls.DoubleCellValue(_num(t['price'])),
-        xls.DoubleCellValue(sg(_num(t['discount']))),
-        xls.DoubleCellValue(sg(_num(t['total']))),
-        xls.DoubleCellValue(sg(_num(t['profit']))),
+        xls.DoubleCellValue(ReportProvider.toNumber(t['price'])),
+        xls.DoubleCellValue(sg(ReportProvider.toNumber(t['discount']))),
+        xls.DoubleCellValue(sg(ReportProvider.toNumber(t['total']))),
+        xls.DoubleCellValue(sg(ReportProvider.toNumber(t['profit']))),
         xls.TextCellValue(typeStr),
         xls.TextCellValue((t['salesMode'] ?? '').toString()),
         xls.TextCellValue((t['customer'] ?? '').toString()),
@@ -2482,108 +2455,6 @@ class _SalesReportState extends State<SalesReport> {
       fileExtension: 'xlsx',
       mimeType: MimeType.microsoftExcel,
     );
-  }
-
-  Map<String, dynamic> aggregateItemStats(
-    List<Map<String, dynamic>> transactions,
-  ) {
-    double cashSales = 0;
-    double creditSales = 0;
-    double cashReturns = 0;
-    double creditReturns = 0;
-    double totalDiscount = 0;
-    double totalQty = 0;
-    double totalCost = 0;
-    double profit = 0;
-
-    for (final t in transactions) {
-      final total = (t['total'] as num?)?.toDouble() ?? 0;
-      final qty = (t['qty'] as num?)?.toDouble() ?? 0;
-      final discount = (t['discount'] as num?)?.toDouble() ?? 0;
-      final cp = (t['cp'] as num?)?.toDouble() ?? 0;
-      final profitt = (t['profit'] as num?)?.toDouble() ?? 0;
-      final returnedAmount = (t['returnedAmount'] as num?)?.toDouble() ?? 0;
-      final isReturned = t['isReturned'] == true;
-
-      if (isReturned) {
-        // Returns: subtract qty, profit, discount — don't add to sales
-        totalQty -= qty;
-        totalDiscount -= discount;
-        totalCost -= qty * cp;
-        profit -= profitt;
-
-        if (t['isCashReturn'] == true) {
-          cashReturns += returnedAmount;
-        } else if (t['isCreditReturn'] == true) {
-          creditReturns += returnedAmount;
-        }
-      } else {
-        // Normal sales only
-        totalQty += qty;
-        totalDiscount += discount;
-        totalCost += qty * cp;
-        profit += profitt;
-
-        if (t['isCredit'] == true) {
-          creditSales += total;
-        } else {
-          cashSales += total;
-        }
-      }
-    }
-
-    final totalReturns = cashReturns + creditReturns;
-    final grossRevenue = (cashSales + creditSales) - totalReturns;
-
-    return {
-      'cashSales': cashSales,
-      'creditSales': creditSales,
-      'cashReturns': cashReturns,
-      'creditReturns': creditReturns,
-      'totalReturns': totalReturns,
-      'totalDiscount': totalDiscount,
-      'totalQty': totalQty,
-      'profit': profit,
-      'total': grossRevenue,
-    };
-  }
-
-  List<Map<String, dynamic>> _filterTransactionsByCategory(
-    List<Map<String, dynamic>> transactions,
-    String category,
-  ) {
-    switch (category) {
-      case 'cashSales':
-        return transactions
-            .where((t) => t['isReturned'] != true && t['isCredit'] != true)
-            .toList();
-      case 'creditSales':
-        return transactions
-            .where((t) => t['isReturned'] != true && t['isCredit'] == true)
-            .toList();
-      case 'cashReturns':
-        return transactions
-            .where((t) => t['isReturned'] == true && t['isCashReturn'] == true)
-            .toList();
-      case 'creditReturns':
-        return transactions
-            .where(
-              (t) => t['isReturned'] == true && t['isCreditReturn'] == true,
-            )
-            .toList();
-      case 'totalReturns':
-        return transactions.where((t) => t['isReturned'] == true).toList();
-      case 'discount':
-        return transactions.where((t) {
-          final d = (t['discount'] as num?) ?? 0;
-          return d > 0;
-        }).toList();
-      case 'total':
-      case 'profit':
-      case 'qty':
-      default:
-        return transactions;
-    }
   }
 
   Future<void> printTransactions(
@@ -2962,7 +2833,7 @@ class _SalesReportState extends State<SalesReport> {
           ? 'Sales Report'
           : '$itemName Sales Report',
     );
-    final provider = context.read<Datafeed>();
+    final provider = context.read<ReportProvider>();
     double _d(dynamic v) {
       if (v == null) return 0.0;
       if (v is double) return v;
@@ -3810,7 +3681,11 @@ class _SalesReportState extends State<SalesReport> {
     );
   }
 
-  Future<void> _printMain(Datafeed value, List<_BranchRow> rows, _BranchRow t) {
+  Future<void> _printMain(
+    ReportProvider value,
+    List<_BranchRow> rows,
+    _BranchRow t,
+  ) {
     final now = DateTime.now();
     return _printReport(
       title: 'SALES REPORT',
@@ -3828,7 +3703,7 @@ class _SalesReportState extends State<SalesReport> {
   }
 
   Future<void> _downloadMainPdf(
-    Datafeed value,
+    ReportProvider value,
     List<_BranchRow> rows,
     _BranchRow t,
   ) {
@@ -3849,7 +3724,7 @@ class _SalesReportState extends State<SalesReport> {
   }
 
   Future<void> _downloadMainExcel(
-    Datafeed value,
+    ReportProvider value,
     List<_BranchRow> rows,
     _BranchRow t,
   ) {

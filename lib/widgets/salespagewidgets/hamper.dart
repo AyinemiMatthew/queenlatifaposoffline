@@ -5,6 +5,7 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/SalesProvider.dart';
+import '../../providers/item_provider.dart';
 
 class HamperSection extends StatefulWidget {
   final Datafeed datafeed;
@@ -51,7 +52,14 @@ class _HamperSectionState extends State<HamperSection> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      context.read<Datafeed>().fetchbundlesales();
+      context
+          .read<ItemProvider>()
+          .fetchBundles(datafeed: widget.datafeed)
+          .catchError((Object error) {
+            if (mounted) {
+              _snackMsg('Could not load bundles: $error', isError: true);
+            }
+          });
     });
     _searchCtrl.addListener(
       () => setState(() => _query = _searchCtrl.text.trim()),
@@ -68,7 +76,9 @@ class _HamperSectionState extends State<HamperSection> {
     super.dispose();
   }
 
-  List<ItemModel> get _bundles => widget.datafeed.bundleviewitemodel
+  List<ItemModel> get _bundles => context
+      .read<ItemProvider>()
+      .bundleItems
       .where((b) => b.isActive == true)
       .where(
         (b) =>
@@ -425,6 +435,7 @@ class _HamperSectionState extends State<HamperSection> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<ItemProvider>();
     final colors = Theme.of(context).colorScheme;
     final bundles = _bundles;
     final hasSel = _selectedBundle != null;

@@ -1278,23 +1278,6 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.salesinvoice);
                           },
                         ),
-
-                        ListTile(
-                          leading: Icon(
-                            Icons.account_balance_wallet,
-                            color: colorScheme.onSurface,
-                          ),
-                          title: Text(
-                            'Debtor Report',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          onTap: () {
-                            Navigator.pushNamed(context, Routes.debtorreport);
-                          },
-                        ),
-
                         ListTile(
                           leading: Icon(
                             Icons.account_balance_wallet,

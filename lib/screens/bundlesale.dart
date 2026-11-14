@@ -1,7 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:kologsoft/models/itemregmodel.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/branch.dart';
 import '../paymentwidgets/BarcodeScannerScreen.dart';
 import '../providers/SalesProvider.dart';
+import '../providers/item_provider.dart';
 
 class BundlePage extends StatefulWidget {
   final String? docId;
@@ -396,51 +395,18 @@ class _BundlePageState extends State<BundlePage> {
 
     try {
       final datafeed = Provider.of<Datafeed>(context, listen: false);
-
-      final duplicateQuery = await datafeed.db
-          .collection('bundle')
-          .where('name', isEqualTo: newName)
-          .where('companyid', isEqualTo: datafeed.companyid)
-          .limit(2)
-          .get();
-
-      final hasDuplicate = duplicateQuery.docs.any(
-        (doc) => doc.id != widget.docId,
+      final updatedItems = await context.read<ItemProvider>().updateBundleName(
+        datafeed: datafeed,
+        bundleId: widget.docId!,
+        newName: newName,
+        items: _salesItems,
       );
-
-      if (hasDuplicate) {
-        _snack('A bundle with this name already exists', Colors.red);
-        return;
-      }
-
-      // keep every item's embedded bundleName in sync
-      final updatedItems = _salesItems
-          .map((e) => {...e, 'bundleName': newName})
-          .toList();
-
-      await datafeed.db.collection('bundle').doc(widget.docId!).update({
-        'name': newName,
-        'barcode': newName,
-        'items': updatedItems,
-      });
-
       if (!mounted) return;
 
       setState(() {
         _salesItems = updatedItems;
         _rebuildRowControllers();
       });
-
-      final idx = datafeed.bundleview.indexWhere(
-        (b) => b['id'] == widget.docId,
-      );
-      if (idx != -1) {
-        datafeed.bundleview[idx]['name'] = newName;
-        datafeed.bundleview[idx]['barcode'] = newName;
-        datafeed.bundleview[idx]['items'] = updatedItems;
-        datafeed.refreshBundleView();
-      }
-
       _snack('Bundle name updated successfully', Colors.green);
     } catch (e) {
       _snack('Failed to update name: $e', Colors.red);
@@ -459,80 +425,17 @@ class _BundlePageState extends State<BundlePage> {
 
     setState(() => _isSaving = true);
     try {
-      final datafeed = Provider.of<Datafeed>(context, listen: false);
-      final items = _salesItems
-          .map((e) => {...e, 'bundleName': bundleName})
-          .toList();
-
-      if (bundleName.isEmpty) {
-        _snack('Enter bundle name before saving', Colors.red);
-        return;
-      }
-      final duplicateQuery = await datafeed.db
-          .collection('bundle')
-          .where('name', isEqualTo: bundleName)
-          .where('companyid', isEqualTo: datafeed.companyid)
-          .limit(2)
-          .get();
-
-      final hasDuplicate = duplicateQuery.docs.any(
-        (doc) => doc.id != widget.docId,
+      final originalTimestamp = widget.item?.isNotEmpty == true
+          ? widget.item!.first['createdat']
+          : null;
+      await context.read<ItemProvider>().saveBundle(
+        datafeed: context.read<Datafeed>(),
+        name: bundleName,
+        existingId: widget.docId,
+        isActive: isActive,
+        items: _salesItems,
+        originalCreatedAt: originalTimestamp,
       );
-
-      if (hasDuplicate) {
-        _snack('A bundle with this name already exists', Colors.red);
-        return;
-      }
-      if (items.isEmpty) {
-        _snack('Add at least one item to preview before saving', Colors.red);
-        return;
-      }
-
-      String sanitize(String input) => input
-          .trim()
-          .toLowerCase()
-          .replaceAll(RegExp(r'\s+'), '')
-          .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-
-      final docId = _isEditMode
-          ? widget.docId!
-          : '${sanitize(datafeed.companyid)}_${datafeed.staffPosition}_${sanitize(bundleName)}';
-
-      final barcode = bundleName;
-      final now = DateTime.now();
-
-      final day = DateFormat('EEEE').format(now);
-
-      final year = now.year.toString();
-
-      final month = '${now.year}.${now.month}';
-
-      final weekNumber =
-          ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
-
-      final week = '${now.year}.$weekNumber';
-      final bundleDoc = {
-        'name': bundleName,
-        'id': docId,
-        'isActive': isActive,
-        'companyid': datafeed.companyid,
-        'branchid': datafeed.branchid,
-        'barcode': barcode,
-        'producttype': 'bundle',
-        'pcategory': bundleName,
-        'isHamper': true,
-        'day': day,
-        'week': week,
-        'month': month,
-        'year': year,
-        'company': datafeed.company,
-        'createdat': FieldValue.serverTimestamp(),
-        'staff': datafeed.staff,
-        'items': items,
-      };
-
-      await datafeed.db.collection('bundle').doc(docId).set(bundleDoc);
-
       if (!mounted) return;
 
       _snack(
@@ -543,28 +446,8 @@ class _BundlePageState extends State<BundlePage> {
       );
 
       if (_isEditMode) {
-        final datafeed = context.read<Datafeed>();
-        final originalTimestamp = widget.item?.isNotEmpty == true
-            ? widget.item!.first['createdat']
-            : null;
-
-        final localDoc = Map<String, dynamic>.from(bundleDoc);
-        localDoc['createdat'] = originalTimestamp;
-
-        final idx = datafeed.bundleview.indexWhere(
-          (b) => b['id'] == widget.docId,
-        );
-        if (idx != -1) datafeed.bundleview[idx] = localDoc;
-
-        datafeed.refreshBundleView();
         Navigator.pop(context);
       } else {
-        final datafeed = context.read<Datafeed>();
-        final localDoc = Map<String, dynamic>.from(bundleDoc);
-        localDoc['createdat'] = null;
-
-        datafeed.bundleview.add(localDoc);
-        datafeed.refreshBundleView();
         _resetForm();
         setState(() => _salesItems = []);
       }

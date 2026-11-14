@@ -5,7 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/Datafeed.dart';
+import '../providers/ReportProvider.dart';
 import '../widgets/datepicker.dart';
 
 class MomoReportPage extends StatefulWidget {
@@ -42,9 +42,9 @@ class _MomoReportPageState extends State<MomoReportPage> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      final provider = context.read<Datafeed>();
+      final provider = context.read<ReportProvider>();
       provider.fetchBranches();
-      if (_isBranchRestricted(provider)) {
+      if (provider.isSalesReportBranchRestricted) {
         _selectedBranch = provider.branchid;
       }
       provider.fetchsalesreport(
@@ -52,11 +52,6 @@ class _MomoReportPageState extends State<MomoReportPage> {
         selectedBranch: _selectedBranch,
       );
     });
-  }
-
-  bool _isBranchRestricted(Datafeed provider) {
-    final access = provider.accesslevel.toLowerCase();
-    return access == 'salesattendance' || access == 'sales manager';
   }
 
   @override
@@ -67,59 +62,19 @@ class _MomoReportPageState extends State<MomoReportPage> {
     super.dispose();
   }
 
-  Map<String, double> _computeTotals(List<Map<String, dynamic>> list) {
-    double totalQty = 0;
-    double totalCash = 0;
-    double totalMerchant = 0;
-    double totalHubtel = 0;
-    double totalCard = 0;
-    double totalBank = 0;
-    double totalCheque = 0;
-    double totalReturns = 0;
-    double totalDiscount = 0;
-    double totalProfit = 0;
-    double totalRowTotal = 0;
-
-    for (final item in list) {
-      double _d(String k) => (item[k] ?? 0.0) as double;
-      totalQty += _d('sales_qty');
-      totalCash += _d('cashSales');
-      totalMerchant += _d('merchantmomo');
-      totalHubtel += _d('hubtel');
-      totalCard += _d('card');
-      totalBank += _d('bank');
-      totalCheque += _d('cheque');
-      totalReturns += _d('totalReturns') + _d('returns');
-      totalDiscount += _d('discount');
-      totalProfit += _d('profit');
-      totalRowTotal += _d('rowTotal') + _d('rowtotal');
-    }
-
-    return {
-      'qty': totalQty,
-      'cash': totalCash,
-      'merchant': totalMerchant,
-      'hubtel': totalHubtel,
-      'card': totalCard,
-      'bank': totalBank,
-      'cheque': totalCheque,
-      'returns': totalReturns,
-      'discount': totalDiscount,
-      'profit': totalProfit,
-      'total': totalRowTotal,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Consumer<Datafeed>(
+    return Consumer<ReportProvider>(
       builder: (context, value, _) {
         final effectiveStart = selectedDate?.start ?? now;
         final effectiveEnd = selectedDate?.end ?? now;
-        final isBranchRestricted = _isBranchRestricted(value);
+        final isBranchRestricted = value.isSalesReportBranchRestricted;
 
         final filteredList = value.filterbranchsalesreport();
-        final totals = _computeTotals(filteredList);
+        final totals = value.salesSummaryTotals(
+          filteredList,
+          includePaymentBreakdown: true,
+        );
         final nf = NumberFormat('#,##0.00');
 
         return Scaffold(
@@ -220,7 +175,9 @@ class _MomoReportPageState extends State<MomoReportPage> {
                           decoration: InputDecoration(
                             labelText: 'Branch',
                             labelStyle: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
@@ -238,9 +195,7 @@ class _MomoReportPageState extends State<MomoReportPage> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Color(0xFF415A77),
-                              ),
+                              borderSide: BorderSide(color: Color(0xFF415A77)),
                             ),
                             fillColor: Theme.of(
                               context,
@@ -286,7 +241,9 @@ class _MomoReportPageState extends State<MomoReportPage> {
                             ),
                             prefixIcon: Icon(
                               Icons.search,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               size: 18,
                             ),
                             isDense: true,
@@ -310,9 +267,7 @@ class _MomoReportPageState extends State<MomoReportPage> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Color(0xFF415A77),
-                              ),
+                              borderSide: BorderSide(color: Color(0xFF415A77)),
                             ),
                           ),
                         );

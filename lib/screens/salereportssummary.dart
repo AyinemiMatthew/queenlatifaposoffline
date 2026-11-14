@@ -5,7 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/Datafeed.dart';
+import '../providers/ReportProvider.dart';
 import '../widgets/datepicker.dart';
 
 class SalesSummaryPage extends StatefulWidget {
@@ -42,8 +42,8 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchsalesreport(
+      context.read<ReportProvider>().fetchBranches();
+      context.read<ReportProvider>().fetchsalesreport(
         selectedDate: selectedDate,
         selectedBranch: _selectedBranch,
       );
@@ -58,46 +58,15 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
     super.dispose();
   }
 
-  Map<String, double> _computeTotals(List<Map<String, dynamic>> list) {
-    double totalQty = 0;
-    double totalCash = 0;
-    double totalCredit = 0;
-    double totalReturns = 0;
-    double totalDiscount = 0;
-    double totalProfit = 0;
-    double totalRowTotal = 0;
-
-    for (final item in list) {
-      double _d(String k) => (item[k] ?? 0.0) as double;
-      totalQty += _d('sales_qty');
-      totalCash += _d('cashSales');
-      totalCredit += _d('creditSales');
-      totalReturns += _d('returns');
-      totalDiscount += _d('discount');
-      totalProfit += _d('profit');
-      totalRowTotal += _d('rowtotal');
-    }
-
-    return {
-      'qty': totalQty,
-      'cash': totalCash,
-      'credit': totalCredit,
-      'returns': totalReturns,
-      'discount': totalDiscount,
-      'profit': totalProfit,
-      'total': totalRowTotal,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Consumer<Datafeed>(
+    return Consumer<ReportProvider>(
       builder: (context, value, _) {
         final effectiveStart = selectedDate?.start ?? now;
         final effectiveEnd = selectedDate?.end ?? now;
 
         final filteredList = value.filtersalesreport();
-        final totals = _computeTotals(filteredList);
+        final totals = value.salesSummaryTotals(filteredList);
         final nf = NumberFormat('#,##0.00');
 
         return Scaffold(
@@ -203,7 +172,9 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
                           decoration: InputDecoration(
                             labelText: 'Branch',
                             labelStyle: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                             contentPadding: const EdgeInsets.symmetric(
@@ -221,9 +192,7 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Color(0xFF415A77),
-                              ),
+                              borderSide: BorderSide(color: Color(0xFF415A77)),
                             ),
                             fillColor: Theme.of(
                               context,
@@ -268,7 +237,9 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
                             ),
                             prefixIcon: Icon(
                               Icons.search,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                               size: 18,
                             ),
                             isDense: true,
@@ -292,9 +263,7 @@ class _SalesSummaryPageState extends State<SalesSummaryPage> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Color(0xFF415A77),
-                              ),
+                              borderSide: BorderSide(color: Color(0xFF415A77)),
                             ),
                           ),
                         );

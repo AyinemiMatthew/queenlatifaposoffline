@@ -42,6 +42,8 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
 
   @override
   Widget build(BuildContext context) {
+    final isLightTheme = Theme.of(context).brightness == Brightness.light;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -110,9 +112,15 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                         return Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
+                            color: isLightTheme
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerLow
+                                : Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -134,8 +142,8 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                                   children: [
                                     Text(
                                       d.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -143,15 +151,15 @@ class _DebtorsBalViewState extends State<DebtorsBalView> {
                                     const SizedBox(height: 4),
                                     Text(
                                       "Amount: GHS ${d.amount}",
-                                      style: const TextStyle(
-                                        color: Colors.white70,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                                         fontSize: 13,
                                       ),
                                     ),
                                     Text(
                                       "Date: ${d.date != null ? DateFormat.yMMMd().format(d.date!) : ''}",
-                                      style: const TextStyle(
-                                        color: Colors.white60,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
                                         fontSize: 12,
                                       ),
                                     ),

@@ -498,6 +498,9 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
       width: 260,
       child: Material(
         color: colorScheme.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: colorScheme.outline, width: 1),
+        ),
         child: Column(
           children: [
             Container(
@@ -570,11 +573,13 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       selected: isSelected,
-                      selectedTileColor: colorScheme.primary.withOpacity(0.1),
+                      selectedTileColor: colorScheme.secondary.withValues(
+                        alpha: 0.12,
+                      ),
                       leading: Icon(
                         _getCategoryIcon(cat),
                         color: isSelected
-                            ? colorScheme.primary
+                            ? colorScheme.secondary
                             : colorScheme.onSurfaceVariant,
                         size: 20,
                       ),
@@ -582,7 +587,7 @@ class _RoleAccessDashboardState extends State<RoleAccessDashboard> {
                         cat,
                         style: TextStyle(
                           color: isSelected
-                              ? colorScheme.primary
+                              ? colorScheme.secondary
                               : colorScheme.onSurface,
                           fontWeight: isSelected
                               ? FontWeight.bold

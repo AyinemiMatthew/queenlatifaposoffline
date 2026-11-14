@@ -1346,30 +1346,4 @@ class StockProvider extends Datafeed {
     }
   }
 
-  Future<bool>sendSms(String phone, String message)async{
-    try{
-      await getdata();
-      final smsData = {
-        'companyid': companyid,
-        'branchid': branchid,
-        'staff': staff,
-        'message':message,
-        'senderid': "",
-        'recipient': phone,
-        'type': 'single',
-        'bulkFilterType': null,
-        'status': 'pending',
-        'successMessage': '',
-        'failureReason': '',
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
-      };
-      await db.collection('sms_logs').add(smsData);
-      return true;
-    }catch(e){
-      print("Error sending SMS: $e");
-      return false;
-    }
-
-  }
 }

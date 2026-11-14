@@ -1,13 +1,24 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:excel/excel.dart' as xls;
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
 
 import '../models/appModuls.dart';
 import '../models/damageitem.dart';
 import '../providers/Datafeed.dart';
+import '../providers/damage_provider.dart';
+import '../providers/routes.dart';
 import '../utils/damagepdf.dart';
 import '../widgets/datepicker.dart';
 import '../widgets/offline_indicator.dart';
+import '../widgets/stock_rows_per_page_menu.dart';
 import 'damages.dart';
 
 class _DamageSummaryBucket {
@@ -29,6 +40,8 @@ enum _DamageInsightView {
 
 enum _DamageSortMode { cost, quantity, name }
 
+enum _DamageExportAction { pdf, print, word, excel, csv }
+
 class DamagesListPage extends StatefulWidget {
   const DamagesListPage({super.key});
 
@@ -46,8 +59,10 @@ class _DamagesListPageState extends State<DamagesListPage> {
   String? _selectedBranchId;
   bool _isSearching = false;
 
-  int _sortColumnIndex = 0;
+  int _sortColumnIndex = 1;
   bool _sortAscending = true;
+  int _rowsPerPage = 10;
+  int _currentPage = 0;
 
   final ScrollController verticalController = ScrollController();
   final ScrollController horizontalController = ScrollController();
@@ -72,13 +87,14 @@ class _DamagesListPageState extends State<DamagesListPage> {
       if (!mounted) return;
 
       final value = context.read<Datafeed>();
+      final damageProvider = context.read<DamageProvider>();
       await value.fetchBranches();
 
       if (!mounted) return;
 
       final branchId = _canManagePage(value) ? null : value.branchid;
 
-      await value.fetchdamages(
+      await damageProvider.fetchDamages(
         selectedDate: selectedDate,
         selectedBranch: branchId,
       );
@@ -105,14 +121,14 @@ class _DamagesListPageState extends State<DamagesListPage> {
     return '';
   }
 
-  List<damageitemmodel> filterdamages(Datafeed value) {
+  List<damageitemmodel> filterdamages(DamageProvider damageProvider) {
     if (searchQuery.trim().isEmpty) {
-      return List.of(value.damages);
+      return List.of(damageProvider.damages);
     }
 
     final q = searchQuery.trim().toLowerCase();
 
-    return value.damages.where((s) {
+    return damageProvider.damages.where((s) {
       final headerValues = <dynamic>[
         s.id,
         s.company,
@@ -164,7 +180,22 @@ class _DamagesListPageState extends State<DamagesListPage> {
     setState(() {
       searchQuery = '';
       _isSearching = false;
+      _currentPage = 0;
     });
+  }
+
+  void _handleBack() {
+    if (_isSearching) {
+      _closeSearch();
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      navigator.pushReplacementNamed(Routes.home);
+    }
   }
 
   double _calcTotal(Map<String, dynamic> itemMap) {
@@ -178,6 +209,266 @@ class _DamagesListPageState extends State<DamagesListPage> {
 
   String _formatCurrency(double amount) =>
       NumberFormat.currency(symbol: 'GHS ', decimalDigits: 2).format(amount);
+
+  static const List<String> _damageExportHeaders = [
+    'No.',
+    'Date Created',
+    'Transaction Date',
+    'Branch',
+    'Staff',
+    'Item',
+    'Barcode',
+    'Reason',
+    'Mode',
+    'Quantity',
+    'Total Pieces',
+    'Unit Cost (GHS)',
+    'Line Total (GHS)',
+  ];
+
+  List<List<String>> _damageExportRows(List<damageitemmodel> damages) {
+    final rows = <List<String>>[];
+    for (final damage in damages) {
+      for (final item in damage.item.values.whereType<Map>()) {
+        final itemData = Map<String, dynamic>.from(item);
+        final totalPieces =
+            double.tryParse(itemData['totalpieces']?.toString() ?? '0') ?? 0;
+        final unitCost =
+            double.tryParse(itemData['cp']?.toString() ?? '0') ?? 0;
+        rows.add([
+          '${rows.length + 1}',
+          DateFormat('yyyy-MM-dd').format(damage.createdat),
+          damage.dateymd ?? '',
+          damage.branchname,
+          damage.createdby,
+          itemData['item']?.toString() ?? '',
+          itemData['barcode']?.toString() ?? '',
+          itemData['reason']?.toString() ?? '',
+          itemData['mode']?.toString() ?? '',
+          itemData['quantity']?.toString() ?? '',
+          totalPieces.toString(),
+          unitCost.toStringAsFixed(2),
+          (unitCost * totalPieces).toStringAsFixed(2),
+        ]);
+      }
+    }
+    return rows;
+  }
+
+  String _escapeDamageCsvCell(String value) {
+    if (!value.contains(',') &&
+        !value.contains('"') &&
+        !value.contains('\n') &&
+        !value.contains('\r')) {
+      return value;
+    }
+    return '"${value.replaceAll('"', '""')}"';
+  }
+
+  Future<void> _exportDamages(
+    _DamageExportAction action,
+    List<damageitemmodel> damages,
+    String companyName,
+  ) async {
+    if (damages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('There are no damages to export.')),
+      );
+      return;
+    }
+
+    try {
+      final exportDate = DateFormat('MMM-dd-yyyy').format(DateTime.now());
+      final safeCompanyName = companyName.trim().isEmpty
+          ? 'Company'
+          : companyName.trim().replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-');
+      final fileName =
+          '$safeCompanyName-damages-${damages.length}-records-$exportDate';
+      final rows = _damageExportRows(damages);
+
+      switch (action) {
+        case _DamageExportAction.pdf:
+        case _DamageExportAction.print:
+          final document = _buildDamageExportPdf(
+            damages.length,
+            rows,
+            companyName,
+          );
+          if (action == _DamageExportAction.print) {
+            await Printing.layoutPdf(
+              onLayout: (_) => document.save(),
+              name: fileName,
+            );
+          } else {
+            await FileSaver.instance.saveFile(
+              name: fileName,
+              bytes: Uint8List.fromList(await document.save()),
+              fileExtension: 'pdf',
+              mimeType: MimeType.pdf,
+            );
+          }
+        case _DamageExportAction.word:
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(
+              utf8.encode(
+                _buildDamageExportWord(rows, damages.length, companyName),
+              ),
+            ),
+            fileExtension: 'doc',
+            mimeType: MimeType.other,
+          );
+        case _DamageExportAction.excel:
+          await _saveDamageExportExcel(fileName, rows, companyName);
+        case _DamageExportAction.csv:
+          final csv = [
+            _damageExportHeaders,
+            ...rows,
+          ].map((row) => row.map(_escapeDamageCsvCell).join(',')).join('\r\n');
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(utf8.encode('\uFEFF$csv')),
+            fileExtension: 'csv',
+            mimeType: MimeType.other,
+          );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Damages exported successfully.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not export damages: $error')),
+        );
+      }
+    }
+  }
+
+  pw.Document _buildDamageExportPdf(
+    int recordCount,
+    List<List<String>> rows,
+    String companyName,
+  ) {
+    final document = pw.Document(title: 'Damage Report');
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        build: (context) => [
+          pw.Text(
+            companyName.isEmpty ? 'DAMAGE REPORT' : companyName,
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            '$recordCount damage records - '
+            '${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: _damageExportHeaders,
+            data: rows,
+            headerStyle: pw.TextStyle(
+              fontSize: 7,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+            headerDecoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF415A77),
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 6),
+            cellPadding: const pw.EdgeInsets.all(4),
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+          ),
+        ],
+      ),
+    );
+    return document;
+  }
+
+  String _buildDamageExportWord(
+    List<List<String>> rows,
+    int recordCount,
+    String companyName,
+  ) {
+    String escapeHtml(String value) => value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+
+    final header = _damageExportHeaders
+        .map((value) => '<th>${escapeHtml(value)}</th>')
+        .join();
+    final body = rows
+        .map(
+          (row) =>
+              '<tr>${row.map((value) => '<td>${escapeHtml(value)}</td>').join()}</tr>',
+        )
+        .join();
+
+    return '''
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Damage Report</title>
+<style>body{font-family:Arial,sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px;text-align:left}th{background:#dce4ec}</style>
+</head><body><h1>${escapeHtml(companyName.isEmpty ? 'Damage Report' : companyName)}</h1>
+<p>$recordCount damage records - ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}</p>
+<table><thead><tr>$header</tr></thead><tbody>$body</tbody></table></body></html>
+''';
+  }
+
+  Future<void> _saveDamageExportExcel(
+    String fileName,
+    List<List<String>> rows,
+    String companyName,
+  ) async {
+    final workbook = xls.Excel.createExcel();
+    const sheetName = 'Damages';
+    final sheet = workbook[sheetName];
+    workbook.delete('Sheet1');
+
+    if (companyName.isNotEmpty) {
+      sheet.appendRow([xls.TextCellValue(companyName)]);
+    }
+    sheet.appendRow(_damageExportHeaders.map(xls.TextCellValue.new).toList());
+    final headerRow = sheet.maxRows - 1;
+    final headerStyle = xls.CellStyle(
+      bold: true,
+      backgroundColorHex: xls.ExcelColor.fromHexString('#DCE4EC'),
+    );
+    for (var column = 0; column < _damageExportHeaders.length; column++) {
+      sheet
+              .cell(
+                xls.CellIndex.indexByColumnRow(
+                  columnIndex: column,
+                  rowIndex: headerRow,
+                ),
+              )
+              .cellStyle =
+          headerStyle;
+    }
+    for (final row in rows) {
+      sheet.appendRow([
+        for (var column = 0; column < row.length; column++)
+          if (column == 10 || column == 11 || column == 12)
+            xls.DoubleCellValue(double.parse(row[column]))
+          else
+            xls.TextCellValue(row[column]),
+      ]);
+    }
+
+    final bytes = workbook.encode();
+    if (bytes == null) throw Exception('Could not create the Excel file.');
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
+    );
+  }
 
   String _damageReason(damageitemmodel damage) {
     final reasons = <String>{};
@@ -251,10 +542,13 @@ class _DamagesListPageState extends State<DamagesListPage> {
     );
   }
 
-  Future<void> _reloadDamages(Datafeed value) async {
+  Future<void> _reloadDamages(
+    Datafeed value,
+    DamageProvider damageProvider,
+  ) async {
     final branchId = _canManagePage(value) ? _selectedBranchId : value.branchid;
 
-    await value.fetchdamages(
+    await damageProvider.fetchDamages(
       selectedDate: selectedDate,
       selectedBranch: branchId,
     );
@@ -349,9 +643,10 @@ class _DamagesListPageState extends State<DamagesListPage> {
 
     setState(() {
       _selectedBranchId = selected.isEmpty ? null : selected;
+      _currentPage = 0;
     });
 
-    await _reloadDamages(value);
+    await _reloadDamages(value, context.read<DamageProvider>());
   }
 
   String _selectedBranchLabel(Datafeed value) {
@@ -466,9 +761,20 @@ class _DamagesListPageState extends State<DamagesListPage> {
     final isDesktop = width >= 1050;
     final isSmall = width < 700;
 
-    return Consumer<Datafeed>(
-      builder: (context, value, child) {
-        final filteredDamages = filterdamages(value);
+    return Consumer2<Datafeed, DamageProvider>(
+      builder: (context, value, damageProvider, child) {
+        final filteredDamages = filterdamages(damageProvider);
+        final sortedDamages = _sortedDamages(filteredDamages);
+        final pageCount = sortedDamages.isEmpty
+            ? 1
+            : ((sortedDamages.length - 1) ~/ _rowsPerPage) + 1;
+        final effectivePage = _currentPage.clamp(0, pageCount - 1);
+        final pageStart = effectivePage * _rowsPerPage;
+        final pageEnd = (pageStart + _rowsPerPage).clamp(
+          0,
+          sortedDamages.length,
+        );
+        final pageDamages = sortedDamages.sublist(pageStart, pageEnd);
         final canManage = _canManagePage(value);
 
         return Scaffold(
@@ -483,9 +789,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
               icon: Icons.arrow_back,
               size: 21,
               tooltip: 'Back',
-              onPressed: () {
-                Navigator.of(context).maybePop();
-              },
+              onPressed: _handleBack,
             ),
             title: _isSearching
                 ? Container(
@@ -534,6 +838,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
                       onChanged: (text) {
                         setState(() {
                           searchQuery = text;
+                          _currentPage = 0;
                         });
                       },
                     ),
@@ -558,7 +863,58 @@ class _DamagesListPageState extends State<DamagesListPage> {
                       tooltip: 'Search damages',
                       onPressed: _openSearch,
                     ),
-                    if (canManage && !value.isloadingdamages)
+                    PopupMenuButton<_DamageExportAction>(
+                      tooltip: 'Download or print damages',
+                      icon: Icon(Icons.download_outlined, color: _textColor),
+                      onSelected: (action) => _exportDamages(
+                        action,
+                        filteredDamages,
+                        value.company,
+                      ),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: _DamageExportAction.pdf,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.picture_as_pdf_outlined),
+                            title: Text('Download PDF'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _DamageExportAction.print,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.print_outlined),
+                            title: Text('Print / Save as PDF'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _DamageExportAction.word,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.description_outlined),
+                            title: Text('Download Word'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _DamageExportAction.excel,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.table_chart_outlined),
+                            title: Text('Download Excel'),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _DamageExportAction.csv,
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.file_download_outlined),
+                            title: Text('Download CSV'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (canManage && !damageProvider.isLoading)
                       PopupMenuButton<_DamageInsightView>(
                         tooltip: 'Damage reports',
                         icon: Icon(Icons.analytics_outlined, color: _textColor),
@@ -665,9 +1021,10 @@ class _DamagesListPageState extends State<DamagesListPage> {
                         onDateSelected: (selection) async {
                           setState(() {
                             selectedDate = selection;
+                            _currentPage = 0;
                           });
 
-                          await _reloadDamages(value);
+                          await _reloadDamages(value, damageProvider);
                         },
                       )
                     else
@@ -687,9 +1044,10 @@ class _DamagesListPageState extends State<DamagesListPage> {
 
                           setState(() {
                             selectedDate = selection;
+                            _currentPage = 0;
                           });
 
-                          await _reloadDamages(value);
+                          await _reloadDamages(value, damageProvider);
                         },
                       ),
                   ],
@@ -715,7 +1073,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
               children: [
                 const OfflineIndicator(),
                 Expanded(
-                  child: value.isloadingdamages
+                  child: damageProvider.isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : filteredDamages.isEmpty
                       ? Center(
@@ -744,11 +1102,30 @@ class _DamagesListPageState extends State<DamagesListPage> {
                               maxWidth: isDesktop ? 1200 : 700,
                             ),
                             child: isDesktop
-                                ? _desktopTable(filteredDamages, value)
-                                : _mobileList(filteredDamages, value),
+                                ? _desktopTable(
+                                    pageDamages,
+                                    value,
+                                    indexOffset: pageStart,
+                                  )
+                                : _mobileList(pageDamages, value),
                           ),
                         ),
                 ),
+                if (!damageProvider.isLoading && filteredDamages.isNotEmpty)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isDesktop ? 1200 : 700,
+                      ),
+                      child: _paginationControls(
+                        totalRecords: sortedDamages.length,
+                        page: effectivePage,
+                        totalPages: pageCount,
+                        compact: isSmall,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -761,18 +1138,88 @@ class _DamagesListPageState extends State<DamagesListPage> {
     final sorted = List<damageitemmodel>.of(items);
 
     sorted.sort((a, b) {
-      int result = 0;
-
-      if (_sortColumnIndex == 3) {
-        result = _firstItemName(a).compareTo(_firstItemName(b));
-      } else if (_sortColumnIndex == 6) {
-        result = _calcTotal(_itemsOf(a)).compareTo(_calcTotal(_itemsOf(b)));
-      }
+      final result = switch (_sortColumnIndex) {
+        1 => a.createdat.compareTo(b.createdat),
+        2 => (a.dateymd ?? '').compareTo(b.dateymd ?? ''),
+        3 => _firstItemName(
+          a,
+        ).toLowerCase().compareTo(_firstItemName(b).toLowerCase()),
+        4 => a.branchname.toLowerCase().compareTo(b.branchname.toLowerCase()),
+        5 => _damageReason(
+          a,
+        ).toLowerCase().compareTo(_damageReason(b).toLowerCase()),
+        6 => _calcTotal(_itemsOf(a)).compareTo(_calcTotal(_itemsOf(b))),
+        _ => 0,
+      };
 
       return _sortAscending ? result : -result;
     });
 
     return sorted;
+  }
+
+  Widget _paginationControls({
+    required int totalRecords,
+    required int page,
+    required int totalPages,
+    required bool compact,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$totalRecords damage records',
+              style: TextStyle(
+                color: _secondaryTextColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          StockRowsPerPageMenu(
+            compact: compact,
+            value: _rowsPerPage,
+            onChanged: (value) => setState(() {
+              _rowsPerPage = value;
+              _currentPage = 0;
+            }),
+          ),
+          IconButton(
+            tooltip: 'Previous page',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            onPressed: page > 0
+                ? () => setState(() => _currentPage = page - 1)
+                : null,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Text(
+            '${page + 1}/$totalPages',
+            style: TextStyle(
+              color: _textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Next page',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            onPressed: page < totalPages - 1
+                ? () => setState(() => _currentPage = page + 1)
+                : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
   }
 
   List<Widget> _desktopCells(int index, damageitemmodel d, Datafeed value) {
@@ -825,21 +1272,25 @@ class _DamagesListPageState extends State<DamagesListPage> {
         style: TextStyle(color: colors.onSurfaceVariant),
       ),
       Text(
-        'GHS ${NumberFormat('#,##0.00').format(total)}',
+        NumberFormat('#,##0.00').format(total),
         style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold),
       ),
       _actionsMenu(d, value),
     ];
   }
 
-  Widget _desktopTable(List<damageitemmodel> items, Datafeed value) {
+  Widget _desktopTable(
+    List<damageitemmodel> items,
+    Datafeed value, {
+    required int indexOffset,
+  }) {
     const cols = <_DamageCol>[
       _DamageCol('#', 1),
-      _DamageCol('Date', 3),
-      _DamageCol('Trx Date', 3),
+      _DamageCol('Date', 3, sortable: true),
+      _DamageCol('Trx Date', 3, sortable: true),
       _DamageCol('Item', 5, sortable: true),
-      _DamageCol('Branch / Warehouse', 4),
-      _DamageCol('Reason', 4),
+      _DamageCol('Branch / Warehouse', 4, sortable: true),
+      _DamageCol('Reason', 4, sortable: true),
       _DamageCol(
         'Total (GHS)',
         3,
@@ -849,7 +1300,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
       _DamageCol('Actions', 2, alignment: Alignment.center),
     ];
 
-    final rows = _sortedDamages(items);
+    final rows = items;
 
     Widget tableRow(List<Widget> cells, double height, Color color) {
       return Container(
@@ -895,6 +1346,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
               _sortColumnIndex = i;
               _sortAscending = true;
             }
+            _currentPage = 0;
           });
         },
         child: Row(
@@ -944,7 +1396,11 @@ class _DamagesListPageState extends State<DamagesListPage> {
                         controller: verticalController,
                         itemCount: rows.length,
                         itemBuilder: (context, index) => tableRow(
-                          _desktopCells(index, rows[index], value),
+                          _desktopCells(
+                            indexOffset + index,
+                            rows[index],
+                            value,
+                          ),
                           52,
                           _rowColor,
                         ),
@@ -1240,7 +1696,7 @@ class _DamagesListPageState extends State<DamagesListPage> {
     if (!context.mounted) return;
 
     try {
-      await context.read<Datafeed>().deletedamage(id);
+      await context.read<DamageProvider>().deleteDamage(id);
 
       if (!context.mounted) return;
 
@@ -1868,31 +2324,16 @@ class _DamageRecordDetailsPage extends StatelessWidget {
                           spacing: 24,
                           runSpacing: 12,
                           children: [
-                            _detail(
-                              context,
-                              'Quantity',
-                              '${item['quantity'] ?? '-'} ${item['mode'] ?? ''}',
-                            ),
-                            _detail(
-                              context,
-                              'Total pieces',
-                              NumberFormat('#,##0.##').format(quantity),
-                            ),
-                            _detail(
-                              context,
-                              'Unit cost',
-                              currency.format(unitCost),
-                            ),
-                            _detail(
-                              context,
-                              'Reason',
-                              item['reason']?.toString() ?? '',
-                            ),
-                            _detail(
-                              context,
-                              'Supplier',
-                              item['supplier']?.toString() ?? '',
-                            ),
+                            _detail( context, 'Quantity',
+                              '${item['quantity'] ?? '-'} ${item['mode'] ?? ''}', ),
+                            _detail( context, 'Total pieces',
+                              NumberFormat('#,##0.##').format(quantity), ),
+                            _detail( context, 'Unit cost',
+                              currency.format(unitCost), ),
+                            _detail(context,  'Reason',
+                              item['reason']?.toString() ?? '', ),
+                            _detail(context,'Supplier',
+                              item['supplier']?.toString() ?? '',),
                             if (item['barcode'] != null)
                               _detail(context, 'Barcode', '${item['barcode']}'),
                           ],

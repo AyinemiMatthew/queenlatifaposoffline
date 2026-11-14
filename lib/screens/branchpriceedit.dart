@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kologsoft/models/branch.dart';
@@ -9,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../models/itemmodel.dart';
 import '../models/itemregmodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 
 class Branchitempriceupdate extends StatefulWidget {
   final ItemModel item;
@@ -29,7 +29,6 @@ class Branchitempriceupdate extends StatefulWidget {
 
 class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
   final _formKey = GlobalKey<FormState>();
-  final FirebaseFirestore db = FirebaseFirestore.instance;
   final _nameController = TextEditingController();
   final _barcodeController = TextEditingController();
   final _costController = TextEditingController();
@@ -368,13 +367,10 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
     branchname = branchData['name'] ?? widget.branchname;
     _supplierMinQtyController.text =
         branchData['sminqty']?.toString() ?? d.sminqty;
-    final pricing = Map<String, dynamic>.from(
-      branchData['pricing'] as Map<String, dynamic>? ?? {},
+    final branchPricing = context.read<ItemProvider>().branchPricingModes(
+      d,
+      widget.branchId,
     );
-
-    final List<Mode> branchPricing = pricing.entries
-        .map((e) => Mode.fromMap(e.key, Map<String, dynamic>.from(e.value)))
-        .toList();
 
     final List<Mode> modes = branchPricing.isNotEmpty
         ? branchPricing
@@ -465,24 +461,6 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
     _wholesaleMinQtyController.dispose();
     _supplierMinQtyController.dispose();
     super.dispose();
-  }
-
-  void _syncLocalBranchPricing(String branchId, String name, List<Mode> modes) {
-    widget.item.branchprices ??= {};
-    widget.item.branchprices![branchId] = {
-      'name': name,
-      'pricing': {for (var m in modes) m.id: m.toMap()},
-      'sminqty': _supplierMinQtyController.text.trim(),
-    };
-  }
-
-  List<Mode> _currentModesForBranch(String branchId) {
-    final branchData =
-        widget.item.branchprices?[branchId] as Map<String, dynamic>? ?? {};
-    final pricing = branchData['pricing'] as Map<String, dynamic>? ?? {};
-    return pricing.entries
-        .map((e) => Mode.fromMap(e.key, Map<String, dynamic>.from(e.value)))
-        .toList();
   }
 
   @override
@@ -808,40 +786,17 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
 
                                     if (widget.item.id != null) {
                                       try {
-                                        final branchData =
-                                            widget
-                                                .item
-                                                .branchprices?[targetBranchId] ??
-                                            {};
-
-                                        if (branchData.isNotEmpty) {
-                                          final fieldPath = FieldPath([
-                                            'branchprices',
-                                            targetBranchId,
-                                            'pricing',
-                                            'half',
-                                          ]);
-                                          await db
-                                              .collection('itemsreg')
-                                              .doc(widget.item.id)
-                                              .update({
-                                                fieldPath: FieldValue.delete(),
-                                              });
-                                        }
+                                        await context
+                                            .read<ItemProvider>()
+                                            .removeBranchPricingMode(
+                                              datafeed: context
+                                                  .read<Datafeed>(),
+                                              item: widget.item,
+                                              branchId: targetBranchId,
+                                              modeId: 'half',
+                                            );
 
                                         if (!mounted) return;
-
-                                        final modes = _currentModesForBranch(
-                                          targetBranchId,
-                                        )..removeWhere((m) => m.id == 'half');
-                                        _syncLocalBranchPricing(
-                                          targetBranchId,
-                                          branchname ?? widget.branchname,
-                                          modes,
-                                        );
-                                        context
-                                            .read<Datafeed>()
-                                            .notifyListeners();
 
                                         ScaffoldMessenger.of(
                                           context,
@@ -1051,42 +1006,17 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
 
                                     if (widget.item.id != null) {
                                       try {
-                                        final branchData =
-                                            widget
-                                                .item
-                                                .branchprices?[targetBranchId] ??
-                                            {};
-                                        if (branchData.isNotEmpty) {
-                                          final fieldPath = FieldPath([
-                                            'branchprices',
-                                            targetBranchId,
-                                            'pricing',
-                                            'quarter',
-                                          ]);
-                                          await db
-                                              .collection('itemsreg')
-                                              .doc(widget.item.id)
-                                              .update({
-                                                fieldPath: FieldValue.delete(),
-                                              });
-                                        }
+                                        await context
+                                            .read<ItemProvider>()
+                                            .removeBranchPricingMode(
+                                              datafeed: context
+                                                  .read<Datafeed>(),
+                                              item: widget.item,
+                                              branchId: targetBranchId,
+                                              modeId: 'quarter',
+                                            );
 
                                         if (!mounted) return;
-
-                                        final modes =
-                                            _currentModesForBranch(
-                                              targetBranchId,
-                                            )..removeWhere(
-                                              (m) => m.id == 'quarter',
-                                            );
-                                        _syncLocalBranchPricing(
-                                          targetBranchId,
-                                          branchname ?? widget.branchname,
-                                          modes,
-                                        );
-                                        context
-                                            .read<Datafeed>()
-                                            .notifyListeners();
 
                                         ScaffoldMessenger.of(
                                           context,
@@ -1373,39 +1303,16 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
                                     });
 
                                     try {
-                                      final branchData =
-                                          widget
-                                              .item
-                                              .branchprices?[targetBranchId] ??
-                                          {};
-                                      if (branchData.isNotEmpty) {
-                                        final fieldPath = FieldPath([
-                                          'branchprices',
-                                          targetBranchId,
-                                          'pricing',
-                                          'pack',
-                                        ]);
-                                        await db
-                                            .collection('itemsreg')
-                                            .doc(widget.item.id)
-                                            .update({
-                                              fieldPath: FieldValue.delete(),
-                                            });
-                                      }
+                                      await context
+                                          .read<ItemProvider>()
+                                          .removeBranchPricingMode(
+                                            datafeed: context.read<Datafeed>(),
+                                            item: widget.item,
+                                            branchId: targetBranchId,
+                                            modeId: 'pack',
+                                          );
 
                                       if (!mounted) return;
-
-                                      final modes = _currentModesForBranch(
-                                        targetBranchId,
-                                      )..removeWhere((m) => m.id == 'pack');
-                                      _syncLocalBranchPricing(
-                                        targetBranchId,
-                                        branchname ?? widget.branchname,
-                                        modes,
-                                      );
-                                      context
-                                          .read<Datafeed>()
-                                          .notifyListeners();
 
                                       ScaffoldMessenger.of(
                                         context,
@@ -1464,228 +1371,57 @@ class _BranchitempriceupdateState extends State<Branchitempriceupdate> {
                                         ? branchname!
                                         : widget.branchname;
 
-                                    final branchData =
-                                        widget
-                                                .item
-                                                .branchprices?[targetBranchId]
-                                            as Map<String, dynamic>? ??
-                                        {};
-                                    final pricing =
-                                        branchData['pricing']
-                                            as Map<String, dynamic>? ??
-                                        {};
-                                    final List<Mode> modes = pricing.entries
-                                        .map(
-                                          (e) => Mode.fromMap(
-                                            e.key,
-                                            Map<String, dynamic>.from(e.value),
-                                          ),
-                                        )
-                                        .toList();
-
-                                    final double boxqty =
-                                        double.tryParse(
-                                          _boxQtyController.text,
-                                        ) ??
-                                        0;
-                                    final businessType = context
-                                        .read<Datafeed>()
-                                        .companytype
-                                        .toLowerCase()
-                                        .trim();
-
-                                    void upsertMode(String id, Mode newMode) {
-                                      int index = modes.indexWhere(
-                                        (m) => m.id == id,
-                                      );
-                                      if (index != -1) {
-                                        modes[index] = newMode;
-                                      } else {
-                                        modes.add(newMode);
-                                      }
-                                    }
-
-                                    void removeMode(String id) {
-                                      modes.removeWhere((m) => m.id == id);
-                                    }
-
-                                    final hasBoxQuantity = boxqty >= 1;
-                                    final supportsRetail =
-                                        businessType != 'wholesale';
-                                    final supportsWholesale =
-                                        businessType != 'retail';
-                                    final wantSingle =
-                                        hasBoxQuantity && supportsRetail;
-                                    final wantCarton =
-                                        hasBoxQuantity && supportsWholesale;
-
-                                    final singlePrice = _retail_price.text
-                                        .trim();
-                                    final boxPrice = _wholesalePriceController
-                                        .text
-                                        .trim();
-                                    final supplierPrice =
-                                        _supplierPriceController.text.trim();
-
-                                    if (wantSingle) {
-                                      upsertMode(
-                                        "single",
-                                        Mode(
-                                          id: "single",
-                                          name: "Single",
-                                          qty: "1",
-                                          cp: _costController.text.trim(),
-                                          rp: singlePrice,
-                                          wp: boxqty == 1
-                                              ? boxPrice
-                                              : singlePrice,
-                                          sp: boxqty == 1
-                                              ? supplierPrice
-                                              : singlePrice,
-                                        ),
-                                      );
-                                    } else {
-                                      removeMode("single");
-                                    }
-
-                                    if (wantCarton) {
-                                      upsertMode(
-                                        "carton",
-                                        Mode(
-                                          id: "carton",
-                                          name: "Carton",
-                                          qty: _boxQtyController.text.trim(),
-                                          cp: _costController.text.trim(),
-                                          rp: boxqty > 1
-                                              ? boxPrice
-                                              : singlePrice,
-                                          wp: boxPrice,
-                                          sp: supplierPrice,
-                                        ),
-                                      );
-                                    } else {
-                                      removeMode("carton");
-                                    }
-
-                                    if (hasBoxQuantity && _enableBoxPricing) {
-                                      if (pricingStep >= 1 &&
-                                          _halfboxqty_controller
-                                              .text
-                                              .isNotEmpty &&
-                                          _halfboxprice_controller
-                                              .text
-                                              .isNotEmpty) {
-                                        upsertMode(
-                                          "half",
-                                          Mode(
-                                            id: "half",
-                                            name: "Half Carton",
-                                            qty: _halfboxqty_controller.text
-                                                .trim(),
-                                            cp: _costController.text.trim(),
-                                            rp: _halfboxprice_controller.text
-                                                .trim(),
-                                            wp: _halfboxprice_controller.text
-                                                .trim(),
-                                            sp: _halfboxprice_controller.text
-                                                .trim(),
+                                    final itemProvider = context
+                                        .read<ItemProvider>();
+                                    final modes = itemProvider
+                                        .buildBranchPricingModes(
+                                          existingModes: itemProvider
+                                              .branchPricingModes(
+                                                widget.item,
+                                                targetBranchId,
+                                              ),
+                                          values: BranchPricingValues(
+                                            companyType: context
+                                                .read<Datafeed>()
+                                                .companytype,
+                                            costPrice: _costController.text,
+                                            retailPrice: _retail_price.text,
+                                            boxQuantity: _boxQtyController.text,
+                                            boxPrice:
+                                                _wholesalePriceController.text,
+                                            supplierPrice:
+                                                _supplierPriceController.text,
+                                            halfBoxQuantity:
+                                                _halfboxqty_controller.text,
+                                            halfBoxPrice:
+                                                _halfboxprice_controller.text,
+                                            quarterQuantity:
+                                                _quarterqty_controller.text,
+                                            quarterPrice:
+                                                _quarterprice_controller.text,
+                                            packQuantity:
+                                                _packQtyController.text,
+                                            packPrice:
+                                                _packprice_controller.text,
+                                            enableBoxPricing: _enableBoxPricing,
+                                            pricingStep: pricingStep,
                                           ),
                                         );
-                                      } else {
-                                        removeMode("half");
-                                      }
 
-                                      if (pricingStep >= 2 &&
-                                          _quarterqty_controller
-                                              .text
-                                              .isNotEmpty &&
-                                          _quarterprice_controller
-                                              .text
-                                              .isNotEmpty) {
-                                        upsertMode(
-                                          "quarter",
-                                          Mode(
-                                            id: "quarter",
-                                            name: "Quarter Carton",
-                                            qty: _quarterqty_controller.text
-                                                .trim(),
-                                            cp: _costController.text.trim(),
-                                            rp: _quarterprice_controller.text
-                                                .trim(),
-                                            wp: _quarterprice_controller.text
-                                                .trim(),
-                                            sp: _quarterprice_controller.text
-                                                .trim(),
-                                          ),
+                                    await context
+                                        .read<ItemProvider>()
+                                        .saveBranchPricing(
+                                          datafeed: context.read<Datafeed>(),
+                                          item: widget.item,
+                                          branchId: targetBranchId,
+                                          branchName: targetBranchName,
+                                          modes: modes,
+                                          supplierMinimumQuantity:
+                                              _supplierMinQtyController.text,
+                                          updatedBy: widget.staff,
                                         );
-                                      } else {
-                                        removeMode("quarter");
-                                      }
-
-                                      if (pricingStep >= 3 &&
-                                          _packQtyController.text.isNotEmpty &&
-                                          _packprice_controller
-                                              .text
-                                              .isNotEmpty) {
-                                        upsertMode(
-                                          "pack",
-                                          Mode(
-                                            id: "pack",
-                                            name: "Pack",
-                                            qty: _packQtyController.text.trim(),
-                                            cp: _costController.text.trim(),
-                                            rp: _packprice_controller.text
-                                                .trim(),
-                                            wp: _packprice_controller.text
-                                                .trim(),
-                                            sp: _packprice_controller.text
-                                                .trim(),
-                                          ),
-                                        );
-                                      } else {
-                                        removeMode("pack");
-                                      }
-                                    } else {
-                                      removeMode("half");
-                                      removeMode("quarter");
-                                      removeMode("pack");
-                                    }
-
-                                    final branchFieldPath = FieldPath([
-                                      'branchprices',
-                                      targetBranchId,
-                                    ]);
-
-                                    await db
-                                        .collection('itemsreg')
-                                        .doc(widget.item.id)
-                                        .update({
-                                          branchFieldPath: {
-                                            'name': targetBranchName,
-                                            'pricing': {
-                                              for (var m in modes)
-                                                m.id: m.toMap(),
-                                            },
-                                            'sminqty': _supplierMinQtyController
-                                                .text
-                                                .trim(),
-                                            'updatedat':
-                                                FieldValue.serverTimestamp(),
-                                            'updatedby': widget.staff,
-                                          },
-                                          'pricingmode': true,
-                                        });
-
-                                    _syncLocalBranchPricing(
-                                      targetBranchId,
-                                      targetBranchName,
-                                      modes,
-                                    );
 
                                     if (mounted) {
-                                      context
-                                          .read<Datafeed>()
-                                          .notifyListeners();
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(

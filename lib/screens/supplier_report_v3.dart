@@ -19,12 +19,13 @@ final DateFormat _shownDate = DateFormat('dd MMM yyyy');
 const double _wideBreakpoint = 800;
 const List<int> _pageSizes = [10, 25, 50, 100];
 
-double _num(dynamic v) {
-  if (v is num) return v.toDouble();
-  return double.tryParse(v?.toString() ?? '') ?? 0;
+
+double toAmount(dynamic value) {
+  if (value == null) return 0.0;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString()) ?? 0.0;
 }
 
-/// Handles a real Firestore Timestamp or a map like {_seconds: .., seconds: ..}
 int _millis(dynamic v) {
   if (v is Timestamp) return v.millisecondsSinceEpoch;
   if (v is Map) {
@@ -40,15 +41,26 @@ Color _balanceColor(double balance) {
   return const Color(0xFF2E7D32); // settled
 }
 
-/// Light tint used on every second row.
 Color _stripe(ColorScheme cs) => cs.primary.withValues(alpha: 0.05);
 
-/// Slightly stronger tint used for the totals footer.
 Color _footerTint(ColorScheme cs) => cs.primary.withValues(alpha: 0.09);
 
-// ---------------------------------------------------------------------------
-// Statement model + calculation
-// ---------------------------------------------------------------------------
+String _acct(double v) =>
+    v < -0.004 ? '(${_money.format(v.abs())})' : _money.format(v);
+
+final xl.CellStyle _acctExcelStyle = xl.CellStyle(
+  numberFormat: xl.NumFormat.custom(formatCode: '#,##0.00;(#,##0.00)'),
+);
+
+void _styleLastRow(xl.Sheet sheet, List<int> cols) {
+  final row = sheet.maxRows - 1;
+  for (final c in cols) {
+    sheet
+        .cell(xl.CellIndex.indexByColumnRow(columnIndex: c, rowIndex: row))
+        .cellStyle = _acctExcelStyle;
+  }
+}
+
 
 class LedgerLine {
   final String date;
@@ -87,10 +99,7 @@ Future<List<LedgerLine>> _fetchSupplierLines(
     Datafeed df,
     String supplierId,
     ) async {
-  final base = df.db
-      .collection('ledgers')
-      .where('companyId', isEqualTo: df.companyid)
-      .where('account', isEqualTo: 'accounts_payable');
+  final base = df.db.collection('ledgers').where('companyId', isEqualTo: df.companyid).where('account', isEqualTo: 'accounts_payable');
 
   final results = await Future.wait([
     base.where('supplierId', isEqualTo: supplierId).get(),
@@ -103,7 +112,7 @@ Future<List<LedgerLine>> _fetchSupplierLines(
     for (final doc in snap.docs) {
       if (!seen.add(doc.id)) continue;
       final d = doc.data();
-      final amount = _num(d['amount']);
+      final amount = toAmount(d['amount']);
       final isCredit = d['type']?.toString().toLowerCase() == 'credit';
       lines.add(
         LedgerLine(
@@ -162,9 +171,6 @@ Statement _buildStatement(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Shared UI pieces
-// ---------------------------------------------------------------------------
 
 class _BalanceChip extends StatelessWidget {
   final double balance;
@@ -180,7 +186,7 @@ class _BalanceChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        'GHS ${_money.format(balance)}',
+        'GHS ${_acct(balance)}',
         style: TextStyle(color: c, fontWeight: FontWeight.w700, fontSize: 13),
       ),
     );
@@ -424,9 +430,10 @@ class _SupplierRow {
   final String contact;
   final double credit;
   final double debit;
+  final String companyname;
   double get balance => credit - debit;
 
-  _SupplierRow(this.id, this.name, this.contact, this.credit, this.debit);
+  _SupplierRow(this.id, this.name, this.contact, this.credit, this.debit,this.companyname);
 }
 
 class SupplierReportPage extends StatefulWidget {
@@ -449,7 +456,7 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
       context,
       MaterialPageRoute(
         builder: (_) =>
-            SupplierStatementPage(supplierId: r.id, supplierName: r.name),
+            SupplierStatementPage(supplierId: r.id, supplierName: r.name,companyname: r.companyname,),
       ),
     );
   }
@@ -480,20 +487,21 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
           [
             r.name,
             r.contact,
-            _money.format(r.credit),
-            _money.format(r.debit),
-            _money.format(r.balance),
+            _acct(r.credit),
+            _acct(r.debit),
+            _acct(r.balance),
           ],
         [
           'TOTAL (${rows.length} suppliers)',
           '',
-          _money.format(totalCredit),
-          _money.format(totalDebit),
-          _money.format(totalCredit - totalDebit),
+          _acct(totalCredit),
+          _acct(totalDebit),
+          _acct(totalCredit - totalDebit),
         ],
       ];
 
       final doc = pw.Document();
+      final df = context.read<Datafeed>();
       doc.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
@@ -502,10 +510,19 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'Supplier Report',
+                df.company,
+                textAlign:pw.TextAlign.center,
                 style: pw.TextStyle(
                   fontSize: 20,
                   fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Supplier Report',
+                style: pw.TextStyle(
+                  fontSize: 15,
+                  //fontWeight: pw.FontWeight.bold,
                 ),
               ),
               pw.SizedBox(height: 4),
@@ -680,8 +697,9 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
               m['id']?.toString() ?? d.id,
               m['supplier']?.toString() ?? 'Unknown',
               m['contact']?.toString() ?? '',
-              _num(m['creditaccount']),
-              _num(m['debitaccount']),
+              toAmount(m['creditaccount']),
+              toAmount(m['debitaccount']),
+              m['company']?.toString() ?? df.company,
             );
           }).toList()
             ..sort(
@@ -804,14 +822,14 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
               Expanded(
                 flex: 2,
                 child: Text(
-                  _money.format(r.credit),
+                  _acct(r.credit),
                   textAlign: TextAlign.right,
                 ),
               ),
               Expanded(
                 flex: 2,
                 child: Text(
-                  _money.format(r.debit),
+                  _acct(r.debit),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -905,7 +923,7 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    _money.format(totalCredit),
+                    _acct(totalCredit),
                     textAlign: TextAlign.right,
                     style: bold,
                   ),
@@ -913,7 +931,7 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    _money.format(totalDebit),
+                    _acct(totalDebit),
                     textAlign: TextAlign.right,
                     style: bold,
                   ),
@@ -1063,23 +1081,24 @@ class _SupplierReportPageState extends State<SupplierReportPage> {
         style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
       ),
       Text(
-        'GHS ${_money.format(v)}',
+        'GHS ${_acct(v)}',
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
     ],
   );
 }
 
-//  Supplier statement (from the `ledgers` collection)
 
 class SupplierStatementPage extends StatefulWidget {
   final String supplierId;
   final String supplierName;
+  final String companyname;
 
   const SupplierStatementPage({
     super.key,
     required this.supplierId,
     required this.supplierName,
+    required this.companyname,
   });
 
   @override
@@ -1153,29 +1172,27 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
   }
 
   // ---------------------------- PDF ----------------------------------------
-  // PDF and Excel always export every line in the selected period,
-  // not just the page currently shown on screen.
 
   Future<void> _printPdf(Statement s) async {
     try {
       final doc = pw.Document();
 
       final rows = <List<String>>[
-        ['', 'Opening Balance', '', '', _money.format(s.opening)],
+        ['', 'Opening Balance', '', '', _acct(s.opening)],
         for (final l in s.lines)
           [
             l.date,
             l.description,
-            l.debit == 0 ? '' : _money.format(l.debit),
-            l.credit == 0 ? '' : _money.format(l.credit),
-            _money.format(l.balance),
+            l.debit == 0 ? '' : _acct(l.debit),
+            l.credit == 0 ? '' : _acct(l.credit),
+            _acct(l.balance),
           ],
         [
           '',
           'Current Balance',
-          _money.format(s.totalDebit),
-          _money.format(s.totalCredit),
-          _money.format(s.closing),
+          _acct(s.totalDebit),
+          _acct(s.totalCredit),
+          _acct(s.closing),
         ],
       ];
 
@@ -1187,9 +1204,17 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'Supplier Statement',
+                widget.companyname,
                 style: pw.TextStyle(
                   fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Supplier Statement',
+                style: pw.TextStyle(
+                  fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -1422,12 +1447,7 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
                   ? _wideStatement(s, cs, pageLines, pager)
                   : _mobileStatement(s, cs, pageLines, pager),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Balance = Credit - Debit. A positive balance is the amount owed to the supplier. '
-                  'PDF and Excel include every transaction in the selected period.',
-              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-            ),
+
           ],
         ),
       ),
@@ -1500,9 +1520,9 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
     Widget lineRow(LedgerLine l, int i) => row(
       date: l.date,
       desc: l.description,
-      debit: l.debit == 0 ? '' : _money.format(l.debit),
-      credit: l.credit == 0 ? '' : _money.format(l.credit),
-      balance: _money.format(l.balance),
+      debit: l.debit == 0 ? '' : _acct(l.debit),
+      credit: l.credit == 0 ? '' : _acct(l.credit),
+      balance: _acct(l.balance),
       balanceColor: _balanceColor(l.balance),
       bg: i.isOdd ? _stripe(cs) : null,
     );
@@ -1531,7 +1551,7 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
             desc: 'Opening Balance',
             debit: '',
             credit: '',
-            balance: _money.format(s.opening),
+            balance: _acct(s.opening),
             bg: _footerTint(cs),
             style: bold,
             balanceColor: _balanceColor(s.opening),
@@ -1551,9 +1571,9 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
           row(
             date: '',
             desc: 'Total / Current Balance',
-            debit: _money.format(s.totalDebit),
-            credit: _money.format(s.totalCredit),
-            balance: _money.format(s.closing),
+            debit: _acct(s.totalDebit),
+            credit: _acct(s.totalCredit),
+            balance: _acct(s.closing),
             bg: _footerTint(cs),
             style: bold,
             balanceColor: _balanceColor(s.closing),
@@ -1593,7 +1613,7 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
             style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
           ),
           Text(
-            'GHS ${_money.format(v)}',
+            'GHS ${_acct(v)}',
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],
@@ -1638,8 +1658,8 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
                     ),
                     Text(
                       pageLines[i].credit > 0
-                          ? '+ GHS ${_money.format(pageLines[i].credit)}'
-                          : '- GHS ${_money.format(pageLines[i].debit)}',
+                          ? '+ GHS ${_acct(pageLines[i].credit)}'
+                          : '- GHS ${_acct(pageLines[i].debit)}',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: pageLines[i].credit > 0
@@ -1666,7 +1686,7 @@ class _SupplierStatementPageState extends State<SupplierStatementPage> {
                       ),
                     ),
                     Text(
-                      'GHS ${_money.format(pageLines[i].balance)}',
+                      'GHS ${_acct(pageLines[i].balance)}',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: _balanceColor(pageLines[i].balance),

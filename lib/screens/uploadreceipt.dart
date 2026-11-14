@@ -1,8 +1,5 @@
 import 'dart:async';
-import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' hide Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +8,11 @@ import 'package:kologsoft/screens/uploadreceiptview.dart';
 import 'package:provider/provider.dart';
 import 'package:universal_io/io.dart';
 
+import '../providers/item_provider.dart';
 import '../providers/Datafeed.dart';
+
+String normalizeReceiptDescription(String value) =>
+    ItemProvider.normalizeReceiptDescription(value);
 
 class ReceiptUploadPage extends StatefulWidget {
   final String? docId;
@@ -24,7 +25,6 @@ class ReceiptUploadPage extends StatefulWidget {
 }
 
 class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
-
   Color get _outlineColor => Theme.of(context).colorScheme.outline;
   Color get _fieldSurfaceColor =>
       Theme.of(context).brightness == Brightness.light
@@ -32,28 +32,26 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
       : Theme.of(context).colorScheme.surfaceContainerHighest;
 
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
-  Color get _textColor => _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
-  Color get _secondaryTextColor => _isLightTheme ? Theme.of(context).colorScheme.onSurfaceVariant : Colors.white70;
-  Color get _dividerColor => _isLightTheme ? Theme.of(context).colorScheme.outlineVariant : Colors.white24;
+  Color get _textColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.onSurface : Colors.white;
+  Color get _secondaryTextColor => _isLightTheme
+      ? Theme.of(context).colorScheme.onSurfaceVariant
+      : Colors.white70;
+  Color get _dividerColor => _isLightTheme
+      ? Theme.of(context).colorScheme.outlineVariant
+      : Colors.white24;
 
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   final List<Uint8List> _logoBytesList = [];
   final List<File> _logoFileList = [];
   List<String> _existingLogoUrls = [];
   static const int _maxImages = 10;
-  static const int _maxFileSizeMB = 5;
   bool _loading = false;
-  static const Map<String, List<int>> _magicBytes = {
-    'image/jpeg': [0xFF, 0xD8, 0xFF],
-    'image/png': [0x89, 0x50, 0x4E, 0x47],
-    'image/webp': [0x52, 0x49, 0x46, 0x46],
-    'image/gif': [0x47, 0x49, 0x46],
-  };
 
   @override
   void initState() {
@@ -62,7 +60,10 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
     if (widget.item != null) {
       final d = widget.item!;
-      _nameController.text = d['name'];
+      _nameController.text = d['name'] ?? '';
+      _descriptionController.text = normalizeReceiptDescription(
+        (d['description'] ?? '').toString(),
+      );
       _existingLogoUrls = List<String>.from(d['receiptUrl'] ?? []);
       print(widget.docId);
     }
@@ -95,7 +96,10 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
       final bytes = await file.readAsBytes();
       final filename = file.name;
-      final error = await _validateImageBytes(bytes, filename);
+      final error = context.read<ItemProvider>().validateReceiptImage(
+        bytes,
+        filename,
+      );
 
       if (error != null) {
         errors.add(error);
@@ -123,95 +127,6 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
     setState(() {});
   }
 
-  Future<List<String>> uploadLogos(String name) async {
-    List<String> urls = [];
-
-    for (
-      int i = 0;
-      i < _logoFileList.length || i < _logoBytesList.length;
-      i++
-    ) {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('items')
-          .child('${name}_$i.png');
-
-      UploadTask task;
-
-      if (kIsWeb) {
-        task = ref.putData(
-          _logoBytesList[i],
-          SettableMetadata(contentType: 'image/png'),
-        );
-      } else {
-        task = ref.putFile(
-          _logoFileList[i],
-          SettableMetadata(contentType: 'image/png'),
-        );
-      }
-
-      final snap = await task;
-      final url = await snap.ref.getDownloadURL();
-      urls.add(url);
-    }
-
-    return urls;
-  }
-
-  Future<void> deleteImagesFromStorage(List<String> urls) async {
-    for (final url in urls) {
-      try {
-        final ref = FirebaseStorage.instance.refFromURL(url);
-        await ref.delete();
-      } catch (e) {
-        debugPrint("Delete error: $e");
-      }
-    }
-  }
-
-  String _uuid() {
-    final rng = Random.secure();
-    return List.generate(8, (_) => rng.nextInt(16).toRadixString(16)).join();
-  }
-
-  Future<String?> _validateImageBytes(Uint8List bytes, String filename) async {
-    final sizeMB = bytes.lengthInBytes / (1024 * 1024);
-    if (sizeMB > _maxFileSizeMB) {
-      return '"$filename" exceeds ${_maxFileSizeMB}MB.';
-    }
-
-    final ext = filename.split('.').last.toLowerCase();
-    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(ext)) {
-      return '"$filename" has an unsupported extension.';
-    }
-
-    for (final entry in _magicBytes.entries) {
-      final sig = entry.value;
-      if (bytes.length >= sig.length) {
-        final header = bytes.sublist(0, sig.length);
-        bool match = true;
-        for (int i = 0; i < sig.length; i++) {
-          if (header[i] != sig[i]) {
-            match = false;
-            break;
-          }
-        }
-        if (match) {
-          if (entry.key == 'image/webp') {
-            if (bytes.length >= 12 &&
-                String.fromCharCodes(bytes.sublist(8, 12)) == 'WEBP') {
-              return null;
-            }
-          } else {
-            return null;
-          }
-        }
-      }
-    }
-
-    return '"$filename" is not a valid image file.';
-  }
-
   Future<void> _savereceipt() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -236,66 +151,20 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
 
     try {
       final datafeed = context.read<Datafeed>();
-      final name = _nameController.text.trim();
-
-      String sanitize(String input) => input
-          .trim()
-          .toLowerCase()
-          .replaceAll(RegExp(r'\s+'), '')
-          .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-
-      final docId =
-          widget.docId ??
-          '${sanitize(datafeed.companyid)}_${datafeed.staffPosition}_${sanitize(name)}_${DateTime.now().millisecondsSinceEpoch}';
-
-      //  keep track original url
-      if (widget.docId != null) {
-        final originalUrls = List<String>.from(
-          widget.item?['receiptUrl'] ?? [],
-        );
-
-        // remove url
-        final removedUrls = originalUrls
-            .where((url) => !_existingLogoUrls.contains(url))
-            .toList();
-
-        if (removedUrls.isNotEmpty) {
-          await deleteImagesFromStorage(removedUrls);
-        }
-      }
-
-      //  Upload newly picked images
-      final List<String> newUrls = hasNewImages
-          ? await uploadNewImages(docId)
-          : [];
-
-      //  Final URL list =
-      final List<String> finalUrls = [..._existingLogoUrls, ...newUrls];
-
-      final data = {
-        'name': name,
-        'id': docId,
-        'receiptUrl': finalUrls,
-        'companyid': datafeed.companyid,
-        'branchid': datafeed.branchid,
-        'branch': datafeed.branch,
-        'company': datafeed.company,
-        'staff': datafeed.staff,
-        if (widget.docId == null) 'createdat': FieldValue.serverTimestamp(),
-        if (widget.docId != null) 'updatedat': FieldValue.serverTimestamp(),
-      };
-
-      await datafeed.db
-          .collection('uploadreceipt')
-          .doc(docId)
-          .set(data, SetOptions(merge: true));
-      final index = datafeed.receiptList.indexWhere((u) => u['id'] == docId);
-      if (index == -1) {
-        datafeed.receiptList.add(data);
-      } else {
-        datafeed.receiptList[index] = data;
-      }
+      await context.read<ItemProvider>().saveReceipt(
+        ReceiptUploadRequest(
+          datafeed: datafeed,
+          receiptNumber: _nameController.text,
+          description: _descriptionController.text,
+          existingId: widget.docId,
+          existingReceipt: widget.item,
+          keptReceiptUrls: List<String>.from(_existingLogoUrls),
+          imageFiles: List<File>.from(_logoFileList),
+          imageBytes: List<Uint8List>.from(_logoBytesList),
+        ),
+      );
       _nameController.clear();
+      _descriptionController.clear();
       setState(() {
         _logoBytesList.clear();
         _logoFileList.clear();
@@ -331,42 +200,6 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
     }
 
     if (mounted) setState(() => _loading = false);
-  }
-
-  //uploading new images
-  Future<List<String>> uploadNewImages(String docId) async {
-    final List<String> urls = [];
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-    for (int i = 0; i < _logoBytesList.length; i++) {
-      final safeName = '${docId}_${timestamp}_${i}_${_uuid()}.png';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('receipts')
-          .child(safeName);
-
-      final snap = await ref.putData(
-        _logoBytesList[i],
-        SettableMetadata(contentType: 'image/png'),
-      );
-      urls.add(await snap.ref.getDownloadURL());
-    }
-
-    for (int i = 0; i < _logoFileList.length; i++) {
-      final safeName = '${docId}_${timestamp}_${i}_${_uuid()}.png';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('receipts')
-          .child(safeName);
-
-      final snap = await ref.putFile(
-        _logoFileList[i],
-        SettableMetadata(contentType: 'image/png'),
-      );
-      urls.add(await snap.ref.getDownloadURL());
-    }
-
-    return urls;
   }
 
   @override
@@ -416,12 +249,22 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                         child: _buildField(
                           enabled: widget.docId == null,
                           _nameController,
-                          'Item Name',
+                          'Company / Receipt No.',
                           Icons.label,
 
                           onChanged: (v) {
                             _formKey.currentState!.validate();
                           },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        child: _buildField(
+                          _descriptionController,
+                          'Description',
+                          Icons.description_outlined,
+                          required: false,
+                          maxLines: 3,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -431,29 +274,15 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                            _isLightTheme
-                                ? Theme.of(context)
-                                .colorScheme
-                                .primary
-                                : const Color(
-                              0xFF405A78,
-                            ),
-                            foregroundColor:
-                            _isLightTheme
-                                ? Theme.of(context)
-                                .colorScheme
-                                .onPrimary
+                            backgroundColor: _isLightTheme
+                                ? Theme.of(context).colorScheme.primary
+                                : const Color(0xFF405A78),
+                            foregroundColor: _isLightTheme
+                                ? Theme.of(context).colorScheme.onPrimary
                                 : Colors.white,
-                            padding:
-                            const EdgeInsets.symmetric(
-                              vertical: 16,
-                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                              BorderRadius.circular(
-                                8,
-                              ),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
                           onPressed: _loading ? null : _savereceipt,
@@ -485,10 +314,12 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
     Function(String)? onChanged,
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters,
+    int maxLines = 1,
   }) {
     return TextFormField(
       enabled: enabled,
       controller: controller,
+      maxLines: maxLines,
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
@@ -651,7 +482,21 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                               child: GestureDetector(
                                 onTap: () async {
                                   // Delete from Storage immediately when user taps Ã—
-                                  await deleteImagesFromStorage([url]);
+                                  try {
+                                    await context
+                                        .read<ItemProvider>()
+                                        .deleteReceiptImages([url]);
+                                  } catch (error) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Could not delete image: $error',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   if (!mounted) return;
                                   setState(() {
                                     _existingLogoUrls.removeAt(index);
@@ -701,7 +546,19 @@ class _ReceiptUploadPageState extends State<ReceiptUploadPage> {
                 onPressed: () async {
                   // Delete all existing Storage files, then clear local lists
                   if (_existingLogoUrls.isNotEmpty) {
-                    await deleteImagesFromStorage(List.from(_existingLogoUrls));
+                    try {
+                      await context.read<ItemProvider>().deleteReceiptImages(
+                        List<String>.from(_existingLogoUrls),
+                      );
+                    } catch (error) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Could not delete images: $error'),
+                        ),
+                      );
+                      return;
+                    }
                   }
                   if (!mounted) return;
                   setState(() {

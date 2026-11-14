@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 
 import 'stock_item_history_page.dart';
 import '../widgets/stockmovementexcel.dart';
+import '../widgets/stock_rows_per_page_menu.dart';
+
+enum _MovementExportAction { pdf, excel, word, print }
 
 class _MovementColumn {
   final String label;
@@ -21,6 +24,8 @@ class StockMovementPage extends StatefulWidget {
   final String? branchName;
   final DateTimeRange? dateRange;
   final Future<void> Function(List<Map<String, dynamic>> transactions) onPrint;
+  final Future<void> Function(List<Map<String, dynamic>> transactions)
+  onDownloadPdf;
 
   const StockMovementPage({
     super.key,
@@ -31,6 +36,7 @@ class StockMovementPage extends StatefulWidget {
     required this.branchName,
     required this.dateRange,
     required this.onPrint,
+    required this.onDownloadPdf,
   });
 
   @override
@@ -43,7 +49,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
   final ScrollController _vc = ScrollController();
   final ScrollController _hc = ScrollController();
 
-  static const int _rowsPerPage = 16;
+  int _rowsPerPage = 10;
   static const double _colGap = 10;
 
   static const List<_MovementColumn> _columns = [
@@ -136,6 +142,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
     try {
       await exportStockMovementExcel(
         transactions: transactions,
+        companyName: _provider.company,
         itemName: widget.itemName,
         branchName: widget.branchName ?? 'All Branches',
         startDate:
@@ -149,6 +156,51 @@ class _StockMovementPageState extends State<StockMovementPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Excel export failed: $error')));
+    }
+  }
+
+  Future<void> _exportWord(List<Map<String, dynamic>> transactions) async {
+    final now = DateTime.now();
+    try {
+      await exportStockMovementWord(
+        transactions: transactions,
+        companyName: _provider.company,
+        itemName: widget.itemName,
+        branchName: widget.branchName ?? 'All Branches',
+        startDate:
+            widget.dateRange?.start ?? DateTime(now.year, now.month, now.day),
+        endDate:
+            widget.dateRange?.end ?? DateTime(now.year, now.month, now.day),
+        boxPiece: widget.boxpiece,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Word export failed: $error')));
+    }
+  }
+
+  Future<void> _performExport(
+    _MovementExportAction action,
+    List<Map<String, dynamic>> transactions,
+  ) async {
+    try {
+      switch (action) {
+        case _MovementExportAction.pdf:
+          await widget.onDownloadPdf(transactions);
+        case _MovementExportAction.excel:
+          await _exportExcel(transactions);
+        case _MovementExportAction.word:
+          await _exportWord(transactions);
+        case _MovementExportAction.print:
+          await widget.onPrint(transactions);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $error')));
     }
   }
 
@@ -279,7 +331,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
                         _miniStatstring('Pcs Bal', balance.toString()),
                         _miniStatstring(
                           'Ctn Bal',
-                          cartonQtyBal.toStringAsFixed(1),
+                          cartonQtyBal.toStringAsFixed(2),
                         ),
                       ],
                     ),
@@ -323,7 +375,7 @@ class _StockMovementPageState extends State<StockMovementPage> {
       Text(purchaseReturns.toString(), style: style),
       Text(damages.toString(), style: style),
       Text(balanceCd.toString(), style: style),
-      Text(cartonQtyBal.toStringAsFixed(1), style: style),
+      Text(cartonQtyBal.toStringAsFixed(2), style: style),
     ];
 
     return InkWell(
@@ -458,6 +510,14 @@ class _StockMovementPageState extends State<StockMovementPage> {
                 ),
               ),
             ),
+            StockRowsPerPageMenu(
+              compact: MediaQuery.sizeOf(context).width < 600,
+              value: _rowsPerPage,
+              onChanged: (value) => setState(() {
+                _rowsPerPage = value;
+                _page = 0;
+              }),
+            ),
             IconButton(
               tooltip: 'Previous page',
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -583,20 +643,47 @@ class _StockMovementPageState extends State<StockMovementPage> {
                   onPressed: () => setState(() => _searchExpanded = true),
                   icon: const Icon(Icons.search),
                 ),
-                IconButton(
-                  tooltip: 'Download Excel',
-                  icon: const Icon(Icons.grid_on_outlined, size: 21),
-                  onPressed: transactions.isEmpty
-                      ? null
-                      : () => _exportExcel(transactions),
-                ),
-                IconButton(
-                  tooltip: 'Print',
-                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 21),
-                  onPressed: transactions.isEmpty
-                      ? null
-                      : () =>
-                            widget.onPrint(provider.filterstockTransactions()),
+                PopupMenuButton<_MovementExportAction>(
+                  tooltip: 'Export movement',
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (action) => _performExport(
+                    action,
+                    provider.filterstockTransactions(),
+                  ),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: _MovementExportAction.pdf,
+                      child: ListTile(
+                        leading: Icon(Icons.picture_as_pdf_outlined),
+                        title: Text('Download PDF'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: _MovementExportAction.excel,
+                      child: ListTile(
+                        leading: Icon(Icons.grid_on_outlined),
+                        title: Text('Download Excel'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: _MovementExportAction.word,
+                      child: ListTile(
+                        leading: Icon(Icons.description_outlined),
+                        title: Text('Download Word'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: _MovementExportAction.print,
+                      child: ListTile(
+                        leading: Icon(Icons.print_outlined),
+                        title: Text('Print Preview'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],

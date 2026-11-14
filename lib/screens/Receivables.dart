@@ -797,43 +797,6 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
     return transactionMap;
   }
 
-  InputDecoration _inputDecoration({
-    required String label,
-    IconData? prefix,
-    String? hint,
-    Widget? suffix,
-  }) {
-    final context = this.context;
-    return InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(color: _secondaryText(context)),
-      hintText: hint,
-      hintStyle: TextStyle(color: _mutedText(context)),
-      prefixIcon: prefix != null
-          ? Icon(prefix, color: _secondaryText(context))
-          : null,
-      suffixIcon: suffix,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: _isLightTheme(context) ? Colors.grey.shade400 : Colors.white24,
-        ),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
-          color: _isLightTheme(context) ? Colors.grey.shade400 : Colors.white24,
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.blue),
-      ),
-      filled: true,
-      fillColor: _inputSurface(context),
-    );
-  }
-
   Future<void> _submitPayment() async {
     if (!_formKey.currentState!.validate()) return;
     if (paymentMethod.toLowerCase() == 'momo' && momoType == 'merchant') {
@@ -937,24 +900,9 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
       String smsbalance = formatter.format(runningbalance);
 
       await provider.debptpayment(paymentData);
-      final smsRecord = {
-        'companyid': provider.companyid,
-        'branchid': provider.branchid,
-        'staff': provider.staff,
-        'message':
-            "Dear ${payment.customername},We acknowledge receipt of your payment of ${smsamount}.Your remaining balance is ${smsbalance}. Thank you.",
-        'senderid': "",
-        'recipient': widget.debtor.contact,
-        'type': 'single',
-        'bulkFilterType': null,
-        'status': 'pending',
-        'successMessage': '',
-        'failureReason': '',
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
-      };
-
-      await provider.db.collection('sms_logs').add(smsRecord);
+      final String message ="Dear ${payment.customername},We acknowledge receipt of your payment of ${smsamount}.Your remaining balance is ${smsbalance}. Thank you.";
+      final String phone= widget.debtor.contact;
+      await provider.sendSms(phone, message);
 
       if (paymentMethodStore == 'momo' && momoTransactionIds != null) {
         for (final transactionId in momoTransactionIds.keys) {
@@ -1008,8 +956,7 @@ class _PaymentFormDialogState extends State<PaymentFormDialog> {
         final inputColor = _inputSurface(context);
         String invoiceId = widget.debtor.id;
         String? selectedNetwork = provider.selectedNetworks[invoiceId];
-        paymentMethod =
-            provider.selectedPaymentMethods[invoiceId] ??
+        paymentMethod =provider.selectedPaymentMethods[invoiceId] ??
             'select payment method';
         return Container(
           height: MediaQuery.of(context).size.height * 0.85,

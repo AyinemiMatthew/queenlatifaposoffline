@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../models/appModuls.dart';
 import '../providers/Datafeed.dart';
+import '../providers/SalesProvider.dart';
 import '../widgets/datepicker.dart';
 import '../widgets/salesviewpdf.dart';
 
@@ -322,10 +323,10 @@ class _SalesViewPageState extends State<SalesViewPage> {
                                       'Date',
                                       salesview.createdAt != null
                                           ? DateFormat(
-                                        'dd MMM yyyy, hh:mm a',
-                                      ).format(
-                                        salesview.createdAt!.toDate(),
-                                      )
+                                              'dd MMM yyyy, hh:mm a',
+                                            ).format(
+                                              salesview.createdAt!.toDate(),
+                                            )
                                           : '',
                                     ),
                                   ],
@@ -567,7 +568,11 @@ class _SalesViewPageState extends State<SalesViewPage> {
     }
 
     try {
-      await context.read<Datafeed>().deletesalesview(id, receipt);
+      await context.read<SalesProvider>().deleteSaleAndReturns(
+        context.read<Datafeed>(),
+        id: id,
+        receipt: receipt,
+      );
 
       if (!context.mounted) {
         return;

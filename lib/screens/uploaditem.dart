@@ -11,9 +11,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/itemmodel.dart';
 import '../models/itemregmodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 import '../services/sales_import_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 class ItemUploadPage extends StatefulWidget {
   const ItemUploadPage({super.key});
 
@@ -22,8 +24,6 @@ class ItemUploadPage extends StatefulWidget {
 }
 
 class _ItemUploadPageState extends State<ItemUploadPage> {
-  final FirebaseFirestore db = FirebaseFirestore.instance;
-
   final SalesImportService _shared = SalesImportService();
 
   static const List<String> requiredCsvHeaders = [
@@ -48,9 +48,8 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
   List<Map<String, String>> previewData = [];
   List<String> headers = [];
 
-
   static const List<int> _xlsxMagic = [0x50, 0x4B, 0x03, 0x04];
-  static const List<int> _xlsMagic  = [0xD0, 0xCF, 0x11, 0xE0];
+  static const List<int> _xlsMagic = [0xD0, 0xCF, 0x11, 0xE0];
   bool loading = false;
   int currentIndex = 0;
   List<String> rowStatus = [];
@@ -60,7 +59,6 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
   Completer<void>? _pauseCompleter;
   bool _uploadInFlight = false;
   static const int _uiUpdateInterval = 200;
-
 
   String? _progressKey;
 
@@ -73,7 +71,6 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
   static const int _writeBatchSize = 400;
   static const int _previewPageSize = 50;
   int _previewPage = 0;
-
 
   String? _validateFile(String filename, int sizeBytes, String extension) {
     final sizeMB = sizeBytes / (1024 * 1024);
@@ -110,8 +107,12 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
   String _sanitizeCell(String value) => _shared.sanitizeCell(value);
 
-
-  String _progressKeyFor(String companyId, String fileName, int fileBytes, int rowCount) {
+  String _progressKeyFor(
+    String companyId,
+    String fileName,
+    int fileBytes,
+    int rowCount,
+  ) {
     return 'itemUploadProgress:$companyId:$fileName:$fileBytes:$rowCount';
   }
 
@@ -131,7 +132,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     if (key == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final existing = (jsonDecode(prefs.getString(key) ?? '[]') as List).cast<String>().toSet();
+      final existing = (jsonDecode(prefs.getString(key) ?? '[]') as List)
+          .cast<String>()
+          .toSet();
       existing.addAll(newDocIds);
       await prefs.setString(key, jsonEncode(existing.toList()));
     } catch (_) {
@@ -149,13 +152,15 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'Forget saved progress?',
-          style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface),
+          style: TextStyle(
+            color: Theme.of(dialogContext).colorScheme.onSurface,
+          ),
         ),
         content: Text(
           'This clears the local record of which rows in this file were already uploaded. '
-              'Rows are safe to re-upload either way — each one overwrites the same item record '
-              'rather than creating a duplicate — this only affects how much work gets skipped '
-              'and re-checked next time.',
+          'Rows are safe to re-upload either way — each one overwrites the same item record '
+          'rather than creating a duplicate — this only affects how much work gets skipped '
+          'and re-checked next time.',
           style: TextStyle(
             color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
             fontSize: 13,
@@ -175,7 +180,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'Forget it',
-              style: TextStyle(color: Theme.of(dialogContext).colorScheme.error),
+              style: TextStyle(
+                color: Theme.of(dialogContext).colorScheme.error,
+              ),
             ),
           ),
         ],
@@ -196,10 +203,13 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       }
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cleared saved upload history — this file will be treated as new.')),
+      const SnackBar(
+        content: Text(
+          'Cleared saved upload history — this file will be treated as new.',
+        ),
+      ),
     );
   }
-
 
   Future<void> _waitIfPaused() async {
     while (_paused && !_cancelled) {
@@ -229,7 +239,6 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
   }
 
   //PICK FILE
-
 
   Future<void> pickFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -265,7 +274,11 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
           if (_looksLikeBinary(file.bytes!)) {
             throw 'File "${file.name}" does not appear to be a valid CSV.';
           }
-          await _parseCsvStream(Stream.value(file.bytes!), file.name, file.size);
+          await _parseCsvStream(
+            Stream.value(file.bytes!),
+            file.name,
+            file.size,
+          );
         } else {
           throw 'Could not read file contents.';
         }
@@ -304,23 +317,30 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     }
   }
 
-  Future<void> _parseCsvStream(Stream<List<int>> stream, String filename, int fileSizeBytes) async {
+  Future<void> _parseCsvStream(
+    Stream<List<int>> stream,
+    String filename,
+    int fileSizeBytes,
+  ) async {
     List<String> tempHeaders = [];
     List<Map<String, String>> tempData = [];
     bool headerParsed = false;
     String delimiter = ',';
     bool rowLimitHit = false;
 
-    final lineStream = stream.transform(utf8.decoder).transform(const LineSplitter());
+    final lineStream = stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter());
 
     await for (final rawLine in lineStream) {
       if (rawLine.trim().isEmpty) continue;
 
       if (!headerParsed) {
         delimiter = _detectCsvDelimiter(rawLine);
-        tempHeaders = _parseCsvLine(rawLine, delimiter)
-            .map((h) => _sanitizeCell(_cleanNullLiteral(h)))
-            .toList();
+        tempHeaders = _parseCsvLine(
+          rawLine,
+          delimiter,
+        ).map((h) => _sanitizeCell(_cleanNullLiteral(h))).toList();
         headerParsed = true;
         continue;
       }
@@ -341,10 +361,20 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
     if (!headerParsed) throw 'CSV file is empty';
 
-    await _finishParsing(tempHeaders, tempData, filename, fileSizeBytes, rowLimitHit);
+    await _finishParsing(
+      tempHeaders,
+      tempData,
+      filename,
+      fileSizeBytes,
+      rowLimitHit,
+    );
   }
 
-  Future<void> _parseExcelBytes(Uint8List bytes, String filename, int fileSizeBytes) async {
+  Future<void> _parseExcelBytes(
+    Uint8List bytes,
+    String filename,
+    int fileSizeBytes,
+  ) async {
     final excelFile = excel_lib.Excel.decodeBytes(bytes);
     if (excelFile.tables.isEmpty) throw 'Excel file has no sheets';
 
@@ -352,7 +382,10 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     if (sheet.maxRows < 2) throw 'Excel file has no data rows';
 
     final tempHeaders = sheet.rows.first
-        .map((cell) => _sanitizeCell(_cleanNullLiteral(cell?.value?.toString() ?? '')))
+        .map(
+          (cell) =>
+              _sanitizeCell(_cleanNullLiteral(cell?.value?.toString() ?? '')),
+        )
         .where((h) => h.isNotEmpty)
         .toList();
 
@@ -361,7 +394,8 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
     for (int r = 1; r < sheet.rows.length; r++) {
       final row = sheet.rows[r];
-      if (row.every((cell) => (cell?.value?.toString().trim() ?? '').isEmpty)) continue;
+      if (row.every((cell) => (cell?.value?.toString().trim() ?? '').isEmpty))
+        continue;
 
       if (tempData.length >= _maxRows) {
         rowLimitHit = true;
@@ -371,23 +405,31 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       final rowMap = <String, String>{};
       for (int c = 0; c < tempHeaders.length; c++) {
         final cell = c < row.length ? row[c] : null;
-        rowMap[tempHeaders[c]] = _sanitizeCell(_cleanNullLiteral(cell?.value?.toString() ?? ''));
+        rowMap[tempHeaders[c]] = _sanitizeCell(
+          _cleanNullLiteral(cell?.value?.toString() ?? ''),
+        );
       }
       tempData.add(rowMap);
     }
 
     if (tempData.isEmpty) throw 'No data rows found.';
 
-    await _finishParsing(tempHeaders, tempData, filename, fileSizeBytes, rowLimitHit);
+    await _finishParsing(
+      tempHeaders,
+      tempData,
+      filename,
+      fileSizeBytes,
+      rowLimitHit,
+    );
   }
 
   Future<void> _finishParsing(
-      List<String> parsedHeaders,
-      List<Map<String, String>> parsedRows,
-      String filename,
-      int fileSizeBytes,
-      bool rowLimitHit,
-      ) async {
+    List<String> parsedHeaders,
+    List<Map<String, String>> parsedRows,
+    String filename,
+    int fileSizeBytes,
+    bool rowLimitHit,
+  ) async {
     List<String> finalHeaders = parsedHeaders;
     List<Map<String, String>> finalData = parsedRows;
     bool autoMapped = false;
@@ -399,7 +441,10 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       autoMapped = true;
     }
 
-    final missing = requiredCsvHeaders.where((x) => !finalHeaders.any((h) => h.toLowerCase() == x.toLowerCase()))
+    final missing = requiredCsvHeaders
+        .where(
+          (x) => !finalHeaders.any((h) => h.toLowerCase() == x.toLowerCase()),
+        )
         .toList();
 
     if (missing.isNotEmpty) {
@@ -426,11 +471,16 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       return;
     }
 
-   final companyId = mounted ? context.read<Datafeed>().companyid : '';
-    final progressKey = _progressKeyFor(companyId, filename, fileSizeBytes, finalData.length);
+    final companyId = mounted ? context.read<Datafeed>().companyid : '';
+    final progressKey = _progressKeyFor(
+      companyId,
+      filename,
+      fileSizeBytes,
+      finalData.length,
+    );
     final persistedDocIds = await _loadPersistedSuccessDocIds(progressKey);
     final nameKey = finalHeaders.firstWhere(
-          (h) => h.toLowerCase() == 'name',
+      (h) => h.toLowerCase() == 'name',
       orElse: () => 'name',
     );
 
@@ -473,7 +523,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     if (rowLimitHit && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('File exceeds $_maxRows row limit. Only the first $_maxRows rows were loaded.'),
+          content: Text(
+            'File exceeds $_maxRows row limit. Only the first $_maxRows rows were loaded.',
+          ),
           backgroundColor: Theme.of(context).colorScheme.secondary,
         ),
       );
@@ -481,7 +533,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     if (autoMapped && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Detected a different column layout and auto-mapped it to the item format.'),
+          content: Text(
+            'Detected a different column layout and auto-mapped it to the item format.',
+          ),
           backgroundColor: Theme.of(context).colorScheme.primary,
         ),
       );
@@ -501,7 +555,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       for (var i = 0; i < headerLine.length; i++) {
         final char = headerLine[i];
         if (char == '"') {
-          if (inQuotes && i + 1 < headerLine.length && headerLine[i + 1] == '"') {
+          if (inQuotes &&
+              i + 1 < headerLine.length &&
+              headerLine[i + 1] == '"') {
             i++;
           } else {
             inQuotes = !inQuotes;
@@ -549,21 +605,51 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         value.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
 
     final normalizedCandidates = candidates.map(normalize).toSet();
-    return headers.indexWhere((header) => normalizedCandidates.contains(normalize(header)));
+    return headers.indexWhere(
+      (header) => normalizedCandidates.contains(normalize(header)),
+    );
   }
 
-  List<Map<String, String>>? _mapLegacyItemRows(  List<String> sourceHeaders, List<Map<String, String>> sourceRows, ) {
+  List<Map<String, String>>? _mapLegacyItemRows(
+    List<String> sourceHeaders,
+    List<Map<String, String>> sourceRows,
+  ) {
     final lower = sourceHeaders.map((h) => h.toLowerCase()).toList();
-    final hasSignature = ['selling_price', 'cost_price', 'product_type']
-        .every((h) => lower.contains(h));
+    final hasSignature = [
+      'selling_price',
+      'cost_price',
+      'product_type',
+    ].every((h) => lower.contains(h));
     if (!hasSignature) return null;
 
-    final nameIdx = _findHeaderIndex(sourceHeaders, ['name', 'item', 'itemname', 'productname']);
+    final nameIdx = _findHeaderIndex(sourceHeaders, [
+      'name',
+      'item',
+      'itemname',
+      'productname',
+    ]);
     final barcodeIdx = _findHeaderIndex(sourceHeaders, ['barcode']);
-    final categoryIdx = _findHeaderIndex(sourceHeaders, ['category', 'product_category', 'pcategory']);
-    final typeIdx = _findHeaderIndex(sourceHeaders, ['product_type', 'type', 'producttype']);
-    final costIdx = _findHeaderIndex(sourceHeaders, ['cost_price', 'cost', 'cp']);
-    final retailIdx = _findHeaderIndex(sourceHeaders, ['selling_price', 'retail', 'price', 'rp']);
+    final categoryIdx = _findHeaderIndex(sourceHeaders, [
+      'category',
+      'product_category',
+      'pcategory',
+    ]);
+    final typeIdx = _findHeaderIndex(sourceHeaders, [
+      'product_type',
+      'type',
+      'producttype',
+    ]);
+    final costIdx = _findHeaderIndex(sourceHeaders, [
+      'cost_price',
+      'cost',
+      'cp',
+    ]);
+    final retailIdx = _findHeaderIndex(sourceHeaders, [
+      'selling_price',
+      'retail',
+      'price',
+      'rp',
+    ]);
 
     if (nameIdx == -1 || costIdx == -1 || retailIdx == -1) return null;
 
@@ -603,7 +689,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     return mapped;
   }
 
-  String? _validateRowField( String fieldName,  String? value, {
+  String? _validateRowField(
+    String fieldName,
+    String? value, {
     required String cost,
     required String retail,
     required String boxQty,
@@ -738,7 +826,8 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         final bPrice = double.tryParse(boxPrice) ?? 0;
         if (bPrice == 0) return null;
         final requiredHalfPrice = bPrice / 2;
-        if (halfBoxPrice > bPrice) return 'Half Box Price cannot exceed Box Price';
+        if (halfBoxPrice > bPrice)
+          return 'Half Box Price cannot exceed Box Price';
         if (halfBoxPrice < requiredHalfPrice) {
           return 'Half Box Price must be at least ${requiredHalfPrice.toStringAsFixed(2)}';
         }
@@ -756,8 +845,10 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         if ((quarterQtyVal - requiredQuarterQty).abs() > 0.001) {
           return 'Quarter Qty must be $requiredQuarterQty';
         }
-        if (hq > 0 && quarterQtyVal >= hq) return 'Quarter Qty must be less than Half Qty';
-        if (pq > 0 && quarterQtyVal <= pq) return 'Quarter Qty must be greater than Pack Qty';
+        if (hq > 0 && quarterQtyVal >= hq)
+          return 'Quarter Qty must be less than Half Qty';
+        if (pq > 0 && quarterQtyVal <= pq)
+          return 'Quarter Qty must be greater than Pack Qty';
         return null;
 
       case 'quarterPrice':
@@ -766,7 +857,8 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         final halfBoxPrice = double.tryParse(halfPrice) ?? 0;
         if (bPrice == 0) return null;
         final requiredQuarterPrice = bPrice / 4;
-        if (quarterPriceVal > bPrice) return 'Quarter Price cannot exceed Box Price';
+        if (quarterPriceVal > bPrice)
+          return 'Quarter Price cannot exceed Box Price';
         if (quarterPriceVal < requiredQuarterPrice) {
           return 'Quarter Price must be at least ${requiredQuarterPrice.toStringAsFixed(2)}';
         }
@@ -784,13 +876,14 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         final qq = double.tryParse(quarterQty) ?? 0;
 
         if (packQtyVal <= 0) return 'Pack Qty must be greater than zero';
-        if (bq > 0 &&
-            (bq % packQtyVal).abs() > 0.000001) {
+        if (bq > 0 && (bq % packQtyVal).abs() > 0.000001) {
           return 'Box Qty must be divisible by Pack Qty';
         }
         if (bq > 0 && packQtyVal > bq) return 'Pack Qty cannot exceed Box Qty';
-        if (hq > 0 && packQtyVal >= hq) return 'Pack Qty must be less than Half Qty';
-        if (qq > 0 && packQtyVal >= qq) return 'Pack Qty must be less than Quarter Qty';
+        if (hq > 0 && packQtyVal >= hq)
+          return 'Pack Qty must be less than Half Qty';
+        if (qq > 0 && packQtyVal >= qq)
+          return 'Pack Qty must be less than Quarter Qty';
         return null;
 
       case 'packPrice':
@@ -823,23 +916,12 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     return 'product';
   }
 
-  String _sanitizeForDocId(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), '')
-        .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-  }
-
   String _buildItemDocId(String companyId, String name) =>
-      '${_sanitizeForDocId(companyId)}_${_sanitizeForDocId(name)}';
+      context.read<ItemProvider>().itemUploadDocumentId(companyId, name);
 
-  String _buildCategoryDocId(String companyId, String category) {
-    return '$companyId$category'
-        .toLowerCase()
-        .replaceAll(RegExp(r'[/\\]'), '_')
-        .replaceAll(RegExp(r'\s+'), '_');
-  }
+  String _buildCategoryDocId(String companyId, String category) => context
+      .read<ItemProvider>()
+      .categoryUploadDocumentId(companyId, category);
 
   Future<void> upload() async {
     if (_uploadInFlight) return;
@@ -854,11 +936,14 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         return;
       }
 
-      if (rowStatus.length == previewData.length && rowStatus.every((s) => s == 'success')) {
+      if (rowStatus.length == previewData.length &&
+          rowStatus.every((s) => s == 'success')) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('All rows in this file are already uploaded.'),
+              content: const Text(
+                'All rows in this file are already uploaded.',
+              ),
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
@@ -871,7 +956,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       final datafeed = context.read<Datafeed>();
       final companyId = datafeed.companyid;
 
-    final bool isResume = rowStatus.length == previewData.length && rowStatus.contains('success');
+      final bool isResume =
+          rowStatus.length == previewData.length &&
+          rowStatus.contains('success');
 
       setState(() {
         loading = true;
@@ -879,7 +966,11 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         _paused = false;
         _cancelled = false;
         if (rowStatus.length != previewData.length) {
-          rowStatus = List.filled(previewData.length, 'pending', growable: true);
+          rowStatus = List.filled(
+            previewData.length,
+            'pending',
+            growable: true,
+          );
         } else {
           for (int i = 0; i < rowStatus.length; i++) {
             if (rowStatus[i] != 'success') rowStatus[i] = 'pending';
@@ -905,7 +996,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
       String normalizeKey(String key) {
         return headers.firstWhere(
-              (h) => h.toLowerCase() == key.toLowerCase(),
+          (h) => h.toLowerCase() == key.toLowerCase(),
           orElse: () => key,
         );
       }
@@ -916,8 +1007,6 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       final processedItemIds = <String>{};
       final processedCategoryIds = <String>{};
       final rowDocId = <int, String>{};
-
-      const int lookupBatchSize = 30;
 
       try {
         final itemIds = <String>{};
@@ -930,47 +1019,20 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             itemIds.add(_buildItemDocId(companyId, name));
           }
           final rawCategory = row[normalizeKey('category')]?.trim() ?? '';
-          final category = rawCategory.toLowerCase() == 'choose an option' ? '' : rawCategory;
+          final category = rawCategory.toLowerCase() == 'choose an option'
+              ? ''
+              : rawCategory;
           if (category.isNotEmpty) {
             categoryIds.add(_buildCategoryDocId(companyId, category));
           }
         }
 
-        final itemIdList = itemIds.toList();
-        for (int start = 0; start < itemIdList.length; start += lookupBatchSize) {
-          final end = (start + lookupBatchSize).clamp(0, itemIdList.length);
-          final chunk = itemIdList.sublist(start, end);
-          final snaps = await Future.wait(
-            chunk.map((id) => db.collection('itemsreg').doc(id).get()),
-          );
-          for (int k = 0; k < chunk.length; k++) {
-            itemDocCache[chunk[k]] = snaps[k].exists;
-            final modes = snaps[k].data()?['modes'];
-            if (modes is Map) {
-              itemDocModes[chunk[k]] = modes.entries
-                  .where((entry) => entry.value is Map)
-                  .map(
-                    (entry) => Mode.fromMap(
-                      entry.key.toString(),
-                      Map<String, dynamic>.from(entry.value as Map),
-                    ),
-                  )
-                  .toList();
-            }
-          }
-        }
-
-        final categoryIdList = categoryIds.toList();
-        for (int start = 0; start < categoryIdList.length; start += lookupBatchSize) {
-          final end = (start + lookupBatchSize).clamp(0, categoryIdList.length);
-          final chunk = categoryIdList.sublist(start, end);
-          final snaps = await Future.wait(
-            chunk.map((id) => db.collection('productcategoryreg').doc(id).get()),
-          );
-          for (int k = 0; k < chunk.length; k++) {
-            categoryDocCache[chunk[k]] = snaps[k].exists;
-          }
-        }
+        final lookups = await context
+            .read<ItemProvider>()
+            .loadItemUploadLookups(itemIds: itemIds, categoryIds: categoryIds);
+        itemDocCache.addAll(lookups.itemExists);
+        itemDocModes.addAll(lookups.itemModes);
+        categoryDocCache.addAll(lookups.categoryExists);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -988,30 +1050,39 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       int itemsCreated = 0;
       int itemsUpdated = 0;
 
-      WriteBatch batch = db.batch();
       int pendingInBatch = 0;
       final batchRowIndices = <int>[];
+      final pendingCategories = <String, Map<String, dynamic>>{};
+      final pendingItems = <ItemUploadWrite>[];
 
       Future<void> flushBatch() async {
         if (pendingInBatch == 0) return;
         try {
-          await batch.commit();
+          await context.read<ItemProvider>().saveItemUploadBatch(
+            categories: Map<String, Map<String, dynamic>>.from(
+              pendingCategories,
+            ),
+            items: List<ItemUploadWrite>.from(pendingItems),
+          );
           for (final idx in batchRowIndices) {
             rowStatus[idx] = 'success';
           }
           // Best-effort: remember these on-device so a re-pick of this same
           // file (after a crash/restart) skips them too.
-          unawaited(_addPersistedSuccessDocIds(
-            batchRowIndices.map((idx) => rowDocId[idx]).whereType<String>(),
-          ));
+          unawaited(
+            _addPersistedSuccessDocIds(
+              batchRowIndices.map((idx) => rowDocId[idx]).whereType<String>(),
+            ),
+          );
         } catch (e) {
           for (final idx in batchRowIndices) {
             rowStatus[idx] = 'error: $e';
           }
         }
-        batch = db.batch();
         pendingInBatch = 0;
         batchRowIndices.clear();
+        pendingCategories.clear();
+        pendingItems.clear();
         if (mounted) setState(() {});
       }
 
@@ -1025,16 +1096,23 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
         try {
           final name = row[normalizeKey('name')]?.trim() ?? '';
-          final barcode = row[normalizeKey('barcode')]?.trim().toLowerCase() ?? '';
+          final barcode =
+              row[normalizeKey('barcode')]?.trim().toLowerCase() ?? '';
           final rawCategory = row[normalizeKey('category')]?.trim() ?? '';
-          final category = rawCategory.toLowerCase() == 'choose an option' ? '' : rawCategory;
-          final type = _normalizeProductType(row[normalizeKey('type')]?.trim() ?? '');
+          final category = rawCategory.toLowerCase() == 'choose an option'
+              ? ''
+              : rawCategory;
+          final type = _normalizeProductType(
+            row[normalizeKey('type')]?.trim() ?? '',
+          );
           final cost = row[normalizeKey('cost')]?.trim() ?? '';
           final retail = row[normalizeKey('retail')]?.trim() ?? '';
           final boxQty = row[normalizeKey('boxQty')]?.trim() ?? '';
           final boxPrice = row[normalizeKey('boxPrice')]?.trim() ?? '';
-          final supplierPrice = row[normalizeKey('supplierPrice')]?.trim() ?? '';
-          final supplierMinQty = row[normalizeKey('supplierMinQty')]?.trim() ?? '';
+          final supplierPrice =
+              row[normalizeKey('supplierPrice')]?.trim() ?? '';
+          final supplierMinQty =
+              row[normalizeKey('supplierMinQty')]?.trim() ?? '';
           final halfQty = row[normalizeKey('halfQty')]?.trim() ?? '';
           final halfPrice = row[normalizeKey('halfPrice')]?.trim() ?? '';
           final quarterQty = row[normalizeKey('quarterQty')]?.trim() ?? '';
@@ -1048,7 +1126,10 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
           final double? costVal = double.tryParse(cost);
           final double? retailVal = double.tryParse(retail);
-          if (costVal == null || retailVal == null || costVal < 0 || retailVal < 0) {
+          if (costVal == null ||
+              retailVal == null ||
+              costVal < 0 ||
+              retailVal < 0) {
             throw 'Invalid cost/retail numbers at row ${i + 2}';
           }
 
@@ -1117,15 +1198,17 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
           final docId = _buildItemDocId(companyId, name);
           rowDocId[i] = docId;
-          final isUpdate = (itemDocCache[docId] ?? false) || processedItemIds.contains(docId);
+          final isUpdate =
+              (itemDocCache[docId] ?? false) ||
+              processedItemIds.contains(docId);
 
           if (category.isNotEmpty) {
             final categoryDocId = _buildCategoryDocId(companyId, category);
-            final categoryExists = (categoryDocCache[categoryDocId] ?? false) ||
+            final categoryExists =
+                (categoryDocCache[categoryDocId] ?? false) ||
                 processedCategoryIds.contains(categoryDocId);
             if (!categoryExists) {
-              final categoryRef = db.collection('productcategoryreg').doc(categoryDocId);
-              batch.set(categoryRef, {
+              pendingCategories[categoryDocId] = {
                 'id': categoryDocId,
                 'productname': category,
                 'companyid': companyId,
@@ -1133,7 +1216,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                 'company': datafeed.company,
                 'staff': datafeed.staff,
                 'createdat': FieldValue.serverTimestamp(),
-              }, SetOptions(merge: true));
+              };
               pendingInBatch++;
               processedCategoryIds.add(categoryDocId);
               categoriesCreated++;
@@ -1253,9 +1336,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             removeMode('pack');
           }
           itemDocModes[docId] = modes;
-
           if (isUpdate) {
-            final docRef = db.collection('itemsreg').doc(docId);
             final updateData = <String, dynamic>{
               'name': name,
               'barcode': barcode,
@@ -1268,7 +1349,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
               'updatedat': FieldValue.serverTimestamp(),
               'updatedby': datafeed.staff,
             };
-            batch.update(docRef, updateData);
+            pendingItems.add(
+              ItemUploadWrite(id: docId, data: updateData, update: true),
+            );
             batchRowIndices.add(i);
             pendingInBatch++;
             itemsUpdated++;
@@ -1302,8 +1385,14 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
               deletedby: null,
             );
 
-            final docRef = db.collection('itemsreg').doc(docId);
-            batch.set(docRef, item.toMap()..['createdat'] = FieldValue.serverTimestamp());
+            pendingItems.add(
+              ItemUploadWrite(
+                id: docId,
+                data: item.toMap()
+                  ..['createdat'] = FieldValue.serverTimestamp(),
+                update: false,
+              ),
+            );
             batchRowIndices.add(i);
             pendingInBatch++;
             itemsCreated++;
@@ -1318,7 +1407,8 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
           rowStatus[i] = 'error: $e';
         }
 
-        if ((i % _uiUpdateInterval == 0 || i == pendingIndices.last) && mounted) {
+        if ((i % _uiUpdateInterval == 0 || i == pendingIndices.last) &&
+            mounted) {
           setState(() {});
         }
       }
@@ -1339,15 +1429,26 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         if (_cancelled) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Upload cancelled: $successCount succeeded, $pendingCount left pending.'),
+              content: Text(
+                'Upload cancelled: $successCount succeeded, $pendingCount left pending.',
+              ),
               backgroundColor: Theme.of(context).colorScheme.secondary,
             ),
           );
         } else {
           final parts = <String>[];
-          if (itemsCreated > 0) parts.add('$itemsCreated new item${itemsCreated == 1 ? '' : 's'} added');
-          if (itemsUpdated > 0) parts.add('$itemsUpdated existing item${itemsUpdated == 1 ? '' : 's'} updated');
-          if (categoriesCreated > 0) parts.add('$categoriesCreated new categor${categoriesCreated == 1 ? 'y' : 'ies'} registered');
+          if (itemsCreated > 0)
+            parts.add(
+              '$itemsCreated new item${itemsCreated == 1 ? '' : 's'} added',
+            );
+          if (itemsUpdated > 0)
+            parts.add(
+              '$itemsUpdated existing item${itemsUpdated == 1 ? '' : 's'} updated',
+            );
+          if (categoriesCreated > 0)
+            parts.add(
+              '$categoriesCreated new categor${categoriesCreated == 1 ? 'y' : 'ies'} registered',
+            );
           if (parts.isNotEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -1362,12 +1463,14 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       _uploadInFlight = false;
     }
   }
+
   int get successCount => rowStatus.where((s) => s == 'success').length;
   int get errorCount => rowStatus.where((s) => s.startsWith('error')).length;
   int get pendingCount => rowStatus.where((s) => s == 'pending').length;
 
   //  PROGRESS %
-  double get progress =>  previewData.isEmpty ? 0 : currentIndex / previewData.length;
+  double get progress =>
+      previewData.isEmpty ? 0 : currentIndex / previewData.length;
 
   //  SAMPLE CSV
 
@@ -1380,9 +1483,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Text(
           'Sample CSV Format',
           style: TextStyle(
@@ -1427,7 +1528,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(
+                    dialogContext,
+                  ).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1443,7 +1546,6 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
               const SizedBox(height: 16),
 
               ///  DOWNLOAD BUTTON
-
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -1458,23 +1560,27 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                   onPressed: sampleUrl.isEmpty
                       ? null
                       : () async {
-                    final uri = Uri.parse(sampleUrl);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } else {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Could not open download link.'),
-                            backgroundColor: Theme.of(context).colorScheme.error,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                          final uri = Uri.parse(sampleUrl);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Could not open download link.',
+                                  ),
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.error,
+                                ),
+                              );
+                            }
+                          }
+                        },
                   icon: Icon(
                     Icons.download_rounded,
                     color: Theme.of(dialogContext).colorScheme.onPrimary,
@@ -1486,9 +1592,15 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(dialogContext).colorScheme.primary,
-                    foregroundColor: Theme.of(dialogContext).colorScheme.onPrimary,
-                    shadowColor: Theme.of(dialogContext).colorScheme.primary.withValues(alpha: 0),
+                    backgroundColor: Theme.of(
+                      dialogContext,
+                    ).colorScheme.primary,
+                    foregroundColor: Theme.of(
+                      dialogContext,
+                    ).colorScheme.onPrimary,
+                    shadowColor: Theme.of(
+                      dialogContext,
+                    ).colorScheme.primary.withValues(alpha: 0),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 14,
@@ -1498,7 +1610,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                     ),
                   ),
                 ),
-              )
+              ),
             ],
           ),
         ),
@@ -1514,6 +1626,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       ),
     );
   }
+
   void _showErrorsDialog() {
     if (errorCount == 0) {
       showDialog(
@@ -1522,7 +1635,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
           backgroundColor: Theme.of(dialogContext).colorScheme.surface,
           title: Text(
             'Upload Errors',
-            style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface),
+            style: TextStyle(
+              color: Theme.of(dialogContext).colorScheme.onSurface,
+            ),
           ),
           content: Text(
             'No errors.',
@@ -1531,7 +1646,10 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
           ],
         ),
       );
@@ -1542,7 +1660,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     // to fail can be fixed here directly.
     final editHeaders = headers.isNotEmpty
         ? headers
-        : (previewData.isNotEmpty ? previewData.first.keys.toList() : <String>[]);
+        : (previewData.isNotEmpty
+              ? previewData.first.keys.toList()
+              : <String>[]);
 
     // Controllers are kept alive for the whole life of this dialog and
     // re-synced (rows added/removed) after every retry, instead of being
@@ -1568,8 +1688,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       for (final rowIndex in errorIndices) {
         controllers.putIfAbsent(
           rowIndex,
-              () => {
-            for (final h in editHeaders) h: TextEditingController(text: previewData[rowIndex][h] ?? ''),
+          () => {
+            for (final h in editHeaders)
+              h: TextEditingController(text: previewData[rowIndex][h] ?? ''),
           },
         );
       }
@@ -1617,7 +1738,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
               Navigator.pop(dialogContext);
               ScaffoldMessenger.of(dialogContext).showSnackBar(
                 SnackBar(
-                  content: const Text('All corrected rows uploaded successfully.'),
+                  content: const Text(
+                    'All corrected rows uploaded successfully.',
+                  ),
                   backgroundColor: Theme.of(dialogContext).colorScheme.primary,
                 ),
               );
@@ -1628,100 +1751,130 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
           return AlertDialog(
             backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-            title: Text('Fix ${errorIndices.length} Row Error${errorIndices.length == 1 ? '' : 's'}',
-                style: TextStyle(
-                  color: Theme.of(dialogContext).colorScheme.onSurface,
-                )),
+            title: Text(
+              'Fix ${errorIndices.length} Row Error${errorIndices.length == 1 ? '' : 's'}',
+              style: TextStyle(
+                color: Theme.of(dialogContext).colorScheme.onSurface,
+              ),
+            ),
             content: SizedBox(
               width: 640,
               height: 480,
               child: retrying
                   ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(
-                      color: Theme.of(dialogContext).colorScheme.secondary,
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'Retrying corrected rows…',
-                      style: TextStyle(
-                        color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Theme.of(
+                              dialogContext,
+                            ).colorScheme.secondary,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Retrying corrected rows…',
+                            style: TextStyle(
+                              color: Theme.of(
+                                dialogContext,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              )
+                    )
                   : ListView.separated(
-                itemCount: errorIndices.length,
-                separatorBuilder: (_, _) => Divider(
-                  color: Theme.of(dialogContext).colorScheme.outlineVariant,
-                  height: 32,
-                ),
-                itemBuilder: (_, listIndex) {
-                  final rowIndex = errorIndices[listIndex];
-                  final message = rowStatus[rowIndex].replaceFirst('error: ', '');
-                  final fieldMap = controllers[rowIndex]!;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Row ${rowIndex + 2}',
-                          style: TextStyle(
-                            color: Theme.of(dialogContext).colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          )),
-                      const SizedBox(height: 4),
-                      Text(
-                        message,
-                        style: TextStyle(
-                          color: Theme.of(dialogContext).colorScheme.error,
-                          fontSize: 12,
-                        ),
+                      itemCount: errorIndices.length,
+                      separatorBuilder: (_, _) => Divider(
+                        color: Theme.of(
+                          dialogContext,
+                        ).colorScheme.outlineVariant,
+                        height: 32,
                       ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: editHeaders.map((h) {
-                          return SizedBox(
-                            width: 220,
-                            child: TextField(
-                              controller: fieldMap[h],
-                              style: TextStyle(color: Theme.of(dialogContext).colorScheme.onSurface, fontSize: 12),
-                              decoration: InputDecoration(
-                                isDense: true,
-                                labelText: h,
-                                labelStyle: TextStyle(
-                                  color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
-                                filled: true,
-                                fillColor: Theme.of(dialogContext).colorScheme.surfaceContainerHighest,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: BorderSide.none,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      itemBuilder: (_, listIndex) {
+                        final rowIndex = errorIndices[listIndex];
+                        final message = rowStatus[rowIndex].replaceFirst(
+                          'error: ',
+                          '',
+                        );
+                        final fieldMap = controllers[rowIndex]!;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Row ${rowIndex + 2}',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  dialogContext,
+                                ).colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                               ),
                             ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                            const SizedBox(height: 4),
+                            Text(
+                              message,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  dialogContext,
+                                ).colorScheme.error,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: editHeaders.map((h) {
+                                return SizedBox(
+                                  width: 220,
+                                  child: TextField(
+                                    controller: fieldMap[h],
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        dialogContext,
+                                      ).colorScheme.onSurface,
+                                      fontSize: 12,
+                                    ),
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      labelText: h,
+                                      labelStyle: TextStyle(
+                                        color: Theme.of(
+                                          dialogContext,
+                                        ).colorScheme.onSurfaceVariant,
+                                        fontSize: 11,
+                                      ),
+                                      filled: true,
+                                      fillColor: Theme.of(
+                                        dialogContext,
+                                      ).colorScheme.surfaceContainerHighest,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
             ),
             actions: [
               TextButton(
                 onPressed: retrying
                     ? null
                     : () {
-                  disposeControllers();
-                  Navigator.pop(dialogContext);
-                },
+                        disposeControllers();
+                        Navigator.pop(dialogContext);
+                      },
                 child: Text(
                   'Close',
                   style: TextStyle(
@@ -1731,12 +1884,18 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
               ),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(dialogContext).colorScheme.secondary,
-                  foregroundColor: Theme.of(dialogContext).colorScheme.onSecondary,
+                  backgroundColor: Theme.of(
+                    dialogContext,
+                  ).colorScheme.secondary,
+                  foregroundColor: Theme.of(
+                    dialogContext,
+                  ).colorScheme.onSecondary,
                 ),
                 onPressed: retrying ? null : applyAndRetry,
                 icon: const Icon(Icons.refresh, size: 18),
-                label: Text(retrying ? 'Retrying…' : 'Apply Corrections & Retry'),
+                label: Text(
+                  retrying ? 'Retrying…' : 'Apply Corrections & Retry',
+                ),
               ),
             ],
           );
@@ -1744,16 +1903,19 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       ),
     );
   }
+
   @override
   void initState() {
     super.initState();
     final datafeed = context.read<Datafeed>();
     Future.microtask(datafeed.getSampleUrl);
   }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
-    final isTablet = MediaQuery.of(context).size.width >= 768 &&
+    final isTablet =
+        MediaQuery.of(context).size.width >= 768 &&
         MediaQuery.of(context).size.width < 1024;
 
     return Scaffold(
@@ -1808,19 +1970,24 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                             Icon(
                               Icons.cloud_upload_outlined,
                               size: 64,
-                              color: Theme.of(context).colorScheme.outlineVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
                             ),
                             const SizedBox(height: 16),
                             Text(
                               'Select a CSV or Excel file to begin',
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
                             ),
                           ],
                         ),
                       ),
-                    )
+                    ),
                   ],
 
                   const SizedBox(height: 24),
@@ -1847,7 +2014,6 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
 
                   // ===== ACTION BUTTONS
                   _buildActionButtons(isMobile),
-
                 ],
               ),
             ),
@@ -2012,9 +2178,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             colorScheme.surface,
           ),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: statusColor.withValues(alpha: 0.45),
-          ),
+          border: Border.all(color: statusColor.withValues(alpha: 0.45)),
         ),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         child: Column(
@@ -2031,10 +2195,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: colorScheme.onSurface, fontSize: 12),
             ),
           ],
         ),
@@ -2088,7 +2249,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 8,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
             valueColor: AlwaysStoppedAnimation<Color>(
               _paused
                   ? Theme.of(context).colorScheme.secondary
@@ -2158,11 +2321,13 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
     );
   }
 
-
   Widget _buildDataTableSection(bool isMobile, bool isTablet) {
     final start = _previewPage * _previewPageSize;
     final end = (start + _previewPageSize).clamp(0, previewData.length);
-    final totalPages = (previewData.length / _previewPageSize).ceil().clamp(1, 999999);
+    final totalPages = (previewData.length / _previewPageSize).ceil().clamp(
+      1,
+      999999,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2171,7 +2336,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -2183,7 +2350,8 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                 ),
                 child: DataTable(
                   headingRowColor: WidgetStateColor.resolveWith(
-                    (_) => Theme.of(context).colorScheme.surfaceContainerHighest,
+                    (_) =>
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                   headingRowHeight: 56,
                   dataRowMinHeight: 48,
@@ -2194,13 +2362,28 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                     fontSize: 12,
                   ),
                   columns: [
-                    const DataColumn(label: SizedBox(width: 80, child: Text('#'))),
-                    ...headers.take(isMobile ? 3 : isTablet ? 6 : 10).map(
-                          (h) => DataColumn(
-                        label: SizedBox(width: 100, child: Text(h, overflow: TextOverflow.ellipsis)),
-                      ),
+                    const DataColumn(
+                      label: SizedBox(width: 80, child: Text('#')),
                     ),
-                    const DataColumn(label: SizedBox(width: 80, child: Text('Status'))),
+                    ...headers
+                        .take(
+                          isMobile
+                              ? 3
+                              : isTablet
+                              ? 6
+                              : 10,
+                        )
+                        .map(
+                          (h) => DataColumn(
+                            label: SizedBox(
+                              width: 100,
+                              child: Text(h, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                        ),
+                    const DataColumn(
+                      label: SizedBox(width: 80, child: Text('Status')),
+                    ),
                   ],
                   rows: List.generate(end - start, (offset) {
                     final index = start + offset;
@@ -2225,18 +2408,30 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                             ),
                           ),
                         ),
-                        ...headers.take(isMobile ? 3 : isTablet ? 6 : 10).map(
+                        ...headers
+                            .take(
+                              isMobile
+                                  ? 3
+                                  : isTablet
+                                  ? 6
+                                  : 10,
+                            )
+                            .map(
                               (h) => DataCell(
-                            Text(
-                              (row[h] ?? '').length > 20 ? (row[h] ?? '').substring(0, 20) : (row[h] ?? ''),
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                fontSize: 11,
+                                Text(
+                                  (row[h] ?? '').length > 20
+                                      ? (row[h] ?? '').substring(0, 20)
+                                      : (row[h] ?? ''),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
                         DataCell(
                           Tooltip(
                             message: status,
@@ -2245,7 +2440,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                                 if (status == 'success')
                                   Icon(
                                     Icons.check_circle,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                     size: 16,
                                   )
                                 else if (status.startsWith('error'))
@@ -2255,22 +2452,24 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                                     size: 16,
                                   )
                                 else if (status == 'processing')
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Theme.of(context).colorScheme.secondary,
-                                        ),
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Theme.of(context).colorScheme.secondary,
                                       ),
-                                    )
-                                  else
-                                    Icon(
-                                      Icons.schedule,
-                                      color: Theme.of(context).colorScheme.secondary,
-                                      size: 16,
                                     ),
+                                  )
+                                else
+                                  Icon(
+                                    Icons.schedule,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary,
+                                    size: 16,
+                                  ),
                               ],
                             ),
                           ),
@@ -2299,7 +2498,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: _previewPage > 0 ? () => setState(() => _previewPage--) : null,
+                      onPressed: _previewPage > 0
+                          ? () => setState(() => _previewPage--)
+                          : null,
                       icon: Icon(
                         Icons.chevron_left,
                         color: Theme.of(context).colorScheme.onSurface,
@@ -2313,7 +2514,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
                       ),
                     ),
                     IconButton(
-                      onPressed: end < previewData.length ? () => setState(() => _previewPage++) : null,
+                      onPressed: end < previewData.length
+                          ? () => setState(() => _previewPage++)
+                          : null,
                       icon: Icon(
                         Icons.chevron_right,
                         color: Theme.of(context).colorScheme.onSurface,
@@ -2327,6 +2530,7 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
       ],
     );
   }
+
   Widget _buildActionButtons(bool isMobile) {
     return Wrap(
       spacing: 12,
@@ -2336,7 +2540,9 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
         if (previewData.isNotEmpty && !loading)
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest,
               foregroundColor: Theme.of(context).colorScheme.onSurface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -2386,27 +2592,23 @@ class _ItemUploadPageState extends State<ItemUploadPage> {
             onPressed: (loading || previewData.isEmpty) ? null : upload,
             icon: loading
                 ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Theme.of(context).colorScheme.onSecondary,
-                ),
-              ),
-            )
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Theme.of(context).colorScheme.onSecondary,
+                      ),
+                    ),
+                  )
                 : const Icon(Icons.cloud_upload),
             label: Text(
               loading ? 'Uploading...' : 'Start Upload',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ),
       ],
     );
   }
-
 }

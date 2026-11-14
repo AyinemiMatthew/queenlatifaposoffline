@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../models/printbarcodemodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 
 class PrintBarcodes extends StatefulWidget {
   const PrintBarcodes({super.key});
@@ -33,7 +32,8 @@ class _PrintBarcodesState extends State<PrintBarcodes> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<Datafeed>().fetchProducts());
+    final datafeed = context.read<Datafeed>();
+    Future.microtask(datafeed.fetchProducts);
   }
 
   @override
@@ -45,20 +45,10 @@ class _PrintBarcodesState extends State<PrintBarcodes> {
   }
 
   List<ProductModel> _filteredItems(List<ProductModel> items) {
-    if (searchQuery.isEmpty) return items;
-
-    final query = searchQuery.toLowerCase();
-    return items.where((item) {
-      final name = (item.name).toLowerCase();
-      final barcode = (item.barcode).toLowerCase();
-      final company = (item.company).toLowerCase();
-      final category = (item.category).toLowerCase();
-
-      return name.contains(query) ||
-          barcode.contains(query) ||
-          company.contains(query) ||
-          category.contains(query);
-    }).toList();
+    return context.read<ItemProvider>().filterBarcodeProducts(
+      items,
+      searchQuery,
+    );
   }
 
   @override
@@ -513,142 +503,51 @@ class _PrintBarcodesState extends State<PrintBarcodes> {
   }
 
   Future<void> previewBarcode(ProductModel product) async {
-    final pdf = pw.Document(title: '${product.companyid} - ${product.name}');
     final filename = '${product.company}_${product.name}.pdf';
-    final monoFont = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/RobotoMono-Regular.ttf'),
-    );
-    final ttfRegular = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
-    );
-
-    final ttfBold = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
-    );
-    final code = product.barcode.isNotEmpty ? product.barcode : product.name;
-
-    const int columns = 2;
-    const double itemWidth = 180;
-    const double itemHeight = 80;
-
-    String formatBarcode(String code) {
-      return code.split('').join(' ');
-    }
-
-    List<pw.Widget> rows = [];
-
-    for (int i = 0; i < count; i += columns) {
-      rows.add(
-        pw.Row(
-          children: List.generate(columns, (colIndex) {
-            int index = i + colIndex;
-
-            return pw.Expanded(
-              child: index < count
-                  ? pw.Container(
-                      height: itemHeight,
-                      alignment: pw.Alignment.center,
-                      child: pw.Column(
-                        mainAxisAlignment: pw.MainAxisAlignment.center,
-                        children: [
-                          pw.BarcodeWidget(
-                            barcode: pw.Barcode.code128(),
-                            data: code,
-                            width: itemWidth,
-                            height: 40,
-                            drawText: false,
-                          ),
-
-                          pw.SizedBox(height: 6),
-
-                          pw.Text(
-                            '* ${formatBarcode(code)} *',
-                            style: pw.TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 1.2,
-                              font: monoFont,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : pw.SizedBox(),
-            );
-          }),
-        ),
-      );
-    }
-
-    pdf.addPage(
-      pw.MultiPage(
-        margin: const pw.EdgeInsets.all(8),
-        pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: ttfRegular, bold: ttfBold),
-        build: (_) => rows,
+    final itemProvider = context.read<ItemProvider>();
+    final fonts = await Future.wait([
+      rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
+      rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
+      rootBundle.load('assets/fonts/RobotoMono-Regular.ttf'),
+    ]);
+    final data = await itemProvider.buildBarcodePdf(
+      product: product,
+      labelCount: count,
+      regularFont: fonts[0].buffer.asUint8List(
+        fonts[0].offsetInBytes,
+        fonts[0].lengthInBytes,
+      ),
+      boldFont: fonts[1].buffer.asUint8List(
+        fonts[1].offsetInBytes,
+        fonts[1].lengthInBytes,
+      ),
+      monoFont: fonts[2].buffer.asUint8List(
+        fonts[2].offsetInBytes,
+        fonts[2].lengthInBytes,
       ),
     );
-
-    final data = await pdf.save();
-
     await Printing.layoutPdf(name: filename, onLayout: (_) async => data);
   }
 
   Future<void> previewQR(ProductModel product) async {
     final filename = '${product.company}_${product.name}.pdf';
-    final pdf = pw.Document(title: '${product.companyid} - ${product.name}');
-    final code = product.barcode.isNotEmpty ? product.barcode : product.name;
-    final ttfRegular = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
-    );
-
-    final ttfBold = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
-    );
-    const int columns = 5;
-    const double size = 80;
-    const double hSpacing = 20;
-    const double vSpacing = 20;
-
-    List<pw.Widget> rows = [];
-
-    for (int i = 0; i < countr; i += columns) {
-      rows.add(
-        pw.Padding(
-          padding: const pw.EdgeInsets.only(bottom: vSpacing),
-          child: pw.Row(
-            children: List.generate(columns, (colIndex) {
-              int index = i + colIndex;
-
-              return pw.Padding(
-                padding: const pw.EdgeInsets.only(right: hSpacing),
-                child: index < countr
-                    ? pw.Container(
-                        width: size,
-                        height: size,
-                        alignment: pw.Alignment.center,
-                        child: pw.BarcodeWidget(
-                          barcode: pw.Barcode.qrCode(),
-                          data: code,
-                        ),
-                      )
-                    : pw.SizedBox(width: size),
-              );
-            }),
-          ),
-        ),
-      );
-    }
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        theme: pw.ThemeData.withFont(base: ttfRegular, bold: ttfBold),
-        build: (_) => rows,
+    final itemProvider = context.read<ItemProvider>();
+    final fonts = await Future.wait([
+      rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
+      rootBundle.load('assets/fonts/Roboto-Bold.ttf'),
+    ]);
+    final data = await itemProvider.buildQrCodePdf(
+      product: product,
+      labelCount: countr,
+      regularFont: fonts[0].buffer.asUint8List(
+        fonts[0].offsetInBytes,
+        fonts[0].lengthInBytes,
+      ),
+      boldFont: fonts[1].buffer.asUint8List(
+        fonts[1].offsetInBytes,
+        fonts[1].lengthInBytes,
       ),
     );
-
-    final data = await pdf.save();
-
     await Printing.layoutPdf(name: filename, onLayout: (_) async => data);
   }
 }

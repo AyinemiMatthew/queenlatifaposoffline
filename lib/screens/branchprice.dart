@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/itemregmodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 
 import 'branchpriceedit.dart';
 
@@ -17,7 +17,6 @@ class BranchPricePage extends StatefulWidget {
 }
 
 class _BranchPricePageState extends State<BranchPricePage> {
-  final FirebaseFirestore db = FirebaseFirestore.instance;
   String searchQuery = '';
   String? userbranchid;
   String? userrole;
@@ -71,42 +70,15 @@ class _BranchPricePageState extends State<BranchPricePage> {
   }
 
   List<ItemModel> filteredItems(Datafeed value) {
-    final query = searchQuery.toLowerCase();
-
-    if (query.isEmpty) return value.items;
-
-    return value.items.where((item) {
-      final name = (item.name ?? '').toLowerCase();
-      final barcode = (item.barcode ?? '').toLowerCase();
-      final company = (item.company ?? '').toLowerCase();
-      final category = (item.pcategory ?? '').toLowerCase();
-
-      return name.contains(query) ||
-          barcode.contains(query) ||
-          company.contains(query) ||
-          category.contains(query);
-    }).toList();
+    return context.read<ItemProvider>().filterItems(value.items, searchQuery);
   }
 
   List<ItemModel> _sortedItems(List<ItemModel> items) {
-    final sorted = List<ItemModel>.from(items);
-    if (_sortColumnIndex == null) return sorted;
-
-    sorted.sort((a, b) {
-      int result = 0;
-      switch (_sortColumnIndex) {
-        case 1: // Name
-          result = a.name.compareTo(b.name);
-          break;
-        case 3: // Category
-          result = (a.pcategory).compareTo(b.pcategory ?? '');
-          break;
-        default:
-          return 0;
-      }
-      return _sortAscending ? result : -result;
-    });
-    return sorted;
+    return context.read<ItemProvider>().sortBranchPriceItems(
+      items: items,
+      columnIndex: _sortColumnIndex,
+      ascending: _sortAscending,
+    );
   }
 
   void _onSort(int columnIndex) {
@@ -303,13 +275,9 @@ class _BranchPricePageState extends State<BranchPricePage> {
   }
 
   bool _itemHasBranchPrice(ItemModel item) {
-    final branchPrices = item.branchprices;
-    if (branchPrices == null || branchPrices.isEmpty) return false;
-    if (selectedBranchId == null) return false;
-    final branch = branchPrices[selectedBranchId];
-    if (branch is! Map) return false;
-    final pricing = branch['pricing'];
-    return pricing is Map && pricing.isNotEmpty;
+    final branchId = selectedBranchId;
+    return branchId != null &&
+        context.read<ItemProvider>().itemHasBranchPricing(item, branchId);
   }
 
   Widget _mobileCards(List<ItemModel> items) {

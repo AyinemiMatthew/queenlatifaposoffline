@@ -1,8 +1,7 @@
-
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
+import 'package:kologsoft/providers/item_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../models/itemregmodel.dart';
@@ -29,7 +28,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
   String? _resultMessage;
   bool _resultSuccess = false;
 
- // tab: 0 = single item, 1 = all items in branch
+  // tab: 0 = single item, 1 = all items in branch
   int _tab = 0;
   int _bulkDone = 0;
   int _bulkTotal = 0;
@@ -41,7 +40,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
     Future.microtask(() {
       context.read<Datafeed>().fetchItems();
       context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchstockreport();
+      context.read<ReportProvider>().fetchstockreport();
       if (!mounted) return;
       _searchController.addListener(_onSearchChanged);
     });
@@ -86,28 +85,28 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
   // Single item sync
   Future<void> _syncBalance() async {
     if (_selectedItem == null || _selectedBranchId == null) return;
-    setState(() { _syncing = true; _resultMessage = null; });
+    setState(() {
+      _syncing = true;
+      _resultMessage = null;
+    });
     try {
-      final provider = context.read<Datafeed>();
-      final balance = await provider.fetchItemCurrentBalance(
-        itemId: _selectedItem!.id,
-        selectedBranch: _selectedBranchId,
-      );
-      await provider.db
-          .collection('itemsreg')
-          .doc(_selectedItem!.id)
-          .update({
-        'branchbalance.$_selectedBranchId.netpieces': balance ?? 0,
-        'branchbalance.$_selectedBranchId.lastupdate':
-        FieldValue.serverTimestamp(),
-      });
+      final balance = await context
+          .read<ItemProvider>()
+          .syncSingleBranchBalance(
+            datafeed: context.read<Datafeed>(),
+            itemId: _selectedItem!.id,
+            branchId: _selectedBranchId!,
+          );
       setState(() {
         _resultMessage =
-        'Synced  ${_selectedItem!.name}  →  $_selectedBranchName  |  ${balance ?? 0} pcs';
+            'Synced  ${_selectedItem!.name}  →  $_selectedBranchName  |  $balance pcs';
         _resultSuccess = true;
       });
     } catch (e) {
-      setState(() { _resultMessage = 'Error: $e'; _resultSuccess = false; });
+      setState(() {
+        _resultMessage = 'Error: $e';
+        _resultSuccess = false;
+      });
     } finally {
       setState(() => _syncing = false);
     }
@@ -118,7 +117,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
   Future<void> _syncAllItems() async {
     if (_selectedBranchId == null) return;
 
-    final provider = context.read<Datafeed>();
+    final datafeed = context.read<Datafeed>();
 
     setState(() {
       _syncing = true;
@@ -130,7 +129,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
 
     try {
       // Build stock report for the selected branch
-      await provider.fetchstockreport(
+      await context.read<ReportProvider>().fetchstockreport(
         selectedDate: DateTimeRange(
           start: DateTime(2000, 1, 1),
           end: DateTime.now(),
@@ -138,63 +137,41 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
         selectedBranch: _selectedBranchId,
       );
 
-      final stockreport = provider.filterstockreport();
-      final items = stockreport
+      final stockRows = context
+          .read<ReportProvider>()
+          .filterstockreport()
           .where((e) => (e['itemid'] ?? '').toString().isNotEmpty)
           .toList();
-     print(items.length);
-      if (items.isEmpty) {
+      if (stockRows.isEmpty) {
         setState(() {
           _syncing = false;
           _resultSuccess = false;
           _resultMessage =
-          'No stock report items found for $_selectedBranchName.';
+              'No stock report items found for $_selectedBranchName.';
         });
         return;
       }
 
       setState(() {
-        _bulkTotal = items.length;
+        _bulkTotal = stockRows.length;
       });
-
-      int successCount = 0;
-      int errorCount = 0;
-
-      for (final row in items) {
-        final itemId = row['itemid'].toString();
-        final itemName = row['item']?.toString() ?? itemId;
-        final balance = (row['balance_cd'] ?? 0);
-
-        try {
-          await provider.db
-              .collection('itemsreg')
-              .doc(itemId)
-              .set({
-            'branchbalance': {
-              _selectedBranchId: {
-                'netpieces': balance,
-                'lastupdate': FieldValue.serverTimestamp(),
-              }
-            }
-          }, SetOptions(merge: true));
-
-          _bulkLog.add('✓ $itemName → $balance pcs');
-          successCount++;
-        } catch (e) {
-          _bulkLog.add('✗ $itemName → Error: $e');
-          errorCount++;
-        }
-
-        if (mounted) {
-          setState(() => _bulkDone++);
-        }
-      }
+      final summary = await context.read<ItemProvider>().syncBranchBalanceRows(
+        datafeed: datafeed,
+        branchId: _selectedBranchId!,
+        stockRows: stockRows,
+        onProgress: (completed, _) {
+          if (mounted) setState(() => _bulkDone = completed);
+        },
+      );
+      _bulkLog
+        ..clear()
+        ..addAll(summary.entries.map((entry) => entry.message));
 
       setState(() {
         _syncing = false;
-        _resultSuccess = errorCount == 0;
+        _resultSuccess = summary.errorCount == 0;
         _resultMessage =
-        'Done: $successCount synced${errorCount > 0 ? ', $errorCount failed' : ''} — $_selectedBranchName';
+            'Done: ${summary.successCount} synced${summary.errorCount > 0 ? ', ${summary.errorCount} failed' : ''} — $_selectedBranchName';
       });
     } catch (e) {
       setState(() {
@@ -204,6 +181,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
       });
     }
   }
+
   //UI helpers
   ColorScheme get _colorScheme => Theme.of(context).colorScheme;
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
@@ -230,7 +208,8 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
   Color get _bodyText => _isLightTheme ? _colorScheme.onSurface : Colors.white;
   Color get _successText =>
       _isLightTheme ? Colors.green.shade700 : Colors.green.shade300;
-  Color get _errorText => _isLightTheme ? Colors.red.shade700 : Colors.red.shade300;
+  Color get _errorText =>
+      _isLightTheme ? Colors.red.shade700 : Colors.red.shade300;
 
   InputDecoration _dec(String label, {Widget? suffix}) => InputDecoration(
     labelText: label,
@@ -252,13 +231,15 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
 
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
-    child: Text(text,
-        style: TextStyle(
-          color: _subtleText,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.2,
-        )),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: _subtleText,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.2,
+      ),
+    ),
   );
 
   @override
@@ -269,11 +250,14 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
         backgroundColor: _appBarBg,
         elevation: 0,
         iconTheme: IconThemeData(color: _bodyText),
-        title: Text('Sync Branch Balance',
-            style: TextStyle(
-                color: _bodyText,
-                fontSize: 16,
-                fontWeight: FontWeight.w600)),
+        title: Text(
+          'Sync Branch Balance',
+          style: TextStyle(
+            color: _bodyText,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(color: _borderColor, height: 1),
@@ -295,34 +279,44 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-
                         // ── Header
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 14),
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
                             color: _isLightTheme
-                                ? _colorScheme.onPrimaryContainer.withOpacity(0.45)
+                                ? _colorScheme.onPrimaryContainer.withOpacity(
+                                    0.45,
+                                  )
                                 : const Color(0xFF1A3A5C).withOpacity(0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                                color: _isLightTheme
-                                    ? _colorScheme.primary.withOpacity(0.2)
-                                    : const Color(0xFF3B8BEB).withOpacity(0.2)),
-                          ),
-                          child: Row(children: [
-                            const Icon(Icons.sync_alt,
-                                color: Color(0xFF3B8BEB), size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Sync a single item or all items in a branch.',
-                                style: TextStyle(
-                                    color: _mutedText,
-                                    fontSize: 12),
-                              ),
+                              color: _isLightTheme
+                                  ? _colorScheme.primary.withOpacity(0.2)
+                                  : const Color(0xFF3B8BEB).withOpacity(0.2),
                             ),
-                          ]),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.sync_alt,
+                                color: Color(0xFF3B8BEB),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Sync a single item or all items in a branch.',
+                                  style: TextStyle(
+                                    color: _mutedText,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
@@ -335,16 +329,18 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                             border: Border.all(color: _borderColor),
                           ),
                           padding: const EdgeInsets.all(6),
-                          child: Row(children: [
-                            _tabBtn('Single Item', 0),
-                            const SizedBox(width: 6),
-                            _tabBtn('All Items in Branch', 1),
-                          ]),
+                          child: Row(
+                            children: [
+                              _tabBtn('Single Item', 0),
+                              const SizedBox(width: 6),
+                              _tabBtn('All Items in Branch', 1),
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
 
-                       Container(
+                        Container(
                           decoration: BoxDecoration(
                             color: _cardBg,
                             borderRadius: BorderRadius.circular(12),
@@ -361,45 +357,55 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                                 isExpanded: true,
                                 dropdownColor: _inputFill,
                                 style: TextStyle(
-                                    color: _bodyText, fontSize: 14),
-                                icon: Icon(Icons.keyboard_arrow_down,
-                                    color: _subtleText),
+                                  color: _bodyText,
+                                  fontSize: 14,
+                                ),
+                                icon: Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: _subtleText,
+                                ),
                                 decoration: _dec('Select branch…'),
                                 items: provider.branches
                                     .fold<Map<String, dynamic>>({}, (m, b) {
-                                  if (b.id != null &&
-                                      b.id!.isNotEmpty &&
-                                      !m.containsKey(b.id)) m[b.id!] = b;
-                                  return m;
-                                })
+                                      if (b.id != null &&
+                                          b.id!.isNotEmpty &&
+                                          !m.containsKey(b.id))
+                                        m[b.id!] = b;
+                                      return m;
+                                    })
                                     .values
-                                    .map((b) => DropdownMenuItem<String>(
-                                  value: b.id as String,
-                                  child: Text(b.branchname as String,
-                                      style: TextStyle(color: _bodyText)),
-                                ))
+                                    .map(
+                                      (b) => DropdownMenuItem<String>(
+                                        value: b.id as String,
+                                        child: Text(
+                                          b.branchname as String,
+                                          style: TextStyle(color: _bodyText),
+                                        ),
+                                      ),
+                                    )
                                     .toList(),
                                 onChanged: _syncing
                                     ? null
                                     : (val) {
-                                  final branch = provider.branches
-                                      .firstWhere((b) => b.id == val);
-                                  setState(() {
-                                    _selectedBranchId   = val;
-                                    _selectedBranchName = branch.branchname;
-                                    _resultMessage      = null;
-                                    _bulkLog.clear();
-                                    _bulkDone  = 0;
-                                    _bulkTotal = 0;
-                                  });
-                                  // Auto-trigger sync based on current tab
-                                  if (_tab == 0) {
-                                    // Single item tab: do nothing, wait for user to select item
-                                  } else if (_tab == 1) {
-                                    // All items tab: auto-start sync
-                                    _syncAllItems();
-                                  }
-                                },
+                                        final branch = provider.branches
+                                            .firstWhere((b) => b.id == val);
+                                        setState(() {
+                                          _selectedBranchId = val;
+                                          _selectedBranchName =
+                                              branch.branchname;
+                                          _resultMessage = null;
+                                          _bulkLog.clear();
+                                          _bulkDone = 0;
+                                          _bulkTotal = 0;
+                                        });
+                                        // Auto-trigger sync based on current tab
+                                        if (_tab == 0) {
+                                          // Single item tab: do nothing, wait for user to select item
+                                        } else if (_tab == 1) {
+                                          // All items tab: auto-start sync
+                                          _syncAllItems();
+                                        }
+                                      },
                               ),
                             ],
                           ),
@@ -415,43 +421,52 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
 
                         const SizedBox(height: 14),
 
-                       SizedBox(
+                        SizedBox(
                           height: 50,
                           child: ElevatedButton.icon(
                             onPressed: _canSync(provider) ? _onSync : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF3B8BEB),
-                              disabledBackgroundColor:
-                              const Color(0xFF3B8BEB).withOpacity(0.25),
+                              disabledBackgroundColor: const Color(
+                                0xFF3B8BEB,
+                              ).withOpacity(0.25),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               elevation: 0,
                             ),
                             icon: _syncing
                                 ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.sync,
-                                color: Colors.white, size: 18),
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.sync,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
                             label: Text(
                               _syncing
                                   ? (_tab == 1
-                                  ? 'Syncing $_bulkDone / $_bulkTotal…'
-                                  : 'Saving…')
+                                        ? 'Syncing $_bulkDone / $_bulkTotal…'
+                                        : 'Saving…')
                                   : (_tab == 1
-                                  ? 'Sync All Items in Branch'
-                                  : 'Save Balance Update'),
+                                        ? 'Sync All Items in Branch'
+                                        : 'Save Balance Update'),
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ),
 
-                       if (_tab == 1 && _syncing && _bulkTotal > 0) ...[
+                        if (_tab == 1 && _syncing && _bulkTotal > 0) ...[
                           const SizedBox(height: 12),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
@@ -460,17 +475,20 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                               minHeight: 6,
                               backgroundColor: _borderColor,
                               valueColor: const AlwaysStoppedAnimation(
-                                  Color(0xFF3B8BEB)),
+                                Color(0xFF3B8BEB),
+                              ),
                             ),
                           ),
                         ],
 
-                       if (_resultMessage != null) ...[
+                        if (_resultMessage != null) ...[
                           const SizedBox(height: 14),
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 250),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: _resultSuccess
                                   ? Colors.green.withOpacity(0.08)
@@ -511,7 +529,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                           ),
                         ],
 
-                      if (_tab == 1 && _bulkLog.isNotEmpty) ...[
+                        if (_tab == 1 && _bulkLog.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Container(
                             constraints: const BoxConstraints(maxHeight: 240),
@@ -524,8 +542,9 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
                               padding: const EdgeInsets.all(10),
                               itemCount: _bulkLog.length,
                               itemBuilder: (_, i) => Padding(
-                                padding:
-                                const EdgeInsets.symmetric(vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
                                 child: Text(
                                   _bulkLog[i],
                                   style: TextStyle(
@@ -551,19 +570,19 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
     );
   }
 
- Widget _tabBtn(String label, int index) {
+  Widget _tabBtn(String label, int index) {
     final active = _tab == index;
     return Expanded(
       child: GestureDetector(
         onTap: _syncing
             ? null
             : () => setState(() {
-          _tab           = index;
-          _resultMessage = null;
-          _bulkLog.clear();
-          _bulkDone  = 0;
-          _bulkTotal = 0;
-        }),
+                _tab = index;
+                _resultMessage = null;
+                _bulkLog.clear();
+                _bulkDone = 0;
+                _bulkTotal = 0;
+              }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -584,8 +603,7 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
             style: TextStyle(
               color: active ? const Color(0xFF3B8BEB) : _subtleText,
               fontSize: 12,
-              fontWeight:
-              active ? FontWeight.w700 : FontWeight.w500,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),
@@ -618,19 +636,17 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
               'Search by name or barcode',
               suffix: _searchController.text.isNotEmpty
                   ? IconButton(
-                icon: Icon(Icons.close,
-                    color: _subtleText, size: 16),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {
-                    _selectedItem  = null;
-                    _showSuggestions = false;
-                    _resultMessage = null;
-                  });
-                },
-              )
-                  : Icon(Icons.search,
-                  color: _faintText, size: 18),
+                      icon: Icon(Icons.close, color: _subtleText, size: 16),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _selectedItem = null;
+                          _showSuggestions = false;
+                          _resultMessage = null;
+                        });
+                      },
+                    )
+                  : Icon(Icons.search, color: _faintText, size: 18),
             ),
           ),
 
@@ -638,33 +654,38 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
           if (_selectedItem != null && !_showSuggestions) ...[
             const SizedBox(height: 10),
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: const Color(0xFF3B8BEB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                    color: const Color(0xFF3B8BEB).withOpacity(0.3)),
+                  color: const Color(0xFF3B8BEB).withOpacity(0.3),
+                ),
               ),
-              child: Row(children: [
-                const Icon(Icons.inventory_2_outlined,
-                    color: Color(0xFF3B8BEB), size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _selectedItem!.name,
-                    style: TextStyle(
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    color: Color(0xFF3B8BEB),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedItem!.name,
+                      style: TextStyle(
                         color: _bodyText,
                         fontSize: 13,
-                        fontWeight: FontWeight.w500),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  _selectedItem!.barcode,
-                  style:
-                  TextStyle(color: _subtleText, fontSize: 11),
-                ),
-              ]),
+                  Text(
+                    _selectedItem!.barcode,
+                    style: TextStyle(color: _subtleText, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -697,9 +718,11 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
 
     final eligible = provider.items
         .where((i) => i.isActive == true)
-        .where((i) =>
-    i.branchbalance != null &&
-        i.branchbalance!.containsKey(_selectedBranchId))
+        .where(
+          (i) =>
+              i.branchbalance != null &&
+              i.branchbalance!.containsKey(_selectedBranchId),
+        )
         .toList();
 
     return Container(
@@ -712,34 +735,50 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            const Icon(Icons.info_outline,
-                color: Color(0xFF3B8BEB), size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${eligible.length} item${eligible.length == 1 ? '' : 's'} will be synced for $_selectedBranchName.',
-                style: TextStyle(color: _mutedText, fontSize: 13),
+          Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                color: Color(0xFF3B8BEB),
+                size: 16,
               ),
-            ),
-          ]),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${eligible.length} item${eligible.length == 1 ? '' : 's'} will be synced for $_selectedBranchName.',
+                  style: TextStyle(color: _mutedText, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
           if (eligible.isNotEmpty) ...[
             const SizedBox(height: 12),
             Divider(color: _borderColor, height: 1),
             const SizedBox(height: 10),
             // preview list (first 5)
-            ...eligible.take(5).map((i) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(children: [
-                Icon(Icons.inventory_2_outlined,
-                    color: _faintText, size: 13),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(i.name,
-                      style: TextStyle(color: _mutedText, fontSize: 12)),
+            ...eligible
+                .take(5)
+                .map(
+                  (i) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          color: _faintText,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            i.name,
+                            style: TextStyle(color: _mutedText, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ]),
-            )),
             if (eligible.length > 5)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -753,23 +792,28 @@ class _StockBalanceSyncState extends State<StockBalanceSync> {
       ),
     );
   }
-Widget _buildSuggestions(Datafeed provider) {
-    final query    = _searchController.text.toLowerCase();
+
+  Widget _buildSuggestions(Datafeed provider) {
+    final query = _searchController.text.toLowerCase();
     final filtered = provider.items
         .where((i) => i.isActive == true)
-        .where((i) =>
-    i.name.toLowerCase().contains(query) ||
-        i.barcode.toLowerCase().contains(query) ||
-        i.pcategory.toLowerCase().contains(query))
+        .where(
+          (i) =>
+              i.name.toLowerCase().contains(query) ||
+              i.barcode.toLowerCase().contains(query) ||
+              i.pcategory.toLowerCase().contains(query),
+        )
         .take(10)
         .toList();
 
     if (filtered.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text('No items found for "$query"',
-            style: TextStyle(color: _subtleText, fontSize: 12),
-            textAlign: TextAlign.center),
+        child: Text(
+          'No items found for "$query"',
+          style: TextStyle(color: _subtleText, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
       );
     }
 
@@ -778,30 +822,36 @@ Widget _buildSuggestions(Datafeed provider) {
       decoration: BoxDecoration(
         color: _suggestionBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: const Color(0xFF3B8BEB).withOpacity(0.2)),
+        border: Border.all(color: const Color(0xFF3B8BEB).withOpacity(0.2)),
         boxShadow: const [
           BoxShadow(
-              color: Colors.black38, blurRadius: 10, offset: Offset(0, 4))
+            color: Colors.black38,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
         ],
       ),
       child: ListView.separated(
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: 4),
         itemCount: filtered.length,
-        separatorBuilder: (_, __) =>
-        Divider(height: 1, color: _borderColor),
+        separatorBuilder: (_, __) => Divider(height: 1, color: _borderColor),
         itemBuilder: (context, index) {
           final item = filtered[index];
-          final bb   = item.branchbalance;
+          final bb = item.branchbalance;
           final branchPieces = _selectedBranchId != null && bb != null
-              ? (bb[_selectedBranchId] as Map<String, dynamic>?) != null ? (bb[_selectedBranchId] as Map<String, dynamic>?)!['netpieces'] : null
+              ? (bb[_selectedBranchId] as Map<String, dynamic>?) != null
+                    ? (bb[_selectedBranchId]
+                          as Map<String, dynamic>?)!['netpieces']
+                    : null
               : null;
 
           return ListTile(
             dense: true,
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 2,
+            ),
             leading: Container(
               width: 32,
               height: 32,
@@ -809,33 +859,42 @@ Widget _buildSuggestions(Datafeed provider) {
                 color: const Color(0xFF3B8BEB).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.inventory_2_outlined,
-                  color: Color(0xFF3B8BEB), size: 16),
+              child: const Icon(
+                Icons.inventory_2_outlined,
+                color: Color(0xFF3B8BEB),
+                size: 16,
+              ),
             ),
-            title: Text(item.name,
-                style: TextStyle(
-                    color: _bodyText,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
+            title: Text(
+              item.name,
+              style: TextStyle(
+                color: _bodyText,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             subtitle: Text(
               '${item.pcategory}  ·  ${item.barcode}',
               style: TextStyle(color: _subtleText, fontSize: 11),
             ),
             trailing: branchPieces != null
                 ? Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _isLightTheme
-                    ? _colorScheme.surfaceContainerHighest
-                    : Colors.white.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text('$branchPieces pcs',
-                  style: TextStyle(color: _mutedText, fontSize: 11)),
-            )
-                : Icon(Icons.chevron_right,
-                color: _faintText, size: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isLightTheme
+                          ? _colorScheme.surfaceContainerHighest
+                          : Colors.white.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$branchPieces pcs',
+                      style: TextStyle(color: _mutedText, fontSize: 11),
+                    ),
+                  )
+                : Icon(Icons.chevron_right, color: _faintText, size: 16),
             onTap: () => _selectItem(item),
           );
         },
@@ -848,10 +907,12 @@ Widget _buildSuggestions(Datafeed provider) {
     if (_syncing || _selectedBranchId == null) return false;
     if (_tab == 0) return _selectedItem != null;
     // tab 1: need at least one eligible item
-    return provider.items.any((i) =>
-    i.isActive == true &&
-        i.branchbalance != null &&
-        i.branchbalance!.containsKey(_selectedBranchId));
+    return provider.items.any(
+      (i) =>
+          i.isActive == true &&
+          i.branchbalance != null &&
+          i.branchbalance!.containsKey(_selectedBranchId),
+    );
   }
 
   void _onSync() {

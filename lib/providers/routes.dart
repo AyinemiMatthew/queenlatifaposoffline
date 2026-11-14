@@ -26,8 +26,8 @@ import 'package:kologsoft/screens/staff_view.dart';
 import 'package:kologsoft/screens/sub_account_form.dart';
 import 'package:kologsoft/screens/sub_account_form_view.dart';
 import 'package:kologsoft/screens/transfer_page.dart';
-import 'package:kologsoft/screens/unprintedreceiptview.dart';
 import 'package:kologsoft/screens/transfers.dart';
+import 'package:kologsoft/screens/unprintedreceiptview.dart';
 import 'package:provider/provider.dart';
 
 import '../screens/Creditorpayable.dart';
@@ -102,7 +102,6 @@ import '../screens/stockrequestlist.dart';
 import '../screens/stocksupply.dart';
 import '../screens/stocktake.dart';
 import '../screens/stockvaluepage.dart';
-import '../screens/supplier_report.dart';
 import '../screens/supplier_report_v3.dart';
 import '../screens/supplierlist.dart';
 import '../screens/supplierscreen.dart';
@@ -110,10 +109,9 @@ import '../screens/synitemnotinstockreport.dart';
 import '../screens/systemAdminpage.dart';
 import '../screens/transactionsupplyreport.dart';
 import '../screens/transferlisttable.dart';
+import '../screens/uploaditem.dart';
 import '../screens/uploadreceipt.dart';
 import '../screens/uploadreceiptview.dart';
-import '../screens/uploaditem.dart';
-import '../screens/uploadstock.dart';
 import '../screens/uploadtransfer.dart';
 import '../screens/viewfarmers.dart';
 import '../screens/warehousehomescreen.dart';
@@ -250,6 +248,8 @@ class Routes {
   static const String pagereceipt = '/pagereceipt';
   static const String supplierreportpage = '/SupplierReportPage';
   static const String debtor_report = '/debtor_report';
+  static const String temporaryReceiptBranchRepair =
+      '/temporaryReceiptBranchRepair';
 }
 
 final pages = {
@@ -257,6 +257,7 @@ final pages = {
   Routes.home: (context) => const RouteGuard(child: HomeDashboard()),
   Routes.roleAccessDashboard: (context) =>
       const RouteGuard(child: RoleAccessDashboard()),
+
   Routes.branchreg: (context) => const RouteGuard(child: BranchRegistration()),
   Routes.supplierreg: (context) =>
       const RouteGuard(child: SupplierRegistration()),

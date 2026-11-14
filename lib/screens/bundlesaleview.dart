@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 import '../widgets/datepicker.dart';
 import 'bundlesale.dart';
 
@@ -50,12 +50,31 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
   void initState() {
     super.initState();
 
-    Future.microtask(() {
+    Future.microtask(() async {
       if (!mounted) return;
 
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchbundlesales();
+      final datafeed = context.read<Datafeed>();
+      await datafeed.fetchBranches();
+      if (!mounted) return;
+      await _fetchBundles(datafeed);
     });
+  }
+
+  Future<void> _fetchBundles(
+    Datafeed datafeed, {
+    String? selectedBranch,
+  }) async {
+    try {
+      await context.read<ItemProvider>().fetchBundles(
+        datafeed: datafeed,
+        selectedBranch: selectedBranch,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not load bundles: $error')));
+    }
   }
 
   @override
@@ -129,11 +148,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
                     .firstWhere((branch) => branch.id == branchId)
                     .branchname;
         });
-        if (branchId == null) {
-          value.fetchbundlesales();
-        } else {
-          value.fetchbundlesales(selectedBranch: branchId);
-        }
+        _fetchBundles(value, selectedBranch: branchId);
       },
     );
   }
@@ -186,42 +201,6 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     });
   }
 
-  List<Map<String, dynamic>> _filterByDateRange(
-    List<Map<String, dynamic>> list,
-  ) {
-    if (selectedDate == null) {
-      return list;
-    }
-
-    final start = DateTime(
-      selectedDate!.start.year,
-      selectedDate!.start.month,
-      selectedDate!.start.day,
-    );
-
-    final end = DateTime(
-      selectedDate!.end.year,
-      selectedDate!.end.month,
-      selectedDate!.end.day,
-      23,
-      59,
-      59,
-      999,
-    );
-
-    return list.where((sale) {
-      final createdAt = sale['createdat'];
-
-      if (createdAt is! Timestamp) {
-        return false;
-      }
-
-      final date = createdAt.toDate();
-
-      return !date.isBefore(start) && !date.isAfter(end);
-    }).toList();
-  }
-
   // ---------------------------------------------------------------------------
   // HELPERS
   // ---------------------------------------------------------------------------
@@ -234,72 +213,12 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     return text[0].toUpperCase() + text.substring(1);
   }
 
-  Map<String, dynamic> _itemMapOf(dynamic salesView) {
-    final rawItems = salesView['items'];
-
-    if (rawItems is Map) {
-      return Map<String, dynamic>.from(rawItems);
-    }
-
-    if (rawItems is List) {
-      return {
-        for (int i = 0; i < rawItems.length; i++) i.toString(): rawItems[i],
-      };
-    }
-
-    return {};
+  String _formatBundleDate(Map<String, dynamic> bundle, String pattern) {
+    final date = context.read<ItemProvider>().bundleTimestamp(bundle);
+    return date == null ? '' : DateFormat(pattern).format(date);
   }
 
-  double _totalOf(Map<String, dynamic> itemMap) {
-    return itemMap.values.fold<double>(0, (sum, item) {
-      if (item is Map) {
-        final amount =
-            double.tryParse(item['totalamount']?.toString() ?? '0') ?? 0;
-
-        return sum + amount;
-      }
-
-      return sum;
-    });
-  }
-
-  DateTime? _timestampToDate(dynamic value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
-    if (value is DateTime) {
-      return value;
-    }
-
-    return null;
-  }
-
-  String _formatDate(dynamic value) {
-    final date = _timestampToDate(value);
-
-    if (date == null) {
-      return '';
-    }
-
-    return DateFormat('yyyy-MM-dd').format(date);
-  }
-
-  String _formatDateTime(dynamic value) {
-    final date = _timestampToDate(value);
-
-    if (date == null) {
-      return '';
-    }
-
-    return DateFormat('yyyy-MM-dd HH:mm').format(date);
-  }
-
-  // ---------------------------------------------------------------------------
-  // SORT
-  // ---------------------------------------------------------------------------
-
-  void _sortSales(List<Map<String, dynamic>> list, int columnIndex) {
+  void _sortSales(List<Map<String, dynamic>> bundles, int columnIndex) {
     setState(() {
       if (_sortColumnIndex == columnIndex) {
         _sortAscending = !_sortAscending;
@@ -308,58 +227,11 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
         _sortAscending = true;
       }
     });
-
-    list.sort((a, b) {
-      int result = 0;
-
-      switch (columnIndex) {
-        // Name
-        case 1:
-          final aName = (a['name'] ?? '').toString().toLowerCase();
-          final bName = (b['name'] ?? '').toString().toLowerCase();
-
-          result = aName.compareTo(bName);
-          break;
-
-        // Item
-        case 2:
-          final aItems = _itemMapOf(a);
-          final bItems = _itemMapOf(b);
-
-          final aFirst = aItems.values.isNotEmpty && aItems.values.first is Map
-              ? (aItems.values.first['item'] ?? '').toString().toLowerCase()
-              : '';
-
-          final bFirst = bItems.values.isNotEmpty && bItems.values.first is Map
-              ? (bItems.values.first['item'] ?? '').toString().toLowerCase()
-              : '';
-
-          result = aFirst.compareTo(bFirst);
-          break;
-
-        // Total
-        case 3:
-          final aTotal = _totalOf(_itemMapOf(a));
-          final bTotal = _totalOf(_itemMapOf(b));
-
-          result = aTotal.compareTo(bTotal);
-          break;
-
-        // Date
-        case 4:
-          final aDate = _timestampToDate(a['createdat']) ?? DateTime(1900);
-
-          final bDate = _timestampToDate(b['createdat']) ?? DateTime(1900);
-
-          result = aDate.compareTo(bDate);
-          break;
-
-        default:
-          result = 0;
-      }
-
-      return _sortAscending ? result : -result;
-    });
+    context.read<ItemProvider>().sortBundles(
+      bundles: bundles,
+      columnIndex: columnIndex,
+      ascending: _sortAscending,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -371,16 +243,20 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 900;
 
-    return Consumer<Datafeed>(
-      builder: (context, value, child) {
-        final filteredSalesView = _filterByDateRange(value.filterbundlesales());
+    return Consumer2<Datafeed, ItemProvider>(
+      builder: (context, value, itemProvider, child) {
+        final filteredSalesView = itemProvider.filterBundles(
+          bundles: itemProvider.bundleView,
+          searchQuery: value.searchQuery,
+          dateRange: selectedDate,
+        );
         final branchLabel = (_selectedBranchName ?? '').isNotEmpty
             ? _selectedBranchName!
             : 'All Branches';
         final showBundleScope =
             selectedDate != null ||
             (_selectedBranchName ?? '').isNotEmpty ||
-            (_selectedBranch.isEmpty && value.bundleview.isNotEmpty);
+            (_selectedBranch.isEmpty && itemProvider.bundleView.isNotEmpty);
         final bundleScopeTitle = StringBuffer('Bundle View for $branchLabel');
         if (selectedDate != null) {
           bundleScopeTitle
@@ -499,13 +375,13 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
                     // CONTENT
                     // =========================================================
                     Expanded(
-                      child: value.isloadingsalesbundle
+                      child: itemProvider.isLoadingBundles
                           ? Center(
                               child: CircularProgressIndicator(
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                             )
-                          : value.bundleview.isEmpty
+                          : itemProvider.bundleView.isEmpty
                           ? Center(
                               child: Text(
                                 'No Sales found',
@@ -717,7 +593,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
 
     final name = salesView['name']?.toString() ?? '';
 
-    final itemMap = _itemMapOf(salesView);
+    final itemMap = context.read<ItemProvider>().bundleItemsMap(salesView);
 
     final firstItem = itemMap.values.isNotEmpty && itemMap.values.first is Map
         ? Map<String, dynamic>.from(itemMap.values.first)
@@ -734,9 +610,9 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
         )
         .join(', ');
 
-    final total = _totalOf(itemMap);
+    final total = context.read<ItemProvider>().bundleTotal(salesView);
 
-    final date = _formatDate(salesView['createdat']);
+    final date = _formatBundleDate(salesView, 'yyyy-MM-dd');
 
     final cells = <Widget>[
       Text(
@@ -792,10 +668,17 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
           inactiveTrackColor: colorScheme.surfaceContainerHighest,
 
           onChanged: (val) {
-            context.read<Datafeed>().toggleItemActive(
-              docId: id,
-              newStatus: val,
-            );
+            context
+                .read<ItemProvider>()
+                .setBundleActive(docId: id, newStatus: val)
+                .catchError((Object error) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Could not update bundle status: $error'),
+                    ),
+                  );
+                });
           },
         ),
       ),
@@ -863,7 +746,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
 
     final name = salesView['name']?.toString() ?? '';
 
-    final itemMap = _itemMapOf(salesView);
+    final itemMap = context.read<ItemProvider>().bundleItemsMap(salesView);
 
     final firstItem = itemMap.values.isNotEmpty && itemMap.values.first is Map
         ? Map<String, dynamic>.from(itemMap.values.first)
@@ -871,7 +754,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
 
     final itemName = firstItem['item']?.toString() ?? '';
 
-    final totalAmount = _totalOf(itemMap);
+    final totalAmount = context.read<ItemProvider>().bundleTotal(salesView);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -988,7 +871,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
                   _buildFooterLabel(
                     Icons.calendar_today_outlined,
                     'Date: '
-                    '${_formatDateTime(salesView['createdat'])}',
+                    '${_formatBundleDate(salesView, 'yyyy-MM-dd HH:mm')}',
                   ),
 
                   const SizedBox(height: 12),
@@ -1056,10 +939,19 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
               inactiveTrackColor: colorScheme.surfaceContainerHighest,
 
               onChanged: (val) {
-                context.read<Datafeed>().toggleItemActive(
-                  docId: id,
-                  newStatus: val,
-                );
+                context
+                    .read<ItemProvider>()
+                    .setBundleActive(docId: id, newStatus: val)
+                    .catchError((Object error) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Could not update bundle status: $error',
+                          ),
+                        ),
+                      );
+                    });
               },
             ),
           ],
@@ -1327,7 +1219,10 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
     }
 
     try {
-      await context.read<Datafeed>().deletebundleview(id);
+      await context.read<ItemProvider>().deleteBundle(
+        datafeed: context.read<Datafeed>(),
+        id: id,
+      );
 
       if (!context.mounted) {
         return;
@@ -1353,7 +1248,7 @@ class _bundleSaleViewPageState extends State<bundleSaleViewPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Failed to delete item',
+            'Failed to delete bundle: $e',
             style: TextStyle(color: colorScheme.onError),
           ),
 

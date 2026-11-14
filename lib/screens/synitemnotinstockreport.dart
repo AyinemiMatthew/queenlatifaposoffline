@@ -1,6 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
+import 'package:kologsoft/providers/item_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../models/itemregmodel.dart';
@@ -42,7 +43,7 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
     Future.microtask(() {
       context.read<Datafeed>().fetchItems();
       context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchstockreport();
+      context.read<ReportProvider>().fetchstockreport();
       if (!mounted) return;
       _searchController.addListener(_onSearchChanged);
     });
@@ -87,19 +88,15 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
   }
 
   Future<Set<String>> _fetchBranchStockReportItemIds(String branchId) async {
-    final provider = context.read<Datafeed>();
-    await provider.fetchstockreport(
+    await context.read<ReportProvider>().fetchstockreport(
       selectedDate: DateTimeRange(
         start: DateTime(2000, 1, 1),
         end: DateTime.now(),
       ),
       selectedBranch: branchId,
     );
-    final stockreport = provider.filterstockreport();
-    return stockreport
-        .where((e) => (e['itemid'] ?? '').toString().isNotEmpty)
-        .map((e) => e['itemid'].toString())
-        .toSet();
+    final stockreport = context.read<ReportProvider>().filterstockreport();
+    return context.read<ItemProvider>().stockReportItemIds(stockreport);
   }
 
   Future<void> _refreshOrphanStatus() async {
@@ -132,23 +129,14 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
       _resultMessage = null;
     });
     try {
-      final provider = context.read<Datafeed>();
-      num balance;
-      if (_selectedItemOrphaned) {
-        balance = 0;
-      } else {
-        balance =
-            await provider.fetchItemCurrentBalance(
-              itemId: _selectedItem!.id,
-              selectedBranch: _selectedBranchId,
-            ) ??
-            0;
-      }
-      await provider.db.collection('itemsreg').doc(_selectedItem!.id).update({
-        'branchbalance.$_selectedBranchId.netpieces': balance,
-        'branchbalance.$_selectedBranchId.lastupdate':
-            FieldValue.serverTimestamp(),
-      });
+      final balance = await context
+          .read<ItemProvider>()
+          .syncSingleBranchBalance(
+            datafeed: context.read<Datafeed>(),
+            itemId: _selectedItem!.id,
+            branchId: _selectedBranchId!,
+            resetToZero: _selectedItemOrphaned,
+          );
       setState(() {
         _resultMessage = _selectedItemOrphaned
             ? 'Synced  ${_selectedItem!.name}  →  $_selectedBranchName  |  Reset to 0 pcs (not in stock report)'
@@ -170,7 +158,7 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
   Future<void> _syncAllItems() async {
     if (_selectedBranchId == null) return;
 
-    final provider = context.read<Datafeed>();
+    final datafeed = context.read<Datafeed>();
 
     setState(() {
       _syncing = true;
@@ -182,7 +170,7 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
 
     try {
       // Build stock report for the selected branch
-      await provider.fetchstockreport(
+      await context.read<ReportProvider>().fetchstockreport(
         selectedDate: DateTimeRange(
           start: DateTime(2000, 1, 1),
           end: DateTime.now(),
@@ -190,25 +178,20 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
         selectedBranch: _selectedBranchId,
       );
 
-      final stockreport = provider.filterstockreport();
-      final items = stockreport
+      final stockRows = context
+          .read<ReportProvider>()
+          .filterstockreport()
           .where((e) => (e['itemid'] ?? '').toString().isNotEmpty)
           .toList();
-      print(items.length);
+      final orphanedItems = context
+          .read<ItemProvider>()
+          .itemsMissingFromStockReport(
+            items: datafeed.items,
+            stockRows: stockRows,
+            branchId: _selectedBranchId!,
+          );
 
-      final stockItemIds = items.map((e) => e['itemid'].toString()).toSet();
-
-      final orphanedItems = provider.items
-          .where(
-            (i) =>
-                i.isActive == true &&
-                i.branchbalance != null &&
-                i.branchbalance!.containsKey(_selectedBranchId) &&
-                !stockItemIds.contains(i.id),
-          )
-          .toList();
-
-      if (items.isEmpty && orphanedItems.isEmpty) {
+      if (stockRows.isEmpty && orphanedItems.isEmpty) {
         setState(() {
           _syncing = false;
           _resultSuccess = false;
@@ -219,67 +202,26 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
       }
 
       setState(() {
-        _bulkTotal = items.length + orphanedItems.length;
+        _bulkTotal = stockRows.length + orphanedItems.length;
       });
-
-      int successCount = 0;
-      int errorCount = 0;
-
-      for (final row in items) {
-        final itemId = row['itemid'].toString();
-        final itemName = row['item']?.toString() ?? itemId;
-        final balance = (row['balance_cd'] ?? 0);
-
-        try {
-          await provider.db.collection('itemsreg').doc(itemId).set({
-            'branchbalance': {
-              _selectedBranchId: {
-                'netpieces': balance,
-                'lastupdate': FieldValue.serverTimestamp(),
-              },
-            },
-          }, SetOptions(merge: true));
-
-          _bulkLog.add('✓ $itemName → $balance pcs');
-          successCount++;
-        } catch (e) {
-          _bulkLog.add('✗ $itemName → Error: $e');
-          errorCount++;
-        }
-
-        if (mounted) {
-          setState(() => _bulkDone++);
-        }
-      }
-
-      for (final item in orphanedItems) {
-        try {
-          await provider.db.collection('itemsreg').doc(item.id).set({
-            'branchbalance': {
-              _selectedBranchId: {
-                'netpieces': 0,
-                'lastupdate': FieldValue.serverTimestamp(),
-              },
-            },
-          }, SetOptions(merge: true));
-
-          _bulkLog.add('⊘ ${item.name} → 0 pcs (not in stock report)');
-          successCount++;
-        } catch (e) {
-          _bulkLog.add('✗ ${item.name} → Error: $e');
-          errorCount++;
-        }
-
-        if (mounted) {
-          setState(() => _bulkDone++);
-        }
-      }
+      final summary = await context.read<ItemProvider>().syncBranchBalanceRows(
+        datafeed: datafeed,
+        branchId: _selectedBranchId!,
+        stockRows: stockRows,
+        zeroBalanceItems: orphanedItems,
+        onProgress: (completed, _) {
+          if (mounted) setState(() => _bulkDone = completed);
+        },
+      );
+      _bulkLog
+        ..clear()
+        ..addAll(summary.entries.map((entry) => entry.message));
 
       setState(() {
         _syncing = false;
-        _resultSuccess = errorCount == 0;
+        _resultSuccess = summary.errorCount == 0;
         _resultMessage =
-            'Done: $successCount synced${errorCount > 0 ? ', $errorCount failed' : ''} — $_selectedBranchName';
+            'Done: ${summary.successCount} synced${summary.errorCount > 0 ? ', ${summary.errorCount} failed' : ''} — $_selectedBranchName';
       });
     } catch (e) {
       setState(() {
@@ -316,10 +258,8 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
   Color get _quietTextColor => _isLightTheme
       ? Theme.of(context).colorScheme.onSurfaceVariant
       : Colors.white30;
-  Color get _prominentTextColor =>
-      _isLightTheme ? _textColor : Colors.white70;
-  Color get _subtleTextColor =>
-      _isLightTheme ? _textColor : Colors.white60;
+  Color get _prominentTextColor => _isLightTheme ? _textColor : Colors.white70;
+  Color get _subtleTextColor => _isLightTheme ? _textColor : Colors.white60;
   Color get _cardColor => _isLightTheme ? _surfaceColor : _cardBg;
   Color get _subtleBorderColor => _isLightTheme
       ? Theme.of(context).colorScheme.outlineVariant
@@ -1106,11 +1046,7 @@ class _SyncItemtoZeroState extends State<SyncItemtoZero> {
                       style: TextStyle(color: _subtleTextColor, fontSize: 11),
                     ),
                   )
-                : Icon(
-                    Icons.chevron_right,
-                    color: _faintTextColor,
-                    size: 16,
-                  ),
+                : Icon(Icons.chevron_right, color: _faintTextColor, size: 16),
             onTap: () => _selectItem(item),
           );
         },

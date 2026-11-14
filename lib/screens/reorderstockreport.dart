@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 
@@ -50,7 +51,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
       _hhController = ScrollController();
       final datafeed = context.read<Datafeed>();
       await datafeed.fetchBranches();
-      //  await datafeed.fetchstockreport();
+      //  await context.read<ReportProvider>().fetchstockreport();
       final access = datafeed.accesslevel.toLowerCase().trim();
 
       final canSelectBranches =
@@ -63,12 +64,14 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
         selectedBranchName = datafeed.branch;
       }
 
-      await datafeed.fetchstockreport(selectedBranch: selectedBranch);
+      await context.read<ReportProvider>().fetchstockreport(
+        selectedBranch: selectedBranch,
+      );
     });
   }
 
   Future<void> _applyFilters() async {
-    await context.read<Datafeed>().fetchstockreport(
+    await context.read<ReportProvider>().fetchstockreport(
       selectedDate: _selectedDateRange,
       selectedBranch: selectedBranch,
     );
@@ -199,7 +202,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = MediaQuery.of(context).size.width > 900;
-    final provider = context.watch<Datafeed>();
+    final provider = context.watch<ReportProvider>();
     final stockreport = provider.filterReOrderstockreport();
     final canSelectAllBranches = provider.canDeleteRecords;
     final accesslevel = provider.accesslevel;
@@ -492,7 +495,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
                                     backgroundColor: const Color(0xFF415A77),
                                   ),
                                   onPressed: () {
-                                    final provider = context.read<Datafeed>();
+                                    final provider = context.read<ReportProvider>();
                                     printStockReportPdf(
                                       reportData: provider.filterstockreport(),
                                       companyName: provider.company,
@@ -646,7 +649,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
                                     backgroundColor: const Color(0xFF415A77),
                                   ),
                                   onPressed: () {
-                                    final provider = context.read<Datafeed>();
+                                    final provider = context.read<ReportProvider>();
                                     printStockReportPdf(
                                       reportData: provider.filterstockreport(),
                                       companyName: provider.company,
@@ -733,7 +736,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
   }
 
   Widget _buildStockTable() {
-    final provider = context.watch<Datafeed>();
+    final provider = context.watch<ReportProvider>();
     final reportData = provider.filterReOrderstockreport();
     final columns = _stockColumns();
     final double totalColsWidth =
@@ -1004,7 +1007,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Carton: ${_formatNumber(cartonQtyBal)}',
+                      'Carton: ${_formatCarton(cartonQtyBal)}',
                       style: TextStyle(fontSize: 12, color: Colors.white70),
                     ),
                   ],
@@ -1030,7 +1033,7 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
                 _miniStat2("Damages", damages),
                 _miniStat2("Transfer Out", transfer),
                 _miniStat2("Transfer In", transferIn),
-                _miniStat2("Carton", cartonQtyBal),
+                _miniStat2("Carton", _formatCarton(cartonQtyBal)),
               ],
             ),
           ],
@@ -1095,6 +1098,14 @@ class _reOrderStockPageState extends State<reOrderStockPage> {
       default:
         return 'Date';
     }
+  }
+
+  String _formatCarton(dynamic number) {
+    if (number is double) {
+      return number.toStringAsFixed(2);
+    }
+    final value = double.tryParse(number.toString()) ?? 0.0;
+    return value.toStringAsFixed(2);
   }
 
   String _formatNumber(dynamic number) {

@@ -7,7 +7,9 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/Datafeed.dart';
+import '../providers/ReportProvider.dart';
 import '../widgets/datepicker.dart';
+import '../widgets/general_ledger_export.dart';
 import '../widgets/printreportpdf.dart';
 import 'general_ledger_detail_screen.dart';
 
@@ -53,6 +55,8 @@ class _generalLedgerState extends State<generalLedger> {
   DateTimeRange? selectedDate;
   String? _selectedBranch;
   bool _isSearching = false;
+  int _currentLedgerPage = 0;
+  int _ledgerRowsPerPage = 13;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -69,6 +73,8 @@ class _generalLedgerState extends State<generalLedger> {
   Color get _headerColor =>
       _isLightTheme ? Colors.white : const Color(0xFF1E2A3D);
   Color get _rowColor => _isLightTheme ? Colors.white : const Color(0xFF0D1B2A);
+  Color get _alternateRowColor =>
+      _isLightTheme ? const Color(0xFFF3F6FA) : const Color(0xFF13243A);
   Color get _fieldColor => _isLightTheme
       ? Colors.white
       : Theme.of(context).colorScheme.surfaceContainerHighest;
@@ -77,7 +83,6 @@ class _generalLedgerState extends State<generalLedger> {
 
   late final ScrollController verticalController;
   late final ScrollController horizontalController;
-  final GlobalKey _branchButtonKey = GlobalKey();
   String capitalize(String? text) {
     if (text == null || text.isEmpty) return '';
     return text[0].toUpperCase() + text.substring(1);
@@ -100,11 +105,11 @@ class _generalLedgerState extends State<generalLedger> {
     verticalController = ScrollController();
     horizontalController = ScrollController();
 
+    final datafeed = context.read<Datafeed>();
+    final reportProvider = context.read<ReportProvider>();
     Future.microtask(() {
-      context.read<Datafeed>().fetchBranches();
-      context.read<Datafeed>().fetchgeneralledgerreport(
-        selectedDate: selectedDate,
-      );
+      datafeed.fetchBranches();
+      reportProvider.fetchgeneralledgerreport(selectedDate: selectedDate);
     });
   }
 
@@ -115,19 +120,23 @@ class _generalLedgerState extends State<generalLedger> {
     });
   }
 
-  void _closeSearch(Datafeed datafeed) {
+  void _closeSearch(ReportProvider reportProvider) {
     setState(() {
       _isSearching = false;
+      _currentLedgerPage = 0;
       _searchController.clear();
     });
-    datafeed.updateSearch('');
+    reportProvider.updateGeneralLedgerSearch('');
   }
 
   Widget _datePickerIcon() {
     return ReusableDatePickerWidget(
       onDateSelected: (selection) {
-        setState(() => selectedDate = selection);
-        context.read<Datafeed>().fetchgeneralledgerreport(
+        setState(() {
+          selectedDate = selection;
+          _currentLedgerPage = 0;
+        });
+        context.read<ReportProvider>().fetchgeneralledgerreport(
           selectedDate: selection,
           selectedBranch: _selectedBranch,
         );
@@ -149,80 +158,100 @@ class _generalLedgerState extends State<generalLedger> {
     );
   }
 
-  Widget _pdfIcon() {
-    return IconButton(
-      tooltip: 'Download / Print',
-      onPressed: () => _printLedgerPdf(context),
-      icon: const Icon(Icons.picture_as_pdf_outlined),
-      color: _textColor,
+  Widget _exportMenu(List<Map<String, dynamic>> rows) {
+    final formatter = NumberFormat('#,##0.00');
+    final provider = context.read<ReportProvider>();
+    final period = selectedDate == null
+        ? 'All Dates'
+        : _dateRangeLabel(selectedDate!);
+    return GeneralLedgerExportMenu(
+      title: 'General Ledger Report',
+      metadata: [
+        'Company: ${provider.company}',
+        'Branch: ${_branchLabel(context.read<Datafeed>())}',
+        'Period: $period',
+      ],
+      headers: const [
+        '#',
+        'Account/Name',
+        'Opening Balance (GHS)',
+        'Debit (GHS)',
+        'Credit (GHS)',
+        'Balance (GHS)',
+      ],
+      rows: rows.asMap().entries.map((entry) {
+        final ledger = entry.value;
+        return [
+          '${entry.key + 1}',
+          capitalize(ledger['account']?.toString()),
+          formatter.format((ledger['openingBalance'] ?? 0).toDouble().abs()),
+          formatter.format((ledger['debit'] ?? 0).toDouble().abs()),
+          formatter.format((ledger['credit'] ?? 0).toDouble().abs()),
+          formatter.format((ledger['balance'] ?? 0).toDouble().abs()),
+        ];
+      }).toList(),
+      onPrint: () => _printLedgerPdf(context, ledgerRows: rows),
     );
   }
 
-  Widget _searchTitle(Datafeed datafeed) {
+  String _dateRangeLabel(DateTimeRange range) =>
+      '${DateFormat('d MMM yyyy').format(range.start)}'
+      ' to ${DateFormat('d MMM yyyy').format(range.end)}';
+
+  Widget _searchTitle(ReportProvider reportProvider) {
     if (!_isSearching) {
-      return Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'General Ledger',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Search',
-            onPressed: _openSearch,
-            icon: const Icon(Icons.search),
-            color: _textColor,
-          ),
-        ],
+      return const Text(
+        'General Ledger',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       );
     }
 
-    return Row(
-      children: [
-        IconButton(
-          tooltip: 'Close search',
-          onPressed: () => _closeSearch(datafeed),
-          icon: const Icon(Icons.arrow_back),
-          color: _textColor,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40),
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocusNode,
+      autofocus: true,
+      onChanged: (query) {
+        setState(() => _currentLedgerPage = 0);
+        reportProvider.updateGeneralLedgerSearch(query);
+      },
+      style: TextStyle(color: _textColor, fontSize: 15),
+      cursorColor: _isLightTheme
+          ? Theme.of(context).colorScheme.primary
+          : Colors.white,
+      decoration: InputDecoration(
+        hintText: 'Search ledger...',
+        hintStyle: TextStyle(color: _mutedTextColor),
+        prefixIcon: Icon(Icons.search, color: _mutedTextColor, size: 20),
+        suffixIcon: _searchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear search',
+                onPressed: () {
+                  _searchController.clear();
+                  reportProvider.updateGeneralLedgerSearch('');
+                  setState(() => _currentLedgerPage = 0);
+                  _searchFocusNode.requestFocus();
+                },
+                icon: Icon(Icons.clear, color: _textColor),
+              ),
+        filled: true,
+        fillColor: _fieldColor,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: _borderColor),
         ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: TextField(
-            controller: _searchController,
-            focusNode: _searchFocusNode,
-            autofocus: true,
-            onChanged: (query) {
-              setState(() {});
-              datafeed.updateSearch(query);
-            },
-            style: TextStyle(color: _textColor, fontSize: 15),
-            cursorColor: Theme.of(context).colorScheme.primary,
-            decoration: InputDecoration(
-              hintText: 'Search ledger...',
-              hintStyle: TextStyle(color: _mutedTextColor),
-              border: InputBorder.none,
-              isCollapsed: true,
-            ),
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: _borderColor),
         ),
-        if (_searchController.text.isNotEmpty)
-          IconButton(
-            tooltip: 'Clear search',
-            onPressed: () {
-              setState(_searchController.clear);
-              datafeed.updateSearch('');
-              _searchFocusNode.requestFocus();
-            },
-            icon: const Icon(Icons.clear),
-            color: _textColor,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36),
-          ),
-      ],
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+        ),
+      ),
     );
   }
 
@@ -234,9 +263,101 @@ class _generalLedgerState extends State<generalLedger> {
     return 'All Branches';
   }
 
+  void _selectBranch(String selection) {
+    final branchId = selection == '__all_branches__'
+        ? null
+        : selection.substring('branch:'.length);
+    setState(() {
+      _selectedBranch = branchId;
+      _currentLedgerPage = 0;
+    });
+    context.read<ReportProvider>().fetchgeneralledgerreport(
+      selectedDate: selectedDate,
+      selectedBranch: branchId,
+    );
+  }
+
+  Future<void> _showMobileBranchSelector(Datafeed datafeed) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _cardColor,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  'Select Branch',
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                    color: _textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: Icon(Icons.store_outlined, color: _textColor),
+                title: Text(
+                  'All Branches',
+                  style: TextStyle(color: _textColor),
+                ),
+                trailing: _selectedBranch == null
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(context).colorScheme.secondary,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _selectBranch('__all_branches__');
+                },
+              ),
+              ...datafeed.branches.map(
+                (branch) => ListTile(
+                  leading: Icon(Icons.store_outlined, color: _textColor),
+                  title: Text(
+                    branch.branchname,
+                    style: TextStyle(color: _textColor),
+                  ),
+                  trailing: branch.id == _selectedBranch
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(context).colorScheme.secondary,
+                        )
+                      : null,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _selectBranch('branch:${branch.id}');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _branchMenu(Datafeed datafeed) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return IconButton(
+        tooltip: 'Select branch: ${_branchLabel(datafeed)}',
+        onPressed: () => _showMobileBranchSelector(datafeed),
+        icon: Icon(
+          Icons.store_outlined,
+          color: _selectedBranch == null
+              ? _textColor
+              : Theme.of(context).colorScheme.secondary,
+        ),
+      );
+    }
+
     return PopupMenuButton<String>(
-      key: _branchButtonKey,
       tooltip: 'Branch: ${_branchLabel(datafeed)}',
       color: _cardColor,
       icon: Icon(
@@ -245,16 +366,7 @@ class _generalLedgerState extends State<generalLedger> {
             ? _textColor
             : Theme.of(context).colorScheme.primary,
       ),
-      onSelected: (selection) {
-        final branchId = selection == '__all_branches__'
-            ? null
-            : selection.substring('branch:'.length);
-        setState(() => _selectedBranch = branchId);
-        datafeed.fetchgeneralledgerreport(
-          selectedDate: selectedDate,
-          selectedBranch: branchId,
-        );
-      },
+      onSelected: _selectBranch,
       itemBuilder: (context) => [
         PopupMenuItem<String>(
           value: '__all_branches__',
@@ -262,7 +374,7 @@ class _generalLedgerState extends State<generalLedger> {
             'All Branches',
             style: TextStyle(
               color: _selectedBranch == null
-                  ? Theme.of(context).colorScheme.primary
+                  ? Theme.of(context).colorScheme.secondary
                   : _textColor,
               fontWeight: _selectedBranch == null
                   ? FontWeight.w600
@@ -277,7 +389,7 @@ class _generalLedgerState extends State<generalLedger> {
               branch.branchname,
               style: TextStyle(
                 color: branch.id == _selectedBranch
-                    ? Theme.of(context).colorScheme.primary
+                    ? Theme.of(context).colorScheme.secondary
                     : _textColor,
                 fontWeight: branch.id == _selectedBranch
                     ? FontWeight.w600
@@ -295,26 +407,63 @@ class _generalLedgerState extends State<generalLedger> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     return Consumer<Datafeed>(
       builder: (context, value, child) {
-        final resultList = value.filtergeneralledgerreport();
+        final reportProvider = context.watch<ReportProvider>();
+        final resultList = reportProvider.filtergeneralledgerreport();
+        final pageSize = _ledgerRowsPerPage;
+        final pageCount = (resultList.length / pageSize).ceil().clamp(
+          1,
+          1 << 30,
+        );
+        final pageIndex = _currentLedgerPage.clamp(0, pageCount - 1);
+        final pageStart = pageIndex * pageSize;
+        final pageRows = resultList.skip(pageStart).take(pageSize).toList();
 
         return Scaffold(
           backgroundColor: _backgroundColor,
-
+          bottomNavigationBar:
+              !reportProvider.isloadingledgerreport && resultList.isNotEmpty
+              ? GeneralLedgerPagination(
+                  totalRows: resultList.length,
+                  pageIndex: pageIndex,
+                  pageSize: pageSize,
+                  onPageChanged: (page) =>
+                      setState(() => _currentLedgerPage = page),
+                  onPageSizeChanged: (pageSize) => setState(() {
+                    _ledgerRowsPerPage = pageSize;
+                    _currentLedgerPage = 0;
+                  }),
+                )
+              : null,
           appBar: AppBar(
             backgroundColor: _cardColor,
             foregroundColor: _textColor,
             titleSpacing: 8,
-            title: _searchTitle(value),
+            title: _searchTitle(reportProvider),
             centerTitle: false,
             toolbarHeight: 56,
-            actions: _isSearching
-                ? null
-                : [
-                    _branchMenu(value),
-                    _datePickerIcon(),
-                    _pdfIcon(),
-                    const SizedBox(width: 4),
-                  ],
+            actions: [
+              if (_isSearching)
+                IconButton(
+                  tooltip: 'Close search',
+                  onPressed: () => _closeSearch(reportProvider),
+                  icon: const Icon(Icons.close),
+                  color: _textColor,
+                )
+              else
+                IconButton(
+                  tooltip: 'Search ledger',
+                  onPressed: _openSearch,
+                  icon: const Icon(Icons.search),
+                  color: _textColor,
+                ),
+              if (!_isSearching) ...[
+                _branchMenu(value),
+                _datePickerIcon(),
+                _exportMenu(resultList),
+              ] else
+                _exportMenu(resultList),
+              const SizedBox(width: 4),
+            ],
           ),
           body: Padding(
             padding: const EdgeInsets.all(5.0),
@@ -328,7 +477,7 @@ class _generalLedgerState extends State<generalLedger> {
                     children: [
                       SizedBox(height: 5),
                       Expanded(
-                        child: value.isloadingledgerreport
+                        child: reportProvider.isloadingledgerreport
                             ? Center(
                                 child: CircularProgressIndicator(
                                   color: _textColor,
@@ -348,7 +497,7 @@ class _generalLedgerState extends State<generalLedger> {
                                   if (isDesktop) {
                                     return LayoutBuilder(
                                       builder: (context, constraints) {
-                                        const widths = [
+                                        const baseWidths = [
                                           30,
                                           180,
                                           130,
@@ -357,19 +506,38 @@ class _generalLedgerState extends State<generalLedger> {
                                           100,
                                         ];
                                         const gap = 24.0;
-                                        final double contentWidth =
-                                            widths.reduce((a, b) => a + b) +
-                                            (widths.length - 1) * gap +
-                                            32;
-                                        final double tableWidth =
-                                            constraints.maxWidth > contentWidth
-                                            ? constraints.maxWidth
-                                            : contentWidth;
+                                        final availableColumnWidth =
+                                            constraints.maxWidth -
+                                            32 -
+                                            (baseWidths.length - 1) * gap;
+                                        final baseColumnWidth = baseWidths
+                                            .reduce((a, b) => a + b)
+                                            .toDouble();
+                                        final scale =
+                                            availableColumnWidth <
+                                                baseColumnWidth
+                                            ? availableColumnWidth /
+                                                  baseColumnWidth
+                                            : 1.0;
+                                        final widths = baseWidths
+                                            .map((width) => width * scale)
+                                            .toList();
+                                        if (availableColumnWidth >
+                                            baseColumnWidth) {
+                                          widths[1] +=
+                                              availableColumnWidth -
+                                              baseColumnWidth;
+                                        }
+                                        final tableWidth = constraints.maxWidth;
 
-                                        Widget rowOf(List<Widget> cells) {
+                                        Widget rowOf(
+                                          List<Widget> cells, {
+                                          Color? backgroundColor,
+                                        }) {
                                           return Container(
                                             decoration: BoxDecoration(
-                                              color: _rowColor,
+                                              color:
+                                                  backgroundColor ?? _rowColor,
                                               border: Border(
                                                 bottom: BorderSide(
                                                   color: _borderColor,
@@ -383,7 +551,6 @@ class _generalLedgerState extends State<generalLedger> {
                                             ),
                                             constraints: const BoxConstraints(
                                               minHeight: 44,
-                                              maxHeight: 60,
                                             ),
                                             alignment: Alignment.center,
                                             child: Row(
@@ -460,6 +627,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                       child: rowOf([
                                                         Text(
                                                           "#",
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -468,6 +636,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                         ),
                                                         Text(
                                                           "Account/Name",
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -476,6 +645,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                         ),
                                                         Text(
                                                           "Opening Balance (GHS)",
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -484,6 +654,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                         ),
                                                         Text(
                                                           "Debit (GHS)",
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -492,6 +663,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                         ),
                                                         Text(
                                                           "Credit(GHS)",
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -500,6 +672,7 @@ class _generalLedgerState extends State<generalLedger> {
                                                         ),
                                                         Text(
                                                           "Balance(GHS)",
+                                                          softWrap: true,
                                                           style: TextStyle(
                                                             color: _textColor,
                                                             fontWeight:
@@ -518,10 +691,10 @@ class _generalLedgerState extends State<generalLedger> {
                                                           controller:
                                                               verticalController,
                                                           itemCount:
-                                                              resultList.length,
+                                                              pageRows.length,
                                                           itemBuilder: (context, index) {
                                                             final ledger =
-                                                                resultList[index];
+                                                                pageRows[index];
                                                             final formatter =
                                                                 NumberFormat(
                                                                   '#,##0.00',
@@ -567,53 +740,59 @@ class _generalLedgerState extends State<generalLedger> {
                                                                       _selectedBranch,
                                                                 );
                                                               },
-                                                              child: rowOf([
-                                                                Text(
-                                                                  "${index + 1}",
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _textColor,
+                                                              child: rowOf(
+                                                                [
+                                                                  Text(
+                                                                    "${pageStart + index + 1}",
+                                                                    style: TextStyle(
+                                                                      color:
+                                                                          _textColor,
+                                                                    ),
                                                                   ),
-                                                                ),
-                                                                Text(
-                                                                  capitalize(
-                                                                    ledger['account'] ??
-                                                                        '',
+                                                                  Text(
+                                                                    capitalize(
+                                                                      ledger['account'] ??
+                                                                          '',
+                                                                    ),
+                                                                    style: TextStyle(
+                                                                      color:
+                                                                          _textColor,
+                                                                    ),
                                                                   ),
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _textColor,
+                                                                  Text(
+                                                                    openingBalance,
+                                                                    style: TextStyle(
+                                                                      color:
+                                                                          _textColor,
+                                                                    ),
                                                                   ),
-                                                                ),
-                                                                Text(
-                                                                  openingBalance,
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _textColor,
+                                                                  Text(
+                                                                    debit,
+                                                                    style: TextStyle(
+                                                                      color:
+                                                                          _textColor,
+                                                                    ),
                                                                   ),
-                                                                ),
-                                                                Text(
-                                                                  debit,
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _textColor,
+                                                                  Text(
+                                                                    credit,
+                                                                    style: TextStyle(
+                                                                      color:
+                                                                          _textColor,
+                                                                    ),
                                                                   ),
-                                                                ),
-                                                                Text(
-                                                                  credit,
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _textColor,
+                                                                  Text(
+                                                                    balance,
+                                                                    style: TextStyle(
+                                                                      color:
+                                                                          _textColor,
+                                                                    ),
                                                                   ),
-                                                                ),
-                                                                Text(
-                                                                  balance,
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        _textColor,
-                                                                  ),
-                                                                ),
-                                                              ]),
+                                                                ],
+                                                                backgroundColor:
+                                                                    index.isEven
+                                                                    ? _rowColor
+                                                                    : _alternateRowColor,
+                                                              ),
                                                             );
                                                           },
                                                         ),
@@ -678,11 +857,11 @@ class _generalLedgerState extends State<generalLedger> {
 
                                       Expanded(
                                         child: ListView.separated(
-                                          itemCount: resultList.length,
+                                          itemCount: pageRows.length,
                                           separatorBuilder: (_, __) =>
                                               const SizedBox(height: 10),
                                           itemBuilder: (context, index) {
-                                            final ledger = resultList[index];
+                                            final ledger = pageRows[index];
                                             final number =
                                                 ledger['number'] ?? index + 1;
                                             final account =
@@ -891,22 +1070,22 @@ class _generalLedgerState extends State<generalLedger> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final provider = Provider.of<Datafeed>(context, listen: false);
-    final previousSearch = provider.searchQuery;
-    provider.updateSearch('');
+    final provider = Provider.of<ReportProvider>(context, listen: false);
+    final previousSearch = provider.generalLedgerSearchQuery;
+    provider.updateGeneralLedgerSearch('');
 
     try {
       final now = DateTime.now();
       await provider.showLedgerDetailsDialog(
         startDate: selectedDate?.start ?? now,
         endDate: selectedDate?.end ?? now,
-        Id: itemId,
-        Name: itemName,
+        id: itemId,
+        name: itemName,
         branchId: branchId,
       );
     } catch (error) {
       debugPrint('Error loading ledger details: $error');
-      provider.updateSearch(previousSearch);
+      provider.updateGeneralLedgerSearch(previousSearch);
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -917,7 +1096,7 @@ class _generalLedgerState extends State<generalLedger> {
 
     if (!context.mounted) return;
     final transactions = provider.filteredshowLedgerDetailsDialog();
-    provider.updateSearch(previousSearch);
+    provider.updateGeneralLedgerSearch(previousSearch);
     Navigator.of(context, rootNavigator: true).pop();
 
     await Navigator.of(context).push<void>(
@@ -927,8 +1106,12 @@ class _generalLedgerState extends State<generalLedger> {
           subtitle: 'Account activity',
           transactions: transactions,
           accountStatement: false,
-          onPrint: () => printTransactions(transactions, itemName),
-          onTransactionTap: (transaction) {
+          dateRange: selectedDate,
+          activityCompany: context.read<ReportProvider>().company,
+          activityBranch: _branchLabel(context.read<Datafeed>()),
+          onPrint: (rows, range) =>
+              printTransactions(rows, itemName, dateRange: range),
+          onTransactionTap: (transaction, range) {
             final account =
                 transaction['account']?.toString().isNotEmpty == true
                 ? transaction['account'].toString()
@@ -938,6 +1121,7 @@ class _generalLedgerState extends State<generalLedger> {
               itemId: account,
               itemName: account,
               branchId: branchId,
+              dateRange: range,
             );
           },
         ),
@@ -945,11 +1129,35 @@ class _generalLedgerState extends State<generalLedger> {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _loadLedgerAccountTransactions({
+    required DateTimeRange dateRange,
+    required String itemId,
+    required String itemName,
+    required String? branchId,
+  }) async {
+    final provider = Provider.of<ReportProvider>(context, listen: false);
+    final previousSearch = provider.generalLedgerSearchQuery;
+    provider.updateGeneralLedgerSearch('');
+    try {
+      await provider.showLedgerAccountDetailsDialog(
+        startDate: dateRange.start,
+        endDate: dateRange.end,
+        itemId: itemId,
+        itemName: itemName,
+        branchId: branchId,
+      );
+      return provider.filteredshowLedgerAccountDetailsDialog();
+    } finally {
+      provider.updateGeneralLedgerSearch(previousSearch);
+    }
+  }
+
   Future<void> _openLedgerAccountStatementScreen(
     BuildContext context, {
     required String itemId,
     required String itemName,
     required String? branchId,
+    DateTimeRange? dateRange,
   }) async {
     showDialog<void>(
       context: context,
@@ -957,22 +1165,20 @@ class _generalLedgerState extends State<generalLedger> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    final provider = Provider.of<Datafeed>(context, listen: false);
-    final previousSearch = provider.searchQuery;
-    provider.updateSearch('');
+    final now = DateTime.now();
+    final statementDateRange =
+        dateRange ?? selectedDate ?? DateTimeRange(start: now, end: now);
+    late final List<Map<String, dynamic>> transactions;
 
     try {
-      final now = DateTime.now();
-      await provider.showLedgerAccountDetailsDialog(
-        startDate: selectedDate?.start ?? now,
-        endDate: selectedDate?.end ?? now,
+      transactions = await _loadLedgerAccountTransactions(
+        dateRange: statementDateRange,
         itemId: itemId,
         itemName: itemName,
         branchId: branchId,
       );
     } catch (error) {
       debugPrint('Error loading ledger account statement: $error');
-      provider.updateSearch(previousSearch);
       if (!context.mounted) return;
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -982,28 +1188,48 @@ class _generalLedgerState extends State<generalLedger> {
     }
 
     if (!context.mounted) return;
-    final transactions = provider.filteredshowLedgerAccountDetailsDialog();
-    provider.updateSearch(previousSearch);
     Navigator.of(context, rootNavigator: true).pop();
 
-    final startLabel = DateFormat(
-      'yyyy MMMM EEEE dd',
-    ).format(selectedDate?.start ?? DateTime.now());
-    final endLabel = DateFormat(
-      'yyyy MMMM EEEE dd',
-    ).format(selectedDate?.end ?? DateTime.now());
+    final datafeed = context.read<Datafeed>();
+    final companyName = context.read<ReportProvider>().company;
+    final branchAddress = datafeed.branchaddress;
+    var statementBranch = 'All Branches';
+    for (final branch in datafeed.branches) {
+      if (branch.id == branchId) {
+        statementBranch = branch.branchname;
+        break;
+      }
+    }
+    if (branchId == null || branchId.isEmpty) {
+      statementBranch = _branchLabel(datafeed);
+    }
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (routeContext) => GeneralLedgerDetailScreen(
-          title: itemName,
-          subtitle:
-              'Address: ${provider.branchaddress} · '
-              'ACCOUNT STATEMENT FROM $startLabel TO $endLabel',
+          title: 'General Ledger - $itemName',
+          subtitle: '',
           transactions: transactions,
           accountStatement: true,
-          onPrint: () => printItemTransactions(transactions, itemName),
-          onTransactionTap: (transaction) {
+          dateRange: statementDateRange,
+          onDateRangeChanged: (range) => _loadLedgerAccountTransactions(
+            dateRange: range,
+            itemId: itemId,
+            itemName: itemName,
+            branchId: branchId,
+          ),
+          statementAccountName: itemName,
+          statementCompany: companyName,
+          statementBranch: statementBranch,
+          statementAddress: branchAddress,
+          onPrint: (rows, range) => printItemTransactions(
+            rows,
+            itemName,
+            dateRange: range,
+            branchName: statementBranch,
+            branchAddress: branchAddress,
+          ),
+          onTransactionTap: (transaction, range) {
             final accountId =
                 transaction['accountId']?.toString() ??
                 transaction['account']?.toString() ??
@@ -1020,6 +1246,7 @@ class _generalLedgerState extends State<generalLedger> {
                   transaction['branchId']?.toString() ??
                   transaction['branch']?.toString() ??
                   branchId,
+              dateRange: range,
             );
           },
         ),
@@ -1027,11 +1254,15 @@ class _generalLedgerState extends State<generalLedger> {
     );
   }
 
-  Future<void> printTransactions(List transactions, String itemName) async {
+  Future<void> printTransactions(
+    List transactions,
+    String itemName, {
+    DateTimeRange? dateRange,
+  }) async {
     final pdf = pw.Document(title: "General Ledger - $itemName");
+    final provider = context.read<ReportProvider>();
     final baseFont = await PdfGoogleFonts.openSansRegular();
     final boldFont = await PdfGoogleFonts.openSansBold();
-    final provider = context.read<Datafeed>();
 
     DateTime _parseDate(dynamic v) {
       if (v is Timestamp) return v.toDate();
@@ -1080,6 +1311,7 @@ class _generalLedgerState extends State<generalLedger> {
       bool header = false,
       bool bold = false,
       bool right = false,
+      double fontSize = 8,
       PdfColor? color,
     }) => pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -1088,7 +1320,7 @@ class _generalLedgerState extends State<generalLedger> {
         textAlign: right ? pw.TextAlign.right : pw.TextAlign.left,
         style: pw.TextStyle(
           font: (header || bold) ? boldFont : baseFont,
-          fontSize: 8,
+          fontSize: fontSize,
           color: header
               ? PdfColors.white
               : (color ?? const PdfColor.fromInt(0xFF1A1A2E)),
@@ -1128,9 +1360,9 @@ class _generalLedgerState extends State<generalLedger> {
     const rpp = 30;
     final pages = (transactions.length / rpp).ceil().clamp(1, 9999);
 
-    final period = selectedDate != null
-        ? '${DateFormat('d MMM y').format(selectedDate!.start)}'
-              ' - ${DateFormat('d MMM y').format(selectedDate!.end)}'
+    final printDateRange = dateRange ?? selectedDate;
+    final period = printDateRange != null
+        ? _dateRangeLabel(printDateRange)
         : 'All Dates';
 
     for (int pg = 0; pg < pages; pg++) {
@@ -1287,8 +1519,8 @@ class _generalLedgerState extends State<generalLedger> {
               // -- data table
               pw.Table(
                 columnWidths: {
-                  0: const pw.FixedColumnWidth(22), // #
-                  1: const pw.FixedColumnWidth(65), // Date
+                  0: const pw.FixedColumnWidth(34), // #
+                  1: const pw.FixedColumnWidth(90), // Date
                   2: const pw.FlexColumnWidth(3.0), // Description
                   3: const pw.FlexColumnWidth(1.4), // Opening Balance
                   4: const pw.FlexColumnWidth(1.4), // Debit
@@ -1310,8 +1542,8 @@ class _generalLedgerState extends State<generalLedger> {
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(color: headerBg),
                     children: [
-                      _cell('#', header: true),
-                      _cell('DATE', header: true),
+                      _cell('#', header: true, fontSize: 10),
+                      _cell('DATE', header: true, fontSize: 10),
                       _cell('DESCRIPTION', header: true),
                       _cell('OPENING BAL.', header: true, right: true),
                       _cell('DEBIT', header: true, right: true),
@@ -1339,8 +1571,8 @@ class _generalLedgerState extends State<generalLedger> {
                     return pw.TableRow(
                       decoration: pw.BoxDecoration(color: bg),
                       children: [
-                        _cell('${pg * rpp + i + 1}'),
-                        _cell(_fmtDate(t['date'])),
+                        _cell('${pg * rpp + i + 1}', bold: true, fontSize: 10),
+                        _cell(_fmtDate(t['date']), bold: true, fontSize: 10),
                         _cell(desc),
                         _cell(fmt.format(opening), right: true),
                         _cell(
@@ -1471,9 +1703,12 @@ class _generalLedgerState extends State<generalLedger> {
     );
   }
 
-  Future<void> _printLedgerPdf(BuildContext context) async {
-    final provider = context.read<Datafeed>();
-    final resultList = provider.ledgerreport;
+  Future<void> _printLedgerPdf(
+    BuildContext context, {
+    List<Map<String, dynamic>>? ledgerRows,
+  }) async {
+    final provider = context.read<ReportProvider>();
+    final resultList = ledgerRows ?? provider.ledgerreport;
     final formatter = NumberFormat('#,##0.00');
 
     final totalOpening = resultList.fold<double>(
@@ -1529,11 +1764,17 @@ class _generalLedgerState extends State<generalLedger> {
     );
   }
 
-  Future<void> printItemTransactions(List transactions, String itemName) async {
+  Future<void> printItemTransactions(
+    List transactions,
+    String itemName, {
+    DateTimeRange? dateRange,
+    String? branchName,
+    String? branchAddress,
+  }) async {
     final pdf = pw.Document(title: "Item Transactions - $itemName");
+    final provider = context.read<Datafeed>();
     final baseFont = await PdfGoogleFonts.openSansRegular();
     final boldFont = await PdfGoogleFonts.openSansBold();
-    final provider = context.read<Datafeed>();
 
     DateTime _parseDate(dynamic v) {
       if (v is Timestamp) return v.toDate();
@@ -1582,6 +1823,7 @@ class _generalLedgerState extends State<generalLedger> {
       bool header = false,
       bool bold = false,
       bool right = false,
+      double fontSize = 8,
       PdfColor? color,
     }) => pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -1590,7 +1832,7 @@ class _generalLedgerState extends State<generalLedger> {
         textAlign: right ? pw.TextAlign.right : pw.TextAlign.left,
         style: pw.TextStyle(
           font: (header || bold) ? boldFont : baseFont,
-          fontSize: 8,
+          fontSize: fontSize,
           color: header
               ? PdfColors.white
               : (color ?? const PdfColor.fromInt(0xFF1A1A2E)),
@@ -1630,18 +1872,36 @@ class _generalLedgerState extends State<generalLedger> {
     const rpp = 30;
     final pages = (transactions.length / rpp).ceil().clamp(1, 9999);
 
-    final period = selectedDate != null
-        ? '${DateFormat('d MMM y').format(selectedDate!.start)}'
-              ' - ${DateFormat('d MMM y').format(selectedDate!.end)}'
-        : 'All Dates';
+    final statementDateRange =
+        dateRange ??
+        selectedDate ??
+        DateTimeRange(start: DateTime.now(), end: DateTime.now());
+    final period = _dateRangeLabel(statementDateRange);
 
-    // account statement period label (mirrors the dialog's startLabel/endLabel)
-    final statementStart = DateFormat(
-      'yyyy MMMM EEEE dd',
-    ).format(selectedDate?.start ?? DateTime.now());
-    final statementEnd = DateFormat(
-      'yyyy MMMM EEEE dd',
-    ).format(selectedDate?.end ?? DateTime.now());
+    final statementBranch = branchName ?? _branchLabel(provider);
+    final address = branchAddress ?? provider.branchaddress;
+    pw.Widget headerDetail(
+      String label,
+      String value, {
+      bool alignRight = false,
+    }) => pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 4),
+      child: pw.RichText(
+        textAlign: alignRight ? pw.TextAlign.right : pw.TextAlign.left,
+        text: pw.TextSpan(
+          children: [
+            pw.TextSpan(
+              text: '$label: ',
+              style: pw.TextStyle(font: boldFont),
+            ),
+            pw.TextSpan(
+              text: value,
+              style: pw.TextStyle(font: baseFont),
+            ),
+          ],
+        ),
+      ),
+    );
 
     for (int pg = 0; pg < pages; pg++) {
       final pageRows = transactions.skip(pg * rpp).take(rpp).toList();
@@ -1654,105 +1914,71 @@ class _generalLedgerState extends State<generalLedger> {
           build: (ctx) => pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // header band
               pw.Container(
                 width: double.infinity,
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                padding: const pw.EdgeInsets.only(bottom: 10),
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    bottom: pw.BorderSide(color: PdfColors.black),
+                  ),
                 ),
-                decoration: pw.BoxDecoration(
-                  color: headerBg,
-                  borderRadius: pw.BorderRadius.circular(6),
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                child: pw.Column(
                   children: [
-                    pw.Expanded(
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            provider.company.toUpperCase(),
-                            style: pw.TextStyle(
-                              font: boldFont,
-                              fontSize: 14,
-                              color: PdfColors.white,
-                            ),
-                          ),
-                          pw.SizedBox(height: 3),
-                          pw.Text(
-                            'GENERAL LEDGER',
-                            style: pw.TextStyle(
-                              font: baseFont,
-                              fontSize: 9,
-                              color: PdfColors.blueGrey200,
-                            ),
-                          ),
-                          pw.Text(
-                            'Address: ${provider.branchaddress}',
-                            style: pw.TextStyle(
-                              font: baseFont,
-                              fontSize: 8,
-                              color: PdfColors.blueGrey200,
-                            ),
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'Account Name: $itemName',
-                            style: pw.TextStyle(
-                              font: boldFont,
-                              fontSize: 10,
-                              color: PdfColors.white,
-                            ),
-                          ),
-                          pw.Text(
-                            'Branch: ${_selectedBranch ?? "All Branches"}',
-                            style: pw.TextStyle(
-                              font: baseFont,
-                              fontSize: 8,
-                              color: PdfColors.blueGrey200,
-                            ),
-                          ),
-                          pw.SizedBox(height: 2),
-                          pw.Text(
-                            'ACCOUNT STATEMENT FROM $statementStart TO $statementEnd',
-                            style: pw.TextStyle(
-                              font: boldFont,
-                              fontSize: 8,
-                              color: PdfColors.white,
-                            ),
-                          ),
-                        ],
+                    pw.Text(
+                      provider.company,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        font: boldFont,
+                        fontSize: 20,
+                        color: PdfColors.blue800,
                       ),
                     ),
-                    pw.SizedBox(width: 12),
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'ACCOUNT STATEMENT',
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        font: baseFont,
+                        fontSize: 14,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                    pw.SizedBox(height: 12),
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text(
-                          'Period: $period',
-                          style: pw.TextStyle(
-                            font: boldFont,
-                            fontSize: 9,
-                            color: PdfColors.white,
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              headerDetail('Account Name', itemName),
+                              if (address.isNotEmpty)
+                                headerDetail('Address', address),
+                            ],
                           ),
                         ),
-                        pw.SizedBox(height: 3),
-                        pw.Text(
-                          'Generated: ${DateFormat('d MMMM y, hh:mm a').format(DateTime.now())}',
-                          style: pw.TextStyle(
-                            font: baseFont,
-                            fontSize: 8,
-                            color: PdfColors.blueGrey200,
-                          ),
-                        ),
-                        pw.Text(
-                          'Page ${pg + 1} of $pages',
-                          style: pw.TextStyle(
-                            font: baseFont,
-                            fontSize: 8,
-                            color: PdfColors.blueGrey200,
+                        pw.SizedBox(width: 24),
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.end,
+                            children: [
+                              headerDetail(
+                                'Branch',
+                                statementBranch,
+                                alignRight: true,
+                              ),
+                              headerDetail('Period', period, alignRight: true),
+                              pw.Text(
+                                'Generated: ${DateFormat('d MMM y, hh:mm a').format(DateTime.now())}'
+                                '  |  Page ${pg + 1} of $pages',
+                                style: pw.TextStyle(
+                                  font: baseFont,
+                                  fontSize: 8,
+                                  color: PdfColors.grey600,
+                                ),
+                                textAlign: pw.TextAlign.right,
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1818,8 +2044,8 @@ class _generalLedgerState extends State<generalLedger> {
               // data table
               pw.Table(
                 columnWidths: {
-                  0: const pw.FixedColumnWidth(22), // #
-                  1: const pw.FixedColumnWidth(65), // Date
+                  0: const pw.FixedColumnWidth(34), // #
+                  1: const pw.FixedColumnWidth(90), // Date
                   2: const pw.FlexColumnWidth(3.0), // Description
                   3: const pw.FlexColumnWidth(1.4), // Opening Balance
                   4: const pw.FlexColumnWidth(1.4), // Debit
@@ -1841,8 +2067,8 @@ class _generalLedgerState extends State<generalLedger> {
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(color: headerBg),
                     children: [
-                      _cell('#', header: true),
-                      _cell('DATE', header: true),
+                      _cell('#', header: true, fontSize: 10),
+                      _cell('DATE', header: true, fontSize: 10),
                       _cell('DESCRIPTION', header: true),
                       _cell('OPENING BAL.', header: true, right: true),
                       _cell('DEBIT', header: true, right: true),
@@ -1870,8 +2096,12 @@ class _generalLedgerState extends State<generalLedger> {
                     return pw.TableRow(
                       decoration: pw.BoxDecoration(color: bg),
                       children: [
-                        _cell('${pg * rpp + i + 1}'),
-                        _cell(_fmtDate(t['date'])),
+                        _cell('${pg * rpp + i + 1}', bold: true, fontSize: 10),
+                        _cell(
+                          _fmtDate(t['transactionDate'] ?? t['date']),
+                          bold: true,
+                          fontSize: 10,
+                        ),
                         _cell(desc),
                         _cell(fmt.format(opening), right: true),
                         _cell(

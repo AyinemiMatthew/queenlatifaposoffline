@@ -1,13 +1,10 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dropdown_search/dropdown_search.dart' hide Mode;
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' hide Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' hide Barcode;
 import 'package:provider/provider.dart';
 import 'package:universal_io/io.dart';
@@ -16,6 +13,7 @@ import '../models/itemmodel.dart';
 import '../models/itemregmodel.dart';
 import '../models/productcategorymodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 import 'itemlist.dart';
 
 class ItemRegPage extends StatefulWidget {
@@ -67,7 +65,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
   File? _logoFile;
   String? _existingLogoUrl;
   String? itemname;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final ImagePicker _picker = ImagePicker();
 
   String _formatSplitQuantity(double quantity) {
@@ -75,263 +72,23 @@ class _ItemRegPageState extends State<ItemRegPage> {
   }
 
   String? _validateField(String fieldName, String? value) {
-    if (value == null || value.isEmpty) {
-      if (fieldName == 'supplierMinQty') return null;
-      return 'Required';
-    }
-
-    switch (fieldName) {
-      case 'retailPrice':
-        double retailPrice = double.tryParse(value) ?? 0;
-        double unitCost = double.tryParse(_costController.text) ?? 0;
-        double boxPrice = double.tryParse(_wholesalePriceController.text) ?? 0;
-        double supplierPrice =
-            double.tryParse(_supplierPriceController.text) ?? 0;
-        double boxQty = double.tryParse(_boxQtyController.text) ?? 1;
-        double boxunitprice = boxPrice / boxQty;
-
-        if (retailPrice <= 0) return 'Enter a valid retail price';
-        if (boxQty == 1) {}
-        if (unitCost > 0 && retailPrice < unitCost) {
-          return 'Retail price GHS$retailPrice must be greater than\n Unit Cost which is GHS${boxPrice / boxQty}';
-        }
-
-        if (boxQty > 1) {
-          if (retailPrice < boxunitprice) {
-            return 'Retail price GHS$retailPrice must be equal to \n or greater than Box unit Price GHS${boxPrice / boxQty}';
-          }
-
-          if (supplierPrice > 0 && retailPrice < (supplierPrice / boxQty)) {
-            return 'Unit retail price GHS$retailPrice must be equal \n to or greater than Supplier Price ${supplierPrice / boxQty}';
-          }
-
-          if (retailPrice < unitCost) {
-            return 'Retail price GHS$retailPrice must be greater than\n or equal to Unit Cost GHS$unitCost';
-          }
-        }
-        return null;
-
-      case 'costPrice':
-        final costPrice = double.tryParse(value) ?? 0;
-        final retailPrice = double.tryParse(_retail_price.text) ?? 0;
-
-        if (retailPrice > 0 && costPrice > retailPrice) {
-          return 'Unit Cost Price GHS$costPrice must be less than Retail Price GHS$retailPrice';
-        }
-        return null;
-
-      case 'boxQty':
-        final boxQty = double.tryParse(value) ?? 0;
-        if (boxQty < 1) {
-          return 'Box quantity must be at least 1';
-        }
-        return null;
-
-      case 'boxPrice':
-        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
-        // if (boxQty == 1) return null;
-
-        double boxPrice = double.tryParse(value) ?? 0;
-        double boxQtyVal = double.tryParse(_boxQtyController.text) ?? 1;
-        double pricePerUnit = boxQtyVal > 0 ? boxPrice / boxQtyVal : 0;
-        double retailPrice = double.tryParse(_retail_price.text) ?? 0;
-        double costPrice = double.tryParse(_costController.text) ?? 0;
-
-        if (boxQty == 1) {
-          if (costPrice > boxPrice) {
-            return 'Cost price  GHS$costPrice \n is more than Box Price GHS$boxPrice';
-          }
-          if (boxPrice > retailPrice) {
-            return 'Box price  GHS$boxPrice \n can more than Retail Price GHS$retailPrice';
-          }
-          return null;
-        }
-
-        if (pricePerUnit > retailPrice) {
-          return 'Price per unit which is GHS${boxPrice / boxQtyVal} \n Qty cannot be less than Retail Price';
-        }
-
-        if (pricePerUnit < costPrice) {
-          return 'Price per unit which is GHS${boxPrice / boxQtyVal} \n Qty cannot be less than Unit Cost Price';
-        }
-        return null;
-
-      case 'supplierPrice':
-        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
-        if (boxQty <= 0) return null;
-
-        final supplierPrice = double.tryParse(value) ?? 0;
-        final unitCost = double.tryParse(_costController.text) ?? 0;
-        final boxPrice = double.tryParse(_wholesalePriceController.text) ?? 0;
-        final retailPrice = double.tryParse(_retail_price.text) ?? 0;
-        double costPrice = double.tryParse(_costController.text) ?? 0;
-        if (boxQty == 1) {
-          if (costPrice > supplierPrice) {
-            return 'Cost price  GHS$costPrice \n is more than Supplier Price GHS$supplierPrice';
-          }
-          if (supplierPrice > retailPrice) {
-            return 'Supplier price  GHS$supplierPrice \n is more than Retail Price GHS$retailPrice';
-          }
-          return null;
-        }
-
-        final minSupplierPrice = unitCost * boxQty;
-        if (supplierPrice < minSupplierPrice) {
-          return 'Supplier Price GHS$supplierPrice must be more\n or equal to  (${minSupplierPrice.toStringAsFixed(2)})';
-        }
-
-        if (supplierPrice > boxPrice) {
-          return 'Supplier Price must be less than \n or equal to Box Price';
-        }
-        return null;
-
-      case 'supplierMinQty':
-        final supplierQty = double.tryParse(value);
-        if (supplierQty == null || supplierQty <= 0) {
-          return 'Supplier Min Qty must be greater than zero';
-        }
-        return null;
-
-      case 'halfBoxQty':
-        final halfBoxQty = double.tryParse(value) ?? 0;
-        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
-
-        if (boxQty == 0) return null;
-
-        final requiredHalfQty = boxQty / 2;
-
-        if (halfBoxQty <= 0) {
-          return 'Half Box Qty must be greater than zero';
-        }
-        if (halfBoxQty > boxQty) {
-          return 'Half Box Qty cannot exceed Box Qty';
-        }
-
-        if ((halfBoxQty - requiredHalfQty).abs() > 0.001) {
-          return 'Half Box Qty must be $requiredHalfQty';
-        }
-
-        return null;
-
-      case 'halfBoxPrice':
-        final halfBoxPrice = double.tryParse(value) ?? 0;
-        final boxPrice = double.tryParse(_wholesalePriceController.text) ?? 0;
-        if (boxPrice == 0) return null;
-
-        final requiredHalfPrice = boxPrice / 2;
-        if (halfBoxPrice > boxPrice) {
-          return 'Half Box Price cannot exceed Box Price';
-        }
-        if (halfBoxPrice < requiredHalfPrice) {
-          return 'Half Box Price must be at least ${requiredHalfPrice.toStringAsFixed(2)}';
-        }
-        return null;
-
-      case 'quarterQty':
-        final quarterQty = double.tryParse(value) ?? 0;
-        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
-        final halfQty = double.tryParse(_halfboxqty_controller.text) ?? 0;
-        final packQty = double.tryParse(_packQtyController.text) ?? 0;
-
-        if (boxQty == 0) return null;
-
-        final requiredQuarterQty = boxQty / 4;
-
-        if (quarterQty <= 0) {
-          return 'Quarter Qty must be greater than zero';
-        }
-        if (quarterQty > boxQty) {
-          return 'Quarter Qty cannot exceed Box Qty';
-        }
-
-        if ((quarterQty - requiredQuarterQty).abs() > 0.001) {
-          return 'Quarter Qty must be $requiredQuarterQty';
-        }
-
-        if (halfQty > 0 && quarterQty >= halfQty) {
-          return 'Quarter Qty must be less than Half Qty';
-        }
-
-        if (packQty > 0 && quarterQty <= packQty) {
-          return 'Quarter Qty must be greater than Pack Qty';
-        }
-
-        return null;
-
-      case 'quarterPrice':
-        final quarterPrice = double.tryParse(value) ?? 0;
-        final boxPrice = double.tryParse(_wholesalePriceController.text) ?? 0;
-        final halfBoxPrice =
-            double.tryParse(_halfboxprice_controller.text) ?? 0;
-
-        if (boxPrice == 0) return null;
-
-        final requiredQuarterPrice = boxPrice / 4;
-        if (quarterPrice > boxPrice) {
-          return 'Quarter Price cannot exceed Box Price';
-        }
-        if (quarterPrice < requiredQuarterPrice) {
-          return 'Quarter Price must be at least ${requiredQuarterPrice.toStringAsFixed(2)}';
-        }
-        if (halfBoxPrice > 0 && quarterPrice >= halfBoxPrice) {
-          return 'Quarter Price must be less than Half Box Price';
-        }
-        return null;
-
-      case 'packQty':
-        if (!_enableBoxPricing) return null;
-
-        final packQty = double.tryParse(value) ?? 0;
-        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
-        final halfQty = double.tryParse(_halfboxqty_controller.text) ?? 0;
-        final quarterQty = double.tryParse(_quarterqty_controller.text) ?? 0;
-
-        if (packQty <= 0) {
-          return 'Pack Qty must be greater than zero';
-        }
-
-        if (boxQty > 0 && packQty > 0 && (boxQty % packQty).abs() > 0.000001) {
-          return 'Box Qty must be divisible by Pack Qty';
-        }
-
-        if (boxQty > 0 && packQty > boxQty) {
-          return 'Pack Qty cannot exceed Box Qty';
-        }
-
-        if (halfQty > 0 && packQty >= halfQty) {
-          return 'Pack Qty must be less than Half Qty';
-        }
-
-        if (quarterQty > 0 && packQty >= quarterQty) {
-          return 'Pack Qty must be less than Quarter Qty';
-        }
-
-        return null;
-
-      case 'packPrice':
-        final packPrice = double.tryParse(value) ?? 0;
-        final boxPrice = double.tryParse(_wholesalePriceController.text) ?? 0;
-        final boxQty = double.tryParse(_boxQtyController.text) ?? 0;
-        final packQty = double.tryParse(_packQtyController.text) ?? 0;
-        final retailprice = double.tryParse(_retail_price.text) ?? 0;
-        final unitcostprice =
-            double.tryParse(_costController.text.toString()) ?? 0;
-
-        if (boxQty == 0 || packQty == 0 || boxPrice == 0) return null;
-
-        double unitboxprice = boxPrice / boxQty;
-        final requiredPackPrice = packPrice / packQty;
-
-        if (requiredPackPrice > retailprice ||
-            requiredPackPrice < unitcostprice ||
-            requiredPackPrice < unitboxprice) {
-          return 'Please check Unit(box/cost/retail) price';
-        }
-        return null;
-
-      default:
-        return null;
-    }
+    return context.read<ItemProvider>().validateItemField(
+      fieldName,
+      value,
+      ItemValidationValues(
+        costPrice: _costController.text,
+        retailPrice: _retail_price.text,
+        boxQuantity: _boxQtyController.text,
+        boxPrice: _wholesalePriceController.text,
+        supplierPrice: _supplierPriceController.text,
+        halfBoxQuantity: _halfboxqty_controller.text,
+        halfBoxPrice: _halfboxprice_controller.text,
+        quarterQuantity: _quarterqty_controller.text,
+        quarterPrice: _quarterprice_controller.text,
+        packQuantity: _packQtyController.text,
+        enableBoxPricing: _enableBoxPricing,
+      ),
+    );
   }
 
   Future<void> _addProductCategory() async {
@@ -584,34 +341,6 @@ class _ItemRegPageState extends State<ItemRegPage> {
     }
 
     setState(() {});
-  }
-
-  Future<String?> uploadLogo(String itemId) async {
-    if (_logoFile == null && _logoBytes == null) {
-      return _existingLogoUrl;
-    }
-
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('items')
-        .child('$itemId.png');
-
-    UploadTask task;
-
-    if (kIsWeb) {
-      task = ref.putData(
-        _logoBytes!,
-        SettableMetadata(contentType: 'image/png'),
-      );
-    } else {
-      task = ref.putFile(
-        _logoFile!,
-        SettableMetadata(contentType: 'image/png'),
-      );
-    }
-
-    final snap = await task;
-    return snap.ref.getDownloadURL();
   }
 
   Future<void> _scanBarcode() async {
@@ -1066,12 +795,12 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
                                     if (widget.docId != null) {
                                       try {
-                                        await _db
-                                            .collection('itemsreg')
-                                            .doc(widget.docId)
-                                            .update({
-                                              'modes.half': FieldValue.delete(),
-                                            });
+                                        await context
+                                            .read<ItemProvider>()
+                                            .removeItemPricingMode(
+                                              itemId: widget.docId!,
+                                              modeId: 'half',
+                                            );
                                         if (mounted) {
                                           ScaffoldMessenger.of(
                                             context,
@@ -1248,13 +977,12 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
                                     if (widget.docId != null) {
                                       try {
-                                        await _db
-                                            .collection('itemsreg')
-                                            .doc(widget.docId)
-                                            .update({
-                                              'modes.quarter':
-                                                  FieldValue.delete(),
-                                            });
+                                        await context
+                                            .read<ItemProvider>()
+                                            .removeItemPricingMode(
+                                              itemId: widget.docId!,
+                                              modeId: 'quarter',
+                                            );
 
                                         if (mounted) {
                                           ScaffoldMessenger.of(
@@ -1429,12 +1157,12 @@ class _ItemRegPageState extends State<ItemRegPage> {
 
                                     if (widget.docId != null) {
                                       try {
-                                        await _db
-                                            .collection('itemsreg')
-                                            .doc(widget.docId)
-                                            .update({
-                                              'modes.pack': FieldValue.delete(),
-                                            });
+                                        await context
+                                            .read<ItemProvider>()
+                                            .removeItemPricingMode(
+                                              itemId: widget.docId!,
+                                              modeId: 'pack',
+                                            );
 
                                         if (mounted) {
                                           ScaffoldMessenger.of(
@@ -2020,311 +1748,86 @@ class _ItemRegPageState extends State<ItemRegPage> {
   }
 
   Future<void> _saveItem() async {
-    if (_loading) return;
-    if (!_formKey.currentState!.validate()) return;
+    if (_loading || !_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final now = DateTime.now();
-    final day = DateFormat('EEEE').format(now);
-    final year = now.year.toString();
-    final month = '${now.year}.${now.month}';
-    final weekNumber =
-        ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
-    final week = '${now.year}.$weekNumber';
 
     try {
       final datafeed = context.read<Datafeed>();
-      final companyId = datafeed.companyid;
+      final itemProvider = context.read<ItemProvider>();
       final itemName = _nameController.text.trim();
+      final docId = itemProvider.itemDocumentId(datafeed.companyid, itemName);
+      final imageUrl = await itemProvider.uploadItemImage(
+        itemId: widget.docId ?? docId,
+        file: _logoFile,
+        bytes: _logoBytes,
+        existingUrl: _existingLogoUrl,
+        isWeb: kIsWeb,
+      );
+      final modes = itemProvider.buildItemModes(
+        existingModes: widget.item?.modes ?? const [],
+        companyType: datafeed.companytype,
+        costPrice: _costController.text,
+        retailPrice: _retail_price.text,
+        boxQuantity: _boxQtyController.text,
+        boxPrice: _wholesalePriceController.text,
+        supplierPrice: _supplierPriceController.text,
+        enableBoxPricing: _enableBoxPricing,
+        pricingStep: pricingStep,
+        halfBoxQuantity: _halfboxqty_controller.text,
+        halfBoxPrice: _halfboxprice_controller.text,
+        quarterQuantity: _quarterqty_controller.text,
+        quarterPrice: _quarterprice_controller.text,
+        packQuantity: _packQtyController.text,
+        packPrice: _packprice_controller.text,
+      );
+      await itemProvider.saveItem(
+        datafeed: datafeed,
+        existingId: widget.docId,
+        existingItem: widget.item,
+        name: itemName,
+        barcode: _barcodeController.text,
+        costPrice: _costController.text,
+        productType: _productType ?? '',
+        productCategory: _productCategory ?? '',
+        imageUrl: imageUrl ?? '',
+        wholesaleMinQuantity: _wholesaleMinQtyController.text,
+        supplierMinQuantity: _supplierMinQtyController.text,
+        shelfNumber: _shelfnumberController.text,
+        enableBoxPricing: _enableBoxPricing,
+        modes: modes,
+      );
 
-      String sanitize(String input) {
-        return input
-            .trim()
-            .toLowerCase()
-            .replaceAll(RegExp(r'\s+'), '')
-            .replaceAll(RegExp(r'[^a-z0-9_]'), '');
-      }
-
-      final docId =
-          widget.docId ?? '${sanitize(companyId)}_${sanitize(itemName)}';
-
-      final cleabbarcode =
-          (_barcodeController.text.trim().isEmpty
-                  ? itemName
-                  : _barcodeController.text.trim())
-              .toLowerCase();
-
-      // Name duplicate - new items only
-      final nameQuery = await _db
-          .collection('itemsreg')
-          .where('companyid', isEqualTo: companyId)
-          .where('name', isEqualTo: itemName)
-          .limit(1)
-          .get();
-
-      if (nameQuery.docs.isNotEmpty && nameQuery.docs.first.id != docId) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'An item with name "$itemName" already exists for this company',
-              ),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-        setState(() => _loading = false);
-        return;
-      }
-
-      if (cleabbarcode.isNotEmpty) {
-        final barcodeQuery = await _db
-            .collection('itemsreg')
-            .where('companyid', isEqualTo: companyId)
-            .where('barcode', isEqualTo: cleabbarcode)
-            .limit(1)
-            .get();
-
-        if (barcodeQuery.docs.isNotEmpty &&
-            barcodeQuery.docs.first.id != docId) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'An item with barcode "$cleabbarcode" already exists',
-                ),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
-          setState(() => _loading = false);
-          return;
-        }
-      }
-
-      final docRef = _db.collection('itemsreg').doc(docId);
-      final imageUrl = await uploadLogo(docId);
-
-      List<Mode> modes = List<Mode>.from(widget.item?.modes ?? []);
-      final double boxqty = double.tryParse(_boxQtyController.text) ?? 0;
-
-      void upsertMode(String id, Mode newMode) {
-        final index = modes.indexWhere((m) => m.id == id);
-        if (index != -1) {
-          modes[index] = newMode;
-        } else {
-          modes.add(newMode);
-        }
-      }
-
-      void removeMode(String id) => modes.removeWhere((m) => m.id == id);
-
-      final bool hasBoxQuantity = boxqty >= 1;
-      final businessType = datafeed.companytype.toLowerCase().trim();
-      final bool supportsRetail = businessType != 'wholesale';
-      final bool supportsWholesale = businessType != 'retail';
-      final bool wantSingle = hasBoxQuantity && supportsRetail;
-      final bool wantCartonSet = hasBoxQuantity && supportsWholesale;
-
-      final String cp = _costController.text.trim();
-      final String rp = _retail_price.text.trim();
-      final String boxPrice = _wholesalePriceController.text.trim();
-      final String supplierPrice = _supplierPriceController.text.trim();
-
-      if (wantSingle) {
-        upsertMode(
-          "single",
-          Mode(
-            id: "single",
-            name: "Single",
-            qty: "1",
-            cp: cp,
-            rp: rp,
-            wp: boxqty == 1 ? boxPrice : rp,
-            sp: boxqty == 1 ? supplierPrice : rp,
+      if (!mounted) return;
+      if (widget.docId == null) _clearAllFields();
+      final theme = Theme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.docId == null
+                ? 'Item saved successfully!'
+                : 'Item updated successfully!',
+            style: TextStyle(color: theme.colorScheme.onPrimary),
           ),
-        );
-      } else {
-        removeMode("single");
-      }
-
-      if (wantCartonSet) {
-        upsertMode(
-          "carton",
-          Mode(
-            id: "carton",
-            name: "Carton",
-            qty: _boxQtyController.text.trim(),
-            cp: cp,
-            rp: boxqty > 1 ? boxPrice : rp,
-            wp: boxPrice,
-            sp: supplierPrice,
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final theme = Theme.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Error: $error',
+            style: TextStyle(color: theme.colorScheme.onSurface),
           ),
-        );
-      } else {
-        removeMode("carton");
-      }
-
-      if (hasBoxQuantity && _enableBoxPricing) {
-        if (pricingStep >= 1 &&
-            _halfboxqty_controller.text.isNotEmpty &&
-            _halfboxprice_controller.text.isNotEmpty) {
-          upsertMode(
-            "half",
-            Mode(
-              id: "half",
-              name: "Half Carton",
-              qty: _halfboxqty_controller.text.trim(),
-              cp: cp,
-              rp: _halfboxprice_controller.text.trim(),
-              wp: _halfboxprice_controller.text.trim(),
-              sp: _halfboxprice_controller.text.trim(),
-            ),
-          );
-        } else {
-          removeMode("half");
-        }
-
-        if (pricingStep >= 2 &&
-            _quarterqty_controller.text.isNotEmpty &&
-            _quarterprice_controller.text.isNotEmpty) {
-          upsertMode(
-            "quarter",
-            Mode(
-              id: "quarter",
-              name: "Quarter Carton",
-              qty: _quarterqty_controller.text.trim(),
-              cp: cp,
-              rp: _quarterprice_controller.text.trim(),
-              wp: _quarterprice_controller.text.trim(),
-              sp: _quarterprice_controller.text.trim(),
-            ),
-          );
-        } else {
-          removeMode("quarter");
-        }
-
-        if (pricingStep >= 3 &&
-            _packQtyController.text.isNotEmpty &&
-            _packprice_controller.text.isNotEmpty) {
-          upsertMode(
-            "pack",
-            Mode(
-              id: "pack",
-              name: "Pack",
-              qty: _packQtyController.text.trim(),
-              cp: cp,
-              rp: _packprice_controller.text.trim(),
-              wp: _packprice_controller.text.trim(),
-              sp: _packprice_controller.text.trim(),
-            ),
-          );
-        } else {
-          removeMode("pack");
-        }
-      } else {
-        removeMode("half");
-        removeMode("quarter");
-        removeMode("pack");
-      }
-
-      Map<String, dynamic> data;
-
-      if (widget.docId == null) {
-        // NEW ITEM
-        final item = ItemModel(
-          id: docId,
-          name: itemName,
-          barcode: cleabbarcode,
-          cp: _costController.text.trim(),
-          retailmarkup: '',
-          wholesalemarkup: '',
-          retailprice: '',
-          wholesaleprice: '',
-          producttype: _productType ?? '',
-          pricingmode: false,
-          pcategory: _productCategory ?? '',
-          warehouse: '',
-          openingstock: '',
-          company: datafeed.company,
-          companyid: datafeed.companyid,
-          imageurl: imageUrl ?? '',
-          modes: modes,
-          createdat: DateTime.now(),
-          updatedby: null,
-          updatedat: null,
-          wminqty: _wholesaleMinQtyController.text,
-          sminqty: _supplierMinQtyController.text,
-          staff: datafeed.staff,
-          modemore: _enableBoxPricing,
-          deletedat: null,
-          deletedby: null,
-          day: day,
-          week: week,
-          month: month,
-          year: year,
-          shelfnumber: _shelfnumberController.text,
-        );
-
-        data = item.toMap();
-        data['createdat'] = FieldValue.serverTimestamp();
-        await docRef.set(data, SetOptions(merge: true));
-      } else {
-        // EDIT
-        data = {
-          'name': itemName,
-          'barcode': cleabbarcode,
-          'cp': _costController.text.trim(),
-          'producttype': _productType ?? '',
-          'pcategory': _productCategory ?? '',
-          'imageurl': imageUrl ?? '',
-          'modes': {for (var m in modes) m.id: m.toMap()},
-          'wminqty': _wholesaleMinQtyController.text,
-          'sminqty': _supplierMinQtyController.text,
-          'modemore': _enableBoxPricing,
-          'updatedat': FieldValue.serverTimestamp(),
-          'updatedby': datafeed.staff,
-          'shelfnumber': _shelfnumberController.text,
-        };
-        await docRef.update(data);
-      }
-
-      if (widget.docId == null) {
-        _clearAllFields();
-      }
-
-      if (mounted) {
-        final theme = Theme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.docId == null
-                  ? 'Item saved successfully!'
-                  : 'Item updated successfully!',
-              style: TextStyle(color: theme.colorScheme.onPrimary),
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        final theme = Theme.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: $e',
-              style: TextStyle(color: theme.colorScheme.onSurface),
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-    setState(() => _loading = false);
   }
 
   @override

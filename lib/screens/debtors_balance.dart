@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kologsoft/models/debtorsbalmodel.dart';
 import 'package:provider/provider.dart';
-
 import '../providers/Datafeed.dart';
 import '../providers/routes.dart';
 
@@ -309,24 +308,31 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                     firstDate: DateTime(2000),
                                     lastDate: DateTime(2100),
                                     builder: (context, child) {
+                                      final theme = Theme.of(context);
                                       return Theme(
-                                        data: Theme.of(context).copyWith(
-                                          colorScheme: Theme.of(context)
-                                              .colorScheme
+                                        data: theme.copyWith(
+                                          colorScheme: theme.colorScheme.copyWith(
+                                            primary: theme.colorScheme.primary,
+                                            onPrimary: theme.colorScheme.onPrimary,
+                                            surface: theme.colorScheme.surface,
+                                            onSurface: theme.colorScheme.onSurface,
+                                          ),
+                                          dialogBackgroundColor:
+                                              theme.colorScheme.surface,
+                                          datePickerTheme: theme.datePickerTheme
                                               .copyWith(
-                                                primary: Colors.blue,
-                                                onPrimary: Colors.white,
-                                                surface: Theme.of(
-                                                  context,
-                                                ).colorScheme.surface,
-                                                onSurface: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurface,
-                                              ),
-                                          textButtonTheme: TextButtonThemeData(
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: Colors.white,
-                                            ),
+                                                cancelButtonStyle:
+                                                    TextButton.styleFrom(
+                                                      foregroundColor: theme
+                                                          .colorScheme
+                                                          .onSurface,
+                                                    ),
+                                                confirmButtonStyle:
+                                                    TextButton.styleFrom(
+                                                      foregroundColor: theme
+                                                          .colorScheme
+                                                          .onSurface,
+                                                    ),
                                           ),
                                         ),
                                         child: child!,
@@ -392,7 +398,9 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                             14,
                                           ),
                                           side: BorderSide(
-                                            color: Colors.white70,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .outline,
                                           ),
                                         ),
                                       ),
@@ -404,8 +412,10 @@ class _DebtorsBalanceState extends State<DebtorsBalance> {
                                       },
                                       child: Text(
                                         "View Debtors",
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                         ),
                                       ),
                                     ),

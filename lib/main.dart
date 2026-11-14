@@ -3,14 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:kologsoft/providers/damage_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
 import 'package:kologsoft/providers/cart_provider.dart';
 import 'package:kologsoft/providers/cashier_provider.dart';
 import 'package:kologsoft/providers/dashboard_provider.dart';
 import 'package:kologsoft/providers/theme_provider.dart';
 import 'package:kologsoft/providers/routes.dart';
 import 'package:kologsoft/providers/SalesProvider.dart';
+import 'package:kologsoft/providers/item_provider.dart';
 import 'package:kologsoft/screens/home_dashboard.dart';
 import 'package:kologsoft/services/domain_detector.dart';
 import 'package:kologsoft/theme/app_theme.dart';
@@ -89,6 +92,10 @@ class MyApp extends StatelessWidget {
             return datafeed;
           },
         ),
+        ChangeNotifierProvider(create: (_) => ItemProvider()),
+        ChangeNotifierProvider(
+          create: (context) => ReportProvider(context.read<Datafeed>()),
+        ),
         ChangeNotifierProvider(create: (_) => StockProvider()),
         ChangeNotifierProvider(create: (_) => CashierProvider()),
         ChangeNotifierProvider(create: (_) => SalesProvider()),
@@ -99,6 +106,9 @@ class MyApp extends StatelessWidget {
             preferences: preferences,
             isLightTheme: preferences.getBool('isLightTheme') ?? false,
           ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => DamageProvider(context.read<Datafeed>()),
         ),
       ],
       child: Consumer<ThemeProvider>(

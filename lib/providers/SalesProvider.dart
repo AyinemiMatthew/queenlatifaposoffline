@@ -7,7 +7,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/branch.dart';
 import '../models/itemregmodel.dart';
+import '../models/salesreturnmodel.dart';
 import 'Datafeed.dart';
+
+class SalesReturnSaveRequest {
+  const SalesReturnSaveRequest({
+    required this.datafeed,
+    required this.receiptId,
+    required this.dateYmd,
+    required this.items,
+    required this.amountPaid,
+    required this.payments,
+    required this.transMode,
+    this.onSyncError,
+  });
+
+  final Datafeed datafeed;
+  final String receiptId;
+  final String dateYmd;
+  final Map<String, Map<String, dynamic>> items;
+  final double amountPaid;
+  final List<Map<String, dynamic>> payments;
+  final String? transMode;
+  final ValueChanged<String>? onSyncError;
+}
 
 class SalesProvider extends Datafeed {
   final FirebaseFirestore db = FirebaseFirestore.instance;
@@ -40,6 +63,314 @@ class SalesProvider extends Datafeed {
   int _cartCounter = 1;
   SalesProvider() {
     _customerCarts[_currentCartId] = [];
+  }
+
+  Future<bool> saveSalesReturn(SalesReturnSaveRequest request) async {
+    final datafeed = request.datafeed;
+    final cleanReceipt = request.receiptId.trim();
+    if (cleanReceipt.isEmpty ||
+        cleanReceipt.toLowerCase() == 'null' ||
+        cleanReceipt.length < 2) {
+      throw ArgumentError('Invalid receipt ID.');
+    }
+
+    final now = DateTime.now();
+    final receipt = cleanReceipt.startsWith('0')
+        ? cleanReceipt.substring(1)
+        : cleanReceipt;
+    final id =
+        '${datafeed.companyid.toUpperCase()}_${datafeed.staffPosition}_$receipt';
+    final cart = <String, Map<String, dynamic>>{
+      for (final entry in request.items.entries)
+        entry.key: Map<String, dynamic>.from(entry.value)
+          ..remove('original_item'),
+    };
+    if (cart.isEmpty) throw ArgumentError('Return items are required.');
+
+    final firstCartItem = request.items.values.first;
+    final returnBranchId =
+        firstCartItem['returned_branchid'] ?? datafeed.activeBranchId;
+    final returnBranchName =
+        firstCartItem['returned_branchname'] ?? datafeed.activeBranchName;
+    final totalAmount = request.items.values.fold<double>(
+      0,
+      (total, item) =>
+          total +
+          (double.tryParse(item['returned_grosstotalamount'].toString()) ?? 0),
+    );
+    final totalDiscount = request.items.values.fold<double>(
+      0,
+      (total, item) =>
+          total + (double.tryParse(item['returned_discount'].toString()) ?? 0),
+    );
+    final weekNumber =
+        (now.difference(DateTime(now.year, 1, 1)).inDays / 7).floor() + 1;
+    final cleanedTransMode =
+        request.transMode ?? cart.values.first['returned_transMode'] ?? '';
+
+    final returnData = {
+      'returned_companyid': datafeed.companyid,
+      'returned_id': id,
+      'returned_receiptid': request.receiptId,
+      'returned_branchid': returnBranchId,
+      'returned_branchname': returnBranchName,
+      'returned_createdat': FieldValue.serverTimestamp(),
+      'returned_createdby': datafeed.staff,
+      'returned_staffreturnedbranch': datafeed.activeBranchId,
+      'returned_staffreturnedbranchname': datafeed.activeBranchName,
+      'returned_updatedby': datafeed.staff,
+      'returned_itemcount': cart.length,
+      'day': DateFormat('EEEE').format(now),
+      'week': '${now.year}.$weekNumber',
+      'month': '${now.year}.${now.month}',
+      'year': now.year.toString(),
+      'transmode': cleanedTransMode,
+      'dateymd': request.dateYmd,
+      'returned_items': cart,
+      'returned_transMode': request.transMode,
+      'returned_grosstotalamount': totalAmount,
+      'returned_discount': totalDiscount,
+      'returned_amountPaid': request.amountPaid,
+      'returned_payments': request.payments,
+      'returned_updatedat': FieldValue.serverTimestamp(),
+      'returned_staff': datafeed.staff,
+      'returned_timestamp': now.millisecondsSinceEpoch,
+      'staffemail': datafeed.staffemail,
+    };
+    final saleUpdate = {
+      'isreturned': true,
+      'isreturned_dateymd': request.dateYmd,
+      'returned_updatedat': FieldValue.serverTimestamp(),
+      'returned_updatedby': datafeed.staff,
+      'items': cart,
+      'staffemailupdated': datafeed.staffemail,
+    };
+
+    final saleUpdateFuture = datafeed.db
+        .collection('sales')
+        .doc(id)
+        .set(saleUpdate, SetOptions(merge: true));
+    final returnSaveFuture = datafeed.db
+        .collection('salesreturn')
+        .doc(id)
+        .set(returnData, SetOptions(merge: true));
+
+    final isOffline = datafeed.isOffline;
+    if (isOffline) {
+      salereturn? previousRecord;
+      for (final record in datafeed.salesreturn) {
+        if (record.id == id) {
+          previousRecord = record;
+          break;
+        }
+      }
+
+      datafeed.addPendingSalesReturn(
+        salereturn(
+          companyid: datafeed.companyid,
+          receiptid: cleanReceipt,
+          id: id,
+          branchid: returnBranchId.toString(),
+          branchname: returnBranchName.toString(),
+          staffposition: datafeed.staffPosition,
+          salesreturn: Timestamp.fromDate(now),
+          items: cart,
+          itemcount: cart.length,
+          createdat: Timestamp.fromDate(now),
+          createdby: datafeed.staff,
+          pricingtype: request.transMode ?? '',
+          approvedby: datafeed.staff,
+          dateymd: request.dateYmd,
+          pendingSync: true,
+        ),
+      );
+      unawaited(
+        _finishOfflineReturnSync(
+          saleUpdateFuture,
+          returnSaveFuture,
+          datafeed,
+          id,
+          previousRecord,
+          request.onSyncError,
+        ),
+      );
+    } else {
+      await Future.wait([saleUpdateFuture, returnSaveFuture]);
+    }
+    return isOffline;
+  }
+
+  Future<void> _finishOfflineReturnSync(
+    Future<void> saleUpdate,
+    Future<void> returnSave,
+    Datafeed datafeed,
+    String id,
+    salereturn? previousRecord,
+    ValueChanged<String>? onSyncError,
+  ) async {
+    try {
+      await Future.wait([saleUpdate, returnSave]);
+      datafeed.markSalesReturnSynced(id);
+    } catch (error) {
+      datafeed.restoreSalesReturnAfterFailedOfflineSave(id, previousRecord);
+      onSyncError?.call('Could not sync sales return: $error');
+    }
+  }
+
+  Future<void> deleteSalesReturn(Datafeed datafeed, String id) async {
+    final salesReturnRef = datafeed.db.collection('salesreturn').doc(id);
+    final salesRef = datafeed.db.collection('sales').doc(id);
+    final returnDoc = await salesReturnRef.get();
+
+    if (returnDoc.exists) {
+      final returnData = returnDoc.data();
+      if (returnData == null) {
+        throw StateError('The sales return could not be loaded.');
+      }
+      final returnedItems =
+          returnData['returned_items'] as Map<String, dynamic>? ?? {};
+      await datafeed.db.collection('deletedcollection').doc(id).set({
+        ...returnData,
+        'deleted_at': FieldValue.serverTimestamp(),
+        'deleted_by': datafeed.staff,
+        'deleted_email': datafeed.staffemail,
+        'branchid': datafeed.branchid,
+        'type': 'salesreturn',
+        'originalId': id,
+        'companyid': datafeed.companyid,
+        'datedmy': DateFormat('dd-MM-yyyy').format(DateTime.now()),
+      });
+
+      final updates = <String, dynamic>{
+        'isreturned': false,
+        'isreturned_dateymd': FieldValue.delete(),
+        'returned_updatedat': FieldValue.delete(),
+        'returned_updatedby': FieldValue.delete(),
+        'staffemailupdated': FieldValue.delete(),
+      };
+      returnedItems.forEach((key, value) {
+        if (value is! Map) {
+          throw StateError('Sales return item data is invalid.');
+        }
+        for (final field in value.keys) {
+          if (field.toString().startsWith('returned_')) {
+            updates['items.$key.$field'] = FieldValue.delete();
+          }
+        }
+        updates['items.$key.status'] = FieldValue.delete();
+        updates['items.$key.itemkey'] = FieldValue.delete();
+      });
+
+      if ((await salesRef.get()).exists) {
+        await salesRef.update(updates);
+      }
+    }
+
+    await salesReturnRef.delete();
+    datafeed.salesreturn.removeWhere((record) => record.id == id);
+    datafeed.notifyListeners();
+  }
+
+  Future<void> deleteSaleAndReturns(
+    Datafeed datafeed, {
+    required String id,
+    required String receipt,
+  }) async {
+    final salesRef = datafeed.db.collection('sales').doc(id);
+    final salesDoc = await salesRef.get();
+    if (salesDoc.exists) {
+      final saleData = salesDoc.data();
+      if (saleData == null) {
+        throw StateError('The sale could not be loaded.');
+      }
+      await datafeed.db.collection('deletedcollection').doc(id).set({
+        ...saleData,
+        'deleted_at': FieldValue.serverTimestamp(),
+        'deleted_by': datafeed.staff,
+        'type': 'sales',
+        'originalId': id,
+        'status': 'deleted',
+        'deleted_email': datafeed.staffemail,
+        'branchid': datafeed.branchid,
+        'companyid': datafeed.companyid,
+        'datedmy': DateFormat('dd-MM-yyyy').format(DateTime.now()),
+      });
+    }
+    await salesRef.delete();
+
+    final returnSnapshot = await datafeed.db
+        .collection('salesreturn')
+        .where('returned_receiptid', isEqualTo: receipt)
+        .limit(1)
+        .get();
+    final batch = datafeed.db.batch();
+    for (final doc in returnSnapshot.docs) {
+      await datafeed.db.collection('deletedreturns').doc(doc.id).set({
+        ...doc.data(),
+        'deleted_at': FieldValue.serverTimestamp(),
+        'deleted_by': datafeed.staff,
+        'deleted_email': datafeed.staffemail,
+        'deleted_via_sales': true,
+      });
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    datafeed.salesview.removeWhere((sale) => sale.id == id);
+    datafeed.notifyListeners();
+  }
+
+  List<salereturn> filterSalesReturns({
+    required List<salereturn> records,
+    required String query,
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return records;
+
+    return records.where((record) {
+      final recordMatches = [
+        record.id,
+        record.receiptid,
+        record.branchname,
+        record.createdby,
+        record.approvedby,
+      ].any((value) => value.toLowerCase().contains(normalizedQuery));
+
+      final itemMatches = record.items.values.any((item) {
+        if (item is! Map) return false;
+        final itemData = Map<String, dynamic>.from(item);
+        final fields = [
+          itemData['returned_receiptid'],
+          itemData['returned_item'],
+          itemData['returned_itemid'],
+          itemData['returned_mode'],
+          itemData['returned_reason'] ??
+              itemData['returned_condition'] ??
+              itemData['returned_reason_description'],
+          itemData['returned_customer'] ??
+              itemData['returned_customername'] ??
+              itemData['customer'] ??
+              itemData['customername'],
+          itemData['refund_status'] ??
+              itemData['returned_status'] ??
+              itemData['returned_refundstatus'] ??
+              itemData['status'] ??
+              itemData['returned_stockCheckStatus'],
+          itemData['returned_modeqty'],
+          itemData['returned_price'],
+          itemData['returned_quantity'],
+          itemData['returned_totalamount'],
+          itemData['returned_totalpieces'],
+          itemData['returned_barcode'],
+        ];
+        return fields.any(
+          (value) =>
+              (value ?? '').toString().toLowerCase().contains(normalizedQuery),
+        );
+      });
+
+      return recordMatches || itemMatches;
+    }).toList();
   }
 
   bool isServiceOnlySale(List items) {

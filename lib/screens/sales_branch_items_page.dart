@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/Datafeed.dart';
+import '../providers/ReportProvider.dart';
 import '../widgets/datepicker.dart';
 import 'sales_item_transactions_page.dart';
 import 'sales_report_shared.dart';
@@ -41,7 +41,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
   Color get _textColor => srTextColor(context);
   Color get _mutedTextColor => srMutedTextColor(context);
 
-  late final Datafeed _provider;
+  late final ReportProvider _provider;
   late final String _previousSearch;
   final TextEditingController _search = TextEditingController();
   final ScrollController _vc = ScrollController();
@@ -97,7 +97,7 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
   @override
   void initState() {
     super.initState();
-    _provider = context.read<Datafeed>();
+    _provider = context.read<ReportProvider>();
     _previousSearch = _provider.searchQuery;
     _range = widget.dateRange;
     Future.microtask(() {
@@ -209,43 +209,6 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
       _miniStat(title, value, valueText: valueText),
       title: title,
     );
-  }
-
-  Comparable _sortValue(BranchRow row, int column) {
-    switch (column) {
-      case 1:
-        return row.branchName.toLowerCase();
-      case 2:
-        return row.qty;
-      case 3:
-        return (row.category ?? '').toLowerCase();
-      case 4:
-        return row.cash;
-      case 5:
-        return row.momo;
-      case 6:
-        return row.hubtel;
-      case 7:
-        return row.card;
-      case 8:
-        return row.bank;
-      case 9:
-        return row.cheque;
-      case 10:
-        return row.credit;
-      case 11:
-        return row.totalSales;
-      case 12:
-        return row.returns;
-      case 13:
-        return row.discount;
-      case 14:
-        return row.profit;
-      case 15:
-        return row.cashAtHand;
-      default:
-        return 0;
-    }
   }
 
   Widget _sortableHeader(int column) {
@@ -646,12 +609,11 @@ class _SalesBranchItemsPageState extends State<SalesBranchItemsPage> {
         .toList();
     final sortColumn = _sortColumn;
     if (sortColumn != null) {
-      maps.sort((a, b) {
-        final aValue = _sortValue(BranchRow.fromItem(a), sortColumn);
-        final bValue = _sortValue(BranchRow.fromItem(b), sortColumn);
-        final comparison = Comparable.compare(aValue, bValue);
-        return _sortAscending ? comparison : -comparison;
-      });
+      _provider.sortBranchItemRows(
+        maps,
+        column: sortColumn,
+        ascending: _sortAscending,
+      );
     }
     final rows = maps.map(BranchRow.fromItem).toList();
     final totals = BranchRow.sum(rows);

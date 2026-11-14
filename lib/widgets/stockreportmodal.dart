@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 import '../widgets/printStockReportPdf.dart';
@@ -55,7 +55,7 @@ class _StockReportModalContentState extends State<_StockReportModalContent> {
       if (!mounted) return;
       // Branch is fixed for this modal - always pass widget.branchId
       // so the fetch covers ALL items for this branch (no date filter yet).
-      await context.read<Datafeed>().fetchstockreport(
+      await context.read<ReportProvider>().fetchstockreport(
         selectedBranch: widget.branchId,
       );
     });
@@ -71,7 +71,7 @@ class _StockReportModalContentState extends State<_StockReportModalContent> {
   Future<void> _applyFilters() async {
     // Always keep selectedBranch: widget.branchId so this modal
     // never silently switches to "all branches" or another branch.
-    await context.read<Datafeed>().fetchstockreport(
+    await context.read<ReportProvider>().fetchstockreport(
       selectedDate: _selectedDateRange,
       selectedBranch: widget.branchId,
     );
@@ -161,7 +161,7 @@ class _StockReportModalContentState extends State<_StockReportModalContent> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<Datafeed>();
+    final provider = context.watch<ReportProvider>();
     final stockreport = provider.filterstockreport();
     final screenSize = MediaQuery.of(context).size;
     final isLargeScreen = screenSize.width > 900;
@@ -397,7 +397,7 @@ class _StockReportModalContentState extends State<_StockReportModalContent> {
                   DataCell(Text('${item['sale_returns'] ?? 0}')),
                   DataCell(Text('${item['damages'] ?? 0}')),
                   DataCell(Text('${item['balance_cd'] ?? 0}')),
-                  DataCell(Text(cartonQtyBal.toStringAsFixed(1))),
+                  DataCell(Text(cartonQtyBal.toStringAsFixed(2))),
                 ]);
               }).toList(),
             ),
@@ -444,7 +444,7 @@ class _StockReportModalContentState extends State<_StockReportModalContent> {
                   _stat('Returns', '${item['sale_returns'] ?? 0}'),
                   _stat('Damages', '${item['damages'] ?? 0}'),
                   _stat('Balance', '${item['balance_cd'] ?? 0}', highlight: true),
-                  _stat('Carton', cartonQtyBal.toStringAsFixed(1), highlight: true),
+                  _stat('Carton', cartonQtyBal.toStringAsFixed(2), highlight: true),
                 ],
               ),
             ],

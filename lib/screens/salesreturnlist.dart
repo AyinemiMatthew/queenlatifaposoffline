@@ -1,19 +1,29 @@
+import 'dart:convert';
 import 'dart:math' show max;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:excel/excel.dart' as xls;
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/models/appModuls.dart';
+import 'package:kologsoft/models/branch.dart';
 import 'package:kologsoft/models/salesreturnmodel.dart';
 import 'package:kologsoft/screens/salesreturn.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
 
 import '../providers/Datafeed.dart';
+import '../providers/SalesProvider.dart';
 import '../widgets/datepicker.dart';
 import '../widgets/offline_indicator.dart';
 import '../widgets/salesreturnpdf.dart';
 
-const int _pageSize = 10;
+const int _defaultPageSize = 12;
+const List<int> _pageSizeOptions = [10, 12, 15, 20, 50, 100];
 
 final NumberFormat _money = NumberFormat('#,##0.00');
 final NumberFormat _qty = NumberFormat('#,##0.##');
@@ -39,6 +49,8 @@ enum _SalesReturnReport {
   final IconData icon;
 }
 
+enum _SalesReturnExport { pdf, print, word, excel, csv }
+
 enum _ReportSort {
   amount('Sort by return value'),
   quantity('Sort by quantity'),
@@ -51,12 +63,12 @@ enum _ReportSort {
 
 class _TableColumn {
   const _TableColumn(
-      this.label, {
-        this.strong = false,
-        this.sortIndex,
-        this.extra = 0,
-        this.minContent = 0,
-      });
+    this.label, {
+    this.strong = false,
+    this.sortIndex,
+    this.extra = 0,
+    this.minContent = 0,
+  });
 
   final String label;
   final bool strong;
@@ -163,32 +175,55 @@ String _status(salereturn record) {
   return 'Returned';
 }
 
-int _pageCount(int length) => length == 0 ? 1 : (length - 1) ~/ _pageSize + 1;
+int _pageCount(int length, [int pageSize = _defaultPageSize]) =>
+    length == 0 ? 1 : (length - 1) ~/ pageSize + 1;
 
-List<T> _pageOf<T>(List<T> list, int page) =>
-    list.skip(page * _pageSize).take(_pageSize).toList();
+List<T> _pageOf<T>(List<T> list, int page, [int pageSize = _defaultPageSize]) =>
+    list.skip(page * pageSize).take(pageSize).toList();
 
 class _PageBar extends StatelessWidget {
   const _PageBar({
     required this.page,
     required this.total,
+    required this.pageSize,
     required this.onChanged,
+    required this.onPageSizeChanged,
   });
 
   final int page;
   final int total;
+  final int pageSize;
   final ValueChanged<int> onChanged;
+  final ValueChanged<int> onPageSizeChanged;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final pages = _pageCount(total);
+    final pages = _pageCount(total, pageSize);
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.fromLTRB(16, 6, 88, 6),
         child: Row(
           children: [
+            Text('Rows', style: TextStyle(color: colors.onSurfaceVariant)),
+            const SizedBox(width: 4),
+            DropdownButton<int>(
+              value: pageSize,
+              underline: const SizedBox.shrink(),
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              items: [
+                for (final size in _pageSizeOptions)
+                  DropdownMenuItem(value: size, child: Text('$size')),
+              ],
+              onChanged: (size) {
+                if (size != null) onPageSizeChanged(size);
+              },
+            ),
             const Spacer(),
             IconButton(
               tooltip: 'Previous page',
@@ -207,7 +242,6 @@ class _PageBar extends StatelessWidget {
               onPressed: page < pages - 1 ? () => onChanged(page + 1) : null,
               icon: const Icon(Icons.chevron_right),
             ),
-            const SizedBox(width: 72),
           ],
         ),
       ),
@@ -230,8 +264,10 @@ class _SummaryLine extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           '${records.length} transactions  ·  ${_qty.format(totalUnits)} units'
-              '  ·  ${_currency.format(totalValue)}',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          '  ·  ${_currency.format(totalValue)}',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );
@@ -264,11 +300,19 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   Color get _header => _c.surfaceContainer;
   Color get _border => _c.outlineVariant;
 
+  Color _tableRowColor(int index) {
+    if (_c.brightness == Brightness.light) {
+      return index.isOdd ? const Color(0xFFF1F5F9) : Colors.white;
+    }
+    return index.isOdd ? const Color(0xFF1B2938) : const Color(0xFF131F2C);
+  }
+
   DateTimeRange? _range;
   String? _branch;
   bool _loading = true;
   bool _searching = false;
   int _page = 0;
+  int _pageSize = _defaultPageSize;
   int _sortColumn = 3;
   bool _ascending = false;
 
@@ -301,10 +345,8 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
     super.dispose();
   }
 
-  Future<void> _reload(Datafeed provider) => provider.fetchsalesreturn(
-    selectedDate: _range,
-    selectedBranch: _branch,
-  );
+  Future<void> _reload(Datafeed provider) =>
+      provider.fetchsalesreturn(selectedDate: _range, selectedBranch: _branch);
 
   Future<void> _setRange(Datafeed provider, DateTimeRange? range) {
     setState(() {
@@ -325,7 +367,7 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   void _openSearch() {
     setState(() => _searching = true);
     WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _searchFocus.requestFocus(),
+      (_) => _searchFocus.requestFocus(),
     );
   }
 
@@ -342,13 +384,13 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
     provider.updateSearch(query);
   }
 
-  List<dynamic> _branches(Datafeed provider) {
+  List<BranchModel> _branches(Datafeed provider) {
     String normalized(String? type) =>
         (type ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '');
     return {
       for (final b in provider.branches)
         if (normalized(b.branchtype) != 'warehouse') b.id: b,
-    }.values.where((b) => b.id != null && b.id!.isNotEmpty).toList();
+    }.values.where((b) => b.id.isNotEmpty).toList();
   }
 
   String _branchLabel(Datafeed provider) {
@@ -356,41 +398,6 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       if (b.id == _branch) return b.branchname;
     }
     return 'All Branches';
-  }
-
-  Future<void> _pickRange(Datafeed provider) async {
-    final selection = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: _range,
-    );
-    if (selection == null || !mounted) return;
-    await _setRange(provider, selection);
-  }
-
-  Future<void> _pickBranch(Datafeed provider) async {
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: _surface,
-      builder: (sheet) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            for (final b in [null, ..._branches(provider)])
-              ListTile(
-                title: Text(b == null ? 'All Branches' : b.branchname),
-                trailing: (b?.id) == _branch
-                    ? Icon(Icons.check, color: _c.primary)
-                    : null,
-                onTap: () => Navigator.pop(sheet, b?.id ?? ''),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    await _setBranch(provider, selected.isEmpty ? null : selected);
   }
 
   Future<void> _registerReturn(Datafeed provider) async {
@@ -402,10 +409,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   }
 
   Future<void> _openReport(
-      List<salereturn> records,
-      _SalesReturnReport report,
-      Datafeed provider,
-      ) async {
+    List<salereturn> records,
+    _SalesReturnReport report,
+    Datafeed provider,
+  ) async {
     final Widget page;
     switch (report) {
       case _SalesReturnReport.registerReturn:
@@ -417,7 +424,9 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       default:
         page = _GroupedReportPage(records: records, report: report);
     }
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => page));
   }
 
   void _sortBy(int column) {
@@ -453,7 +462,7 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       final mode = _text(value['returned_transMode']);
       if (transmode.isEmpty) transmode = mode;
       items[key] = value.map(
-            (k, v) => MapEntry(
+        (k, v) => MapEntry(
           k.toString().startsWith('returned_')
               ? k.toString().substring('returned_'.length)
               : k,
@@ -474,6 +483,324 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       },
       itemsMap: items,
     );
+  }
+
+  List<List<Object?>> _returnExportRows(List<salereturn> records) {
+    final rows = <List<Object?>>[];
+    for (final record in records) {
+      final items = _items(record);
+      if (items.isEmpty) {
+        rows.add([
+          rows.length + 1,
+          _customer(record),
+          record.receiptid,
+          _dateTime.format(record.createdat.toDate()),
+          record.branchname,
+          record.createdby,
+          '',
+          0,
+          '',
+          0.0,
+          0.0,
+          _reason(record),
+          _status(record),
+        ]);
+        continue;
+      }
+
+      for (final item in items) {
+        rows.add([
+          rows.length + 1,
+          _customer(record),
+          record.receiptid,
+          _dateTime.format(record.createdat.toDate()),
+          record.branchname,
+          record.createdby,
+          _itemName(item),
+          _itemUnits(item),
+          _firstText(item, ['returned_transMode', 'returned_mode']),
+          _num(item['returned_price']),
+          _itemAmount(item),
+          _itemReason(item),
+          _status(record),
+        ]);
+      }
+    }
+    return rows;
+  }
+
+  static const _returnExportHeaders = [
+    '#',
+    'Customer',
+    'Receipt ID',
+    'Date & time',
+    'Branch',
+    'Staff',
+    'Item',
+    'Quantity',
+    'Mode',
+    'Unit price (GH₵)',
+    'Return value (GH₵)',
+    'Reason',
+    'Status',
+  ];
+
+  String _exportFileName(String companyName) {
+    final trimmedCompany = companyName.trim();
+    final safeCompany = trimmedCompany.replaceAll(
+      RegExp(r'[^A-Za-z0-9_-]+'),
+      '_',
+    );
+    return safeCompany.isEmpty ? 'Company' : safeCompany;
+  }
+
+  String _escapeHtml(Object? value) => (value?.toString() ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+
+  String _buildReturnsWord(String companyName, List<List<Object?>> rows) {
+    final header = _returnExportHeaders
+        .map((value) => '<th>${_escapeHtml(value)}</th>')
+        .join();
+    final body = rows
+        .map(
+          (row) =>
+              '<tr>${row.map((value) => '<td>${_escapeHtml(value)}</td>').join()}</tr>',
+        )
+        .join();
+    final rangeText = _range == null
+        ? 'All dates'
+        : '${_day.format(_range!.start)} - ${_day.format(_range!.end)}';
+    return '''
+<!doctype html><html><head><meta charset="utf-8">
+<title>${_escapeHtml(companyName)}</title>
+<style>
+@page{size:landscape;margin:0.5in}
+body{font-family:Arial,sans-serif;font-size:10px;color:#172033}
+h1,h2{text-align:center;margin:0 0 6px}
+p.meta{text-align:center;margin:4px 0 14px;color:#475569}
+table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:8px}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+th,td{border:1px solid #94a3b8;padding:5px;text-align:center;vertical-align:middle;overflow-wrap:break-word}
+th{background:#e2e8f0}
+td:nth-child(2),td:nth-child(7),td:nth-child(12){text-align:left}
+</style></head><body>
+<h1>${_escapeHtml(companyName.toUpperCase())}</h1>
+<h2>SALES RETURNS REPORT</h2>
+<p class="meta">Date range: ${_escapeHtml(rangeText)} &nbsp; | &nbsp; Records: ${_rangeRecordCount(rows)}</p>
+<table><thead><tr>$header</tr></thead><tbody>$body</tbody></table>
+</body></html>
+''';
+  }
+
+  int _rangeRecordCount(List<List<Object?>> rows) =>
+      rows.map((row) => row[2]).toSet().length;
+
+  String _branchHeading(List<salereturn> records) {
+    final branches =
+        records
+            .map((record) => record.branchname.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    return 'Branch${branches.length == 1 ? '' : 'es'}: '
+        '${branches.isEmpty ? 'All Branches' : branches.join(', ')}';
+  }
+
+  pw.Document _buildReturnsPdf(
+    String companyName,
+    List<List<Object?>> rows,
+    List<salereturn> records,
+  ) {
+    final document = pw.Document(title: companyName, author: companyName);
+    final rangeText = _range == null
+        ? 'All dates'
+        : '${_day.format(_range!.start)} - ${_day.format(_range!.end)}';
+    document.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        build: (_) => [
+          pw.Text(
+            companyName.toUpperCase(),
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'SALES RETURNS REPORT',
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            _branchHeading(records),
+            textAlign: pw.TextAlign.center,
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Date range: $rangeText  |  Records: ${_rangeRecordCount(rows)}',
+            textAlign: pw.TextAlign.center,
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+          pw.SizedBox(height: 14),
+          pw.TableHelper.fromTextArray(
+            headers: _returnExportHeaders,
+            data: rows
+                .map((row) => row.map((cell) => cell.toString()).toList())
+                .toList(),
+            headerStyle: pw.TextStyle(
+              fontSize: 7,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+            headerDecoration: const pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF415A77),
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 6),
+            cellPadding: const pw.EdgeInsets.all(4),
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+          ),
+        ],
+      ),
+    );
+    return document;
+  }
+
+  String _escapeCsv(String value) {
+    if (!value.contains(',') &&
+        !value.contains('"') &&
+        !value.contains('\n') &&
+        !value.contains('\r')) {
+      return value;
+    }
+    return '"${value.replaceAll('"', '""')}"';
+  }
+
+  Future<void> _exportReturns(
+    _SalesReturnExport action,
+    List<salereturn> records,
+    String companyName,
+  ) async {
+    if (records.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('There are no sales returns to export.')),
+      );
+      return;
+    }
+
+    try {
+      final rows = _returnExportRows(records);
+      final fileName = _exportFileName(companyName);
+      switch (action) {
+        case _SalesReturnExport.pdf:
+          final pdf = _buildReturnsPdf(companyName, rows, records);
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(await pdf.save()),
+            fileExtension: 'pdf',
+            mimeType: MimeType.pdf,
+          );
+        case _SalesReturnExport.print:
+          final pdf = _buildReturnsPdf(companyName, rows, records);
+          await Printing.layoutPdf(
+            onLayout: (_) => pdf.save(),
+            name: '$fileName.pdf',
+          );
+        case _SalesReturnExport.word:
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(
+              utf8.encode(_buildReturnsWord(companyName, rows)),
+            ),
+            fileExtension: 'doc',
+            mimeType: MimeType.other,
+          );
+        case _SalesReturnExport.excel:
+          final workbook = xls.Excel.createExcel();
+          final sheet = workbook['Sales Returns'];
+          workbook.delete('Sheet1');
+          sheet.appendRow([xls.TextCellValue(companyName.toUpperCase())]);
+          sheet.appendRow([xls.TextCellValue('SALES RETURNS REPORT')]);
+          sheet.appendRow([
+            xls.TextCellValue(
+              'Date range: ${_range == null ? 'All dates' : '${_day.format(_range!.start)} - ${_day.format(_range!.end)}'}',
+            ),
+          ]);
+          sheet.appendRow([
+            xls.TextCellValue('Records: ${_rangeRecordCount(rows)}'),
+          ]);
+          sheet.appendRow(
+            _returnExportHeaders.map(xls.TextCellValue.new).toList(),
+          );
+          for (final row in rows) {
+            sheet.appendRow([
+              xls.IntCellValue(row[0] as int),
+              for (var index = 1; index < row.length; index++)
+                if (index == 7 || index == 9 || index == 10)
+                  xls.DoubleCellValue(row[index] as double)
+                else
+                  xls.TextCellValue(row[index].toString()),
+            ]);
+          }
+          final headerRow = 4;
+          for (var column = 0; column < _returnExportHeaders.length; column++) {
+            sheet
+                .cell(
+                  xls.CellIndex.indexByColumnRow(
+                    columnIndex: column,
+                    rowIndex: headerRow,
+                  ),
+                )
+                .cellStyle = xls.CellStyle(
+              bold: true,
+              backgroundColorHex: xls.ExcelColor.fromHexString('#DCE4EC'),
+              horizontalAlign: xls.HorizontalAlign.Center,
+            );
+          }
+          final bytes = workbook.encode();
+          if (bytes == null) {
+            throw Exception('Could not create the Excel file.');
+          }
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(bytes),
+            fileExtension: 'xlsx',
+            mimeType: MimeType.microsoftExcel,
+          );
+        case _SalesReturnExport.csv:
+          final csvRows = [
+            ['Company', companyName],
+            ['Sales Returns Report'],
+            _returnExportHeaders,
+            ...rows.map((row) => row.map((value) => value.toString()).toList()),
+          ];
+          final csv = csvRows
+              .map((row) => row.map(_escapeCsv).join(','))
+              .join('\r\n');
+          await FileSaver.instance.saveFile(
+            name: fileName,
+            bytes: Uint8List.fromList(utf8.encode('\uFEFF$csv')),
+            fileExtension: 'csv',
+            mimeType: MimeType.other,
+          );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sales returns exported successfully.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not export sales returns: $error')),
+      );
+    }
   }
 
   Future<void> _delete(salereturn record) async {
@@ -502,7 +829,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await context.read<Datafeed>().deletesalesreturn(record.id);
+      await context.read<SalesProvider>().deleteSalesReturn(
+        context.read<Datafeed>(),
+        record.id,
+      );
       messenger.showSnackBar(
         SnackBar(content: Text('Return ${record.receiptid} deleted')),
       );
@@ -593,7 +923,7 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       itemBuilder: (_) => [
         const PopupMenuItem(value: 'view', child: Text('View return items')),
         const PopupMenuItem(value: 'print', child: Text('Print')),
-       if (provider.canDelete(AppModules.sales))
+        if (provider.canDelete(AppModules.sales))
           PopupMenuItem(
             value: 'delete',
             child: Text('Delete', style: TextStyle(color: _c.error)),
@@ -603,10 +933,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   }
 
   TextStyle _cellStyle(
-      double fontSize, {
-        bool strong = false,
-        bool header = false,
-      }) {
+    double fontSize, {
+    bool strong = false,
+    bool header = false,
+  }) {
     return TextStyle(
       fontSize: fontSize,
       color: strong && !header ? _c.onSurface : _muted,
@@ -636,17 +966,17 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   ];
 
   List<double> _columnWidths(
-      double available,
-      double gutter,
-      double fontSize,
-      List<List<String>> rows,
-      ) {
+    double available,
+    double gutter,
+    double fontSize,
+    List<List<String>> rows,
+  ) {
     final natural = <double>[];
     for (var i = 0; i < _columns.length; i++) {
       final column = _columns[i];
       var content =
           _measure(column.label, _cellStyle(fontSize, header: true)) +
-              (column.sortIndex == null ? 0 : 18);
+          (column.sortIndex == null ? 0 : 18);
       final style = _cellStyle(fontSize, strong: column.strong);
       for (final row in rows) {
         content = max(content, _measure(row[i], style) + column.extra);
@@ -663,11 +993,11 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   }
 
   Widget _tableRow(
-      List<Widget> cells,
-      List<double> widths,
-      double gutter, {
-        double vPad = 8,
-      }) {
+    List<Widget> cells,
+    List<double> widths,
+    double gutter, {
+    double vPad = 8,
+  }) {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: 16 - gutter / 2,
@@ -693,10 +1023,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
         column.sortIndex != null && _sortColumn == column.sortIndex;
     final arrow = selected
         ? Icon(
-      _ascending ? Icons.arrow_upward : Icons.arrow_downward,
-      size: 14,
-      color: _muted,
-    )
+            _ascending ? Icons.arrow_upward : Icons.arrow_downward,
+            size: 14,
+            color: _muted,
+          )
         : null;
     final label = Flexible(
       child: Text(
@@ -721,12 +1051,8 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
     );
   }
 
-  Widget _desktopTable(
-      List<salereturn> records,
-      int page,
-      Datafeed provider,
-      ) {
-    final rows = _pageOf(_sorted(records), page);
+  Widget _desktopTable(List<salereturn> records, int page, Datafeed provider) {
+    final rows = _pageOf(_sorted(records), page, _pageSize);
     final footer = [
       '',
       'Total',
@@ -788,6 +1114,7 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
                           );
                           return Container(
                             decoration: BoxDecoration(
+                              color: _tableRowColor(page * _pageSize + i),
                               border: Border(bottom: divider),
                             ),
                             child: _tableRow(
@@ -795,17 +1122,17 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
                                 for (var c = 0; c < _columns.length; c++)
                                   switch (c) {
                                     7 => Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            _statusBadge(texts[c]),
-                                            _syncStatusBadge(record),
-                                          ],
-                                        ),
+                                      alignment: Alignment.centerLeft,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _statusBadge(texts[c]),
+                                          _syncStatusBadge(record),
+                                        ],
                                       ),
+                                    ),
                                     8 => Align(
                                       alignment: Alignment.centerLeft,
                                       child: _actions(record, provider),
@@ -835,10 +1162,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
                             footer[c].isEmpty
                                 ? const SizedBox.shrink()
                                 : _bodyText(
-                              footer[c],
-                              fontSize,
-                              const _TableColumn('', strong: true),
-                            ),
+                                    footer[c],
+                                    fontSize,
+                                    const _TableColumn('', strong: true),
+                                  ),
                         ],
                         widths,
                         gutter,
@@ -854,7 +1181,12 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
           _PageBar(
             page: page,
             total: records.length,
+            pageSize: _pageSize,
             onChanged: (p) => setState(() => _page = p),
+            onPageSizeChanged: (size) => setState(() {
+              _pageSize = size;
+              _page = 0;
+            }),
           ),
         ],
       ),
@@ -916,19 +1248,15 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   Widget _mobileSummary(List<salereturn> records) {
     final metrics = [
       (
-      Icons.payments_outlined,
-      'Return value',
-      _currency.format(records.fold(0.0, (s, r) => s + _value(r))),
+        Icons.payments_outlined,
+        'Return value',
+        _currency.format(records.fold(0.0, (s, r) => s + _value(r))),
       ),
+      (Icons.receipt_long_outlined, 'Return transactions', '${records.length}'),
       (
-      Icons.receipt_long_outlined,
-      'Return transactions',
-      '${records.length}',
-      ),
-      (
-      Icons.inventory_2_outlined,
-      'Units returned',
-      _qty.format(records.fold(0.0, (s, r) => s + _units(r))),
+        Icons.inventory_2_outlined,
+        'Units returned',
+        _qty.format(records.fold(0.0, (s, r) => s + _units(r))),
       ),
     ];
     return Container(
@@ -947,7 +1275,9 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
           return Wrap(
             spacing: gap,
             runSpacing: gap,
-            children: [for (final m in metrics) _metric(width, m.$1, m.$2, m.$3)],
+            children: [
+              for (final m in metrics) _metric(width, m.$1, m.$2, m.$3),
+            ],
           );
         },
       ),
@@ -957,7 +1287,7 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   Widget _mobileCard(salereturn record, int index, Datafeed provider) {
     return Card(
       margin: EdgeInsets.zero,
-      color: _surface,
+      color: _tableRowColor(index),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -1026,10 +1356,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
   }
 
   PreferredSizeWidget _appBar(
-      Datafeed provider,
-      List<salereturn> records,
-      bool compact,
-      ) {
+    Datafeed provider,
+    List<salereturn> records,
+    bool compact,
+  ) {
     final range = _range;
     var subtitle = 'Return activity';
     if (range != null) {
@@ -1056,37 +1386,37 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       ),
       title: _searching
           ? TextField(
-        controller: _searchController,
-        focusNode: _searchFocus,
-        style: const TextStyle(fontSize: 14),
-        cursorColor: _c.secondary,
-        decoration: InputDecoration(
-          hintText: 'Search customer, receipt, item or reason',
-          hintStyle: TextStyle(color: _muted, fontSize: 13),
-          border: InputBorder.none,
-          isDense: true,
-        ),
-        onChanged: (query) => _search(provider, query),
-      )
+              controller: _searchController,
+              focusNode: _searchFocus,
+              style: const TextStyle(fontSize: 14),
+              cursorColor: _c.secondary,
+              decoration: InputDecoration(
+                hintText: 'Search customer, receipt, item or reason',
+                hintStyle: TextStyle(color: _muted, fontSize: 13),
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              onChanged: (query) => _search(provider, query),
+            )
           : Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Sales Returns',
-            style: TextStyle(
-              fontSize: compact ? 15 : 17,
-              fontWeight: FontWeight.w600,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sales Returns',
+                  style: TextStyle(
+                    fontSize: compact ? 15 : 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: _muted),
+                ),
+              ],
             ),
-          ),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: _muted),
-          ),
-        ],
-      ),
       actions: [
         if (_searching) ...[
           if (_searchController.text.isNotEmpty)
@@ -1101,16 +1431,30 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
         ] else ...[
           if (provider.isAdminLevel || provider.canSelectBranch)
             compact
-                ? IconButton(
-              tooltip: _branchLabel(provider),
-              icon: const Icon(Icons.store_outlined),
-              onPressed: () => _pickBranch(provider),
-            )
+                ? PopupMenuButton<String>(
+                    tooltip: _branchLabel(provider),
+                    icon: const Icon(Icons.store_outlined),
+                    onSelected: (id) =>
+                        _setBranch(provider, id.isEmpty ? null : id),
+                    itemBuilder: (_) => [
+                      CheckedPopupMenuItem(
+                        value: '',
+                        checked: _branch == null,
+                        child: const Text('All Branches'),
+                      ),
+                      for (final branch in _branches(provider))
+                        CheckedPopupMenuItem(
+                          value: branch.id,
+                          checked: branch.id == _branch,
+                          child: Text(branch.branchname),
+                        ),
+                    ],
+                  )
                 : _BranchDropdown(
-              branches: _branches(provider),
-              selected: _branch,
-              onChanged: (id) => _setBranch(provider, id),
-            ),
+                    branches: _branches(provider),
+                    selected: _branch,
+                    onChanged: (id) => _setBranch(provider, id),
+                  ),
           PopupMenuButton<_SalesReturnReport>(
             tooltip: 'Return reports',
             icon: const Icon(Icons.analytics_outlined),
@@ -1127,18 +1471,61 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
                 ),
             ],
           ),
+          PopupMenuButton<_SalesReturnExport>(
+            tooltip: 'Export sales returns',
+            icon: const Icon(Icons.file_download_outlined),
+            onSelected: (action) =>
+                _exportReturns(action, records, provider.company),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: _SalesReturnExport.pdf,
+                child: ListTile(
+                  leading: Icon(Icons.picture_as_pdf_outlined),
+                  title: Text('Download PDF'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _SalesReturnExport.print,
+                child: ListTile(
+                  leading: Icon(Icons.print_outlined),
+                  title: Text('Print Preview'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _SalesReturnExport.word,
+                child: ListTile(
+                  leading: Icon(Icons.description_outlined),
+                  title: Text('Download Word'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _SalesReturnExport.excel,
+                child: ListTile(
+                  leading: Icon(Icons.table_chart_outlined),
+                  title: Text('Download Excel'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _SalesReturnExport.csv,
+                child: ListTile(
+                  leading: Icon(Icons.file_download_outlined),
+                  title: Text('Download CSV'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
           IconButton(
             tooltip: 'Search returns',
             icon: const Icon(Icons.search),
             onPressed: _openSearch,
           ),
-          compact
-              ? IconButton(
-            tooltip: 'Filter dates',
-            icon: const Icon(Icons.calendar_today_outlined),
-            onPressed: () => _pickRange(provider),
-          )
-              : ReusableDatePickerWidget(
+          ReusableDatePickerWidget(
+            initialDateRange: _range,
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Icon(Icons.calendar_today_outlined, size: 20),
@@ -1177,10 +1564,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
       );
     }
 
-    final page = _page.clamp(0, _pageCount(records.length) - 1);
+    final page = _page.clamp(0, _pageCount(records.length, _pageSize) - 1);
     if (desktop) return _desktopTable(records, page, provider);
 
-    final rows = _pageOf(_sorted(records), page);
+    final rows = _pageOf(_sorted(records), page, _pageSize);
     return Column(
       children: [
         Expanded(
@@ -1194,7 +1581,12 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
         _PageBar(
           page: page,
           total: records.length,
+          pageSize: _pageSize,
           onChanged: (p) => setState(() => _page = p),
+          onPageSizeChanged: (size) => setState(() {
+            _pageSize = size;
+            _page = 0;
+          }),
         ),
       ],
     );
@@ -1208,7 +1600,10 @@ class _SalesreturnListPageState extends State<SalesreturnListPage> {
 
     return Consumer<Datafeed>(
       builder: (context, provider, _) {
-        final records = provider.filtersalesreturn();
+        final records = context.watch<SalesProvider>().filterSalesReturns(
+          records: provider.salesreturn,
+          query: provider.searchQuery,
+        );
         return Scaffold(
           appBar: _appBar(provider, records, compact),
           floatingActionButton: FloatingActionButton(
@@ -1250,7 +1645,7 @@ class _BranchDropdown extends StatelessWidget {
     required this.onChanged,
   });
 
-  final List<dynamic> branches;
+  final List<BranchModel> branches;
   final String? selected;
   final ValueChanged<String?> onChanged;
 
@@ -1273,7 +1668,11 @@ class _BranchDropdown extends StatelessWidget {
           isExpanded: true,
           style: TextStyle(color: colors.onSurface, fontSize: 12),
           dropdownColor: colors.surfaceContainerLow,
-          icon: Icon(Icons.expand_more, color: colors.onSurfaceVariant, size: 16),
+          icon: Icon(
+            Icons.expand_more,
+            color: colors.onSurfaceVariant,
+            size: 16,
+          ),
           items: [
             const DropdownMenuItem<String?>(
               value: null,
@@ -1306,6 +1705,7 @@ class _GroupedReportPageState extends State<_GroupedReportPage> {
   _ReportSort _sort = _ReportSort.amount;
   bool _descending = true;
   int _page = 0;
+  int _pageSize = _defaultPageSize;
 
   Iterable<(String, Map<String, dynamic>?)> _entries(salereturn record) sync* {
     String orElse(String value, String fallback) =>
@@ -1379,7 +1779,7 @@ class _GroupedReportPageState extends State<_GroupedReportPage> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final rows = _rows();
-    final page = _page.clamp(0, _pageCount(rows.length) - 1);
+    final page = _page.clamp(0, _pageCount(rows.length, _pageSize) - 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -1407,39 +1807,52 @@ class _GroupedReportPageState extends State<_GroupedReportPage> {
             child: rows.isEmpty
                 ? const Center(child: Text('No return data for this report.'))
                 : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                for (final entry in _pageOf(rows, page))
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colors.secondaryContainer,
-                        foregroundColor: colors.onSecondaryContainer,
-                        child: Icon(widget.report.icon),
-                      ),
-                      title: Text(entry.key),
-                      subtitle: Text(
-                        '${entry.value.returnIds.length} transactions · '
-                            '${_qty.format(entry.value.units)} units',
-                      ),
-                      trailing: Text(
-                        _currency.format(entry.value.amount),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      for (final indexed in _pageOf(
+                        rows,
+                        page,
+                        _pageSize,
+                      ).asMap().entries)
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          color: (page * _pageSize + indexed.key).isOdd
+                              ? colors.surfaceContainer
+                              : colors.surfaceContainerLow,
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: colors.secondaryContainer,
+                              foregroundColor: colors.onSecondaryContainer,
+                              child: Icon(widget.report.icon),
+                            ),
+                            title: Text(indexed.value.key),
+                            subtitle: Text(
+                              '${indexed.value.value.returnIds.length} transactions · '
+                              '${_qty.format(indexed.value.value.units)} units',
+                            ),
+                            trailing: Text(
+                              _currency.format(indexed.value.value.amount),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            onTap: () =>
+                                _open(indexed.value.key, indexed.value.value),
+                          ),
                         ),
-                      ),
-                      onTap: () => _open(entry.key, entry.value),
-                    ),
+                    ],
                   ),
-              ],
-            ),
           ),
           if (rows.isNotEmpty)
             _PageBar(
               page: page,
               total: rows.length,
+              pageSize: _pageSize,
               onChanged: (p) => setState(() => _page = p),
+              onPageSizeChanged: (size) => setState(() {
+                _pageSize = size;
+                _page = 0;
+              }),
             ),
         ],
       ),
@@ -1464,6 +1877,7 @@ class _RecordListPage extends StatefulWidget {
 
 class _RecordListPageState extends State<_RecordListPage> {
   int _page = 0;
+  int _pageSize = _defaultPageSize;
 
   bool _matches(Map<String, dynamic> item) => switch (widget.report) {
     _SalesReturnReport.items => _itemName(item) == widget.title,
@@ -1472,14 +1886,13 @@ class _RecordListPageState extends State<_RecordListPage> {
     _ => true,
   };
 
-  Widget _tile(salereturn record) {
-    final names = _items(record)
-        .where(_matches)
-        .map(_itemName)
-        .toSet()
-        .join(', ');
+  Widget _tile(salereturn record, Color color) {
+    final names = _items(
+      record,
+    ).where(_matches).map(_itemName).toSet().join(', ');
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: color,
       child: ListTile(
         leading: Icon(
           Icons.info_outline,
@@ -1503,7 +1916,12 @@ class _RecordListPageState extends State<_RecordListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final page = _page.clamp(0, _pageCount(widget.records.length) - 1);
+    final page = _page.clamp(
+      0,
+      _pageCount(widget.records.length, _pageSize) - 1,
+    );
+    final colors = Theme.of(context).colorScheme;
+    final rows = _pageOf(widget.records, page, _pageSize);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -1514,14 +1932,27 @@ class _RecordListPageState extends State<_RecordListPage> {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.all(16),
-              children: [for (final r in _pageOf(widget.records, page)) _tile(r)],
+              children: [
+                for (final indexed in rows.asMap().entries)
+                  _tile(
+                    indexed.value,
+                    (page * _pageSize + indexed.key).isOdd
+                        ? colors.surfaceContainer
+                        : colors.surfaceContainerLow,
+                  ),
+              ],
             ),
           ),
           if (widget.records.isNotEmpty)
             _PageBar(
               page: page,
               total: widget.records.length,
+              pageSize: _pageSize,
               onChanged: (p) => setState(() => _page = p),
+              onPageSizeChanged: (size) => setState(() {
+                _pageSize = size;
+                _page = 0;
+              }),
             ),
         ],
       ),
@@ -1544,7 +1975,10 @@ class _DetailsPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Returned items', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Returned items',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           if (items.isEmpty)
             Text(
@@ -1579,7 +2013,7 @@ class _DetailsPage extends StatelessWidget {
                       children: [
                         Text(
                           'Quantity: ${_qty.format(_itemUnits(item))} '
-                              '${_text(item['returned_mode'])}',
+                          '${_text(item['returned_mode'])}',
                         ),
                         Text(
                           'Unit price: ${_currency.format(_num(item['returned_price']))}',

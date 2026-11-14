@@ -1,13 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../widgets/datepicker.dart';
+import '../widgets/general_ledger_export.dart';
+
 class GeneralLedgerDetailScreen extends StatefulWidget {
   final String title;
   final String subtitle;
   final List<Map<String, dynamic>> transactions;
   final bool accountStatement;
-  final Future<void> Function() onPrint;
-  final void Function(Map<String, dynamic> transaction)? onTransactionTap;
+  final DateTimeRange? dateRange;
+  final Future<List<Map<String, dynamic>>> Function(DateTimeRange dateRange)?
+  onDateRangeChanged;
+  final Future<void> Function(
+    List<Map<String, dynamic>> transactions,
+    DateTimeRange dateRange,
+  )
+  onPrint;
+  final String statementAccountName;
+  final String statementCompany;
+  final String statementBranch;
+  final String statementAddress;
+  final String activityCompany;
+  final String activityBranch;
+  final void Function(
+    Map<String, dynamic> transaction,
+    DateTimeRange dateRange,
+  )?
+  onTransactionTap;
 
   const GeneralLedgerDetailScreen({
     super.key,
@@ -15,7 +35,15 @@ class GeneralLedgerDetailScreen extends StatefulWidget {
     required this.subtitle,
     required this.transactions,
     required this.accountStatement,
+    this.dateRange,
+    this.onDateRangeChanged,
     required this.onPrint,
+    this.statementAccountName = '',
+    this.statementCompany = '',
+    this.statementBranch = '',
+    this.statementAddress = '',
+    this.activityCompany = '',
+    this.activityBranch = '',
     this.onTransactionTap,
   });
 
@@ -26,8 +54,14 @@ class GeneralLedgerDetailScreen extends StatefulWidget {
 
 class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
   final _searchController = TextEditingController();
-  final _horizontalController = ScrollController();
+  final _searchFocusNode = FocusNode();
   String _query = '';
+  int _currentPage = 0;
+  int _rowsPerPage = 10;
+  bool _isSearching = false;
+  bool _isLoadingDateRange = false;
+  late List<Map<String, dynamic>> _transactions;
+  late DateTimeRange _selectedDateRange;
 
   bool get _isLightTheme => Theme.of(context).brightness == Brightness.light;
   Color get _textColor => Theme.of(context).colorScheme.onSurface;
@@ -39,16 +73,29 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
   Color get _headerColor =>
       _isLightTheme ? Colors.white : const Color(0xFF1E2A3D);
   Color get _rowColor => _isLightTheme ? Colors.white : const Color(0xFF0D1B2A);
-  Color get _fieldColor => _isLightTheme
-      ? Colors.white
+  Color get _alternateRowColor =>
+      _isLightTheme ? const Color(0xFFF3F6FA) : const Color(0xFF13243A);
+  Color get _searchFieldColor => _isLightTheme
+      ? Theme.of(context).colorScheme.surface
       : Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _cursorColor =>
+      _isLightTheme ? Theme.of(context).colorScheme.primary : Colors.white;
   Color get _borderColor =>
       _isLightTheme ? Colors.grey.shade300 : Colors.white.withOpacity(0.1);
 
   @override
+  void initState() {
+    super.initState();
+    final today = DateTime.now();
+    _transactions = List<Map<String, dynamic>>.of(widget.transactions);
+    _selectedDateRange =
+        widget.dateRange ?? DateTimeRange(start: today, end: today);
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
-    _horizontalController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -66,24 +113,161 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
 
   List<Map<String, dynamic>> get _filteredTransactions {
     final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return widget.transactions;
-    return widget.transactions.where((row) {
+    if (query.isEmpty) return _transactions;
+    return _transactions.where((row) {
       return row.values.any(
         (value) => value.toString().toLowerCase().contains(query),
       );
     }).toList();
   }
 
+  Widget _datePickerIcon() => ReusableDatePickerWidget(
+    initialDateRange: _selectedDateRange,
+    onDateSelected: (selection) async {
+      final today = DateTime.now();
+      final range =
+          selection ??
+          DateTimeRange(
+            start: today.subtract(const Duration(days: 30)),
+            end: today,
+          );
+      final onDateRangeChanged = widget.onDateRangeChanged;
+      if (onDateRangeChanged == null) return;
+
+      setState(() => _isLoadingDateRange = true);
+      try {
+        final transactions = await onDateRangeChanged(range);
+        if (!mounted) return;
+        setState(() {
+          _selectedDateRange = range;
+          _transactions = transactions;
+          _currentPage = 0;
+        });
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not load statement for this period: $error'),
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isLoadingDateRange = false);
+      }
+    },
+    child: Tooltip(
+      message:
+          'Date range: ${DateFormat('d MMM y').format(_selectedDateRange.start)}'
+          ' - ${DateFormat('d MMM y').format(_selectedDateRange.end)}',
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: _isLoadingDateRange
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.calendar_today_outlined),
+      ),
+    ),
+  );
+
+  Widget _statementHeader(DateTimeRange range) {
+    Widget detail(String label, String value, {bool alignRight = false}) =>
+        Padding(
+          padding: const EdgeInsets.only(bottom: 5),
+          child: RichText(
+            textAlign: alignRight ? TextAlign.right : TextAlign.left,
+            text: TextSpan(
+              style: TextStyle(color: _textColor, fontSize: 14),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: value),
+              ],
+            ),
+          ),
+        );
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      child: Column(
+        children: [
+          Text(
+            widget.statementCompany,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            'ACCOUNT STATEMENT',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _mutedColor,
+              fontSize: 17,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    detail('Account Name', widget.statementAccountName),
+                    if (widget.statementAddress.isNotEmpty)
+                      detail('Address', widget.statementAddress),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    detail('Branch', widget.statementBranch, alignRight: true),
+                    detail(
+                      'Period',
+                      '${DateFormat('d MMM yyyy').format(range.start)}'
+                          ' to ${DateFormat('d MMM yyyy').format(range.end)}',
+                      alignRight: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   List<String> get _headers => widget.accountStatement
-      ? const ['#', 'Date', 'Description', 'Debit', 'Credit', 'Balance']
+      ? const [
+          '#',
+          'Date',
+          'Description',
+          'Debit (GHS)',
+          'Credit (GHS)',
+          'Balance (GHS)',
+        ]
       : const [
           '#',
           'Date',
           'Description',
-          'Opening Balance',
-          'Debit',
-          'Credit',
-          'Balance',
+          'Opening Balance (GHS)',
+          'Debit (GHS)',
+          'Credit (GHS)',
+          'Balance (GHS)',
         ];
 
   List<String> _cells(Map<String, dynamic> row, int index) {
@@ -101,55 +285,88 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
       _value(row, 'number').isEmpty ? '${index + 1}' : _value(row, 'number'),
       _value(row, 'date'),
       _value(row, 'description'),
-      _money(row, 'openingBalance(GHS)'),
-      _money(row, 'debit(GHS)'),
-      _money(row, 'credit(GHS)'),
-      _money(row, 'balance(GHS)'),
+      _money(row, 'openingBalance'),
+      _money(row, 'debit'),
+      _money(row, 'credit'),
+      _money(row, 'balance'),
     ];
   }
 
-  Widget _searchField() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-    child: TextField(
-      controller: _searchController,
-      onChanged: (value) => setState(() => _query = value),
-      style: TextStyle(color: _textColor),
-      decoration: InputDecoration(
-        hintText: 'Search entries...',
-        hintStyle: TextStyle(color: _mutedColor),
-        prefixIcon: Icon(Icons.search, color: _mutedColor),
-        suffixIcon: _query.isEmpty
-            ? null
-            : IconButton(
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() => _query = '');
-                },
-                icon: const Icon(Icons.close),
-              ),
-        filled: true,
-        fillColor: _fieldColor,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: _borderColor),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: _borderColor),
-        ),
+  void _openSearch() {
+    setState(() => _isSearching = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+  }
+
+  void _closeSearch() {
+    setState(() {
+      _isSearching = false;
+      _query = '';
+      _currentPage = 0;
+      _searchController.clear();
+    });
+  }
+
+  Widget _appBarSearchField() => TextField(
+    controller: _searchController,
+    focusNode: _searchFocusNode,
+    autofocus: true,
+    onChanged: (value) => setState(() {
+      _query = value;
+      _currentPage = 0;
+    }),
+    style: TextStyle(color: _textColor),
+    cursorColor: _cursorColor,
+    decoration: InputDecoration(
+      hintText: 'Search entries...',
+      hintStyle: TextStyle(color: _mutedColor),
+      prefixIcon: Icon(Icons.search, color: _mutedColor, size: 20),
+      filled: true,
+      fillColor: _searchFieldColor,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: _borderColor),
       ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: _borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+      ),
+      suffixIcon: _query.isEmpty
+          ? null
+          : IconButton(
+              tooltip: 'Clear search',
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _query = '';
+                  _currentPage = 0;
+                });
+                _searchFocusNode.requestFocus();
+              },
+              icon: const Icon(Icons.close),
+            ),
     ),
   );
 
-  Widget _mobileList(List<Map<String, dynamic>> rows) => ListView.separated(
+  Widget _mobileList(
+    List<Map<String, dynamic>> rows,
+    int firstRowIndex,
+  ) => ListView.separated(
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     itemCount: rows.length,
     separatorBuilder: (_, _) => const SizedBox(height: 8),
     itemBuilder: (context, index) {
       final row = rows[index];
-      final cells = _cells(row, index);
+      final cells = _cells(row, firstRowIndex + index);
       return Material(
-        color: _cardColor,
+        color: index.isEven ? _cardColor : _alternateRowColor,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: _borderColor),
           borderRadius: BorderRadius.circular(10),
@@ -158,7 +375,7 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
           borderRadius: BorderRadius.circular(10),
           onTap: widget.onTransactionTap == null
               ? null
-              : () => widget.onTransactionTap!(row),
+              : () => widget.onTransactionTap!(row, _selectedDateRange),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -207,28 +424,29 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
     ],
   );
 
-  Widget _desktopTable(List<Map<String, dynamic>> rows) {
-    final widths = widget.accountStatement
-        ? const [55.0, 150.0, 360.0, 130.0, 130.0, 140.0]
-        : const [55.0, 150.0, 300.0, 150.0, 130.0, 130.0, 140.0];
-    final tableWidth = widths.reduce((a, b) => a + b) + 24;
-    return Scrollbar(
-      controller: _horizontalController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalController,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: tableWidth,
+  Widget _desktopTable(List<Map<String, dynamic>> rows, int firstRowIndex) {
+    final baseWidths = widget.accountStatement
+        ? [55.0, 150.0, 360.0, 130.0, 130.0, 140.0]
+        : [55.0, 150.0, 300.0, 150.0, 130.0, 130.0, 140.0];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableColumnWidth = constraints.maxWidth - 24;
+        final baseColumnWidth = baseWidths.reduce((a, b) => a + b);
+        final scale = availableColumnWidth < baseColumnWidth
+            ? availableColumnWidth / baseColumnWidth
+            : 1.0;
+        final widths = baseWidths.map((width) => width * scale).toList();
+        if (availableColumnWidth > baseColumnWidth) {
+          widths[2] += availableColumnWidth - baseColumnWidth;
+        }
+
+        return SizedBox(
+          width: constraints.maxWidth,
           child: Column(
             children: [
               Container(
-                decoration: BoxDecoration(
-                  color: _headerColor,
-                  border: Border(
-                    bottom: BorderSide(color: _borderColor, width: 0.8),
-                  ),
-                ),
+                color: _headerColor,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 14,
@@ -238,11 +456,17 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
                     for (var i = 0; i < _headers.length; i++)
                       SizedBox(
                         width: widths[i],
-                        child: Text(
-                          _headers[i],
-                          style: TextStyle(
-                            color: _textColor,
-                            fontWeight: FontWeight.bold,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            _headers[i],
+                            maxLines: 3,
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
+                            style: TextStyle(
+                              color: _textColor,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -254,32 +478,40 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
                   itemCount: rows.length,
                   itemBuilder: (context, index) {
                     final row = rows[index];
-                    final cells = _cells(row, index);
+                    final cells = _cells(row, firstRowIndex + index);
                     return InkWell(
                       onTap: widget.onTransactionTap == null
                           ? null
-                          : () => widget.onTransactionTap!(row),
+                          : () => widget.onTransactionTap!(
+                              row,
+                              _selectedDateRange,
+                            ),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _rowColor,
+                          color: index.isEven ? _rowColor : _alternateRowColor,
                           border: Border(
                             bottom: BorderSide(color: _borderColor, width: 0.5),
                           ),
                         ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 13,
+                          vertical: 9,
                         ),
                         child: Row(
                           children: [
                             for (var i = 0; i < cells.length; i++)
                               SizedBox(
                                 width: widths[i],
-                                child: Text(
-                                  cells[i],
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(color: _textColor),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                  ),
+                                  child: Text(
+                                    cells[i],
+                                    maxLines: 4,
+                                    softWrap: true,
+                                    style: TextStyle(color: _textColor),
+                                  ),
                                 ),
                               ),
                           ],
@@ -291,51 +523,121 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final rows = _filteredTransactions;
-    final isSmall = MediaQuery.sizeOf(context).width < 700;
+    final screenSize = MediaQuery.sizeOf(context);
+    final isSmall = screenSize.width < 700;
+    final pageSize = _rowsPerPage;
+    final pageCount = (rows.length / pageSize).ceil().clamp(1, 1 << 30);
+    final pageIndex = _currentPage.clamp(0, pageCount - 1);
+    final pageStart = pageIndex * pageSize;
+    final pageRows = rows.skip(pageStart).take(pageSize).toList();
+    final exportRows = rows
+        .asMap()
+        .entries
+        .map((entry) => _cells(entry.value, entry.key))
+        .toList();
+
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
         backgroundColor: _cardColor,
         foregroundColor: _textColor,
-        title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: _isSearching
+            ? _appBarSearchField()
+            : Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(
-            tooltip: 'Print / Download',
-            onPressed: () async {
-              try {
-                await widget.onPrint();
-              } catch (error) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Print failed: $error')),
-                  );
-                }
-              }
-            },
-            icon: const Icon(Icons.print_outlined),
+          if (!_isSearching)
+            IconButton(
+              tooltip: 'Search entries',
+              onPressed: _openSearch,
+              icon: const Icon(Icons.search),
+            )
+          else
+            IconButton(
+              tooltip: 'Close search',
+              onPressed: _closeSearch,
+              icon: const Icon(Icons.close),
+            ),
+          GeneralLedgerExportMenu(
+            title: widget.title,
+            headers: _headers,
+            rows: exportRows,
+            exportHeader: widget.accountStatement
+                ? GeneralLedgerExportHeader(
+                    companyName: widget.statementCompany,
+                    heading: 'Account Statement',
+                    leftDetails: [
+                      GeneralLedgerExportDetail(
+                        'Account Name',
+                        widget.statementAccountName,
+                      ),
+                      if (widget.statementAddress.isNotEmpty)
+                        GeneralLedgerExportDetail(
+                          'Address',
+                          widget.statementAddress,
+                        ),
+                    ],
+                    rightDetails: [
+                      GeneralLedgerExportDetail(
+                        'Branch',
+                        widget.statementBranch,
+                      ),
+                      GeneralLedgerExportDetail(
+                        'Period',
+                        '${DateFormat('d MMM yyyy').format(_selectedDateRange.start)}'
+                            ' to ${DateFormat('d MMM yyyy').format(_selectedDateRange.end)}',
+                      ),
+                    ],
+                  )
+                : GeneralLedgerExportHeader(
+                    companyName: widget.activityCompany,
+                    heading: 'Account Activity',
+                    leftDetails: [
+                      GeneralLedgerExportDetail(
+                        'Account',
+                        widget.title.replaceFirst('General Ledger - ', ''),
+                      ),
+                    ],
+                    rightDetails: [
+                      GeneralLedgerExportDetail(
+                        'Branch',
+                        widget.activityBranch,
+                      ),
+                      GeneralLedgerExportDetail(
+                        'Period',
+                        '${DateFormat('d MMM yyyy').format(_selectedDateRange.start)}'
+                            ' to ${DateFormat('d MMM yyyy').format(_selectedDateRange.end)}',
+                      ),
+                    ],
+                  ),
+            metadata: widget.accountStatement ? const [] : [widget.subtitle],
+            onPrint: () => widget.onPrint(_transactions, _selectedDateRange),
           ),
+          if (widget.accountStatement && widget.onDateRangeChanged != null)
+            _datePickerIcon(),
         ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.subtitle.isNotEmpty)
+          if (widget.accountStatement)
+            _statementHeader(_selectedDateRange)
+          else if (widget.subtitle.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Text(
                 widget.subtitle,
+                softWrap: true,
                 style: TextStyle(color: _mutedColor),
               ),
             ),
-          _searchField(),
           Expanded(
             child: rows.isEmpty
                 ? Center(
@@ -345,12 +647,23 @@ class _GeneralLedgerDetailScreenState extends State<GeneralLedgerDetailScreen> {
                     ),
                   )
                 : isSmall
-                ? _mobileList(rows)
+                ? _mobileList(pageRows, pageStart)
                 : Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _desktopTable(rows),
+                    child: _desktopTable(pageRows, pageStart),
                   ),
           ),
+          if (rows.isNotEmpty)
+            GeneralLedgerPagination(
+              totalRows: rows.length,
+              pageIndex: pageIndex,
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              pageSize: pageSize,
+              onPageSizeChanged: (pageSize) => setState(() {
+                _rowsPerPage = pageSize;
+                _currentPage = 0;
+              }),
+            ),
         ],
       ),
     );

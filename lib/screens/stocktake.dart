@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
@@ -124,7 +125,7 @@ class _StockTakeState extends State<StockTake> {
 
       await provider.fetchItems();
       await provider.fetchBranches();
-      await provider.fetchstockreport();
+      await context.read<ReportProvider>().fetchstockreport();
 
       if (!mounted) return;
     });
@@ -292,7 +293,7 @@ class _StockTakeState extends State<StockTake> {
 
     try {
 
-      await provider.fetchstockreport(
+      await context.read<ReportProvider>().fetchstockreport(
         selectedDate: DateTimeRange(
           start: DateTime(
             2000,

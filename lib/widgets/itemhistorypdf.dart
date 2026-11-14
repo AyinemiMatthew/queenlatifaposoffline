@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,14 @@ import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as xls;
 import 'package:file_saver/file_saver.dart';
 
+String _itemHistoryFilePrefix(String companyName) {
+  final safeCompanyName = companyName.trim().replaceAll(
+    RegExp(r'[^A-Za-z0-9_-]+'),
+    '_',
+  );
+  return safeCompanyName.isEmpty ? 'Company' : safeCompanyName;
+}
+
 Future<pw.Document> _buildItemHistoryPdfDoc({
   required List<dynamic> entries,
   required String itemName,
@@ -16,7 +25,7 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
   String companyName = '',
 }) async {
   final pdf = pw.Document(
-    title: 'Stock History - $itemName',
+    title: '$companyName - Stock History - $itemName',
     author: companyName,
   );
 
@@ -115,9 +124,9 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
     final total = e.total as double;
 
     if (sign == '+') {
-      totalIn += qty;
+      totalIn += qty.abs();
     } else {
-      totalOut += qty;
+      totalOut += qty.abs();
       totalValue += total;
     }
   }
@@ -230,13 +239,13 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
                 children: [
                   infoRow(
                     'Stock In',
-                    '+${quantityFormat.format(totalIn)} pcs',
+                    '${quantityFormat.format(totalIn.abs())} pcs',
                     end: true,
                     valColor: positive,
                   ),
                   infoRow(
                     'Stock Out',
-                    '-${quantityFormat.format(totalOut)} pcs',
+                    '${quantityFormat.format(totalOut.abs())} pcs',
                     end: true,
                     valColor: negative,
                   ),
@@ -263,7 +272,7 @@ Future<pw.Document> _buildItemHistoryPdfDoc({
             ...entries.asMap().entries.map((e) {
               final t = e.value;
               final sign = t.sign as String;
-              final qtyStr = '$sign${quantityFormat.format(t.qty as double)}';
+              final qtyStr = quantityFormat.format((t.qty as double).abs());
 
               return pw.TableRow(
                 decoration: const pw.BoxDecoration(color: PdfColors.white),
@@ -320,7 +329,8 @@ Future<void> printItemHistory(
   final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
   await Printing.layoutPdf(
     onLayout: (_) async => pdf.save(),
-    name: 'KologSoft_${itemName.replaceAll(' ', '_')}_$ts',
+    name:
+        '${_itemHistoryFilePrefix(companyName)}_${itemName.replaceAll(' ', '_')}_$ts.pdf',
   );
 }
 
@@ -341,7 +351,8 @@ Future<void> downloadItemHistoryPdf({
 
   final bytes = await pdf.save();
   final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-  final fileName = 'KologSoft_${itemName.replaceAll(' ', '_')}_$ts';
+  final fileName =
+      '${_itemHistoryFilePrefix(companyName)}_${itemName.replaceAll(' ', '_')}_$ts';
 
   await FileSaver.instance.saveFile(
     name: fileName,
@@ -425,7 +436,6 @@ Future<void> exportItemHistoryExcel({
   // --- Data rows ---
   for (int i = 0; i < entries.length; i++) {
     final t = entries[i];
-    final sign = t.sign as String;
     final qty = t.qty as double;
 
     sheet.appendRow([
@@ -437,7 +447,7 @@ Future<void> exportItemHistoryExcel({
             : '-',
       ),
       xls.TextCellValue(t.type as String),
-      xls.TextCellValue('$sign${quantityFormat.format(qty)}'),
+      xls.TextCellValue(quantityFormat.format(qty.abs())),
       xls.DoubleCellValue((t.price as double)),
       xls.DoubleCellValue((t.total as double)),
       xls.TextCellValue(t.mode as String),
@@ -454,12 +464,82 @@ Future<void> exportItemHistoryExcel({
   }
 
   final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-  final fileName = '$companyName${itemName.replaceAll(' ', '_')}_history_$ts';
+  final fileName =
+      '${_itemHistoryFilePrefix(companyName)}_${itemName.replaceAll(' ', '_')}_history_$ts';
 
   await FileSaver.instance.saveFile(
     name: fileName,
     bytes: Uint8List.fromList(bytes),
     fileExtension: 'xlsx',
     mimeType: MimeType.microsoftExcel,
+  );
+}
+
+Future<void> exportItemHistoryWord({
+  required List<dynamic> entries,
+  required String itemName,
+  required String dateLabel,
+  String companyName = '',
+}) async {
+  String escape(Object? value) => (value?.toString() ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
+  String formatDate(DateTime? value) =>
+      value == null ? '' : DateFormat('dd MMM yyyy hh:mm a').format(value);
+  const headers = [
+    '#',
+    'ENTRY DATE',
+    'TXN DATE',
+    'TYPE',
+    '±QTY',
+    'PRICE',
+    'TOTAL',
+    'MODE',
+    'BRANCH',
+    'STAFF',
+    'RECORD ID',
+  ];
+  final rows = entries.asMap().entries.map((entry) {
+    final item = entry.value;
+    final values = [
+      entry.key + 1,
+      formatDate(item.date),
+      (item.invoiceDate as String?)?.trim().isNotEmpty == true
+          ? item.invoiceDate
+          : '-',
+      item.type,
+      NumberFormat('#,##0.########').format((item.qty as num).abs()),
+      NumberFormat('#,##0.00').format(item.price),
+      NumberFormat('#,##0.00').format(item.total),
+      item.mode,
+      item.branch,
+      item.staff,
+      item.transactionid,
+    ];
+    return '<tr>${values.map((value) => '<td>${escape(value)}</td>').join()}</tr>';
+  }).join();
+  final html =
+      '''
+<!doctype html><html><head><meta charset="utf-8"><style>
+body{font-family:Arial,sans-serif}h1,h2{text-align:center}
+table{border-collapse:collapse;width:100%;font-size:9px}
+th,td{border:1px solid #bbb;padding:5px;text-align:left}
+th{background:#e5e7eb}th:first-child,td:first-child{width:42px;text-align:center}
+</style></head><body><h1>${escape(companyName)}</h1>
+<h2>STOCK HISTORY REPORT</h2><p>Item: ${escape(itemName)}</p>
+<p>Period: ${escape(dateLabel)} | Records: ${entries.length}</p>
+<table><thead><tr>${headers.map((header) => '<th>${escape(header)}</th>').join()}</tr></thead>
+<tbody>$rows</tbody></table></body></html>
+''';
+  final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+  await FileSaver.instance.saveFile(
+    name:
+        '${_itemHistoryFilePrefix(companyName)}_${itemName.replaceAll(' ', '_')}_history_$timestamp',
+    bytes: Uint8List.fromList(utf8.encode(html)),
+    fileExtension: 'doc',
+    mimeType: MimeType.custom,
+    customMimeType: 'application/msword',
   );
 }

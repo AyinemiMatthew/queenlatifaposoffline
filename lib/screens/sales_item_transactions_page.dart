@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/Datafeed.dart';
+import '../providers/ReportProvider.dart';
 import 'sales_report_shared.dart';
 
 class SalesItemTransactionsPage extends StatefulWidget {
@@ -49,7 +49,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   Color get _successColor =>
       _isLightTheme ? Colors.green.shade700 : Colors.greenAccent;
 
-  late final Datafeed _provider;
+  late final ReportProvider _provider;
   late final String _previousSearch;
   final TextEditingController _search = TextEditingController();
   final ScrollController _listCtrl = ScrollController();
@@ -83,7 +83,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   @override
   void initState() {
     super.initState();
-    _provider = context.read<Datafeed>();
+    _provider = context.read<ReportProvider>();
     _previousSearch = _provider.searchQuery;
     Future.microtask(() async {
       _provider.updateSearch('');
@@ -110,9 +110,6 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
     Future.microtask(() => _provider.updateSearch(_previousSearch));
     super.dispose();
   }
-
-  double _num(dynamic v) =>
-      v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
 
   String _q(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
@@ -152,91 +149,6 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
       return t['returnedTransMode'] == 'credit' ? _warningColor : _errorColor;
     }
     return _successColor;
-  }
-
-  List<Map<String, dynamic>> _filterByKind(
-    List<Map<String, dynamic>> transactions,
-    String category,
-  ) {
-    switch (category) {
-      case 'cashSales':
-        return transactions
-            .where((t) => t['isReturned'] != true && t['isCredit'] != true)
-            .toList();
-      case 'creditSales':
-        return transactions
-            .where((t) => t['isReturned'] != true && t['isCredit'] == true)
-            .toList();
-      case 'cashReturns':
-        return transactions
-            .where((t) => t['isReturned'] == true && t['isCashReturn'] == true)
-            .toList();
-      case 'creditReturns':
-        return transactions
-            .where(
-              (t) => t['isReturned'] == true && t['isCreditReturn'] == true,
-            )
-            .toList();
-      case 'totalReturns':
-        return transactions.where((t) => t['isReturned'] == true).toList();
-      case 'discount':
-        return transactions.where((t) {
-          final d = (t['discount'] as num?) ?? 0;
-          return d > 0;
-        }).toList();
-      default:
-        return transactions;
-    }
-  }
-
-  Map<String, double> _txnSummary(List<Map<String, dynamic>> list) {
-    double cash = 0, credit = 0, cashRet = 0, creditRet = 0, returns = 0;
-    double saleDisc = 0, retDisc = 0, saleQty = 0, retQty = 0;
-    double saleProfit = 0, retProfit = 0;
-
-    for (final t in list) {
-      final total = _num(t['total']);
-      final disc = _num(t['discount']);
-      final qty = _num(t['qty']);
-      final profit = _num(t['profit']);
-
-      if (_isRet(t)) {
-        returns += total;
-        if (t['isCashReturn'] == true) cashRet += total;
-        if (t['isCreditReturn'] == true) creditRet += total;
-        retDisc += disc;
-        retQty += qty;
-        retProfit += profit;
-      } else {
-        if (t['isCredit'] == true) {
-          credit += total;
-        } else {
-          cash += total;
-        }
-        saleDisc += disc;
-        saleQty += qty;
-        saleProfit += profit;
-      }
-    }
-
-    return {
-      'cash': cash,
-      'credit': credit,
-      'cashRet': cashRet,
-      'creditRet': creditRet,
-      'returns': returns,
-      'saleDisc': saleDisc,
-      'retDisc': retDisc,
-      'discount': saleDisc - retDisc,
-      'saleQty': saleQty,
-      'retQty': retQty,
-      'qty': saleQty - retQty,
-      'saleProfit': saleProfit,
-      'retProfit': retProfit,
-      'profit': saleProfit - retProfit,
-      'net': cash + credit - returns,
-      'cashAtHand': cash - cashRet,
-    };
   }
 
   Widget _txnStat({
@@ -402,17 +314,17 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         return (t['pcategory'] ?? '').toString();
       case 'Qty':
         {
-          final q = _num(t['qty']);
+          final q = ReportProvider.toNumber(t['qty']);
           return ret && q != 0 ? '-${_q(q)}' : _q(q);
         }
       case 'Price':
-        return srN(_num(t['price']));
+        return srN(ReportProvider.toNumber(t['price']));
       case 'Discount':
-        return sg(_num(t['discount']));
+        return sg(ReportProvider.toNumber(t['discount']));
       case 'Total':
-        return sg(_num(t['total']));
+        return sg(ReportProvider.toNumber(t['total']));
       case 'Profit':
-        return sg(_num(t['profit']));
+        return sg(ReportProvider.toNumber(t['profit']));
       case 'Customer':
         return (t['customer'] ?? '').toString();
       case 'Staff':
@@ -482,7 +394,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   Widget _txnCard(Map<String, dynamic> t, int i) {
     final ret = _isRet(t);
     String sg(double v) => ret && v != 0 ? '-${srN(v)}' : srN(v);
-    final q = _num(t['qty']);
+    final q = ReportProvider.toNumber(t['qty']);
     final qtyStr = ret && q != 0 ? '-${_q(q)}' : _q(q);
 
     Widget kv(String k, String v) {
@@ -534,12 +446,12 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
           Row(
             children: [
               Text(
-                '$qtyStr × ${srN(_num(t['price']))}',
+                '$qtyStr × ${srN(ReportProvider.toNumber(t['price']))}',
                 style: TextStyle(color: _textColor, fontSize: 13),
               ),
               const Spacer(),
               Text(
-                sg(_num(t['total'])),
+                sg(ReportProvider.toNumber(t['total'])),
                 style: TextStyle(
                   color: ret ? _errorColor : _textColor,
                   fontWeight: FontWeight.w800,
@@ -553,8 +465,8 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
             spacing: 14,
             runSpacing: 4,
             children: [
-              kv('Discount', sg(_num(t['discount']))),
-              kv('Profit', sg(_num(t['profit']))),
+              kv('Discount', sg(ReportProvider.toNumber(t['discount']))),
+              kv('Profit', sg(ReportProvider.toNumber(t['profit']))),
               kv('Category', (t['pcategory'] ?? '').toString()),
               kv('Customer', (t['customer'] ?? '').toString()),
               kv('Staff', (t['staff'] ?? '').toString()),
@@ -769,7 +681,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         itemName: widget.itemName,
         branchLabel: widget.branchLabel,
         rows: list,
-        summary: _txnSummary(list),
+        summary: _provider.salesItemTransactionSummary(list),
         staff: _staff,
         type: widget.producttype,
         category: widget.pcategory,
@@ -788,7 +700,11 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
   Widget build(BuildContext context) {
     final isSmall = MediaQuery.sizeOf(context).width < 600;
     final base = _provider.filteredItemTransactions(staff: _staff);
-    final list = (_kind == null ? base : _filterByKind(base, _kind!)).toList();
+    final list =
+        (_kind == null
+                ? base
+                : _provider.filterTransactionsByCategory(base, _kind!))
+            .toList();
     if (_sortByCategory) {
       final indexedRows = list.asMap().entries.toList();
       indexedRows.sort((a, b) {
@@ -802,7 +718,7 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
         ..clear()
         ..addAll(indexedRows.map((entry) => entry.value));
     }
-    final s = _txnSummary(base);
+    final s = _provider.salesItemTransactionSummary(base);
     final hasFilter = _staff != null || _kind != null;
     final totalPages = list.isEmpty
         ? 1
@@ -1038,7 +954,12 @@ class _SalesItemTransactionsPageState extends State<SalesItemTransactionsPage> {
                 ? Center(child: CircularProgressIndicator(color: _textColor))
                 : Padding(
                     padding: EdgeInsets.all(isSmall ? 0 : 12),
-                    child: _txnBody(list, _txnSummary(list), _listCtrl, page),
+                    child: _txnBody(
+                      list,
+                      _provider.salesItemTransactionSummary(list),
+                      _listCtrl,
+                      page,
+                    ),
                   ),
           ),
         ],

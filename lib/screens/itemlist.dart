@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart' as xls;
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ import 'package:printing/printing.dart';
 import '../models/appModuls.dart';
 import '../models/itemregmodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 import '../widgets/itemmodal.dart';
 import 'itemreg.dart';
 
@@ -27,7 +27,6 @@ class ItemListPage extends StatefulWidget {
 enum _ItemExportAction { pdf, print, word, excel, csv }
 
 class _ItemListPageState extends State<ItemListPage> {
-  final FirebaseFirestore db = FirebaseFirestore.instance;
   String searchQuery = "";
   bool _isSearching = false;
   int _currentPage = 0;
@@ -70,23 +69,6 @@ class _ItemListPageState extends State<ItemListPage> {
     super.dispose();
   }
 
-  List<ItemModel> _filteredItems(List<ItemModel> items) {
-    if (searchQuery.isEmpty) return items;
-
-    final query = searchQuery.toLowerCase();
-    return items.where((item) {
-      final name = (item.name).toLowerCase();
-      final barcode = (item.barcode).toLowerCase();
-      final company = (item.company).toLowerCase();
-      final category = (item.pcategory).toLowerCase();
-
-      return name.contains(query) ||
-          barcode.contains(query) ||
-          company.contains(query) ||
-          category.contains(query);
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -95,7 +77,10 @@ class _ItemListPageState extends State<ItemListPage> {
 
     return Consumer<Datafeed>(
       builder: (BuildContext context, Datafeed value, Widget? child) {
-        final filteredItems = _filteredItems(value.items);
+        final filteredItems = context.read<ItemProvider>().filterItems(
+          value.items,
+          searchQuery,
+        );
         final pageCount = (filteredItems.length / _itemsPerPage).ceil();
         final currentPage = pageCount == 0
             ? 0
@@ -857,11 +842,24 @@ th { background: #dce4ec; }
                                         onChanged: (val) {
                                           if (!mounted) return;
                                           context
-                                              .read<Datafeed>()
-                                              .toggleNormalItemActive(
+                                              .read<ItemProvider>()
+                                              .setItemActive(
+                                                datafeed: value,
                                                 docId: item.id,
                                                 newStatus: val,
-                                              );
+                                              )
+                                              .catchError((Object error) {
+                                                if (!mounted) return;
+                                                ScaffoldMessenger.of(context)
+                                                  ..hideCurrentSnackBar()
+                                                  ..showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        'Could not update item status: $error',
+                                                      ),
+                                                    ),
+                                                  );
+                                              });
                                         },
                                       ),
                                     ),
@@ -966,35 +964,10 @@ th { background: #dce4ec; }
     if (confirm != true) return;
 
     try {
-      final provider = context.read<Datafeed>();
-      final formattedDate = DateFormat('dd-MM-yyyy').format(DateTime.now());
-      final docRef = db.collection('itemsreg').doc(id);
-
-      final snapshot = await docRef.get();
-
-      if (snapshot.exists) {
-        final data = snapshot.data()!;
-
-        //deletedcollection
-        await db.collection('deletedcollection').add({
-          ...data,
-          'originalCollection': 'itemsreg',
-          'originalId': id,
-          'type': 'itemsreg',
-          'status': 'deleted',
-          'branchid': provider.branchid,
-          'deleted_at': FieldValue.serverTimestamp(),
-          'deleted_by': provider.staff,
-          'deleted_email': provider.staffemail,
-          'companyid': provider.companyid,
-          'datedmy': formattedDate,
-        });
-        await docRef.delete();
-      }
-
-      final datafeed = context.read<Datafeed>();
-      datafeed.items.removeWhere((item) => item.id == id);
-      datafeed.notifyListeners();
+      await context.read<ItemProvider>().deleteItem(
+        datafeed: context.read<Datafeed>(),
+        id: id,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

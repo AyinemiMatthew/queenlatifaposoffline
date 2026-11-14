@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/appModuls.dart';
 import '../models/itemregmodel.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
 import '../screens/itemreg.dart';
 
 class ItemDetailsModal {
@@ -294,10 +295,24 @@ class _ItemDetailsDialogState extends State<_ItemDetailsDialog> {
                         onChanged: (val) {
                           if (!mounted) return;
                           setState(() => isActive = val);
-                          context.read<Datafeed>().toggleNormalItemActive(
-                            docId: item.id,
-                            newStatus: val,
-                          );
+                          context
+                              .read<ItemProvider>()
+                              .setItemActive(
+                                datafeed: provider,
+                                docId: item.id,
+                                newStatus: val,
+                              )
+                              .catchError((Object error) {
+                                if (!context.mounted) return;
+                                setState(() => isActive = !val);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Could not update item status: $error',
+                                    ),
+                                  ),
+                                );
+                              });
                         },
                       ),
                     ],
@@ -495,12 +510,8 @@ class _ItemDetailsDialogState extends State<_ItemDetailsDialog> {
     if (confirm != true) return;
 
     try {
-      final provider = context.read<Datafeed>();
-      await provider.db.collection('itemsreg').doc(id).delete();
-
       final datafeed = context.read<Datafeed>();
-      datafeed.items.removeWhere((item) => item.id == id);
-      datafeed.notifyListeners();
+      await context.read<ItemProvider>().deleteItem(datafeed: datafeed, id: id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

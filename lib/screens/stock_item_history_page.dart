@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../models/itemhistory.dart';
 import '../widgets/itemhistorypdf.dart';
+import '../widgets/stock_rows_per_page_menu.dart';
 
 class _DetailColumn {
   final String label;
@@ -14,7 +15,7 @@ class _DetailColumn {
 
 enum _HistoryColumn { entryDate, recordId }
 
-enum _HistoryAction { print, pdf, entryDate, recordId, excel }
+enum _HistoryAction { print, pdf, word, entryDate, recordId, excel }
 
 class StockItemHistoryPage extends StatefulWidget {
   final String itemId;
@@ -44,7 +45,7 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
   final ScrollController _vc = ScrollController();
   final ScrollController _hc = ScrollController();
 
-  static const int _rowsPerPage = 13;
+  int _rowsPerPage = 10;
   final NumberFormat _quantityFormat = NumberFormat('#,##0.########');
 
   int _page = 0;
@@ -215,6 +216,17 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
         _run(
           'Excel export failed',
           () => exportItemHistoryExcel(
+            entries: datafeed.itemHistoryEntries,
+            itemName: widget.itemName,
+            dateLabel: _dateLabel,
+            companyName: datafeed.company,
+          ),
+        );
+        return;
+      case _HistoryAction.word:
+        _run(
+          'Word export failed',
+          () => exportItemHistoryWord(
             entries: datafeed.itemHistoryEntries,
             itemName: widget.itemName,
             dateLabel: _dateLabel,
@@ -699,6 +711,14 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                 ),
               ),
             ),
+            StockRowsPerPageMenu(
+              compact: MediaQuery.sizeOf(context).width < 600,
+              value: _rowsPerPage,
+              onChanged: (value) => setState(() {
+                _rowsPerPage = value;
+                _page = 0;
+              }),
+            ),
             IconButton(
               tooltip: 'Previous page',
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -823,69 +843,60 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                   onPressed: () => setState(() => _searchExpanded = true),
                   icon: const Icon(Icons.search),
                 ),
-                if (isSmall)
-                  PopupMenuButton<_HistoryAction>(
-                    tooltip: 'More actions',
-                    onSelected: (action) =>
-                        _performHistoryAction(action, datafeed),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: _HistoryAction.print,
-                        child: ListTile(
-                          leading: Icon(Icons.print_outlined),
-                          title: Text('Print'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                PopupMenuButton<_HistoryAction>(
+                  tooltip: 'More actions',
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (action) =>
+                      _performHistoryAction(action, datafeed),
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: _HistoryAction.print,
+                      child: ListTile(
+                        leading: Icon(Icons.print_outlined),
+                        title: Text('Print Preview'),
+                        contentPadding: EdgeInsets.zero,
                       ),
-                      PopupMenuItem(
-                        value: _HistoryAction.pdf,
-                        child: ListTile(
-                          leading: Icon(Icons.picture_as_pdf_outlined),
-                          title: Text('Download PDF'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                    ),
+                    const PopupMenuItem(
+                      value: _HistoryAction.pdf,
+                      child: ListTile(
+                        leading: Icon(Icons.picture_as_pdf_outlined),
+                        title: Text('Download PDF'),
+                        contentPadding: EdgeInsets.zero,
                       ),
+                    ),
+                    const PopupMenuItem(
+                      value: _HistoryAction.word,
+                      child: ListTile(
+                        leading: Icon(Icons.description_outlined),
+                        title: Text('Download Word'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: _HistoryAction.excel,
+                      child: ListTile(
+                        leading: Icon(Icons.grid_on_outlined),
+                        title: Text('Download Excel'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    if (isSmall) ...[
+                      const PopupMenuDivider(),
                       CheckedPopupMenuItem(
                         checked: _showEntryDate,
                         value: _HistoryAction.entryDate,
-                        child: const ListTile(
-                          leading: Icon(Icons.event_outlined),
-                          title: Text('Entry date'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                        child: const Text('Entry date'),
                       ),
                       CheckedPopupMenuItem(
                         checked: _showRecordId,
                         value: _HistoryAction.recordId,
-                        child: const ListTile(
-                          leading: Icon(Icons.tag_outlined),
-                          title: Text('Reference'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: _HistoryAction.excel,
-                        child: ListTile(
-                          leading: Icon(Icons.grid_on_outlined),
-                          title: Text('Download Excel'),
-                          contentPadding: EdgeInsets.zero,
-                        ),
+                        child: const Text('Reference'),
                       ),
                     ],
-                  )
-                else ...[
-                  IconButton(
-                    tooltip: 'Print',
-                    icon: const Icon(Icons.print_outlined, size: 20),
-                    onPressed: () =>
-                        _performHistoryAction(_HistoryAction.print, datafeed),
-                  ),
-                  IconButton(
-                    tooltip: 'Download PDF',
-                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 20),
-                    onPressed: () =>
-                        _performHistoryAction(_HistoryAction.pdf, datafeed),
-                  ),
+                  ],
+                ),
+                if (!isSmall)
                   PopupMenuButton<_HistoryColumn>(
                     tooltip: 'Show or hide columns',
                     icon: const Icon(Icons.view_column_outlined, size: 20),
@@ -911,13 +922,6 @@ class _StockItemHistoryPageState extends State<StockItemHistoryPage> {
                       ),
                     ],
                   ),
-                  IconButton(
-                    tooltip: 'Download Excel',
-                    icon: const Icon(Icons.grid_on_outlined, size: 20),
-                    onPressed: () =>
-                        _performHistoryAction(_HistoryAction.excel, datafeed),
-                  ),
-                ],
               ],
             ],
           ),

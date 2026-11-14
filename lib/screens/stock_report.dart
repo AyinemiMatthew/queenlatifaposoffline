@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/ReportProvider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -10,6 +12,7 @@ import 'package:syncfusion_flutter_datepicker/datepicker.dart';
 
 import '../models/stockReport.dart';
 import '../widgets/printStockReportPdf.dart';
+import '../widgets/stock_rows_per_page_menu.dart';
 import 'stock_movement_page.dart';
 
 class StockReportPage extends StatefulWidget {
@@ -45,11 +48,12 @@ class _StockReportPageState extends State<StockReportPage> {
       _isLightTheme ? Colors.grey.shade50 : AppColors.surfaceLight;
 
   Datafeed? _datafeed;
+  ReportProvider? _reportProvider;
   DateTimeRange? _selectedDateRange;
   String? _selectedType;
   String? _selectedCategory;
   String? _status;
-  static const int _rowsPerPage = 10;
+  int _rowsPerPage = 10;
   static const double _colGap = 10;
   int _currentPage = 0;
   bool _isSearching = false;
@@ -77,8 +81,8 @@ class _StockReportPageState extends State<StockReportPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<Datafeed>().updateSearch('');
-      context.read<Datafeed>().updateStockReportSearch('');
+      context.read<ReportProvider>().updateSearch('');
+      context.read<ReportProvider>().updateStockReportSearch('');
       context.read<Datafeed>().updateStockDialogSearch('');
       context.read<Datafeed>().updateItemHistorySearch('');
     });
@@ -108,7 +112,9 @@ class _StockReportPageState extends State<StockReportPage> {
         selectedBranchName = datafeed.branch;
       }
 
-      await datafeed.fetchstockreport(selectedBranch: selectedBranch);
+      await context.read<ReportProvider>().fetchstockreport(
+        selectedBranch: selectedBranch,
+      );
     });
 
     _hController.addListener(() {
@@ -126,13 +132,24 @@ class _StockReportPageState extends State<StockReportPage> {
   }
 
   Future<void> _applyFilters() async {
-    await context.read<Datafeed>().fetchstockreport(
+    await context.read<ReportProvider>().fetchstockreport(
       selectedDate: _selectedDateRange,
       selectedBranch: selectedBranch,
     );
   }
 
-  Widget _reportStatusBanner(Datafeed provider) {
+  Future<void> _runExport(String action, Future<void> Function() export) async {
+    try {
+      await export();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$action failed: $error')));
+    }
+  }
+
+  Widget _reportStatusBanner(ReportProvider provider) {
     if (!provider.stockReportOffline && provider.stockReportError == null) {
       return const SizedBox.shrink();
     }
@@ -300,6 +317,7 @@ class _StockReportPageState extends State<StockReportPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _datafeed = context.read<Datafeed>();
+    _reportProvider = context.read<ReportProvider>();
   }
 
   @override
@@ -314,10 +332,11 @@ class _StockReportPageState extends State<StockReportPage> {
     _searchFocusNode.dispose();
     _footerHController.dispose();
     final datafeed = _datafeed;
-    if (datafeed != null) {
+    final reportProvider = _reportProvider;
+    if (datafeed != null && reportProvider != null) {
       Future.microtask(() {
-        datafeed.updateSearch('');
-        datafeed.updateStockReportSearch('');
+        reportProvider.updateSearch('');
+        reportProvider.updateStockReportSearch('');
         datafeed.updateStockDialogSearch('');
         datafeed.updateItemHistorySearch('');
       });
@@ -326,10 +345,7 @@ class _StockReportPageState extends State<StockReportPage> {
     super.dispose();
   }
 
-  double _num(dynamic v) =>
-      v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0;
-
-  List<Map<String, dynamic>> _rows(Datafeed p) => p.filterstockreport(
+  List<Map<String, dynamic>> _rows(ReportProvider p) => p.filterstockreport(
     productType: _selectedType,
     category: _selectedCategory,
     status: _status,
@@ -342,7 +358,7 @@ class _StockReportPageState extends State<StockReportPage> {
     });
   }
 
-  void _closeSearch(Datafeed p) {
+  void _closeSearch(ReportProvider p) {
     setState(() {
       _isSearching = false;
       _searchController.clear();
@@ -360,29 +376,15 @@ class _StockReportPageState extends State<StockReportPage> {
   }
 
   int get _totalPages {
-    final totalItems = _rows(context.read<Datafeed>()).length;
+    final totalItems = _rows(context.read<ReportProvider>()).length;
     return totalItems == 0 ? 1 : ((totalItems - 1) ~/ _rowsPerPage) + 1;
-  }
-
-  List<Map<String, dynamic>> _pageRows(
-    List<Map<String, dynamic>> rows, [
-    int? pageIndex,
-  ]) {
-    if (rows.isEmpty) return const [];
-    final safePage = (pageIndex ?? _currentPage).clamp(
-      0,
-      ((rows.length - 1) ~/ _rowsPerPage),
-    );
-    final start = safePage * _rowsPerPage;
-    final end = (start + _rowsPerPage).clamp(0, rows.length);
-    return rows.sublist(start, end);
   }
 
   void _resetPage() => setState(() => _currentPage = 0);
 
   List<Widget> _appBarActions(
     BuildContext context,
-    Datafeed provider,
+    ReportProvider provider,
     List<Map<String, dynamic>> stockreport,
     bool compact,
   ) {
@@ -403,14 +405,17 @@ class _StockReportPageState extends State<StockReportPage> {
         '${DateFormat('d MMMM y').format(_selectedDateRange?.start ?? DateTime.now())} - '
         '${DateFormat('d MMMM y').format(_selectedDateRange?.end ?? DateTime.now())}';
 
-    void _downloadPdf() => printStockReportPdf(
+    Future<void> _downloadPdf() => printStockReportPdf(
       reportData: stockreport,
       companyName: provider.company,
       branchName: selectedBranchName ?? 'All Branches',
       dateRange: _dateRangeStr(),
+      productType: _selectedType,
+      category: _selectedCategory,
+      download: true,
     );
 
-    void _downloadExcel() => exportStockReportExcel(
+    Future<void> _printPdf() => printStockReportPdf(
       reportData: stockreport,
       companyName: provider.company,
       branchName: selectedBranchName ?? 'All Branches',
@@ -419,13 +424,31 @@ class _StockReportPageState extends State<StockReportPage> {
       category: _selectedCategory,
     );
 
-    // Combined "Download / Stock status" dropdown
+    Future<void> _downloadWord() => exportStockReportWord(
+      reportData: stockreport,
+      companyName: provider.company,
+      branchName: selectedBranchName ?? 'All Branches',
+      dateRange: _dateRangeStr(),
+      productType: _selectedType,
+      category: _selectedCategory,
+    );
+
+    Future<void> _downloadExcel() => exportStockReportExcel(
+      reportData: stockreport,
+      companyName: provider.company,
+      branchName: selectedBranchName ?? 'All Branches',
+      dateRange: _dateRangeStr(),
+      productType: _selectedType,
+      category: _selectedCategory,
+    );
+
+    // Export and stock status actions.
     Widget downloadStatusMenu() => PopupMenuButton<String>(
       key: _statusKey,
-      tooltip: 'Download / Stock status',
+      tooltip: 'More actions',
       color: _surfaceColor,
       icon: Icon(
-        Icons.file_download_outlined,
+        Icons.more_vert,
         size: 21,
         color: _status != null ? _accent : _textPrimaryColor,
       ),
@@ -455,6 +478,30 @@ class _StockReportPageState extends State<StockReportPage> {
               ),
               SizedBox(width: 10),
               Text('Download Excel'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'word',
+          child: Row(
+            children: [
+              Icon(
+                Icons.description_outlined,
+                size: 18,
+                color: _textSecondaryColor,
+              ),
+              const SizedBox(width: 10),
+              const Text('Download Word'),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'print',
+          child: Row(
+            children: [
+              Icon(Icons.print_outlined, size: 18, color: _textSecondaryColor),
+              const SizedBox(width: 10),
+              const Text('Print Preview'),
             ],
           ),
         ),
@@ -490,10 +537,16 @@ class _StockReportPageState extends State<StockReportPage> {
       onSelected: (value) {
         switch (value) {
           case 'pdf':
-            _downloadPdf();
+            _runExport('PDF download', _downloadPdf);
             break;
           case 'excel':
-            _downloadExcel();
+            _runExport('Excel export', _downloadExcel);
+            break;
+          case 'word':
+            _runExport('Word export', _downloadWord);
+            break;
+          case 'print':
+            _runExport('Print', _printPdf);
             break;
           case 'status_all':
             setState(() => _status = null);
@@ -599,6 +652,13 @@ class _StockReportPageState extends State<StockReportPage> {
 
     if (compact) {
       return [
+        if (provider.canDeleteRecords || provider.isAdminLevel)
+          IconButton(
+            key: _branchKey,
+            tooltip: 'Branch: ${selectedBranchName ?? 'All Branches'}',
+            icon: const Icon(Icons.store_outlined, size: 21),
+            onPressed: () => _showBranchMenu(provider),
+          ),
         PopupMenuButton<String>(
           tooltip: 'More actions',
           color: _surfaceColor,
@@ -607,11 +667,6 @@ class _StockReportPageState extends State<StockReportPage> {
             if (!provider.isAdminLevel)
               const PopupMenuItem<String>(value: 'home', child: Text('Home')),
             const PopupMenuItem<String>(value: 'search', child: Text('Search')),
-            if (provider.canDeleteRecords || provider.isAdminLevel)
-              const PopupMenuItem<String>(
-                value: 'branch',
-                child: Text('Branch'),
-              ),
             const PopupMenuItem<String>(
               value: 'date',
               child: Text('Date range'),
@@ -643,6 +698,14 @@ class _StockReportPageState extends State<StockReportPage> {
               value: 'excel',
               child: Text('Download Excel'),
             ),
+            const PopupMenuItem<String>(
+              value: 'word',
+              child: Text('Download Word'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'print',
+              child: Text('Print Preview'),
+            ),
             const PopupMenuDivider(),
             const PopupMenuItem<String>(
               value: 'refresh',
@@ -658,9 +721,6 @@ class _StockReportPageState extends State<StockReportPage> {
                 break;
               case 'search':
                 _openSearch();
-                break;
-              case 'branch':
-                _showBranchMenu(provider);
                 break;
               case 'date':
                 _showDateRangePicker();
@@ -702,10 +762,16 @@ class _StockReportPageState extends State<StockReportPage> {
                 _resetPage();
                 break;
               case 'pdf':
-                _downloadPdf();
+                _runExport('PDF download', _downloadPdf);
                 break;
               case 'excel':
-                _downloadExcel();
+                _runExport('Excel export', _downloadExcel);
+                break;
+              case 'word':
+                _runExport('Word export', _downloadWord);
+                break;
+              case 'print':
+                _runExport('Print', _printPdf);
                 break;
               case 'refresh':
                 _resetPage();
@@ -771,14 +837,8 @@ class _StockReportPageState extends State<StockReportPage> {
     });
   }
 
-  bool _isSalesPointType(String? t) =>
-      (t ?? '').toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '') ==
-      'salespoint';
-
-  void _showBranchMenu(Datafeed value) {
-    final visible = value.branches
-        .where((b) => !_isSalesPointType(b.branchtype))
-        .toList();
+  void _showBranchMenu(ReportProvider value) {
+    final visible = value.visibleStockReportBranches;
 
     _showFilterMenu(
       _branchKey,
@@ -801,7 +861,7 @@ class _StockReportPageState extends State<StockReportPage> {
   @override
   Widget build(BuildContext context) {
     final isLargeScreen = MediaQuery.of(context).size.width > 900;
-    final provider = context.watch<Datafeed>();
+    final provider = context.watch<ReportProvider>();
     final stockreport = _rows(provider);
     final totalPages = stockreport.isEmpty
         ? 1
@@ -811,16 +871,14 @@ class _StockReportPageState extends State<StockReportPage> {
       totalPages == 0 ? 0 : totalPages - 1,
     );
 
-    final paginatedRows = _pageRows(stockreport, effectivePage);
-    final stockTotal = stockreport.fold<double>(
-      0,
-      (s, r) => s + _num(r['stock_value']),
+    final paginatedRows = provider.pageReportRows(
+      stockreport,
+      _rowsPerPage,
+      effectivePage,
     );
-
-    final sellTotal = stockreport.fold<double>(
-      0,
-      (s, r) => s + _num(r['selling_value']),
-    );
+    final totals = provider.stockReportValueTotals(stockreport);
+    final stockTotal = totals['stock']!;
+    final sellTotal = totals['selling']!;
 
     final compactAppBar = MediaQuery.of(context).size.width < 860;
     final compactFooter = MediaQuery.of(context).size.width < 600;
@@ -992,36 +1050,59 @@ class _StockReportPageState extends State<StockReportPage> {
                               child: isLargeScreen
                                   ? Row(
                                       children: [
-                                        if (stockreport.length > _rowsPerPage)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              right: 8,
-                                            ),
-                                            child: Row(
+                                        Expanded(
+                                          child: _buildDesktopTotalsRow(
+                                            _stockColumns(),
+                                            stockreport.length,
+                                            stockTotal,
+                                            sellTotal,
+                                            controls: Row(
+                                              mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                IconButton(
-                                                  tooltip: 'Previous page',
-                                                  onPressed: effectivePage > 0
-                                                      ? () => setState(
-                                                          () => _currentPage =
-                                                              effectivePage - 1,
-                                                        )
-                                                      : null,
-                                                  padding: EdgeInsets.zero,
-                                                  icon: const Icon(
-                                                    Icons.chevron_left,
+                                                Flexible(
+                                                  child: Text(
+                                                    '${stockreport.length} item${stockreport.length == 1 ? '' : 's'}',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: _textPrimaryColor,
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
                                                 ),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 6,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: _backgroundColor,
+                                                StockRowsPerPageMenu(
+                                                  compact: true,
+                                                  value: _rowsPerPage,
+                                                  onChanged: (value) =>
+                                                      setState(() {
+                                                        _rowsPerPage = value;
+                                                        _currentPage = 0;
+                                                      }),
+                                                ),
+                                                if (stockreport.length >
+                                                    _rowsPerPage) ...[
+                                                  IconButton(
+                                                    tooltip: 'Previous page',
+                                                    onPressed: effectivePage > 0
+                                                        ? () => setState(
+                                                            () => _currentPage =
+                                                                effectivePage -
+                                                                1,
+                                                          )
+                                                        : null,
+                                                    padding: EdgeInsets.zero,
+                                                    constraints:
+                                                        const BoxConstraints(
+                                                          minWidth: 32,
+                                                          minHeight: 36,
+                                                        ),
+                                                    icon: const Icon(
+                                                      Icons.chevron_left,
+                                                    ),
                                                   ),
-                                                  child: Text(
+                                                  Text(
                                                     '${effectivePage + 1}/$totalPages',
                                                     style: TextStyle(
                                                       color: _textPrimaryColor,
@@ -1030,31 +1111,30 @@ class _StockReportPageState extends State<StockReportPage> {
                                                       fontSize: 12,
                                                     ),
                                                   ),
-                                                ),
-                                                IconButton(
-                                                  tooltip: 'Next page',
-                                                  onPressed:
-                                                      effectivePage <
-                                                          totalPages - 1
-                                                      ? () => setState(
-                                                          () => _currentPage =
-                                                              effectivePage + 1,
-                                                        )
-                                                      : null,
-                                                  padding: EdgeInsets.zero,
-                                                  icon: const Icon(
-                                                    Icons.chevron_right,
+                                                  IconButton(
+                                                    tooltip: 'Next page',
+                                                    onPressed:
+                                                        effectivePage <
+                                                            totalPages - 1
+                                                        ? () => setState(
+                                                            () => _currentPage =
+                                                                effectivePage +
+                                                                1,
+                                                          )
+                                                        : null,
+                                                    padding: EdgeInsets.zero,
+                                                    constraints:
+                                                        const BoxConstraints(
+                                                          minWidth: 32,
+                                                          minHeight: 36,
+                                                        ),
+                                                    icon: const Icon(
+                                                      Icons.chevron_right,
+                                                    ),
                                                   ),
-                                                ),
+                                                ],
                                               ],
                                             ),
-                                          ),
-                                        Expanded(
-                                          child: _buildDesktopTotalsRow(
-                                            _stockColumns(),
-                                            stockreport.length,
-                                            stockTotal,
-                                            sellTotal,
                                           ),
                                         ),
                                       ],
@@ -1082,6 +1162,14 @@ class _StockReportPageState extends State<StockReportPage> {
                                             _formatMoney(sellTotal),
                                             dense: compactFooter,
                                           ),
+                                        ),
+                                        StockRowsPerPageMenu(
+                                          compact: compactFooter,
+                                          value: _rowsPerPage,
+                                          onChanged: (value) => setState(() {
+                                            _rowsPerPage = value;
+                                            _currentPage = 0;
+                                          }),
                                         ),
                                         if (stockreport.length > _rowsPerPage)
                                           Padding(
@@ -1217,8 +1305,8 @@ class _StockReportPageState extends State<StockReportPage> {
                             width: columns[i].width * scale,
                             child: Text(
                               columns[i].label,
-                              textAlign: columns[i].numeric
-                                  ? TextAlign.right
+                              textAlign: columns[i].numeric || i == 0
+                                  ? TextAlign.center
                                   : TextAlign.left,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1282,12 +1370,14 @@ class _StockReportPageState extends State<StockReportPage> {
     final purchaseReturns = item['purchase_returns'] ?? 0;
     final damages = item['damages'] ?? 0;
     final saleReturns = item['sale_returns'] ?? 0;
-    final boxPiece = _num(item['cartonqty_bal']);
-    final cartonQtyBal = _num(balanceCd) / (boxPiece == 0 ? 1 : boxPiece);
+    final boxPiece = ReportProvider.toNumber(item['cartonqty_bal']);
+    final cartonQtyBal =
+        ReportProvider.toNumber(balanceCd) / (boxPiece == 0 ? 1 : boxPiece);
 
     final cells = <Widget>[
       Text(
         '${index + 1}',
+        textAlign: TextAlign.center,
         style: TextStyle(fontSize: 12, color: _textPrimaryColor),
       ),
       Text(
@@ -1298,18 +1388,18 @@ class _StockReportPageState extends State<StockReportPage> {
       ),
       Text(
         _formatNumber(openingStock),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.w500, color: _textPrimaryColor),
       ),
       Text(
         _formatNumber(newStock),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.w500, color: _textPrimaryColor),
       ),
       if (selectedBranch != null)
         Text(
           _formatNumber(transferIn),
-          textAlign: TextAlign.right,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontWeight: FontWeight.w500,
             color: _textPrimaryColor,
@@ -1317,50 +1407,50 @@ class _StockReportPageState extends State<StockReportPage> {
         ),
       Text(
         _formatNumber(saleReturns),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(color: _textSecondaryColor),
       ),
       Text(
         _formatNumber(totalStock),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.w500, color: _textPrimaryColor),
       ),
       Text(
         _formatNumber(salesQty),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.w500, color: _textPrimaryColor),
       ),
       Text(
         _formatNumber(purchaseReturns),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(fontWeight: FontWeight.bold, color: _textPrimaryColor),
       ),
       Text(
         _formatNumber(damages),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(color: _textSecondaryColor),
       ),
       if (selectedBranch != null)
         Text(
           _formatNumber(transfer),
-          textAlign: TextAlign.right,
+          textAlign: TextAlign.center,
           style: TextStyle(color: _textSecondaryColor),
         ),
 
       _stockBalanceCell(balanceCd),
       Text(
         _formatNumber(cartonQtyBal),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(color: _textSecondaryColor),
       ),
       Text(
         _formatMoney(item['stock_value']),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(color: _textPrimaryColor),
       ),
       Text(
         _formatMoney(item['selling_value']),
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: TextStyle(color: _textPrimaryColor),
       ),
     ];
@@ -1410,8 +1500,9 @@ class _StockReportPageState extends State<StockReportPage> {
     final saleReturns = item['sale_returns'] ?? 0;
     final stockOut = item['stock_out'] ?? 0;
 
-    final boxPiece = _num(item['cartonqty_bal']);
-    final cartonQtyBal = _num(balanceCd) / (boxPiece == 0 ? 1 : boxPiece);
+    final boxPiece = ReportProvider.toNumber(item['cartonqty_bal']);
+    final cartonQtyBal =
+        ReportProvider.toNumber(balanceCd) / (boxPiece == 0 ? 1 : boxPiece);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1453,7 +1544,7 @@ class _StockReportPageState extends State<StockReportPage> {
                     _stockBalanceCell(balanceCd, label: 'Balance', large: true),
                     const SizedBox(height: 2),
                     Text(
-                      'Carton: ${_formatNumber(cartonQtyBal)}',
+                      'Carton: ${_formatCarton(cartonQtyBal)}',
                       style: TextStyle(
                         fontSize: 12,
                         color: _textSecondaryColor,
@@ -1480,9 +1571,12 @@ class _StockReportPageState extends State<StockReportPage> {
                 _miniStat2("Damages", damages),
                 _miniStat2("Transfer Out", transfer),
                 _miniStat2("Transfer In", transferIn),
-                _miniStat2("Carton", cartonQtyBal),
+                _miniStat2("Carton", _formatCarton(cartonQtyBal)),
 
-                _miniStat2("Cost Value(GHS)", _formatMoney(item['stock_value'])),
+                _miniStat2(
+                  "Cost Value(GHS)",
+                  _formatMoney(item['stock_value']),
+                ),
                 _miniStat2(
                   "Selling Value(GHS)",
                   _formatMoney(item['selling_value']),
@@ -1548,8 +1642,9 @@ class _StockReportPageState extends State<StockReportPage> {
     List<_StockColumn> columns,
     int itemCount,
     double stockTotal,
-    double sellTotal,
-  ) {
+    double sellTotal, {
+    required Widget controls,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double colsSum = columns.fold<double>(0, (s, c) => s + c.width);
@@ -1562,6 +1657,12 @@ class _StockReportPageState extends State<StockReportPage> {
         final double scale = constraints.maxWidth > totalColsWidth
             ? (constraints.maxWidth - gapsSum - 32) / colsSum
             : 1.0;
+        const controlsColumnCount = 4;
+        final controlsWidth =
+            columns
+                .take(controlsColumnCount)
+                .fold<double>(0, (sum, column) => sum + column.width * scale) +
+            (controlsColumnCount - 1) * _colGap;
 
         return SingleChildScrollView(
           controller: _footerHController,
@@ -1575,7 +1676,13 @@ class _StockReportPageState extends State<StockReportPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  for (int i = 0; i < columns.length; i++) ...[
+                  SizedBox(width: controlsWidth, child: controls),
+                  const SizedBox(width: _colGap),
+                  for (
+                    int i = controlsColumnCount;
+                    i < columns.length;
+                    i++
+                  ) ...[
                     SizedBox(
                       width: columns[i].width * scale,
                       child: columns[i].label == 'Product'
@@ -1587,20 +1694,20 @@ class _StockReportPageState extends State<StockReportPage> {
                                 fontSize: 12,
                               ),
                             )
-                          : columns[i].label == 'Cost Value'
+                          : columns[i].label.startsWith('Cost Value')
                           ? Text(
                               _formatMoney(stockTotal),
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: _textPrimaryColor,
                                 fontSize: 13,
                               ),
                             )
-                          : columns[i].label == 'Selling Value'
+                          : columns[i].label.startsWith('Selling Value')
                           ? Text(
                               _formatMoney(sellTotal),
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: _textPrimaryColor,
@@ -1639,7 +1746,7 @@ class _StockReportPageState extends State<StockReportPage> {
   }
 
   Widget _stockBalanceCell(dynamic value, {String? label, bool large = false}) {
-    final balance = _num(value);
+    final balance = ReportProvider.toNumber(value);
     final textStyle = TextStyle(
       fontSize: large ? 16 : 12,
       fontWeight: FontWeight.bold,
@@ -1649,19 +1756,19 @@ class _StockReportPageState extends State<StockReportPage> {
     if (balance >= 0) {
       return Text(
         '${label == null ? '' : '$label: '}${_formatNumber(balance)}',
-        textAlign: TextAlign.right,
+        textAlign: TextAlign.center,
         style: textStyle,
       );
     }
 
     return Align(
-      alignment: Alignment.centerRight,
+      alignment: Alignment.center,
       child: Tooltip(
         message:
             'Negative stock may indicate sales were recorded before stock was received. Check pending stock-in or stock adjustments.',
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (label != null)
               Text(
@@ -1691,7 +1798,7 @@ class _StockReportPageState extends State<StockReportPage> {
                   const SizedBox(width: 3),
                   Text(
                     _formatNumber(balance),
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.center,
                     style: textStyle.copyWith(
                       fontSize: large ? 16 : 12,
                       color: Theme.of(context).colorScheme.onErrorContainer,
@@ -1720,11 +1827,15 @@ class _StockReportPageState extends State<StockReportPage> {
   }
 
   String _formatNumber(dynamic number) {
-    return _nf.format(_num(number));
+    return _nf.format(ReportProvider.toNumber(number));
+  }
+
+  String _formatCarton(dynamic value) {
+    return ReportProvider.toNumber(value).toStringAsFixed(2);
   }
 
   String _formatMoney(dynamic value) {
-    final amount = _num(value);
+    final amount = ReportProvider.toNumber(value);
     return ' ${_nf.format(amount.abs() < 0.005 ? 0 : amount)}';
   }
 
@@ -1755,6 +1866,18 @@ class _StockReportPageState extends State<StockReportPage> {
                 '${DateFormat('d MMMM y').format(_selectedDateRange?.end ?? DateTime.now())}',
             boxpiece: boxpiece,
           ),
+          onDownloadPdf: (transactions) => printStockTransactionsPdf(
+            transactions: transactions,
+            itemName: itemName,
+            companyName: company,
+            branchName: selectedBranchName ?? 'All Branches',
+            dateRange:
+                '${DateFormat('d MMMM y').format(_selectedDateRange?.start ?? DateTime.now())}'
+                ' - '
+                '${DateFormat('d MMMM y').format(_selectedDateRange?.end ?? DateTime.now())}',
+            boxpiece: boxpiece,
+            download: true,
+          ),
         ),
       ),
     );
@@ -1767,8 +1890,12 @@ class _StockReportPageState extends State<StockReportPage> {
     String branchName = 'All Branches',
     String dateRange = '',
     double? boxpiece,
+    bool download = false,
   }) async {
-    final pdf = pw.Document();
+    final pdf = pw.Document(
+      title: '$companyName - Stock Movement - $itemName',
+      author: companyName,
+    );
 
     final regular = pw.Font.ttf(
       await rootBundle.load('assets/fonts/Roboto-Regular.ttf'),
@@ -1779,6 +1906,16 @@ class _StockReportPageState extends State<StockReportPage> {
 
     final now = DateTime.now();
     final hasCarton = boxpiece != null && boxpiece > 0;
+    final safeCompanyName = companyName.trim().replaceAll(
+      RegExp(r'[^A-Za-z0-9_-]+'),
+      '_',
+    );
+    final safeItemName = itemName.trim().replaceAll(
+      RegExp(r'[^A-Za-z0-9_-]+'),
+      '_',
+    );
+    final reportFilePrefix =
+        '${safeCompanyName.isEmpty ? 'Company' : safeCompanyName}_stock_movement_$safeItemName';
 
     const headerBg = PdfColors.white;
     const totalBg = PdfColors.white;
@@ -2068,10 +2205,19 @@ class _StockReportPageState extends State<StockReportPage> {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (_) async => pdf.save(),
-      name: 'stock_movement_${itemName}_${now.millisecondsSinceEpoch}.pdf',
-    );
+    if (download) {
+      await FileSaver.instance.saveFile(
+        name: '${reportFilePrefix}_${now.millisecondsSinceEpoch}',
+        bytes: Uint8List.fromList(await pdf.save()),
+        fileExtension: 'pdf',
+        mimeType: MimeType.pdf,
+      );
+    } else {
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdf.save(),
+        name: '${reportFilePrefix}_${now.millisecondsSinceEpoch}.pdf',
+      );
+    }
   }
 }
 

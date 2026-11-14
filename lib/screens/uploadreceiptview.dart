@@ -1,11 +1,66 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:kologsoft/screens/uploadreceipt.dart';
 import 'package:provider/provider.dart';
 
 import '../models/appModuls.dart';
 import '../providers/Datafeed.dart';
+import '../providers/item_provider.dart';
+
+Future<void> _saveReceiptToDevice(
+  BuildContext context,
+  String url,
+  String receiptName,
+) async {
+  try {
+    final uri = Uri.parse(url);
+    final response = await http.get(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('The receipt could not be downloaded.');
+    }
+
+    final contentType = response.headers['content-type']
+        ?.split(';')
+        .first
+        .trim()
+        .toLowerCase();
+    final extension = switch (contentType) {
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      'image/gif' => 'gif',
+      'image/heic' => 'heic',
+      'image/heif' => 'heif',
+      'image/jpeg' => 'jpg',
+      _ =>
+        uri.pathSegments.isNotEmpty && uri.pathSegments.last.contains('.')
+            ? uri.pathSegments.last.split('.').last.split('?').first
+            : 'jpg',
+    };
+    final safeName = receiptName.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    final fileName =
+        '${safeName}_receipt_${DateTime.now().millisecondsSinceEpoch}';
+
+    await FileSaver.instance.saveFile(
+      name: fileName,
+      bytes: response.bodyBytes,
+      fileExtension: extension,
+      mimeType: MimeType.other,
+    );
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Receipt saved to your device.')),
+    );
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Could not save receipt: $error')));
+  }
+}
 
 class uploadReceiptViewPage extends StatefulWidget {
   const uploadReceiptViewPage({super.key});
@@ -52,37 +107,11 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
     super.dispose();
   }
 
-  DateTime? _receiptDate(dynamic value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
-    return null;
-  }
-
   String _selectedBranchLabel(Datafeed datafeed) {
     for (final branch in datafeed.branches) {
       if (branch.id == _selectedBranch) return branch.branchname;
     }
     return 'Select branch';
-  }
-
-  List<Map<String, dynamic>> _filterByDate(
-    List<Map<String, dynamic>> receipts,
-  ) {
-    final range = selectedDate;
-    if (range == null) return receipts;
-
-    final start = DateTime(
-      range.start.year,
-      range.start.month,
-      range.start.day,
-    );
-    final end = DateTime(range.end.year, range.end.month, range.end.day + 1);
-
-    return receipts.where((receipt) {
-      final date = _receiptDate(receipt['createdat']);
-      return date != null && !date.isBefore(start) && date.isBefore(end);
-    }).toList();
   }
 
   Future<void> _selectDateRange() async {
@@ -147,7 +176,12 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
         final theme = Theme.of(context);
         final colorScheme = theme.colorScheme;
         final isDark = theme.brightness == Brightness.dark;
-        final filteredreceipts = _filterByDate(value.filterUploadReceipts());
+        final itemProvider = context.watch<ItemProvider>();
+        final filteredreceipts = itemProvider.filterReceipts(
+          receipts: value.receiptList,
+          query: value.searchQuery,
+          dateRange: selectedDate,
+        );
 
         return Scaffold(
           backgroundColor: isDark
@@ -276,7 +310,7 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 900),
+                  constraints: const BoxConstraints(maxWidth: 1300),
                   child: Column(
                     children: [
                       if (selectedDate != null) ...[
@@ -311,9 +345,9 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
                                     return SingleChildScrollView(
                                       scrollDirection: Axis.horizontal,
                                       child: ConstrainedBox(
-                                        constraints: BoxConstraints(
-                                          maxWidth: 900,
-                                          minWidth: 900,
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 1300,
+                                          minWidth: 1300,
                                         ),
                                         child: SingleChildScrollView(
                                           scrollDirection: Axis.vertical,
@@ -406,6 +440,22 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
                                                   ),
 
                                                   DataColumn(
+                                                    label: const Text(
+                                                      "Description",
+                                                    ),
+                                                    onSort: (index, ascending) {
+                                                      _sort(
+                                                        (d) =>
+                                                            d['description'] ??
+                                                            '',
+                                                        index,
+                                                        ascending,
+                                                        filteredreceipts,
+                                                      );
+                                                    },
+                                                  ),
+
+                                                  DataColumn(
                                                     label: const Text("Staff"),
                                                     onSort: (index, ascending) {
                                                       _sort(
@@ -432,7 +482,9 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
                                                     },
                                                   ),
                                                   DataColumn(
-                                                    label: const Text("Image"),
+                                                    label: const Text(
+                                                      "Receipt",
+                                                    ),
                                                     onSort: (index, ascending) {
                                                       _sort(
                                                         (d) =>
@@ -487,6 +539,9 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
 
                                       final id = receipt['id'] ?? '';
                                       final name = receipt['name'] ?? '';
+                                      final description =
+                                          (receipt['description'] ?? '')
+                                              .toString();
                                       final branch = receipt['branch'] ?? '';
                                       final staff = receipt['staff'] ?? '';
                                       final List receiptUrls =
@@ -507,272 +562,395 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
                                               'MMM dd, yyyy - hh:mm a',
                                             ).format(parsedDate)
                                           : '';
-                                      return Container(
-                                        margin: const EdgeInsets.symmetric(
-                                          vertical: 8,
-                                          horizontal: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _cardSurfaceColor,
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          border: Border.all(
-                                            color: _cardBorderColor,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(
-                                                0.2,
-                                              ),
-                                              blurRadius: 12,
-                                              offset: const Offset(0, 6),
-                                            ),
-                                          ],
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(
-                                                  16,
-                                                ),
-                                                color: _cardHeaderColor,
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 12,
-                                                            vertical: 6,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors
-                                                            .amberAccent
-                                                            .withOpacity(0.1),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                      ),
-                                                      child: Text(
-                                                        "Name #$name",
-                                                        style: TextStyle(
-                                                          color:
-                                                              Theme.of(
-                                                                    context,
-                                                                  ).brightness ==
-                                                                  Brightness
-                                                                      .light
-                                                              ? const Color(
-                                                                  0xFF8A5A00,
-                                                                )
-                                                              : Colors
-                                                                    .amberAccent,
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          letterSpacing: 1.1,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const Spacer(),
-                                                    Text(
-                                                      "#: ${index + 1}",
-                                                      style: TextStyle(
-                                                        color:
-                                                            _secondaryTextColor,
-                                                        fontSize: 12,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
 
-                                              Padding(
-                                                padding: const EdgeInsets.all(
-                                                  16,
+                                      return StatefulBuilder(
+                                        builder: (context, setState) {
+                                          bool hovered = false;
+                                          return MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            onEnter: (_) =>
+                                                setState(() => hovered = true),
+                                            onExit: (_) =>
+                                                setState(() => hovered = false),
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 150,
+                                              ),
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 8,
+                                                    horizontal: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: _cardSurfaceColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                                border: Border.all(
+                                                  color: hovered
+                                                      ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary
+                                                      : _cardBorderColor,
+                                                  width: hovered ? 1.5 : 1,
                                                 ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color:
+                                                        (hovered
+                                                                ? Theme.of(
+                                                                        context,
+                                                                      )
+                                                                      .colorScheme
+                                                                      .primary
+                                                                : Colors.black)
+                                                            .withOpacity(
+                                                              hovered
+                                                                  ? 0.08
+                                                                  : 0.12,
+                                                            ),
+                                                    blurRadius: hovered
+                                                        ? 16
+                                                        : 10,
+                                                    offset: const Offset(0, 5),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
                                                 child: Column(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    Center(
-                                                      child: Container(
-                                                        height: 200,
-                                                        width: 200,
-                                                        decoration: BoxDecoration(
-                                                          color:
-                                                              _cardSurfaceColor,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                12,
-                                                              ),
-                                                          border: Border.all(
-                                                            color:
-                                                                _cardBorderColor,
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 16,
+                                                            vertical: 14,
                                                           ),
-                                                        ),
-                                                        child:
-                                                            receiptUrls.isEmpty
-                                                            ? Center(
-                                                                child: Icon(
-                                                                  Icons
-                                                                      .image_not_supported,
-                                                                  size: 50,
-                                                                  color:
-                                                                      _secondaryTextColor,
+                                                      color: _cardHeaderColor,
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Text(
+                                                                  name,
+                                                                  style: TextStyle(
+                                                                    color:
+                                                                        _textColor,
+                                                                    fontSize:
+                                                                        15,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                  ),
+                                                                  maxLines: 2,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
                                                                 ),
-                                                              )
-                                                            : ClipRRect(
+                                                                const SizedBox(
+                                                                  height: 4,
+                                                                ),
+                                                                Text(
+                                                                  'Branch: $branch',
+                                                                  style: TextStyle(
+                                                                    color:
+                                                                        _secondaryTextColor,
+                                                                    fontSize:
+                                                                        11,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          IconButton(
+                                                            tooltip: 'Download',
+                                                            onPressed:
+                                                                receiptUrls
+                                                                    .isEmpty
+                                                                ? null
+                                                                : () async {
+                                                                    await _saveReceiptToDevice(
+                                                                      context,
+                                                                      receiptUrls
+                                                                          .first
+                                                                          .toString(),
+                                                                      name,
+                                                                    );
+                                                                  },
+                                                            icon: const Icon(
+                                                              Icons
+                                                                  .download_rounded,
+                                                            ),
+                                                            color:
+                                                                Theme.of(
+                                                                      context,
+                                                                    )
+                                                                    .colorScheme
+                                                                    .primary,
+                                                          ),
+                                                          if (value.canEdit(
+                                                            AppModules.accounts,
+                                                          ))
+                                                            IconButton(
+                                                              tooltip:
+                                                                  'Edit receipt',
+                                                              visualDensity:
+                                                                  VisualDensity
+                                                                      .compact,
+                                                              onPressed: () =>
+                                                                  _handleEdit(
+                                                                    context,
+                                                                    id,
+                                                                    receipt,
+                                                                  ),
+                                                              icon: const Icon(
+                                                                Icons
+                                                                    .edit_outlined,
+                                                              ),
+                                                            ),
+                                                          if (value.canDelete(
+                                                            AppModules.accounts,
+                                                          ))
+                                                            IconButton(
+                                                              tooltip:
+                                                                  'Delete receipt',
+                                                              visualDensity:
+                                                                  VisualDensity
+                                                                      .compact,
+                                                              color: Theme.of(
+                                                                context,
+                                                              ).colorScheme.error,
+                                                              onPressed: () =>
+                                                                  _handleDelete(
+                                                                    context,
+                                                                    name,
+                                                                    id,
+                                                                    receiptUrls,
+                                                                  ),
+                                                              icon: const Icon(
+                                                                Icons
+                                                                    .delete_outline,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            16,
+                                                          ),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          if (receiptUrls
+                                                              .isEmpty)
+                                                            Container(
+                                                              height: 160,
+                                                              width: double
+                                                                  .infinity,
+                                                              decoration: BoxDecoration(
+                                                                color:
+                                                                    _cardSurfaceColor,
                                                                 borderRadius:
                                                                     BorderRadius.circular(
                                                                       12,
                                                                     ),
-                                                                child: PageView.builder(
-                                                                  itemCount:
-                                                                      receiptUrls
-                                                                          .length,
-                                                                  itemBuilder:
-                                                                      (
-                                                                        context,
-                                                                        index,
-                                                                      ) {
-                                                                        final url =
-                                                                            receiptUrls[index];
-
-                                                                        return GestureDetector(
-                                                                          onTap: () {
-                                                                            showDialog(
-                                                                              context: context,
-                                                                              builder:
-                                                                                  (
-                                                                                    _,
-                                                                                  ) => _ImagePreviewDialog(
-                                                                                    imageUrl: url,
-                                                                                  ),
-                                                                            );
-                                                                          },
-                                                                          child: Image.network(
-                                                                            url,
-                                                                            fit:
-                                                                                BoxFit.cover,
-                                                                            errorBuilder:
-                                                                                (
-                                                                                  context,
-                                                                                  error,
-                                                                                  stackTrace,
-                                                                                ) {
-                                                                                  return const Icon(
-                                                                                    Icons.error,
-                                                                                    color: Colors.red,
-                                                                                  );
-                                                                                },
-                                                                          ),
-                                                                        );
-                                                                      },
+                                                                border: Border.all(
+                                                                  color:
+                                                                      _cardBorderColor,
                                                                 ),
                                                               ),
+                                                              child: Center(
+                                                                child: Icon(
+                                                                  Icons
+                                                                      .image_not_supported,
+                                                                  size: 48,
+                                                                  color:
+                                                                      _secondaryTextColor,
+                                                                ),
+                                                              ),
+                                                            )
+                                                          else
+                                                            SizedBox(
+                                                              height: 160,
+                                                              child: ListView.separated(
+                                                                scrollDirection:
+                                                                    Axis.horizontal,
+                                                                itemCount:
+                                                                    receiptUrls
+                                                                        .length,
+                                                                separatorBuilder:
+                                                                    (_, __) =>
+                                                                        const SizedBox(
+                                                                          width:
+                                                                              10,
+                                                                        ),
+                                                                itemBuilder:
+                                                                    (
+                                                                      context,
+                                                                      imageIndex,
+                                                                    ) {
+                                                                      final url =
+                                                                          receiptUrls[imageIndex]
+                                                                              .toString();
+                                                                      return GestureDetector(
+                                                                        onTap: () => showDialog(
+                                                                          context:
+                                                                              context,
+                                                                          builder: (_) => _ImagePreviewDialog(
+                                                                            imageUrl:
+                                                                                url,
+                                                                          ),
+                                                                        ),
+                                                                        child: ClipRRect(
+                                                                          borderRadius: BorderRadius.circular(
+                                                                            12,
+                                                                          ),
+                                                                          child: Stack(
+                                                                            children: [
+                                                                              Image.network(
+                                                                                url,
+                                                                                width: 140,
+                                                                                height: 160,
+                                                                                fit: BoxFit.cover,
+                                                                                errorBuilder:
+                                                                                    (
+                                                                                      context,
+                                                                                      error,
+                                                                                      stackTrace,
+                                                                                    ) => Container(
+                                                                                      width: 140,
+                                                                                      height: 160,
+                                                                                      color: Colors.grey.shade200,
+                                                                                      child: const Icon(
+                                                                                        Icons.broken_image_outlined,
+                                                                                        color: Colors.red,
+                                                                                      ),
+                                                                                    ),
+                                                                              ),
+                                                                              Positioned(
+                                                                                top: 8,
+                                                                                right: 8,
+                                                                                child: InkWell(
+                                                                                  onTap: () async {
+                                                                                    await _saveReceiptToDevice(
+                                                                                      context,
+                                                                                      url,
+                                                                                      name,
+                                                                                    );
+                                                                                  },
+                                                                                  child: Container(
+                                                                                    padding: const EdgeInsets.all(
+                                                                                      6,
+                                                                                    ),
+                                                                                    decoration: BoxDecoration(
+                                                                                      color: Colors.black54,
+                                                                                      borderRadius: BorderRadius.circular(
+                                                                                        20,
+                                                                                      ),
+                                                                                    ),
+                                                                                    child: const Icon(
+                                                                                      Icons.download_rounded,
+                                                                                      color: Colors.white,
+                                                                                      size: 16,
+                                                                                    ),
+                                                                                  ),
+                                                                                ),
+                                                                              ),
+                                                                            ],
+                                                                          ),
+                                                                        ),
+                                                                      );
+                                                                    },
+                                                              ),
+                                                            ),
+                                                          const SizedBox(
+                                                            height: 12,
+                                                          ),
+                                                          if (description
+                                                              .isNotEmpty)
+                                                            Container(
+                                                              width: double
+                                                                  .infinity,
+                                                              padding:
+                                                                  const EdgeInsets.all(
+                                                                    10,
+                                                                  ),
+                                                              decoration: BoxDecoration(
+                                                                color: Theme.of(context)
+                                                                    .colorScheme
+                                                                    .surfaceContainerLowest,
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                      10,
+                                                                    ),
+                                                              ),
+                                                              child: Text(
+                                                                description,
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      _textColor,
+                                                                  fontSize: 13,
+                                                                  height: 1.4,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          const SizedBox(
+                                                            height: 12,
+                                                          ),
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    _buildFooterLabel(
+                                                                      Icons
+                                                                          .person_outline,
+                                                                      "Staff: $staff",
+                                                                    ),
+                                                                    const SizedBox(
+                                                                      height: 4,
+                                                                    ),
+                                                                    _buildFooterLabel(
+                                                                      Icons
+                                                                          .calendar_today_outlined,
+                                                                      "Date: $createdDate",
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              Text(
+                                                                'No. ${index + 1}',
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      _secondaryTextColor,
+                                                                  fontSize: 11,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
                                                       ),
-                                                    ),
-                                                    Divider(
-                                                      color: _cardBorderColor,
-                                                    ),
-
-                                                    Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
-                                                      children: [
-                                                        Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            _buildFooterLabel(
-                                                              Icons
-                                                                  .person_outline,
-                                                              "Staff: $staff",
-                                                            ),
-                                                            const SizedBox(
-                                                              height: 4,
-                                                            ),
-                                                            _buildFooterLabel(
-                                                              Icons
-                                                                  .calendar_today_outlined,
-                                                              "Date: $createdDate",
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
                                                     ),
                                                   ],
                                                 ),
                                               ),
-
-                                              Container(
-                                                color: _cardHeaderColor,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                    ),
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceAround,
-                                                  children: [
-                                                    Text(
-                                                      "Branch: $branch",
-                                                      style: TextStyle(
-                                                        color:
-                                                            _secondaryTextColor,
-                                                        fontSize: 10,
-                                                      ),
-                                                    ),
-                                                    Visibility(
-                                                      visible: value.canEdit(
-                                                        AppModules.accounts,
-                                                      ),
-                                                      child: _buildActionButton(
-                                                        Icons.edit,
-                                                        "Edit",
-                                                        Colors.blueAccent,
-                                                        () {
-                                                          _handleEdit(
-                                                            context,
-                                                            id,
-                                                            receipt,
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                    Visibility(
-                                                      visible: value.canDelete(
-                                                        AppModules.accounts,
-                                                      ),
-                                                      child: _buildActionButton(
-                                                        Icons.delete_outline,
-                                                        "Delete",
-                                                        Colors.redAccent,
-                                                        () => _handleDelete(
-                                                          context,
-                                                          name,
-                                                          id,
-                                                          receiptUrls,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                            ),
+                                          );
+                                        },
                                       );
                                     },
                                   );
@@ -800,16 +978,64 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
     );
   }
 
-  Widget _buildActionButton(
-    IconData icon,
-    String label,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: color, size: 20),
-      label: Text(label, style: TextStyle(color: color, fontSize: 13)),
+  Widget _buildActionMenu(
+    BuildContext context, {
+    required String name,
+    required String id,
+    required List<dynamic> urls,
+    required Map<String, dynamic> receipt,
+  }) {
+    return PopupMenuButton<String>(
+      tooltip: 'More actions',
+      icon: const Icon(Icons.more_vert),
+      onSelected: (value) async {
+        switch (value) {
+          case 'download':
+            if (urls.isNotEmpty) {
+              await _saveReceiptToDevice(context, urls.first.toString(), name);
+            }
+            break;
+          case 'edit':
+            _handleEdit(context, id, receipt);
+            break;
+          case 'delete':
+            _handleDelete(context, name, id, urls);
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (urls.isNotEmpty)
+          const PopupMenuItem(
+            value: 'download',
+            child: Row(
+              children: [
+                Icon(Icons.download_rounded, size: 18),
+                SizedBox(width: 8),
+                Text('Download'),
+              ],
+            ),
+          ),
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18),
+              SizedBox(width: 8),
+              Text('Edit'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, size: 18),
+              SizedBox(width: 8),
+              Text('Delete'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -845,7 +1071,12 @@ class _uploadReceiptViewPageState extends State<uploadReceiptViewPage> {
     if (confirm == true) {
       try {
         // Accessing the provider
-        await context.read<Datafeed>().deleteUploadReceipt(id, url);
+        final datafeed = context.read<Datafeed>();
+        await context.read<ItemProvider>().deleteReceipt(
+          datafeed: datafeed,
+          id: id,
+          imageUrls: List<String>.from(url),
+        );
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -908,52 +1139,85 @@ class ReceiptDataSource extends DataTableSource {
 
     return DataRow.byIndex(
       index: index,
+      color: MaterialStateProperty.resolveWith((states) {
+        if (index.isEven) {
+          return Theme.of(context).brightness == Brightness.light
+              ? const Color(0xFFF3F7FA)
+              : const Color(0xFF243247);
+        }
+        return null;
+      }),
       cells: [
         DataCell(Text("${index + 1}")),
 
         DataCell(Text(r['name'])),
 
+        DataCell(Text((r['description'] ?? '').toString())),
+
         DataCell(Text(r['staff'])),
 
         DataCell(Text("${r['branch'] ?? ''}")),
 
-        // DataCell(
-        //   Row(
-        //     children: (r['receiptUrl'] as List<dynamic>? ?? [])
-        //         .take(3)
-        //         .map((url) => Padding(
-        //       padding: const EdgeInsets.all(4),
-        //       child: Image.network(
-        //         url,
-        //         width: 40,
-        //         height: 40,
-        //         fit: BoxFit.cover,
-        //       ),
-        //     ))
-        //         .toList(),
-        //   ),
-        // ),
         DataCell(
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: (r['receiptUrl'] as List<dynamic>? ?? [])
-                .take(3)
+                .asMap()
+                .entries
                 .map(
-                  (url) => Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: InkWell(
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => _ImagePreviewDialog(imageUrl: url),
-                        );
-                      },
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: Image.network(
-                          url,
-                          width: 40,
-                          height: 40,
-                          fit: BoxFit.cover,
+                  (entry) => Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 8, 12, 8),
+                    child: SizedBox(
+                      width: 96,
+                      height: 72,
+                      child: Material(
+                        clipBehavior: Clip.antiAlias,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            InkWell(
+                              onTap: () => showDialog(
+                                context: context,
+                                builder: (_) =>
+                                    _ImagePreviewDialog(imageUrl: entry.value),
+                              ),
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: Image.network(
+                                  entry.value,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: Material(
+                                color: Colors.black54,
+                                shape: const CircleBorder(),
+                                child: IconButton(
+                                  tooltip: 'Download receipt',
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 32,
+                                    height: 32,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _saveReceiptToDevice(
+                                    context,
+                                    entry.value.toString(),
+                                    (r['name'] ?? 'receipt').toString(),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.download_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -976,16 +1240,61 @@ class ReceiptDataSource extends DataTableSource {
         DataCell(
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blueAccent),
-                onPressed: () {
-                  handleEdit(context, r['id'], r);
+              PopupMenuButton<String>(
+                tooltip: 'More actions',
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) async {
+                  switch (value) {
+                    case 'download':
+                      if (urls.isNotEmpty) {
+                        await _saveReceiptToDevice(
+                          context,
+                          urls.first.toString(),
+                          (r['name'] ?? 'receipt').toString(),
+                        );
+                      }
+                      break;
+                    case 'edit':
+                      handleEdit(context, r['id'], r);
+                      break;
+                    case 'delete':
+                      handleDelete(context, r['name'], r['id'], urls);
+                      break;
+                  }
                 },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.redAccent),
-                onPressed: () =>
-                    handleDelete(context, r['name'], r['id'], urls),
+                itemBuilder: (context) => [
+                  if (urls.isNotEmpty)
+                    const PopupMenuItem(
+                      value: 'download',
+                      child: Row(
+                        children: [
+                          Icon(Icons.download_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text('Download'),
+                        ],
+                      ),
+                    ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 18),
+                        SizedBox(width: 8),
+                        Text('Edit'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18),
+                        SizedBox(width: 8),
+                        Text('Delete'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

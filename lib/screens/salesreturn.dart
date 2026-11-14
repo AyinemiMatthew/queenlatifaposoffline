@@ -1,12 +1,11 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dropdown_search/dropdown_search.dart' hide Mode;
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:kologsoft/models/ReasonsModel.dart';
 import 'package:kologsoft/models/salesreturnmodel.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
+import 'package:kologsoft/providers/SalesProvider.dart';
 import 'package:kologsoft/screens/salesreturnlist.dart';
 import 'package:provider/provider.dart';
 
@@ -355,157 +354,27 @@ class _SalesreturnState extends State<Salesreturn> {
     setState(() => _isLoading = true);
 
     try {
-      // final String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final String formattedDate = _dateymd!;
-      final now = DateTime.now();
-      final day = DateFormat('EEEE').format(now);
-      final year = now.year.toString();
-      final month = '${now.year}.${now.month}';
-      final weekNumber =
-          ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
-      final week = '${now.year}.$weekNumber';
-
-      final cleanReceipt = _receiptId!.trim();
-
-      if (cleanReceipt.isEmpty ||
-          cleanReceipt == 'null' ||
-          cleanReceipt.length < 2) {
-        throw Exception("Invalid receipt ID");
+      final dateYmd = _dateymd;
+      if (dateYmd == null || dateYmd.isEmpty) {
+        throw StateError('The return date is missing.');
       }
-
-      final receipt = cleanReceipt.startsWith('0')
-          ? cleanReceipt.substring(1)
-          : cleanReceipt;
-
-      final String id =
-          "${datafeed.companyid.toUpperCase()}_${datafeed.staffPosition}_$receipt";
-
-      // strip internal helper keys before saving
-      Map<String, dynamic> cleanedCart() {
-        final Map<String, dynamic> cleaned = {};
-        _cartItems.forEach((key, value) {
-          final item = Map<String, dynamic>.from(value);
-          item.remove('original_item');
-          cleaned[key] = item;
-        });
-        return cleaned;
-      }
-
-      final cart = cleanedCart();
-
-      final firstCartItem = _cartItems.values.first;
-      final returnBranchId =
-          firstCartItem['returned_branchid'] ?? datafeed.activeBranchId;
-      final returnBranchName =
-          firstCartItem['returned_branchname'] ?? datafeed.activeBranchName;
-
-      final double totalAmount = _cartItems.values.fold(
-        0.0,
-        (runningTotal, item) =>
-            runningTotal +
-            (double.tryParse(item['returned_grosstotalamount'].toString()) ??
-                0),
+      final messenger = ScaffoldMessenger.of(context);
+      final isOffline = await context.read<SalesProvider>().saveSalesReturn(
+        SalesReturnSaveRequest(
+          datafeed: datafeed,
+          receiptId: _receiptId!,
+          dateYmd: dateYmd,
+          items: Map<String, Map<String, dynamic>>.from(_cartItems),
+          amountPaid: _amountPaid,
+          payments: _payments,
+          transMode: _transMode,
+          onSyncError: (message) {
+            messenger.showSnackBar(
+              SnackBar(content: Text(message), backgroundColor: Colors.red),
+            );
+          },
+        ),
       );
-      final double totaldiscount = _cartItems.values.fold(
-        0.0,
-        (runningTotal, item) =>
-            runningTotal +
-            (double.tryParse(item['returned_discount'].toString()) ?? 0),
-      );
-      final amountPaid = _amountPaid;
-
-      final returnData = {
-        'returned_companyid': datafeed.companyid,
-        'returned_id': id,
-        'returned_receiptid': _receiptId ?? '',
-        'returned_branchid': returnBranchId,
-        'returned_branchname': returnBranchName,
-        'returned_createdat': FieldValue.serverTimestamp(),
-        'returned_createdby': datafeed.staff,
-        'returned_staffreturnedbranch': datafeed.activeBranchId,
-        'returned_staffreturnedbranchname': datafeed.activeBranchName,
-        'returned_updatedby': datafeed.staff,
-        'returned_itemcount': _cartItems.length,
-        'day': day,
-        'week': week,
-        'month': month,
-        'year': year,
-        'transmode':
-            _transMode ?? cart.values.first['returned_transMode'] ?? '',
-        'dateymd': formattedDate,
-        'returned_items': cart,
-        'returned_transMode': _transMode,
-        'returned_grosstotalamount': totalAmount,
-        'returned_discount': totaldiscount,
-        'returned_amountPaid': amountPaid,
-        'returned_payments': _payments,
-        'returned_updatedat': FieldValue.serverTimestamp(),
-        'returned_staff': datafeed.staff,
-        'returned_timestamp': DateTime.now().millisecondsSinceEpoch,
-        'staffemail': datafeed.staffemail,
-      };
-
-      final updateData = {
-        'isreturned': true,
-        'isreturned_dateymd': formattedDate,
-        'returned_updatedat': FieldValue.serverTimestamp(),
-        'returned_updatedby': datafeed.staff,
-        'items': cart,
-        'staffemailupdated': datafeed.staffemail,
-      };
-
-      final saleUpdateFuture = datafeed.db
-          .collection('sales')
-          .doc(id)
-          .set(updateData, SetOptions(merge: true));
-
-      final returnSaveFuture = datafeed.db
-          .collection('salesreturn')
-          .doc(id)
-          .set(returnData, SetOptions(merge: true));
-
-      final isOffline = datafeed.isOffline;
-      if (isOffline) {
-        salereturn? previousRecord;
-        for (final existingRecord in datafeed.salesreturn) {
-          if (existingRecord.id == id) {
-            previousRecord = existingRecord;
-            break;
-          }
-        }
-
-        final pendingRecord = salereturn(
-          companyid: datafeed.companyid,
-          receiptid: cleanReceipt,
-          id: id,
-          branchid: returnBranchId.toString(),
-          branchname: returnBranchName.toString(),
-          staffposition: datafeed.staffPosition,
-          salesreturn: Timestamp.fromDate(now),
-          items: cart,
-          itemcount: cart.length,
-          createdat: Timestamp.fromDate(now),
-          createdby: datafeed.staff,
-          pricingtype: _transMode ?? '',
-          approvedby: datafeed.staff,
-          dateymd: formattedDate,
-          pendingSync: true,
-        );
-
-        datafeed.addPendingSalesReturn(pendingRecord);
-        unawaited(
-          _finishOfflineReturnSync(
-            saleUpdateFuture,
-            returnSaveFuture,
-            datafeed,
-            id,
-            previousRecord,
-            ScaffoldMessenger.of(context),
-          ),
-        );
-      } else {
-        await Future.wait([saleUpdateFuture, returnSaveFuture]);
-      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -541,28 +410,6 @@ class _SalesreturnState extends State<Salesreturn> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _finishOfflineReturnSync(
-    Future<void> saleUpdateFuture,
-    Future<void> returnSaveFuture,
-    Datafeed datafeed,
-    String id,
-    salereturn? previousRecord,
-    ScaffoldMessengerState messenger,
-  ) async {
-    try {
-      await Future.wait([saleUpdateFuture, returnSaveFuture]);
-      datafeed.markSalesReturnSynced(id);
-    } catch (error) {
-      datafeed.restoreSalesReturnAfterFailedOfflineSave(id, previousRecord);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Could not sync sales return: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
