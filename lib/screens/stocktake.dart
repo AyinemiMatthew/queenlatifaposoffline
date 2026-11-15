@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/providers/ReportProvider.dart';
+import 'package:kologsoft/providers/StockProvider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
@@ -69,16 +70,8 @@ class StockTake extends StatefulWidget {
 }
 
 class _StockTakeState extends State<StockTake> {
-  // ---------------------------------------------------------------------------
-  // Branch
-  // ---------------------------------------------------------------------------
-
   String? _selectedBranchId;
   String? _selectedBranchName;
-
-  // ---------------------------------------------------------------------------
-  // Search
-  // ---------------------------------------------------------------------------
 
   final TextEditingController _searchController =
   TextEditingController();
@@ -89,13 +82,7 @@ class _StockTakeState extends State<StockTake> {
 
   // Complete locally loaded branch items.
   List<ItemModel> _allBranchItems = [];
-
-  // Items currently displayed after local filtering.
   List<ItemModel> _branchItems = [];
-
-  // ---------------------------------------------------------------------------
-  // State
-  // ---------------------------------------------------------------------------
 
   bool _loading = false;
 
@@ -145,10 +132,6 @@ class _StockTakeState extends State<StockTake> {
 
     super.dispose();
   }
-
-  // ---------------------------------------------------------------------------
-  // Search
-  // ---------------------------------------------------------------------------
 
   void _onSearchChanged() {
     final query = _searchController.text.trim().toLowerCase();
@@ -247,9 +230,6 @@ class _StockTakeState extends State<StockTake> {
     return _formatNumber(difference);
   }
 
-  // ---------------------------------------------------------------------------
-  // Read current balance DIRECTLY from ItemModel
-  // ---------------------------------------------------------------------------
 
   num _getBranchBalance(
       ItemModel item,
@@ -442,8 +422,8 @@ class _StockTakeState extends State<StockTake> {
     });
 
     try {
-      final provider =
-      context.read<Datafeed>();
+      final provider =context.read<Datafeed>();
+      final stockprovider =context.read<StockProvider>();
 
       final companyId = provider.companyid;
 
@@ -471,6 +451,7 @@ class _StockTakeState extends State<StockTake> {
 
       final summaryId ='${companyId}_$summaryDate';
       final stocktakeId = '${summaryDate}_${branchId}$itemId';
+      final stockvalue= _toNum(item.cp) * difference;
       final stockReportRef = provider.db.collection('stockreport').doc(summaryId);
 
       await stockReportRef.set({
@@ -522,7 +503,7 @@ class _StockTakeState extends State<StockTake> {
           'companyid':provider.companyid,
           'branchid':branchId,
         },SetOptions( merge: true, ),);
-
+      await stockprovider.updatedashboardStock(branchId, stockvalue);
       if (!mounted) return;
 
       setState(() {

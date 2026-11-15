@@ -1346,4 +1346,28 @@ class StockProvider extends Datafeed {
     }
   }
 
+  updatedashboardStock(branchid,totalValue) async {
+    await getdata();
+    final statsRef = db.collection('dashbaord_stats').doc(companyid);
+
+    await statsRef.set(
+
+   {
+      "companyId": companyid,
+      "updatedAt": FieldValue.serverTimestamp(),
+
+      "stock_in_total": FieldValue.increment(totalValue),
+
+      "branchstock": {
+        branchid: {
+          //"branchname": branchName,
+
+          "stock_value": FieldValue.increment(totalValue),
+
+          "lastupdate": FieldValue.serverTimestamp(),
+        },
+      },
+    }, SetOptions(merge: true));
+
+  }
 }
