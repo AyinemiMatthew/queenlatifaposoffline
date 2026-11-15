@@ -364,10 +364,6 @@ exports.postToLedger = async (saleData = {}, saleId) => {
     }
 
     if (transMode === "cash") {
-      // Cash sales:
-      // Debit: payment methods (cash/momo/card/cheque/bank transfer) for amounts received
-      // Debit: discount (if any)
-      // Credit: sales for the gross sale amount (payments sum + discount) => finalGross
 
       const paymentEntries = payments.length ? payments : [{ method: "cash", amount: finalGross }];
 
@@ -452,10 +448,6 @@ exports.postToLedger = async (saleData = {}, saleId) => {
     }
 
     if (transMode === "credit") {
-      // Credit sales:
-      // Debit: accounts_receivable for net amount (finalGross - discountAmount)
-      // Debit: discount (if any) as expense
-      // Credit: sales for gross amount (finalGross)
 
       const netReceivable = finalGross - discountAmount;
       if (netReceivable > 0) {
@@ -549,6 +541,35 @@ exports.postToLedger = async (saleData = {}, saleId) => {
     logger.error(`Error posting to ledger for sale ${saleId}:`, error);
     throw error;
   }
+};
+
+exports.removeSaleFromLedger = async (saleData = {}, saleId) => {
+  const db = admin.firestore();
+  const companyId = saleData.companyId || saleData.companyid || null;
+
+  const snap = await db.collection("ledgers")
+    .where(admin.firestore.FieldPath.documentId(), ">=", `${saleId}_`)
+    .where(admin.firestore.FieldPath.documentId(), "<", `${saleId}_\uf8ff`).get();
+
+  // Safety: only delete entries that belong to the same company
+  const docs = snap.docs.filter((d) => {
+    const entryCompany = d.data().companyId;
+    return !companyId || !entryCompany || entryCompany === companyId;
+  });
+
+  if (docs.length === 0) {
+    logger.info(`No ledger entries found to remove for deleted sale ${saleId}`);
+    return;
+  }
+
+  // A batch is limited to 500 writes, so delete in chunks of 400
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = db.batch();
+    docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+
+  logger.info(`Removed ${docs.length} ledger entries for deleted sale ${saleId}`);
 };
 
 function normalizeDamageItems(raw) {

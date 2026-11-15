@@ -142,12 +142,6 @@ exports.onSMSCreated = smsModule.onSMSCreated;
 exports.sendBulkSMS = smsModule.sendBulkSMS;
 exports.sendBulkSMSWithFilters = smsModule.sendBulkSMSWithFilters;
 
-// =========================
-// Dashboard Stats Aggregates
-// =========================
-// Maintains running totals so the app can display totals without scanning the sales collection.
-// Collection name intentionally matches request spelling.
-
 function toNumber(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   if (typeof value === 'string') {
@@ -415,10 +409,6 @@ function dashboardBranchSaleUpdateArgs(branchId, values) {
   return args;
 }
 
-// Trigger: Maintain aggregate totals for cash/credit sales and per-branch totals.
-// Writes to: dashbaord_stats/{companyId}
-// - sales_total: { cash, credit }
-// - branchsale: { [branchId]: { cash, credit, branchname } }
 // Also keeps compatibility fields used by the app: cash, credit, overallTotal, transModeTotals.
 exports.aggregateSalesTotals = onDocumentWritten('sales/{saleId}', async (event) => {
   const before = event.data?.before ? event.data.before.data() : null;
@@ -1788,7 +1778,7 @@ const purchaseType = (after.purchasetype || '').toString().trim().toLowerCase();
 if (purchaseType === 'credit' && after.supplierid) {
   const supplierRef = db.collection('suppliers').doc(after.supplierid);
 
-  if (totalStockValue > 0) {
+ //if (totalStockValue > 0) {
     batch.set(
       supplierRef,
       {
@@ -1801,14 +1791,9 @@ if (purchaseType === 'credit' && after.supplierid) {
     logger.info(
       `Increased supplier credit for ${after.supplierid}: GHS ${totalStockValue.toFixed(2)}`
     );
-  }
+  //}
 }
       if (updates.length > 0) {
-
-// -----------------------------------------------------------------------------
-// EDIT 1: put this at the TOP of your `if (updates.length > 0) {` block,
-//         before the `batch.set(dailyRef, ...)` call.
-// -----------------------------------------------------------------------------
 
 // ---- transform guard (max 500 per document per commit; keep a margin) ----
 const MAX_TRANSFORMS_PER_DOC = 450;
@@ -7233,7 +7218,7 @@ exports.syncPurchaseReturnToStockReport = onDocumentWritten( "purchase_returns/{
     }
   }
 );
-const { postToLedger, postExpenseToLedger } = require("./ledger");
+const { postToLedger, postExpenseToLedger,removeSaleFromLedger } = require("./ledger");
 const { postDebtPaymentToLedger, updateSalesSummaryForDebtPayment } = require('./debtpayment');
 const { postCreditPaymentToLedger } = require('./creditpayment');
 const { postDebtorOpeningBalanceToLedger } = require('./debtorsopenbalance');
@@ -7253,7 +7238,15 @@ exports.syncSalesToLedgers = onDocumentWritten("sales/{saleId}", async (event) =
   const after = event.data?.after ? event.data.after.data() : null;
   const saleId = event.params.saleId;
 
-  if (!after) return null; // Skip deletes
+  if (!after) {
+      if (!before) return null; // nothing existed, nothing to clean up
+      try {
+        await removeSaleFromLedger(before, saleId);
+      } catch (error) {
+        logger.error(`Error removing ledger entries for deleted sale ${saleId}:`, error);
+      }
+      return null;
+    }
 
   try {
     await postToLedger(after, saleId);
@@ -7261,7 +7254,6 @@ exports.syncSalesToLedgers = onDocumentWritten("sales/{saleId}", async (event) =
     logger.error(`Error syncing sale ${saleId} to ledger:`, error);
   }
 });
-
 
 const { postPurchaseToLedger } = require('./purchaseledger');
 
