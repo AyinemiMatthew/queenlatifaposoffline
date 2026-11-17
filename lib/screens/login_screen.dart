@@ -412,18 +412,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         SizedBox(width: 5),
 
-                        // TextButton(
-                        //   onPressed: () async {
-                        //     Navigator.push(context, MaterialPageRoute(
-                        //       builder: (context) => const CompanyRegPage(),
-                        //     ));
-                        //   },
-                        //
-                        //   child: const Text(
-                        //     'Company registration?',
-                        //     style: TextStyle(color: Colors.white70),
-                        //   ),
-                        // ),
+                        TextButton(
+                          onPressed: () async {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (context) => const CompanyRegPage(),
+                            ));
+                          },
+
+                          child: const Text(
+                            'Company registration?',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
                       ],
                     ),
                   ),

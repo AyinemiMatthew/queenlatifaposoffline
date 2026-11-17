@@ -766,256 +766,57 @@ const transactionId = `${companyId}_${tid}`;
 
   return {
 
-    amountPaid:
-      amountPaid,
-
-
-    approvedby:
-      stringValue(
-        first.approvedby ||
-        first.approvedBy ||
-        first.staff
-      ),
-
-
-    branchId:
-      branchId,
-
-
-    branchName:
-      branchName,
-
-
-    branchType:
-      branchType,
-
-
-    change:
-      change,
-
-
-    companyId:
-      companyId,
-
-
-    companyname:
-      stringValue(
-        extra.company ||
-        extra.companyname ||
-        first.company ||
-        first.companyname
-      ),
-
-
-    createdAt:
-      createdAt,
-
-
-    createdBy:
-      stringValue(
-        first.staff ||
-        first.createdby ||
-        first.createdBy
-      ),
-
-customerId:stringValue(first.customerid ||first.customerId ) ||
+    amountPaid:amountPaid,
+    approvedby:stringValue(first.approvedby ||first.approvedBy ||first.staff),
+    branchId:branchId,
+    branchName:branchName,
+    branchType:branchType,
+    change:change,
+    companyId:companyId,
+    companyname:stringValue(extra.company ||extra.companyname ||first.company ||first.companyname),
+    createdAt:createdAt,
+    createdBy: stringValue(first.staff ||first.createdby ||first.createdBy),
+    customerId:stringValue(first.customerid ||first.customerId ) ||
   (
-    stringValue(first.cphone) ? `${companyId}_${stringValue(first.cphone)}`.toLowerCase(): "cash"
+    stringValue(first.cphone) ? `${companyId}_${stringValue(first.cphone)}`.toLowerCase(): "cash customer"
 
   ),
-
-
     customerName:stringValue(first.tname ||"cash customer"),
-
-
-    customerPhone:
-      stringValue(
-        first.cphone ||
-        "cash"
-      ),
-
-
-    dateymd:
-      stringValue(
-        first.dateymd ||
-        first.date
-      ),
-
-
-    day:
-      stringValue(
-        first.day
-      ),
-
-
-    discount:
-      totalDiscount,
-
-
-    /*
-     * API ID
-     *
-     * This is the ID returned to the caller.
-     */
-
-    id:
-      apiId,
-
-
-    isreturned:
-      false,
-
-
-    itemCount:
-      items.length,
-
-
-    items:
-      itemMap,
-
-
-    month:
-      stringValue(
-        first.month
-      ),
-
-
-    paymentStatus:
-      amountPaid >= finalTotal
-        ? "paid"
-        : "partial",
-
-
-    payments:
-      [
-        payment
-      ],
-
-
-    pricingtype:
-      stringValue(
-        first.pricingtype ||
-        first.pricemode,
-        branchType
-      ),
-
-
-    printed:
-      first.printed === true,
-
-
-    printedat:
-      first.printedat
-        ? toTimestamp(
-            first.printedat
-          )
-        : null,
-
-
-    printedby:
-      stringValue(
-        first.printedby
-      ),
-
-
-    receiptNumber:
-      stringValue(
-        first.receiptnumber ||
-        first.receiptNumber ||
-        first.invoiceno
-      ),
-
-
-    receiptat:
-      first.receiptat
-        ? toTimestamp(
-            first.receiptat
-          )
-        : null,
-
-
-    receiptby:
-      stringValue(
-        first.receiptby
-      ),
-
-
-    reciepted:
-      first.reciepted === true,
-
-
-    staffPosition:
-      numberValue(
-        first.staffPosition,
-        0
-      ),
-
-
-    staffemail:
-      stringValue(
-        extra.staffemail ||
-        first.staffemail
-      ),
-
-
-    stockCheckStatus:
-      stringValue(
-        first.stockCheckStatus,
-        "approved"
-      ),
-
-
-    stockCheckedAt:
-      first.stockCheckedAt
-        ? toTimestamp(
-            first.stockCheckedAt
-          )
-        : now,
-
-
-    timestamp:
-      Number(
-        first.timestamp ||
-        Date.now()
-      ),
-
-
-    totalamount:
-      finalTotal,
-
-
-   transMode:
-     transMode,
-
-    week:
-      stringValue(
-        first.week
-      ),
-
-
-    year:
-      stringValue(
-        first.year
-      )
+    customerPhone:stringValue(first.cphone ||"cash"),
+    dateymd:stringValue(first.dateymd ||first.date),
+    day:stringValue(first.day),
+    discount:totalDiscount,
+    id: apiId,
+    isreturned:false,
+    itemCount:items.length,
+    items:itemMap,
+    month:stringValue(first.month),
+    paymentStatus:amountPaid >= finalTotal ? "paid" : "partial",
+    payments:[payment],
+    pricingtype:stringValue(first.pricingtype ||first.pricemode,branchType),
+    printed:first.printed === true,
+    printedat:first.printedat ? toTimestamp(first.printedat): null,
+    printedby: stringValue(first.printedby),
+    receiptNumber:stringValue(first.receiptnumber ||first.receiptNumber ||first.invoiceno),
+    receiptat:first.receiptat ? toTimestamp(first.receiptat) : null,
+    receiptby:stringValue(first.receiptby),
+    reciepted:first.reciepted === true,
+    staffPosition:numberValue(first.staffPosition,0),
+    staffemail:stringValue(extra.staffemail ||first.staffemail),
+    stockCheckStatus:stringValue(first.stockCheckStatus,"approved"),
+    stockCheckedAt:first.stockCheckedAt ? toTimestamp(first.stockCheckedAt): now,
+    timestamp: Number(first.timestamp ||Date.now() ),
+    totalamount:finalTotal,
+    transMode:transMode,
+    week:stringValue(first.week),
+    year:stringValue(first.year)
   };
 }
 
 
-/*
- * ============================================================
- * UPLOAD STOCK / SALES
- * ============================================================
- */
 
-exports.uploadSales=
-  functions.https.onRequest(
-    async (req, res) => {
+exports.uploadSales= functions.https.onRequest( async (req, res) => {
 
-      /*
-       * --------------------------------------------------------
-       * CORS
-       * --------------------------------------------------------
-       */
 
       res.set(
         "Access-Control-Allow-Origin",
@@ -1037,9 +838,7 @@ exports.uploadSales=
         req.method === "OPTIONS"
       ) {
 
-        return res
-          .status(204)
-          .send("");
+        return res.status(204).send("");
       }
 
 

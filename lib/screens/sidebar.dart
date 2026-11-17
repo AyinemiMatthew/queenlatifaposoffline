@@ -718,6 +718,19 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.uploadstock);
                           },
                         ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.upload_file,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'sync stock',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.syncstock);
+                          },
+                        ),
                         // ListTile(
                         //   leading: Icon(
                         //     Icons.transfer_within_a_station,

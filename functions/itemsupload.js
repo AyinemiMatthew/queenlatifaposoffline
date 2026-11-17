@@ -2,19 +2,10 @@ const functions = require("firebase-functions");
 const { admin, db } = require("./fb");
 
 
-/*
- * ============================================================
- * HELPERS
- * ============================================================
- */
 
 function numberValue(value, fallback = 0) {
-
   const n = Number(value);
-
-  return Number.isFinite(n)
-    ? n
-    : fallback;
+  return Number.isFinite(n)? n: fallback;
 }
 
 
@@ -29,7 +20,6 @@ function stringValue(value, fallback = "") {
 
   return String(value).trim();
 }
-
 
 function toTimestamp(value) {
 
@@ -272,109 +262,38 @@ function normalizeItemsregItem(
     );
 
 
-  const modeKey =
-    endpointMode
-      .toLowerCase()
-      .replace(/\s+/g, "");
-
-
-
-  const branchname =
-    stringValue(
-      extra.branchname ||
-      extra.branchName ||
-      item.branch ||
-      item.branchname
-    );
-
-
-  const branchid =
-    stringValue(
-      extra.branchid ||
-      extra.branchId ||
-      item.branchid
-    ) ||
-    makeBranchId(
-      companyid,
-      branchname
-    );
-
-
-
-
-  const balance =
-    numberValue(
-      item.balance,
-      0
-    );
-
-
-
+  const modeKey =endpointMode.toLowerCase().replace(/\s+/g, "");
+  const branchname =stringValue(extra.branchname ||extra.branchName ||item.branch ||item.branchname);
+  const branchid =stringValue(extra.branchid ||extra.branchId ||item.branchid) || makeBranchId(companyid,branchname);
+  const balance =numberValue(item.balance,0);
   const branchbalance = {};
 
-
   if (branchid) {
-
-    branchbalance[branchid] = {
-
-      balance:
-        balance,
-
-      branchid:
-        branchid,
-
-      branchname:
-        branchname
+      branchbalance[branchid] = {
+      balance:balance,
+      branchid:branchid,
+      branchname:branchname
     };
   }
-
-
-  /*
-   * ==========================================================
-   * MODES
-   *
-   * Existing itemsreg structure:
-   *
-   * modes
-   *   carton
-   *   half
-   *   quarter
-   *   single
-   *
-   * ==========================================================
-   */
 
   const modes = {};
 
 
-  /*
-   * ----------------------------------------------------------
-   * SINGLE
-   * ----------------------------------------------------------
-   */
-
   modes.single = {
 
-    cp:
-      cp,
+    cp: cp,
 
-    id:
-      "single",
+    id: "single",
 
-    name:
-      "Single",
+    name:"Single",
 
-    qty:
-      "1",
+    qty:"1",
 
-    rp:
-      retailPrice,
+    rp:retailPrice,
 
-    sp:
-      retailPrice,
+    sp:retailPrice,
 
-    wp:
-      wholesalePrice
+    wp: wholesalePrice
   };
 
 
@@ -386,36 +305,16 @@ function normalizeItemsregItem(
 
   modes.carton = {
 
-    cp:
-      cp,
-
-    id:
-      "carton",
-
-    name:
-      "Carton",
-
-    qty:
-      boxpieces,
-
-    rp:
-      retailPrice,
-
-    sp:
-      retailPrice,
-
-    wp:
-      wholesalePrice
+    cp:cp,
+    id:"carton",
+    name:"Carton",
+    qty:boxpieces,
+    rp: retailPrice,
+    sp:retailPrice,
+    wp:wholesalePrice
   };
 
 
-  /*
-   * ----------------------------------------------------------
-   * HALF CARTON
-   *
-   * Only create calculated modes when boxpieces > 1.
-   * ----------------------------------------------------------
-   */
 
   const boxQty =
     numberValue(
@@ -531,19 +430,6 @@ function normalizeItemsregItem(
       : now;
 
 
-  /*
-   * ==========================================================
-   * DOCUMENT ID
-   *
-   * Example:
-   *
-   * KS000 + Lavita 80g ×100
-   *
-   * =>
-   *
-   * ks000lavita80g100
-   * ==========================================================
-   */
 
   const id =
     stringValue(
@@ -570,195 +456,43 @@ function normalizeItemsregItem(
 
   return {
 
-    barcode:
-      barcode,
-
-
-    branchbalance:
-      branchbalance,
-
-
-    branchprices:
-      null,
-
-
-    company:
-      stringValue(
-        extra.company ||
-        extra.companyname ||
-        item.company
-      ),
-
-
-    companyid:
-      companyid,
-
-
-    cp:
-      cp,
-
-
-    createdat:
-      createdat,
-
-
-    dailytransactions:
-      null,
-
-
-    day:
-      stringValue(
-        extra.day ||
-        item.day
-      ),
-
-
-    deletedat:
-      null,
-
-
-    deletedby:
-      null,
-
-
-    id:
-      id,
-
-
-    imageurl:
-      stringValue(
-        item.image ||
-        item.imageurl
-      ),
-
-
-    isActive:
-      true,
-
-
-    isHamper:
-      false,
-
-
-    items:
-      null,
-
-
-    lastModified:
-      now,
-
-
-    lastStockTransactionId:
-      stringValue(
-        item.lastStockTransactionId
-      ),
-
-
-    modemore:
-      true,
-
-
-    modes:
-      modes,
-
-
-    month:
-      stringValue(
-        extra.month ||
-        item.month
-      ),
-
-
-    name:
-      name.toUpperCase(),
-
-
-    openingstock:
-      "",
-
-
-    pcategory:
-      stringValue(
-        item.category ||
-        item.pcategory
-      ),
-
-
-    pricingmode:
-      false,
-
-
-    producttype:
-      stringValue(
-        item.product_type ||
-        item.producttype,
-        "product"
-      ),
-
-
-    retailmarkup:
-      stringValue(
-        item.rmarkup,
-        ""
-      ),
-
-
-    retailprice:
-      retailPrice,
-
-
-    sminqty:
-      "",
-
-
-    staff:
-      stringValue(
-        extra.staff ||
-        item.staff
-      ),
-
-
-    updatedat:
-      null,
-
-
-    updatedby:
-      null,
-
-
-    warehouse:
-      stringValue(
-        item.warehouse
-      ),
-
-
-    week:
-      stringValue(
-        extra.week ||
-        item.week
-      ),
-
-
-    wholesalemarkup:
-      stringValue(
-        item.wmarkup,
-        ""
-      ),
-
-
-    wholesaleprice:
-      wholesalePrice,
-
-
-    wminqty:
-      "",
-
-
-    year:
-      stringValue(
-        extra.year ||
-        item.year
-      )
+    barcode:barcode,
+    branchbalance:branchbalance,
+    branchprices: null,
+    company:stringValue(extra.company ||extra.companyname || item.company),
+    companyid:companyid,
+    cp:cp,
+    createdat:createdat,
+    day:stringValue(extra.day ||item.day),
+    deletedat: nul,
+    deletedby:null,
+    id:id,
+    imageurl:stringValue(item.image ||item.imageurl),
+    isActive: true,
+    isHamper:false,
+    items:null,
+    lastModified:now,
+    lastStockTransactionId:stringValue(item.lastStockTransactionId),
+    modemore:true,
+    modes: modes,
+    month:stringValue( extra.month ||item.month),
+    name: name.toUpperCase(),
+    openingstock: "",
+    pcategory:stringValue(item.category ||item.pcategory),
+    pricingmode:false,
+    producttype:stringValue(item.product_type || item.producttype,"product"),
+    retailmarkup:stringValue(item.rmarkup,""),
+    retailprice:retailPrice,
+    sminqty:"",
+    staff:stringValue(extra.staff || item.staff),
+    updatedat:null,
+    updatedby:null,
+    warehouse:stringValue(item.warehouse),
+    week:stringValue(extra.week ||item.week),
+    wholesalemarkup:stringValue(item.wmarkup,""),
+    wholesaleprice:wholesalePrice,
+    wminqty:"",
+    year:stringValue(extra.year ||item.year)
   };
 }
 
@@ -772,13 +506,6 @@ function normalizeItemsregItem(
 exports.uploadItemsreg =
   functions.https.onRequest(
     async (req, res) => {
-
-
-      /*
-       * ========================================================
-       * CORS
-       * ========================================================
-       */
 
       res.set(
         "Access-Control-Allow-Origin",
@@ -974,13 +701,6 @@ exports.uploadItemsreg =
         const successfulProducts =
           [];
 
-
-        /*
-         * ======================================================
-         * PROCESS EACH PRODUCT
-         * ======================================================
-         */
-
         for (
           const item
           of apiItems
@@ -1021,30 +741,13 @@ exports.uploadItemsreg =
            * ----------------------------------------------------
            */
 
-          const document =
-            normalizeItemsregItem(
-              item,
-              extra
-            );
-
-
-          /*
-           * ----------------------------------------------------
-           * LOG TARGET DOCUMENT ID
-           * ----------------------------------------------------
-           */
+          const document =normalizeItemsregItem(item,extra);
 
           console.log(
             "Itemsreg document ID:",
             document.id
           );
 
-
-          /*
-           * ----------------------------------------------------
-           * LOG COMPLETE DOCUMENT
-           * ----------------------------------------------------
-           */
 
           console.log("");
           console.log(
@@ -1082,88 +785,30 @@ exports.uploadItemsreg =
            * ----------------------------------------------------
            */
 
-          const docRef =
-            db
-              .collection(
-                "itemsreg"
-              )
-              .doc(
-                document.id
-              );
+          const docRef = db.collection("itemsreg").doc(document.id);
+          await docRef.set(document,{merge:true});
+          const savedDoc =await docRef.get();
 
-
-          await docRef.set(
-            document,
-            {
-              merge:
-                true
-            }
-          );
-
-
-          /*
-           * ----------------------------------------------------
-           * VERIFY
-           * ----------------------------------------------------
-           */
-
-          const savedDoc =
-            await docRef.get();
-
-
-          if (
-            !savedDoc.exists
-          ) {
+          if (!savedDoc.exists) {
 
             throw new Error(
               `Firestore write verification failed for ${document.id}.`
             );
           }
 
+          console.log("Firestore saved:",document.id);
 
-          console.log(
-            "Firestore saved:",
-            document.id
-          );
+        /** SUCCESS **/
 
-
-          /*
-           * ----------------------------------------------------
-           * SUCCESS
-           * ----------------------------------------------------
-           */
-  const endpointId =
-    stringValue(item.id);
-
-
-
-    successfulIds.push(
-      endpointId
-    );
-
-
+     const endpointId =stringValue(item.id);
+     successfulIds.push(endpointId);
           successfulProducts.push({
-
-            id:
-              endpointId,
-
-            name:
-              document.name,
-
-            companyid:
-              document.companyid,
-
-            firestoreSaved:
-              true
+            id: endpointId,
+            name:document.name,
+            companyid: document.companyid,
+            firestoreSaved:true
           });
         }
-
-
-        /*
-         * ======================================================
-         * SUCCESS RESPONSE
-         * ======================================================
-         */
 
         console.log("");
         console.log(

@@ -10,7 +10,7 @@
     "import-data": "node importData.js"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {

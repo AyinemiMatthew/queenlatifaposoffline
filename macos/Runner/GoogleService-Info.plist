@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>API_KEY</key>
-	<string>AIzaSyBcpzDUgfwRP2X63q90rZPNVr3fdVnwIZs</string>
+	<string>AIzaSyDxnfapWvvPatQCgC8NVRhwpDZouuAvb4o</string>
 	<key>GCM_SENDER_ID</key>
-	<string>112167499905</string>
+	<string>1047877250722</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.kpos.kologsoft</string>
 	<key>PROJECT_ID</key>
-	<string>kologsoft-68317</string>
+	<string>queenlatifapos</string>
 	<key>STORAGE_BUCKET</key>
-	<string>kologsoft-68317.firebasestorage.app</string>
+	<string>queenlatifapos.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:112167499905:ios:0f463aeaeb1602565d7580</string>
+	<string>1:1047877250722:ios:e2089c15f603bf2c0331fb</string>
 </dict>
 </plist>

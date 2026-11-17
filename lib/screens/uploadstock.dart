@@ -41,11 +41,9 @@ class _SaleGroup {
 class _StockUploadPageState extends State<StockUploadPage> {
   final FirebaseFirestore db = FirebaseFirestore.instance;
 
-  static const String _stockApiUrl =
-      'https://queenlatifahenterprise.com/pos/firebase/stock';
+  static const String _stockApiUrl ='https://queenlatifahenterprise.com/pos/firebase/stock';
 
-  static const String _stockCallbackApiUrl =
-      'https://queenlatifahenterprise.com/pos/firebase/trans_callback';
+  static const String _stockCallbackApiUrl ='https://queenlatifahenterprise.com/pos/firebase/trans_callback';
 
   static const int _apiPageSize = 1000;
 

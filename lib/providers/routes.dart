@@ -105,6 +105,7 @@ import '../screens/stockvaluepage.dart';
 import '../screens/supplier_report_v3.dart';
 import '../screens/supplierlist.dart';
 import '../screens/supplierscreen.dart';
+import '../screens/syncitemregtoStock.dart';
 import '../screens/synitemnotinstockreport.dart';
 import '../screens/systemAdminpage.dart';
 import '../screens/transactionsupplyreport.dart';
@@ -112,6 +113,7 @@ import '../screens/transferlisttable.dart';
 import '../screens/uploaditem.dart';
 import '../screens/uploadreceipt.dart';
 import '../screens/uploadreceiptview.dart';
+import '../screens/uploadstock.dart';
 import '../screens/uploadtransfer.dart';
 import '../screens/viewfarmers.dart';
 import '../screens/warehousehomescreen.dart';
@@ -248,8 +250,8 @@ class Routes {
   static const String pagereceipt = '/pagereceipt';
   static const String supplierreportpage = '/SupplierReportPage';
   static const String debtor_report = '/debtor_report';
-  static const String temporaryReceiptBranchRepair =
-      '/temporaryReceiptBranchRepair';
+  static const String temporaryReceiptBranchRepair = '/temporaryReceiptBranchRepair';
+  static const String syncstock = '/syncstock';
 }
 
 final pages = {
@@ -1228,6 +1230,10 @@ final pages = {
   Routes.updatecostp: (context) => RouteGuard(
     allowedAccessLevels: ['super admin', 'systemadmin'],
     child: StockCostAnalysisPage(),
+  ),
+  Routes.syncstock: (context) => RouteGuard(
+    allowedAccessLevels: ['super admin', 'systemadmin'],
+    child: SyncitemsregToStock(),
   ),
   // Routes.uploadstock: (context) => RouteGuard(
   //   allowedAccessLevels: ['super admin', 'systemadmin'],

@@ -16,6 +16,8 @@ const {uploadStock,} = require("./stockupload");
 const {uploadSales} = require("./salesupload");
 const {uploadItemsreg} = require("./itemsupload");
 //const { getFirebaseUsage } = require("./firebaseusage");
+const { fetchStockPage } = require('./syncitemregtosotck');
+const { ackItems } = require('./callback_ids');
 const { admin, db } = require("./fb");
 
 
@@ -23,7 +25,8 @@ const COLLECTION_MANAGER_PROTECTED = ["_config", "audit_logs"];
 const COMPANY_FIELD_VARIANTS = ["companyId", "companyid", "companyID"];
 
 
-
+exports.fetchStockPage = fetchStockPage;
+exports.ackItems = ackItems;
 //exports.getFirebaseUsage = getFirebaseUsage;
 exports.uploadStock = uploadStock;
 exports.uploadSales = uploadSales;
@@ -766,7 +769,7 @@ async function resolveSmsConfig(companyId, fallbackSenderId) {
 }
 
 // Helper: SMS sending function
-async function sendSMS(message, contact, senderid, companyId) {
+async function sendSMSs(message, contact, senderid, companyId) {
   const { apiKey, senderid: configuredSenderId } = await resolveSmsConfig(companyId, senderid);
   const effectiveSenderId = configuredSenderId || senderid ||"KologSoft";
 
@@ -850,7 +853,7 @@ exports.staffAuthOnCreate = onDocumentCreated("staff/{staffId}", async (event) =
       const smsMessage = `Hello ${name}, your temporary password for KologSoft POS is: ${tempPassword}. Please log in and change this password immediately.`;
       try {
 
-        smsResponse = await sendSMS(smsMessage, formattedPhone, "KologSoft",companyid);
+        smsResponse = await sendSMSs(smsMessage, formattedPhone, "KologSoft",companyid);
         logger.info(`SMS sent successfully to ${formattedPhone}`, smsResponse);
       } catch (err) {
         smsError = err.message;
@@ -6193,7 +6196,6 @@ if (
           itemEntry.cp = costPrice;
           itemEntry.summarydate = dateymd;
           itemEntry.day = day;
-          itemEntry.month = month;
           itemEntry.week = week;
           itemEntry.year = year;
           applyIncrement(itemEntry, 'sales_qty', entry.pieces);

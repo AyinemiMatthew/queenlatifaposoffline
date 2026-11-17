@@ -41,48 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCPkl1uBRmG01Qd2pFNOvWj9XfpL0LK8HQ',
-    appId: '1:112167499905:web:3c3f0b7e0f38a9595d7580',
-    messagingSenderId: '112167499905',
-    projectId: 'kologsoft-68317',
-    authDomain: 'kologsoft-68317.firebaseapp.com',
-    storageBucket: 'kologsoft-68317.firebasestorage.app',
+    apiKey: 'AIzaSyDeQEoxoTztG4J3QTEC3E7ehvDNiSzu_WE',
+    appId: '1:1047877250722:web:7e96a6788c0ae5a40331fb',
+    messagingSenderId: '1047877250722',
+    projectId: 'queenlatifapos',
+    authDomain: 'queenlatifapos.firebaseapp.com',
+    storageBucket: 'queenlatifapos.firebasestorage.app',
+    measurementId: 'G-TPQ0TZZ489',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDg9OZ9Jz7ttV4RKtx8C_x6q6l1dcjiG5U',
-    appId: '1:112167499905:android:313f8ac257f9bd015d7580',
-    messagingSenderId: '112167499905',
-    projectId: 'kologsoft-68317',
-    storageBucket: 'kologsoft-68317.firebasestorage.app',
+    apiKey: 'AIzaSyBmEFTSZfNwEPv66h2GBrzWFQr_lFMbAs4',
+    appId: '1:1047877250722:android:7e22e654e40807b30331fb',
+    messagingSenderId: '1047877250722',
+    projectId: 'queenlatifapos',
+    storageBucket: 'queenlatifapos.firebasestorage.app',
   );
+
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBcpzDUgfwRP2X63q90rZPNVr3fdVnwIZs',
-    appId: '1:112167499905:ios:4dd79a3a8d7fbd305d7580',
-    messagingSenderId: '112167499905',
-    projectId: 'kologsoft-68317',
-    storageBucket: 'kologsoft-68317.firebasestorage.app',
-    androidClientId: '112167499905-h85q7p2cvvghb9qtsvjemntlahrnuck2.apps.googleusercontent.com',
-    iosClientId: '112167499905-vidmbj02uqa3qm91v4lbon0fqmi6qijl.apps.googleusercontent.com',
+    apiKey: 'AIzaSyDxnfapWvvPatQCgC8NVRhwpDZouuAvb4o',
+    appId: '1:1047877250722:ios:be0f5677f97c65200331fb',
+    messagingSenderId: '1047877250722',
+    projectId: 'queenlatifapos',
+    storageBucket: 'queenlatifapos.firebasestorage.app',
     iosBundleId: 'com.pos.kologsoft',
   );
+
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBcpzDUgfwRP2X63q90rZPNVr3fdVnwIZs',
-    appId: '1:112167499905:ios:0f463aeaeb1602565d7580',
-    messagingSenderId: '112167499905',
-    projectId: 'kologsoft-68317',
-    storageBucket: 'kologsoft-68317.firebasestorage.app',
-    androidClientId: '112167499905-h85q7p2cvvghb9qtsvjemntlahrnuck2.apps.googleusercontent.com',
-    iosClientId: '112167499905-6vnork7tcopnj6e7fqo8lsb2nfqkprv3.apps.googleusercontent.com',
+    apiKey: 'AIzaSyDxnfapWvvPatQCgC8NVRhwpDZouuAvb4o',
+    appId: '1:1047877250722:ios:e2089c15f603bf2c0331fb',
+    messagingSenderId: '1047877250722',
+    projectId: 'queenlatifapos',
+    storageBucket: 'queenlatifapos.firebasestorage.app',
     iosBundleId: 'com.kpos.kologsoft',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCPkl1uBRmG01Qd2pFNOvWj9XfpL0LK8HQ',
-    appId: '1:112167499905:web:af1129cd1e67906f5d7580',
-    messagingSenderId: '112167499905',
-    projectId: 'kologsoft-68317',
-    authDomain: 'kologsoft-68317.firebaseapp.com',
-    storageBucket: 'kologsoft-68317.firebasestorage.app',
+    apiKey: 'AIzaSyDeQEoxoTztG4J3QTEC3E7ehvDNiSzu_WE',
+    appId: '1:1047877250722:web:fcc22143a85fe0180331fb',
+    messagingSenderId: '1047877250722',
+    projectId: 'queenlatifapos',
+    authDomain: 'queenlatifapos.firebaseapp.com',
+    storageBucket: 'queenlatifapos.firebasestorage.app',
+    measurementId: 'G-XRV9C5P69L',
   );
+
 }
