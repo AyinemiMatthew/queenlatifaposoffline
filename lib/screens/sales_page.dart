@@ -3999,13 +3999,9 @@ class _SalesPageState extends State<SalesPage> {
                                                           icon: Icons.person,
                                                           color: Colors.orange,
                                                           onTap: () async {
-                                                            final salesProvider =
-                                                                Provider.of<
-                                                                  SalesProvider
-                                                                >(
-                                                                  context,
-                                                                  listen: false,
-                                                                );
+                                                            final salesProvider =Provider.of<SalesProvider>(context,listen: false,);
+                                                            final datafeed =Provider.of<Datafeed>(context,listen: false,);
+                                                            //datafeed.synccustomers();
                                                             if (!_ensureSelectedBranchCart(
                                                               value,
                                                               salesProvider,

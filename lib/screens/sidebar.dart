@@ -317,6 +317,19 @@ class Sidebar extends StatelessWidget {
                             Navigator.pushNamed(context, Routes.customerreg);
                           },
                         ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.person_add_alt,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Customer Import',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.importcustomers);
+                          },
+                        ),
                       ],
                     ),
                     Divider(color: colorScheme.outlineVariant),
@@ -1555,6 +1568,19 @@ class Sidebar extends StatelessWidget {
                           ),
                           onTap: () {
                             Navigator.pushNamed(context, Routes.branchreg);
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.add_location_alt,
+                            color: colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            'Branch importation',
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(context, Routes.importbranch);
                           },
                         ),
                         ListTile(

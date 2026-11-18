@@ -65,6 +65,8 @@ import '../screens/farmer_reg.dart';
 import '../screens/finishedstockreport.dart';
 import '../screens/generalledger.dart';
 import '../screens/home_dashboard.dart';
+import '../screens/importBranch.dart';
+import '../screens/importCustomers.dart';
 import '../screens/import_stock_page.dart';
 import '../screens/itemlist.dart';
 import '../screens/itemreg.dart';
@@ -252,11 +254,15 @@ class Routes {
   static const String debtor_report = '/debtor_report';
   static const String temporaryReceiptBranchRepair = '/temporaryReceiptBranchRepair';
   static const String syncstock = '/syncstock';
+  static const String importcustomers = '/importcustomers';
+  static const String importbranch = '/importbranch';
 }
 
 final pages = {
   Routes.login: (context) => const LoginScreen(),
   Routes.home: (context) => const RouteGuard(child: HomeDashboard()),
+  Routes.importcustomers: (context) => const RouteGuard(child: ImportCustomersButton()),
+  Routes.importbranch: (context) => const RouteGuard(child: ImportBranchesButton()),
   Routes.roleAccessDashboard: (context) =>
       const RouteGuard(child: RoleAccessDashboard()),
 

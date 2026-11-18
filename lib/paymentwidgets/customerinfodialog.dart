@@ -1041,13 +1041,10 @@ class CustomerInfoDialog {
                 supplystatus: false,
                 dailyreceiptno: dailyNumber,
                 syncStatus: '0',
-                online: '1',
+                online: datafeed.isOffline ? '1' : '0',
               );
 
-              await datafeed.db
-                  .collection('sales')
-                  .doc(saleDocId)
-                  .set(saleData.toMap());
+              await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
 
               final skipCheck =
                   !datafeed.stockCheckEnabled ||
