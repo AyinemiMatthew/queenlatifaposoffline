@@ -1040,6 +1040,8 @@ class CustomerInfoDialog {
                 year: year,
                 supplystatus: false,
                 dailyreceiptno: dailyNumber,
+                syncStatus: '0',
+                online: '1',
               );
 
               await datafeed.db

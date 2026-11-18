@@ -66,7 +66,8 @@ class SalesModel {
   String? week;
   String? month;
   String? year;
-
+  String syncStatus;
+  String online;
 
   SalesModel({
     required this.id,
@@ -123,7 +124,8 @@ class SalesModel {
     this.supplyby,
     required this.supplystatus,
     this.dailyreceiptno,
-
+    required this.syncStatus,
+    required this.online,
   });
 
   /// WRITE TO FIRESTORE
@@ -175,6 +177,8 @@ class SalesModel {
       'supplyat':supplyat,
       'supplyby':supplyby,
       'dailyreceiptno': dailyreceiptno ?? '',
+      'syncstatus': syncStatus ?? '0',
+      'online': online ?? '0',
     };
 
     if (customerCreditLimit != null) {
@@ -260,6 +264,8 @@ class SalesModel {
       dailyreceiptno: (map['dailyreceiptno'] ?? '').toString().isEmpty
           ? null
           : map['dailyreceiptno'].toString(),
+      syncStatus: map['syncstatus'] ?? '',
+      online: map['online'] ?? '',
     );
   }
 

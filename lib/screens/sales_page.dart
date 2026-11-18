@@ -1327,6 +1327,9 @@ class _SalesPageState extends State<SalesPage> {
         month: month,
         year: year,
         supplystatus: false,
+        syncStatus: '0',
+        online: '1',
+
       );
 
       await datafeed.db

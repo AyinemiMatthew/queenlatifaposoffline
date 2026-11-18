@@ -493,17 +493,19 @@ Future<void> printReceipt({
                     dateymd: context.read<SalesProvider>().saleDate,
                     supplystatus: false,
                     dailyreceiptno: dailyNumber,
+                    syncStatus: '0',
+                    online:queuedOffline?'1':'0',
 
                   );
 
                   if (queuedOffline) {
-                    await datafeed.offlineSalesQueue.saveLocally(
+                     datafeed.offlineSalesQueue.saveLocally(
                       companyId: companyId,
                       saleId: docId,
                       saleData: saleData.toMap(),
                     );
                   } else {
-                    await FirebaseFirestore.instance
+                     FirebaseFirestore.instance
                         .collection('sales')
                         .doc(docId)
                         .set(saleData.toMap());
@@ -820,17 +822,19 @@ Future<void> printReceipt({
                     dateymd: context.read<SalesProvider>().saleDate,
                     branchType:  datafeed.branchtype,
                     dailyreceiptno: dailyNumber,
+                    syncStatus: '0',
+                    online: queuedOffline?'1':'0',
 
                   );
 
                   if (queuedOffline) {
-                    await datafeed.offlineSalesQueue.saveLocally(
+                     datafeed.offlineSalesQueue.saveLocally(
                       companyId: companyId,
                       saleId: docId,
                       saleData: saleData.toMap(),
                     );
                   } else {
-                    await FirebaseFirestore.instance
+                     FirebaseFirestore.instance
                         .collection('sales')
                         .doc(docId)
                         .set(saleData.toMap());

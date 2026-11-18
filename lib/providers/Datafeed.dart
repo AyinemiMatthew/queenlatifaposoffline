@@ -462,38 +462,96 @@ class Datafeed extends ChangeNotifier {
       });
     });
   }
-
   Stream<List<Map<String, dynamic>>> top10BestSellingItems(String fieldName) {
-    if (fieldName != 'sales_value' && fieldName != 'sales_qty') {
-      throw ArgumentError.value(
-        fieldName,
-        'fieldName',
-        'Unsupported top-selling item field',
-      );
-    }
-    if (companyid.isEmpty) return Stream.value(const []);
+    try {
+      if (fieldName != 'sales_value' && fieldName != 'sales_qty') {
+        throw ArgumentError.value(
+          fieldName,
+          'fieldName',
+          'Unsupported top-selling item field',
+        );
+      }
+      if (companyid.isEmpty) return Stream.value(const []);
 
-    return db
-        .collection('itemsreg')
-        .where('companyid', isEqualTo: companyid)
-        .where(fieldName, isGreaterThan: 0)
-        .orderBy(fieldName, descending: true)
-        .limit(10)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
+      return db
+          .collection('itemsreg')
+          .where('companyid', isEqualTo: companyid)
+          .where(fieldName, isGreaterThan: 0)
+          .orderBy(fieldName, descending: true)
+          .limit(10)
+          .snapshots()
+          .map((snapshot) {
+        final items = <Map<String, dynamic>>[];
+
+        for (final doc in snapshot.docs) {
+          // A bad document is skipped instead of failing the whole list
+          try {
             final data = doc.data();
-            return {
+            items.add({
               'itemid': doc.id,
               'item': data['name'] ?? '',
               'barcode': data['barcode'] ?? '',
               'sales_value': toDouble(data['sales_value']),
               'sales_qty': toInt(data['sales_qty']),
               'retailprice': toDouble(data['retailprice']),
-            };
-          }).toList();
-        });
+            });
+          } catch (e, stackTrace) {
+            print('top10BestSellingItems: failed to map doc ${doc.id}: $e');
+            print(stackTrace);
+          }
+        }
+
+        return items;
+      })
+      // Errors from Firestore itself (permissions, missing index, network)
+          .transform(
+        StreamTransformer<List<Map<String, dynamic>>,
+            List<Map<String, dynamic>>>.fromHandlers(
+          handleData: (data, sink) => sink.add(data),
+          handleError: (error, stackTrace, sink) {
+            print('top10BestSellingItems stream error ($fieldName): $error');
+            print(stackTrace);
+            sink.add(const []);
+          },
+        ),
+      );
+    } catch (e, stackTrace) {
+      print('top10BestSellingItems setup error: $e');
+      print(stackTrace);
+      return Stream.value(const []);
+    }
   }
+  // Stream<List<Map<String, dynamic>>> top10BestSellingItems(String fieldName) {
+  //   if (fieldName != 'sales_value' && fieldName != 'sales_qty') {
+  //     throw ArgumentError.value(
+  //       fieldName,
+  //       'fieldName',
+  //       'Unsupported top-selling item field',
+  //     );
+  //   }
+  //   if (companyid.isEmpty) return Stream.value(const []);
+  //
+  //   return db
+  //       .collection('itemsreg')
+  //       .where('companyid', isEqualTo: companyid)
+  //       .where(fieldName, isGreaterThan: 0)
+  //       .orderBy(fieldName, descending: true)
+  //       .limit(10)
+  //       .snapshots()
+  //       .map((snapshot) {
+  //         return snapshot.docs.map((doc) {
+  //           final data = doc.data();
+  //           return {
+  //             'itemid': doc.id,
+  //             'item': data['name'] ?? '',
+  //             'barcode': data['barcode'] ?? '',
+  //             'sales_value': toDouble(data['sales_value']),
+  //             'sales_qty': toInt(data['sales_qty']),
+  //             'retailprice': toDouble(data['retailprice']),
+  //           };
+  //         }).toList();
+  //       });
+  // }
 
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;

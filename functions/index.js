@@ -32,6 +32,138 @@ exports.uploadStock = uploadStock;
 exports.uploadSales = uploadSales;
 exports.uploadItemsreg = uploadItemsreg;
 
+
+
+// Firestore allows 500 field transforms per document per commit; keep a margin.
+const MAX_TRANSFORMS_PER_DOC = 450;
+
+const isTransform = (v) =>
+  v instanceof admin.firestore.FieldValue ||
+  /Transform$/.test(v?.constructor?.name || '');
+
+const isPlainObject = (v) =>
+  v !== null &&
+  typeof v === 'object' &&
+  (Object.getPrototypeOf(v) === Object.prototype ||
+    Object.getPrototypeOf(v) === null);
+
+/** Flattens nested data into leaves: { path, value, transforms }. */
+function flattenLeaves(obj, path = [], out = []) {
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue; // undefined can't be written anyway
+    const p = [...path, k];
+    if (isPlainObject(v) && Object.keys(v).length > 0) {
+      flattenLeaves(v, p, out);
+    } else {
+      out.push({ path: p, value: v, transforms: isTransform(v) ? 1 : 0 });
+    }
+  }
+  return out;
+}
+
+function setPath(target, path, value) {
+  let node = target;
+  for (let i = 0; i < path.length - 1; i++) node = node[path[i]] ??= {};
+  node[path[path.length - 1]] = value;
+}
+
+/**
+ * Returns [data] untouched if it is within the limit, otherwise several
+ */
+function splitByTransformLimit(data, limit = MAX_TRANSFORMS_PER_DOC) {
+  const leaves = flattenLeaves(data);
+  const total = leaves.reduce((s, l) => s + l.transforms, 0);
+  if (total <= limit) return [data];
+
+  const chunks = [];
+  let current = {};
+  let count = 0;
+
+  for (const leaf of leaves) {
+    if (leaf.transforms && count + leaf.transforms > limit) {
+      chunks.push(current);
+      current = {};
+      count = 0;
+    }
+    setPath(current, leaf.path, leaf.value);
+    count += leaf.transforms;
+  }
+  chunks.push(current);
+  return chunks;
+}
+
+/**
+ * Safe replacement for flushDocWriteStates.
+ * - First chunk of every doc goes in one batch (the same as today for small docs).
+ */
+const flushDocWriteStates = async (docStates, firestoreDb, label = 'doc') => {
+  const errors = [];
+  const writes = [];
+  const overflow = [];
+
+  for (const state of docStates.values()) {
+    const chunks = splitByTransformLimit(state.data, MAX_TRANSFORMS_PER_DOC);
+
+    // First chunk joins the normal grouped batches
+    writes.push({
+      type: 'set',
+      ref: state.ref,
+      data: chunks[0],
+      options: { merge: true },
+    });
+
+    // Remaining chunks of an oversized doc are committed on their own
+    for (let c = 1; c < chunks.length; c++) {
+      overflow.push({ ref: state.ref, data: chunks[c], c: c + 1, total: chunks.length });
+    }
+  }
+
+  if (writes.length === 0) return errors;
+
+  let currentBatch = firestoreDb.batch();
+  let currentTransformCount = 0;
+  const currentWrites = [];
+
+  const commitCurrentBatch = async () => {
+    if (currentWrites.length === 0) return;
+    for (const write of currentWrites) {
+      if (write.type === 'set') {
+        currentBatch.set(write.ref, write.data, write.options || { merge: true });
+      }
+    }
+    await currentBatch.commit();
+  };
+
+  for (const write of writes) {
+    const nextTransformCount = currentTransformCount + estimateTransformCount(write.data);
+    if (currentWrites.length > 0 && nextTransformCount > MAX_TRANSFORM_BATCH_LIMIT) {
+      await commitCurrentBatch();
+      currentBatch = firestoreDb.batch();
+      currentTransformCount = 0;
+      currentWrites.length = 0;
+    }
+
+    currentWrites.push(write);
+    currentTransformCount = nextTransformCount;
+  }
+
+  await commitCurrentBatch();
+
+  // Extra chunks: one commit each. Don't throw, because the main writes are
+  // already committed and a retry would double-apply the increments.
+  for (const o of overflow) {
+    try {
+      await o.ref.set(o.data, { merge: true });
+    } catch (err) {
+      const msg = `${label}/${o.ref.id} chunk ${o.c}/${o.total}: ${err.message}`;
+      logger.error(`Transform chunk failed: ${msg}`, err);
+      errors.push(msg);
+    }
+  }
+
+  return errors;
+};
+
 async function getStaffProfile(request) {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Sign in required.");
@@ -1465,18 +1597,6 @@ exports.syncStockTransactionsToItemsreg = onDocumentWritten("stock_transactions/
         const boxQty = getBoxQtyFromDoc(itemDocData);
                 const netQtyDelta = boxQty > 0 ? (stockinPieces / boxQty) : quantity;
 
-//        const boxQty = toNumber(
-//          itemData.boxpieces ||
-//          itemDocData.boxpieces ||
-//          1
-//        );
-//
-//        const netQtyDelta = boxQty > 0
-//            ? stockinPieces / boxQty
-//            : quantity;
-
-        // Calculate stock value using cost price
-        //const costPrice = toNumber(itemDocData.cp || itemData.cp || 0);
         // Fall back to cp only for legacy transactions.
         const costPrice = toNumber(itemData.price ?? itemData.costprice ?? itemData.cp ?? itemDocData.cp ?? 0
 
@@ -1897,9 +2017,6 @@ for (let i = firstChunkSize; i < itemEntries.length; i += otherChunkSize) {
        await batch.commit();
 
 // EDIT 3: right AFTER your existing `await batch.commit();`
-//         (and before the logger.info line), add this. It writes any items
-//         that did not fit in the first commit, one safe-sized commit at a time.
-// -----------------------------------------------------------------------------
 
           for (let c = 1; c < itemChunks.length; c++) {
             try {
@@ -2473,7 +2590,6 @@ exports.syncStockTransferToLedger = onDocumentWritten("stock_transfer/{transferI
   }
 });
 
-// Write journal entries to ledger using double-entry accounting
 // Trigger: Create ledger entries when journal entries are created/updated
 exports.syncJournalToLedger = onDocumentWritten("journal/{journalId}", async (event) => {
   const before = event.data?.before?.data() || null;
@@ -3510,12 +3626,15 @@ if (
         }
 
         // now apply sale doc updates in safe chunks
-        await flushSaleUpdates(saleRef, saleUpdates, itemsUpdateFields);
-        await flushDocWriteStates(summaryDocStates, db);
-        await flushDocWriteStates(stockReportDocStates, db);
+     await flushSaleUpdates(saleRef, saleUpdates, itemsUpdateFields);
 
-        result = { status: 'approved', branchStockValues, branchSalesValues };
-      }
+     const flushErrors = [
+       ...(await flushDocWriteStates(summaryDocStates, db, 'salesSummary')),
+       ...(await flushDocWriteStates(stockReportDocStates, db, 'stockreport')),
+     ];
+     if (flushErrors.length > 0) {
+       await saleRef.set({ summaryFlushError: flushErrors.join(' | ') }, { merge: true });
+     }
 
      if (
        result?.status === "approved" && companyId && (result.branchStockValues.size > 0 || result.branchSalesValues.size > 0)
@@ -3617,7 +3736,7 @@ if (
      }
       return null;
     }
-
+}
     // Case 3: Document updated
     if (after) {
       const beforeItems = before?.items || {};
@@ -7662,6 +7781,105 @@ async function updateDashboardExpense(expenseData, amountDelta, action = "UNKNOW
     throw error;
   }
 }
+
+const WEBHOOK_URL =
+  //'https://webhook.site/29f91c9f-8ac6-4177-b88e-c64bb48dc1b8';
+  'https://queenlatifahenterprise.com/pos/firebase/salesprocess';
+const SALES_COLLECTION = 'sales';
+const CALLBACK_COLLECTION = 'callback';
+
+/** Makes Firestore data JSON-safe (Timestamps become ISO strings). */
+function serialize(value) {
+  if (value === null || value === undefined) return null;
+
+  // Firestore Timestamp (has toDate) -> ISO string
+  if (typeof value === 'object' && typeof value.toDate === 'function') {
+    return value.toDate().toISOString();
+  }
+
+  if (Array.isArray(value)) return value.map(serialize);
+
+  if (typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = serialize(v);
+    return out;
+  }
+
+  return value;
+}
+
+/** Saves a failed response; the sale document is left untouched. */
+async function saveCallback(docId, code, message, raw) {
+  await db.collection(CALLBACK_COLLECTION).doc(docId).set({
+    docid: docId,
+    responsecode: code,
+    message: message,
+    response: raw,
+    syncstatus: 0,
+    online: 0,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+exports.syncSaleToWebhook = onDocumentCreated(
+  {
+    document: `${SALES_COLLECTION}/{docId}`,
+    timeoutSeconds: 60,
+    retry: false,
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const docId = event.params.docId;
+    const data = snap.data();
+
+    const online = Number(data.online) === 1 ? 1 : 0;
+
+    const payload = {
+      ...serialize(data),
+      id: docId,
+      syncstatus: 0,
+      online,
+    };
+
+    let code = 0;
+    let message = '';
+    let raw = '';
+
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000),
+      });
+
+      raw = (await res.text()).slice(0, 2000);
+
+      let parsed = null;
+      try { parsed = JSON.parse(raw); } catch (_) { /* body isn't JSON */ }
+
+      // Prefer a code inside the response body, otherwise use the HTTP status
+      code = Number(
+        parsed?.code ?? parsed?.responseCode ?? parsed?.response_code ?? res.status
+      );
+      message = String(parsed?.message ?? res.statusText ?? raw.slice(0, 200));
+    } catch (e) {
+      // Network error, DNS failure, timeout
+      code = 0;
+      message = `Request failed: ${e.message}`;
+    }
+
+    if (code === 200) {
+      await snap.ref.update({ syncstatus: 1, online: 1 });
+      console.log(`Sale ${docId} synced.`);
+    } else {
+      await saveCallback(docId, code, message, raw);
+      console.error(`Sale ${docId} sync failed (${code}): ${message}`);
+    }
+  }
+);
 
 
 
