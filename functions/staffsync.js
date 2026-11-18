@@ -31,7 +31,7 @@ function parsePricing(text) {
 function mapSourceFields(r) {
   const email = str(r.email).toLowerCase();
   const override = COMPANY_OVERRIDES[str(r.companyid)] || {};
-  const companyid = override.companyid || str(r.companyid);
+  const companyid = 'KS001';//override.companyid || str(r.companyid);
   const company = override.company || str(r.company);
   const branchname = str(r.branchname || r.branch);
   const level = str(r.level).toLowerCase();

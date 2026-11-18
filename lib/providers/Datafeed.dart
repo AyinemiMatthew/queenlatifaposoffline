@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'dart:convert';
-import 'dart:math';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
@@ -557,7 +556,7 @@ class Datafeed extends ChangeNotifier {
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;
   final ItemCacheService itemCache = ItemCacheService();
-  final OfflineSalesQueue offlineSalesQueue = OfflineSalesQueue();
+  //final OfflineSalesQueue offlineSalesQueue = OfflineSalesQueue();
   bool authenticated = false;
   bool isOffline = false;
   String company = "";
@@ -693,7 +692,7 @@ class Datafeed extends ChangeNotifier {
   String itemHistorySearchQuery = '';
 
   Datafeed() {
-    _initSync();
+    //_initSync();
     _initItemCache();
     initHamperListener();
     expireOutdatedCodes();
@@ -1151,21 +1150,21 @@ class Datafeed extends ChangeNotifier {
     }
   }
 
-  void _initSync() {
-    // Listen to Firestore snapshots metadata to detect offline/online status
-    _connectionStatusSub = db
-        .collection('_connection_check')
-        .limit(1)
-        .snapshots(includeMetadataChanges: true)
-        .listen((snapshot) {
-          isOffline = snapshot.metadata.isFromCache;
-          notifyListeners();
-          debugPrint(isOffline ? '📴 App is OFFLINE' : '📶 App is ONLINE');
-          if (!isOffline && companyid.isNotEmpty) {
-            unawaited(offlineSalesQueue.syncPendingSales(db, companyid));
-          }
-        });
-  }
+  // void _initSync() {
+  //   // Listen to Firestore snapshots metadata to detect offline/online status
+  //   _connectionStatusSub = db
+  //       .collection('_connection_check')
+  //       .limit(1)
+  //       .snapshots(includeMetadataChanges: true)
+  //       .listen((snapshot) {
+  //         isOffline = snapshot.metadata.isFromCache;
+  //         notifyListeners();
+  //         debugPrint(isOffline ? '📴 App is OFFLINE' : '📶 App is ONLINE');
+  //         if (!isOffline && companyid.isNotEmpty) {
+  //           unawaited(offlineSalesQueue.syncPendingSales(db, companyid));
+  //         }
+  //       });
+  // }
 
   bool _fetchingBranches = false;
   fetchBranches() async {
@@ -3901,24 +3900,24 @@ class Datafeed extends ChangeNotifier {
     initStockCheckListener();
     initReorderListener();
     if (!isOffline && companyid.isNotEmpty) {
-      unawaited(offlineSalesQueue.syncPendingSales(db, companyid));
+      //unawaited(offlineSalesQueue.syncPendingSales(db, companyid));
     }
     notifyListeners();
   }
 
-  void _syncItemsCache() async {
-    if (companyid.isEmpty) return;
-
-    try {
-      debugPrint('Starting background item sync...');
-      await itemCache.syncItems(companyid);
-      final stats = itemCache.getCacheStats();
-      debugPrint(' Item cache synced: ${stats['totalItems']} items');
-      notifyListeners();
-    } catch (e) {
-      debugPrint(' Error syncing item cache: $e');
-    }
-  }
+  // void _syncItemsCache() async {
+  //   if (companyid.isEmpty) return;
+  //
+  //   try {
+  //     debugPrint('Starting background item sync...');
+  //     await itemCache.syncItems(companyid);
+  //     final stats = itemCache.getCacheStats();
+  //     debugPrint(' Item cache synced: ${stats['totalItems']} items');
+  //     notifyListeners();
+  //   } catch (e) {
+  //     debugPrint(' Error syncing item cache: $e');
+  //   }
+  // }
 
   // Force sync items cache
   Future<void> forceSyncItems() async {

@@ -430,7 +430,7 @@ Future<void> printReceipt({
                   final queuedOffline = datafeed.isOffline;
                   final dailyNumber = queuedOffline
                       ? null
-                      : await datafeed.nextDailyReceiptNumber(
+                      :  datafeed.nextDailyReceiptNumber(
                           datafeed.branchid,
                         );
 
@@ -492,24 +492,24 @@ Future<void> printReceipt({
 
                     dateymd: context.read<SalesProvider>().saleDate,
                     supplystatus: false,
-                    dailyreceiptno: dailyNumber,
+                    dailyreceiptno: await dailyNumber,
                     syncStatus: '0',
                     online:queuedOffline?'1':'0',
 
                   );
 
-                  if (queuedOffline) {
-                     datafeed.offlineSalesQueue.saveLocally(
-                      companyId: companyId,
-                      saleId: docId,
-                      saleData: saleData.toMap(),
-                    );
-                  } else {
+                  // if (queuedOffline) {
+                  //    datafeed.offlineSalesQueue.saveLocally(
+                  //     companyId: companyId,
+                  //     saleId: docId,
+                  //     saleData: saleData.toMap(),
+                  //   );
+                  // } else {
                      FirebaseFirestore.instance
                         .collection('sales')
                         .doc(docId)
                         .set(saleData.toMap());
-                  }
+                  //}
 
                   if (!queuedOffline) {
                     final skipCheck = !datafeed.stockCheckEnabled ||
@@ -562,7 +562,7 @@ Future<void> printReceipt({
                     receiptName: 'OFFICIAL RECEIPT',
                     Customertin: '',
                     Suppliertin: '',
-                    dailyNumber: dailyNumber,
+                    dailyNumber: await dailyNumber,
                   );
 
                   final doc = await ReceiptPrinter.build(
@@ -759,7 +759,7 @@ Future<void> printReceipt({
                   final queuedOffline = datafeed.isOffline;
                   final dailyNumber = queuedOffline
                       ? null
-                      : await datafeed.nextDailyReceiptNumber(
+                      :  datafeed.nextDailyReceiptNumber(
                           datafeed.branchid,
                         );
 
@@ -821,24 +821,24 @@ Future<void> printReceipt({
                     receiptbyemail: datafeed.staffemail,
                     dateymd: context.read<SalesProvider>().saleDate,
                     branchType:  datafeed.branchtype,
-                    dailyreceiptno: dailyNumber,
+                    dailyreceiptno: await dailyNumber,
                     syncStatus: '0',
                     online: queuedOffline?'1':'0',
 
                   );
 
-                  if (queuedOffline) {
-                     datafeed.offlineSalesQueue.saveLocally(
-                      companyId: companyId,
-                      saleId: docId,
-                      saleData: saleData.toMap(),
-                    );
-                  } else {
+                  // if (queuedOffline) {
+                  //    datafeed.offlineSalesQueue.saveLocally(
+                  //     companyId: companyId,
+                  //     saleId: docId,
+                  //     saleData: saleData.toMap(),
+                  //   );
+                  // } else {
                      FirebaseFirestore.instance
                         .collection('sales')
                         .doc(docId)
                         .set(saleData.toMap());
-                  }
+                 // }
 
                   if (!queuedOffline) {
                     final skipCheck = !datafeed.stockCheckEnabled ||
@@ -889,7 +889,7 @@ Future<void> printReceipt({
                     receiptName: 'OFFICIAL RECEIPT',
                     Customertin: '',
                     Suppliertin: '',
-                    dailyNumber: dailyNumber,
+                    dailyNumber: await dailyNumber,
 
                   );
 

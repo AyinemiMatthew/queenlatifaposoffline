@@ -4,6 +4,7 @@ import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/providers/routes.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/item_syncProvider.dart';
 import 'companyreg.dart';
 import 'forgotpassword.dart';
 
@@ -330,7 +331,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     }
                                     try {
                                       setState(() => _loading = true);
-                                      //value.syncStaff(_emailController.text.trim());
+                                      //final provider = context.read<StockSyncProvider>();
+                                      //provider.syncStockFromApi(value);
+                                      value.syncStaff(_emailController.text.trim());
                                       await value.login(
                                         _emailController.text.trim(),
                                         _passwordController.text.trim(),

@@ -751,15 +751,15 @@ class CustomerInfoDialog {
                   (selectedItem?.producttype ?? '').toLowerCase().trim() ==
                   'service';
 
-              if (datafeed.isOffline) {
-                salesProvider.showMessage(
-                  context,
-                  'Offline sales are available only from Print Dialog when stock checking is disabled.',
-                  Colors.orange,
-                );
-                setState(() => isSaving = false);
-                return;
-              }
+              // if (datafeed.isOffline) {
+              //   salesProvider.showMessage(
+              //     context,
+              //     'Offline sales are available only from Print Dialog when stock checking is disabled.',
+              //     Colors.orange,
+              //   );
+              //   setState(() => isSaving = false);
+              //   //return;
+              // }
 
               if (!isService && datafeed.stockCheckEnabled) {
                 if (!salesProvider.ensureSalesWarehouseSelected(
@@ -818,7 +818,7 @@ class CustomerInfoDialog {
                   'updatedAt': Timestamp.now(),
                 };
                 print("SMS Record: ${datafeed.companyid},$smsCreditbalance");
-                await db.collection('sms_logs').add(smsRecord);
+                 db.collection('sms_logs').add(smsRecord);
               } else {
                 customerName =(selectedCreditCustomer?['name'] ??
                             nameController.text.trim())
@@ -829,9 +829,7 @@ class CustomerInfoDialog {
                         .toString();
                 customerType = 'Cash';
                 newBalance = 0.0;
-                customerId =
-                    (selectedCreditCustomer?['id'] ??
-                            '${datafeed.companyid.toLowerCase()}_$customerPhone')
+                customerId =(selectedCreditCustomer?['id'] ?? '${datafeed.companyid.toLowerCase()}_$customerPhone')
                         .toString();
                 final existingDoc = datafeed.db.collection('customers');
                 final ref = existingDoc.doc(customerId).get();
@@ -841,7 +839,7 @@ class CustomerInfoDialog {
                     context,
                     listen: false,
                   );
-                  await provider.getdata();
+                   provider.getdata();
                   final customer = CustomerRegModel(
                     id: customerId,
                     branchname: provider.selectedBranch?.branchname ?? '',
@@ -859,7 +857,7 @@ class CustomerInfoDialog {
                     companyname: company,
                     creditBalance: newBalance.toString(),
                   );
-                  await datafeed.db
+                   datafeed.db
                       .collection('customers')
                       .doc(customerId)
                       .set(customer.toMap());
@@ -1041,21 +1039,17 @@ class CustomerInfoDialog {
                 supplystatus: false,
                 dailyreceiptno: dailyNumber,
                 syncStatus: '0',
-                online: datafeed.isOffline ? '1' : '0',
+                online: datafeed.isOffline ? '0' : '1',
               );
+              final queuedOffline = datafeed.isOffline;
 
-              await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
+               datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
 
-              final skipCheck =
-                  !datafeed.stockCheckEnabled ||
-                  salesProvider.isServiceOnlySale(salesProvider.salesItems);
-              final approved = await salesProvider.ensureSaleApproved(
-                context,
-                saleDocId,
-                skipStockCheck: skipCheck,
-              );
 
-              if (!approved) {
+              final skipCheck =!datafeed.stockCheckEnabled ||salesProvider.isServiceOnlySale(salesProvider.salesItems);
+              final approved = await salesProvider.ensureSaleApproved(context,saleDocId, skipStockCheck: skipCheck,);
+
+              if (approved) {
                 setState(() => isSaving = false);
                 return;
               }
@@ -2341,8 +2335,8 @@ class CustomerInfoDialog {
                                       ),
                                       onPressed: isSaving
                                           ? null
-                                          : () async =>
-                                                submitSale(printA4: true),
+                                          : () async =>submitSale(printA4: true),
+
                                       child: isSaving && activeSubmitIsA4 == true
                                           ? SizedBox(
                                               height: 20,

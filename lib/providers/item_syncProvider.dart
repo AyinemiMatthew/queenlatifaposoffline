@@ -167,9 +167,6 @@ class StockSyncProvider extends ChangeNotifier {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // SYNC
-  // ---------------------------------------------------------------------
 
   /// Returns null if a sync is already running.
   Future<SyncOutcome?> syncStockFromApi(Datafeed datafeed) async {
