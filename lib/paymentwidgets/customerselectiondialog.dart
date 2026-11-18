@@ -187,37 +187,57 @@ class CustomerSelectionDialog {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: RadioListTile<String>(
-                                        dense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        title: Text(
-                                          'This Branch',
-                                          style: TextStyle(
-                                            color: colorScheme.onSurfaceVariant,
-                                            fontSize: 13,
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: RadioListTile<String>(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: Text(
+                                            'This Branch',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 13,
+                                            ),
                                           ),
+                                          value: 'branch',
+                                          groupValue: scope,
+                                          activeColor: Colors.blue,
+                                          fillColor: MaterialStateProperty.resolveWith<Color>((states) {
+                                            if (states.contains(MaterialState.selected)) {
+                                              return Colors.blue;
+                                            }
+                                            return colorScheme.onSurface.withOpacity(0.7);
+                                          }),
+                                          onChanged: (v) => setInnerState(() => scope = v!),
                                         ),
-                                        value: 'branch',
-                                        groupValue: scope,
-                                        activeColor: colorScheme.primary,
-                                        onChanged: (v) => setInnerState(() => scope = v!),
                                       ),
                                     ),
                                     Expanded(
-                                      child: RadioListTile<String>(
-                                        dense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        title: Text(
-                                          'All Company',
-                                          style: TextStyle(
-                                            color: colorScheme.onSurfaceVariant,
-                                            fontSize: 13,
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: RadioListTile<String>(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: Text(
+                                            'All Company',
+                                            style: TextStyle(
+                                              color: colorScheme.onSurface,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 13,
+                                            ),
                                           ),
+                                          value: 'company',
+                                          groupValue: scope,
+                                          activeColor: Colors.blue,
+                                          fillColor: MaterialStateProperty.resolveWith<Color>((states) {
+                                            if (states.contains(MaterialState.selected)) {
+                                              return Colors.blue;
+                                            }
+                                            return colorScheme.onSurface.withOpacity(0.7);
+                                          }),
+                                          onChanged: (v) => setInnerState(() => scope = v!),
                                         ),
-                                        value: 'company',
-                                        groupValue: scope,
-                                        activeColor: colorScheme.primary,
-                                        onChanged: (v) => setInnerState(() => scope = v!),
                                       ),
                                     ),
                                   ],

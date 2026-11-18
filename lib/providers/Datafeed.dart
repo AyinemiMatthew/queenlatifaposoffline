@@ -8433,7 +8433,7 @@ class Datafeed extends ChangeNotifier {
   }
 
   Future<String?> nextDailyReceiptNumber(String branchId) async {
-    if (companyid.isEmpty) return null;
+    if (companyid.isEmpty || isOffline) return null;
     try {
       final cfg = await db
           .collection('settings')

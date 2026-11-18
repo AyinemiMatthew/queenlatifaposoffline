@@ -751,16 +751,6 @@ class CustomerInfoDialog {
                   (selectedItem?.producttype ?? '').toLowerCase().trim() ==
                   'service';
 
-              // if (datafeed.isOffline) {
-              //   salesProvider.showMessage(
-              //     context,
-              //     'Offline sales are available only from Print Dialog when stock checking is disabled.',
-              //     Colors.orange,
-              //   );
-              //   setState(() => isSaving = false);
-              //   //return;
-              // }
-
               if (!isService && datafeed.stockCheckEnabled) {
                 if (!salesProvider.ensureSalesWarehouseSelected(
                   context,
@@ -829,39 +819,36 @@ class CustomerInfoDialog {
                         .toString();
                 customerType = 'Cash';
                 newBalance = 0.0;
-                customerId =(selectedCreditCustomer?['id'] ?? '${datafeed.companyid.toLowerCase()}_$customerPhone')
+                customerId =
+                    (selectedCreditCustomer?['id'] ??
+                            '${datafeed.companyid.toLowerCase()}_$customerPhone')
                         .toString();
-                final existingDoc = datafeed.db.collection('customers');
-                final ref = existingDoc.doc(customerId).get();
-
-                if (!(await ref).exists) {
-                  final provider = Provider.of<Datafeed>(
-                    context,
-                    listen: false,
-                  );
-                   provider.getdata();
-                  final customer = CustomerRegModel(
-                    id: customerId,
-                    branchname: provider.selectedBranch?.branchname ?? '',
-                    branchid: provider.selectedBranch?.id ?? '',
-                    name: customerName,
-                    contact: customerPhone,
-                    customertype: customerType,
-                    creditlimit: customerCreditLimit,
-                    companyid: datafeed.companyid,
-                    staff: datafeed.staff,
-                    date: DateTime.now(),
-                    updatedby: null,
-                    updatedat: null,
-                    deletedat: null,
-                    companyname: company,
-                    creditBalance: newBalance.toString(),
-                  );
-                   datafeed.db
-                      .collection('customers')
-                      .doc(customerId)
-                      .set(customer.toMap());
-                }
+                final provider = Provider.of<Datafeed>(
+                  context,
+                  listen: false,
+                );
+                provider.getdata();
+                final customer = CustomerRegModel(
+                  id: customerId,
+                  branchname: provider.selectedBranch?.branchname ?? '',
+                  branchid: provider.selectedBranch?.id ?? '',
+                  name: customerName,
+                  contact: customerPhone,
+                  customertype: customerType,
+                  creditlimit: customerCreditLimit,
+                  companyid: datafeed.companyid,
+                  staff: datafeed.staff,
+                  date: DateTime.now(),
+                  updatedby: null,
+                  updatedat: null,
+                  deletedat: null,
+                  companyname: company,
+                  creditBalance: newBalance.toString(),
+                );
+                datafeed.db
+                    .collection('customers')
+                    .doc(customerId)
+                    .set(customer.toMap(), SetOptions(merge: true));
               }
 
               final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -985,9 +972,11 @@ class CustomerInfoDialog {
                   1;
               final week = '${now.year}.$weekNumber';
 
-              final dailyNumber = await datafeed.nextDailyReceiptNumber(
-                datafeed.branchid,
-              );
+              final dailyNumber = datafeed.isOffline
+                  ? null
+                  : await datafeed.nextDailyReceiptNumber(
+                      datafeed.branchid,
+                    );
 
               final saleData = SalesModel(
                 id: saleDocId,
@@ -1039,20 +1028,24 @@ class CustomerInfoDialog {
                 supplystatus: false,
                 dailyreceiptno: dailyNumber,
                 syncStatus: '0',
-                online: datafeed.isOffline ? '0' : '1',
+                online: datafeed.isOffline ? '1' : '0',
               );
-              final queuedOffline = datafeed.isOffline;
 
                datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
 
-
-              final skipCheck =!datafeed.stockCheckEnabled ||salesProvider.isServiceOnlySale(salesProvider.salesItems);
-              final approved = await salesProvider.ensureSaleApproved(context,saleDocId, skipStockCheck: skipCheck,);
-
-              if (approved) {
-                setState(() => isSaving = false);
-                return;
-              }
+              final skipCheck =
+                  !datafeed.stockCheckEnabled ||
+                  salesProvider.isServiceOnlySale(salesProvider.salesItems);
+              // final approved = await salesProvider.ensureSaleApproved(
+              //   context,
+              //   saleDocId,
+              //   skipStockCheck: skipCheck,
+              // );
+              //
+              // if (!approved) {
+              //   setState(() => isSaving = false);
+              //   return;
+              // }
 
               if (paymentMethod == 'momo') {
                 final momoTransactions = getMomoTransactionMap();
@@ -2014,47 +2007,50 @@ class CustomerInfoDialog {
                                     if (!isAllowed(value)) {
                                       return const SizedBox.shrink();
                                     }
-                                    return RadioListTile<String>(
-                                      dense: true,
-                                      visualDensity: VisualDensity.compact,
-                                      contentPadding: EdgeInsets.zero,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      title: Text(
-                                        label,
-                                        style: TextStyle(
-                                          color: colorScheme.onSurface,
+                                    return Material(
+                                      color: Colors.transparent,
+                                      child: RadioListTile<String>(
+                                        dense: true,
+                                        visualDensity: VisualDensity.compact,
+                                        contentPadding: EdgeInsets.zero,
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        title: Text(
+                                          label,
+                                          style: TextStyle(
+                                            color: colorScheme.onSurface,
+                                          ),
                                         ),
-                                      ),
-                                      value: value,
-                                      groupValue: paymentMethod,
-                                      onChanged: (val) async {
-                                        setState(() {
-                                          paymentMethod = val!;
-                                          amountPaidController.clear();
-                                          referenceController.clear();
-                                          nameController.clear();
-                                          phoneController.clear();
-                                          if (paymentMethod != 'credit') {
-                                            selectedCreditCustomer = null;
-                                          }
-                                          if (paymentMethod != 'momo') {
-                                            selectedMomoNetwork = 'MTN';
-                                          }
-                                        });
-                                      },
-                                      activeColor: active,
-                                      fillColor:
-                                          MaterialStateProperty.resolveWith<
-                                            Color
-                                          >((states) {
-                                            if (states.contains(
-                                              MaterialState.selected,
-                                            )) {
-                                              return active;
+                                        value: value,
+                                        groupValue: paymentMethod,
+                                        onChanged: (val) async {
+                                          setState(() {
+                                            paymentMethod = val!;
+                                            amountPaidController.clear();
+                                            referenceController.clear();
+                                            nameController.clear();
+                                            phoneController.clear();
+                                            if (paymentMethod != 'credit') {
+                                              selectedCreditCustomer = null;
                                             }
-                                            return colorScheme.onSurfaceVariant;
-                                          }),
+                                            if (paymentMethod != 'momo') {
+                                              selectedMomoNetwork = 'MTN';
+                                            }
+                                          });
+                                        },
+                                        activeColor: active,
+                                        fillColor:
+                                            MaterialStateProperty.resolveWith<
+                                              Color
+                                            >((states) {
+                                              if (states.contains(
+                                                MaterialState.selected,
+                                              )) {
+                                                return active;
+                                              }
+                                              return colorScheme.onSurfaceVariant;
+                                            }),
+                                      ),
                                     );
                                   }
 
@@ -2335,8 +2331,8 @@ class CustomerInfoDialog {
                                       ),
                                       onPressed: isSaving
                                           ? null
-                                          : () async =>submitSale(printA4: true),
-
+                                          : () async =>
+                                                submitSale(printA4: true),
                                       child: isSaving && activeSubmitIsA4 == true
                                           ? SizedBox(
                                               height: 20,

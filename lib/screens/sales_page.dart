@@ -1231,15 +1231,6 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => _isSavingDirect = true);
 
     try {
-      if (datafeed.isOffline) {
-        snackMsg(
-          context,
-          'Offline sales are available only from Print Dialog when stock checking is disabled.',
-          Colors.orange,
-        );
-        return;
-      }
-
       if (datafeed.stockCheckEnabled) {
         final isValid = await salesProvider.validateCartStockOnSaves(
           activeBranchId,
@@ -1332,7 +1323,7 @@ class _SalesPageState extends State<SalesPage> {
 
       );
 
-      await datafeed.db
+      datafeed.db
           .collection('sales')
           .doc(saleDocId)
           .set(saleData.toMap());
@@ -1392,23 +1383,6 @@ class _SalesPageState extends State<SalesPage> {
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
     final value = Provider.of<Datafeed>(context, listen: false);
     if (!_ensureSelectedBranchCart(value, salesProvider)) return;
-    if (value.isOffline && value.stockCheckEnabled) {
-      snackMsg(
-        context,
-        'Sales with stock checking require an internet connection.',
-        Colors.orange,
-      );
-      return;
-    }
-
-    if (value.isOffline) {
-      await printReceipt(
-        context: context,
-        salesItems: salesProvider.salesItems,
-        selectedItem: _selectedItem,
-      );
-      return;
-    }
 
     if (value.isSalesPoint) {
       await _saveDirectSale();
@@ -2194,62 +2168,69 @@ class _SalesPageState extends State<SalesPage> {
                                                       Row(
                                                         children: [
                                                           Expanded(
-                                                            child: TextFormField(
-                                                              controller:
-                                                                  _barcodeController,
-                                                              style: TextStyle(
-                                                                color: Theme.of(
-                                                                  context,
-                                                                ).colorScheme.onSurface,
+                                                            child: Theme(
+                                                              data: Theme.of(context).copyWith(
+                                                                textSelectionTheme: TextSelectionThemeData(
+                                                                  selectionColor: Colors.blue.withOpacity(0.4),
+                                                                  selectionHandleColor: Colors.blue,
+                                                                  cursorColor: Colors.blue,
+                                                                ),
                                                               ),
-                                                              decoration: InputDecoration(
-                                                                labelText:
-                                                                    'Barcode',
-                                                                labelStyle: TextStyle(
+                                                              child: TextFormField(
+                                                                controller:
+                                                                    _barcodeController,
+                                                                style: TextStyle(
                                                                   color: Theme.of(
                                                                     context,
-                                                                  ).colorScheme.onSurfaceVariant,
+                                                                  ).colorScheme.onSurface,
                                                                 ),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                                enabledBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
+                                                                decoration: InputDecoration(
+                                                                  labelText:
+                                                                      'Barcode',
+                                                                  labelStyle: TextStyle(
                                                                     color: Theme.of(
                                                                       context,
-                                                                    ).colorScheme.outline,
+                                                                    ).colorScheme.onSurfaceVariant,
                                                                   ),
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.primary,
+                                                                  border: OutlineInputBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          12,
+                                                                        ),
                                                                   ),
+                                                                  enabledBorder: OutlineInputBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          12,
+                                                                        ),
+                                                                    borderSide: BorderSide(
+                                                                      color: Colors.blue.withOpacity(0.6),
+                                                                      width: 1.5,
+                                                                    ),
+                                                                  ),
+                                                                  focusedBorder: OutlineInputBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          12,
+                                                                        ),
+                                                                    borderSide: BorderSide(
+                                                                      color: Colors.blue,
+                                                                      width: 2.5,
+                                                                    ),
+                                                                  ),
+                                                                  fillColor:
+                                                                      Theme.of(
+                                                                            context,
+                                                                          )
+                                                                          .colorScheme
+                                                                          .surfaceContainerHighest,
+                                                                  filled: true,
                                                                 ),
-                                                                fillColor:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .surfaceContainerHighest,
-                                                                filled: true,
-                                                              ),
 
-                                                              validator:
-                                                                  SalesFormValidators
-                                                                      .barcode,
+                                                                validator:
+                                                                    SalesFormValidators
+                                                                        .barcode,
+                                                             ),
                                                             ),
                                                           ),
                                                           const SizedBox(
@@ -2904,9 +2885,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.outline,
+                                                                    color: Colors.blue.withOpacity(0.6),
+                                                                    width: 1.5,
                                                                   ),
                                                                 ),
                                                                 focusedBorder: OutlineInputBorder(
@@ -2915,9 +2895,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.primary,
+                                                                    color: Colors.blue,
+                                                                    width: 2.5,
                                                                   ),
                                                                 ),
                                                                 fillColor:
@@ -2996,9 +2975,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.outline,
+                                                                    color: Colors.blue.withOpacity(0.6),
+                                                                    width: 1.5,
                                                                   ),
                                                                 ),
                                                                 focusedBorder: OutlineInputBorder(
@@ -3007,9 +2985,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.primary,
+                                                                    color: Colors.blue,
+                                                                    width: 2.5,
                                                                   ),
                                                                 ),
                                                                 fillColor:
@@ -3053,9 +3030,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.outline,
+                                                                    color: Colors.blue.withOpacity(0.6),
+                                                                    width: 1.5,
                                                                   ),
                                                                 ),
                                                                 focusedBorder: OutlineInputBorder(
@@ -3064,9 +3040,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.primary,
+                                                                    color: Colors.blue,
+                                                                    width: 2.5,
                                                                   ),
                                                                 ),
                                                                 fillColor:
@@ -3494,9 +3469,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.outline,
+                                                                    color: Colors.blue.withOpacity(0.6),
+                                                                    width: 1.5,
                                                                   ),
                                                                 ),
                                                                 focusedBorder: OutlineInputBorder(
@@ -3505,9 +3479,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                         12,
                                                                       ),
                                                                   borderSide: BorderSide(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.primary,
+                                                                    color: Colors.blue,
+                                                                    width: 2.5,
                                                                   ),
                                                                 ),
                                                                 fillColor:

@@ -374,16 +374,7 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
-                  if (datafeed.isOffline && datafeed.stockCheckEnabled) {
-                    salesProvider.showMessage(
-                      context,
-                      'Sales with stock checking require an internet connection.',
-                      Colors.orange,
-                    );
-                    _isSaving = false;
-                    processState.value = "idle";
-                    return;
-                  }
+
 
                   if (!isService && datafeed.stockCheckEnabled) {
                     final ensureSalesWarehouseSelected =
@@ -698,16 +689,7 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
-                  if (datafeed.isOffline && datafeed.stockCheckEnabled) {
-                    salesProvider.showMessage(
-                      context,
-                      'Sales with stock checking require an internet connection.',
-                      Colors.orange,
-                    );
-                    _isSaving = false;
-                    processState.value = "idle";
-                    return;
-                  }
+
 
 
                   if (!isService&& datafeed.stockCheckEnabled) {
