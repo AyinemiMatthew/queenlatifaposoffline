@@ -14,6 +14,9 @@ class DiscountCodeModel {
   String?   createdBy;
   String?   usedBy;
   String?   usedBranch;
+  String?   assignedStaffId;
+  String?   assignedStaffEmail;
+  String?   assignedStaffName;
   Timestamp? createdAt;
   Timestamp? expiresAt;
   Timestamp? usedAt;
@@ -35,6 +38,9 @@ class DiscountCodeModel {
     this.createdBy,
     this.usedBy,
     this.usedBranch,
+    this.assignedStaffId,
+    this.assignedStaffEmail,
+    this.assignedStaffName,
     this.createdAt,
     this.expiresAt,
     this.usedAt,
@@ -72,6 +78,9 @@ class DiscountCodeModel {
     'createdBy':  createdBy,
     'usedBy':     usedBy,
     'usedBranch': usedBranch,
+    'assignedStaffId': assignedStaffId,
+    'assignedStaffEmail': assignedStaffEmail,
+    'assignedStaffName': assignedStaffName,
     'createdAt':  createdAt,
     'expiresAt':  expiresAt,
     'usedAt':     usedAt,
@@ -96,6 +105,9 @@ class DiscountCodeModel {
         createdBy: m['createdBy'],
         usedBy: m['usedBy'],
         usedBranch: m['usedBranch'],
+        assignedStaffId: m['assignedStaffId'],
+        assignedStaffEmail: m['assignedStaffEmail'],
+        assignedStaffName: m['assignedStaffName'],
         createdAt: m['createdAt']  as Timestamp?,
         expiresAt: m['expiresAt']  as Timestamp?,
         usedAt: m['usedAt']  as Timestamp?,

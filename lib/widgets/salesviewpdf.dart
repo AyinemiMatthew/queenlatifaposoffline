@@ -104,9 +104,10 @@ Future<void> printSalesModelReceipt(BuildContext context, SalesModel sv) async {
       branchType: sv.branchType,
     );
 
-    final doc = await ReceiptPrinter.build(
+    final generator = ReceiptPrinter();
+    final doc = await generator.buildPdf(
       receiptData,
-      format: ReceiptPrinter.roll80,
+      pageFormat: ReceiptPrinter.getFormat('80mm'),
     );
 
     await _sendToPrinter(doc, receiptData, sv.id);

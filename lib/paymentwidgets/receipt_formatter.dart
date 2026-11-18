@@ -181,12 +181,12 @@ List<int> _receiptColumnWidths(int width) {
 }
 
 Iterable<String> _formatItemLines(
-  String itemName,
-  String qtyText,
-  String priceText,
-  String totalText,
-  List<int> widths,
-) {
+    String itemName,
+    String qtyText,
+    String priceText,
+    String totalText,
+    List<int> widths,
+    ) {
   final lines = <String>[];
   final itemLines = _wrapLine(itemName, widths[0]);
 

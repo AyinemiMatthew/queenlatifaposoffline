@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/discountmanager.dart';
+import '../models/staffmodel.dart';
 import '../providers/Datafeed.dart';
 
 import '../widgets/salespagewidgets/decorateinput.dart';
@@ -46,6 +47,7 @@ class _DiscountCodeRegisterPageState extends State<DiscountCodeRegisterPage> {
   String _generatedCode = '';
   DateTime? _expiryDate;
   bool _isSaving = false;
+  StaffModel? _selectedStaff;
 
   String? _savedCode;
   double? _savedAmount;
@@ -54,6 +56,7 @@ class _DiscountCodeRegisterPageState extends State<DiscountCodeRegisterPage> {
   void initState() {
     super.initState();
     _generateCode();
+    Future.microtask(() => context.read<Datafeed>().fetchAllStaffs());
   }
 
   @override
@@ -132,6 +135,9 @@ class _DiscountCodeRegisterPageState extends State<DiscountCodeRegisterPage> {
       code: _generatedCode,
       amount: amount,
       createdBy: datafeed.staff,
+      assignedStaffId: _selectedStaff?.email,
+      assignedStaffEmail: _selectedStaff?.email,
+      assignedStaffName: _selectedStaff?.name,
       createdAt: Timestamp.now(),
       expiresAt: _expiryDate != null ? Timestamp.fromDate(_expiryDate!) : null,
       day: day,
@@ -278,6 +284,25 @@ class _DiscountCodeRegisterPageState extends State<DiscountCodeRegisterPage> {
                     ),
                     const SizedBox(height: 24),
                   ],
+
+                  Consumer<Datafeed>(
+                    builder: (_, datafeed, __) => DropdownButtonFormField<StaffModel>(
+                      value: _selectedStaff,
+                      decoration: decorationInput(context, 'Assign to Staff (Optional)', hint: 'Select staff member'),
+                      dropdownColor: _surfaceColor,
+                      style: TextStyle(color: _textColor),
+                      items: [
+                        const DropdownMenuItem<StaffModel>(value: null, child: Text('General / Unassigned')),
+                        ...datafeed.allStaffs.map((staff) => DropdownMenuItem(
+                          value: staff,
+                          child: Text('${staff.name} (${staff.email})'),
+                        )),
+                      ],
+                      onChanged: (val) => setState(() => _selectedStaff = val),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
 
                   TextFormField(
                     controller: _amountCtrl,

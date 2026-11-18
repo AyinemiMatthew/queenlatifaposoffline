@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/paymentwidgets/PDFprints/print_service.dart';
+import 'package:kologsoft/paymentwidgets/receipt_formaterA4.dart';
 import 'package:kologsoft/paymentwidgets/receipt_formatter.dart';
 
 import 'package:pdf/pdf.dart';
@@ -17,7 +18,7 @@ import '../models/salesmodel.dart';
 import '../providers/Datafeed.dart';
 import '../providers/SalesProvider.dart';
 import 'invoice1.dart';
-
+import 'invoiceA4.dart';
 
 Future<void> printReceipt({
   required BuildContext context,
@@ -39,10 +40,6 @@ Future<void> printReceipt({
   bool _isSaving = false;
   final datafeed = Provider.of<Datafeed>(context, listen: false);
   final salesProvider = Provider.of<SalesProvider>(context, listen: false);
-  final isLightTheme = Theme.of(context).brightness == Brightness.light;
-
-  final bool shouldPrint =  datafeed.canPrint ;
-      //|| datafeed.branchtype == "Sales Branch";
   final allowed = datafeed.allowedPaymentMethods.map((e) => e.toString().trim().toLowerCase())
       .where((e) => e.isNotEmpty).toSet();
 
@@ -56,10 +53,14 @@ Future<void> printReceipt({
     return;
   }
 
-
+//  if (!await salesProvider.validateCartStockOnSave(context,salesItems,datafeed,)) return;
   final isService =
       (selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
+  if (!isService &&
+      !await salesProvider.validateCartStockOnSave(context, salesItems, datafeed)) {
+    return;
+  }
   final amountPaidController = TextEditingController(
     text: salesProvider.calculateTaxableTotal().toStringAsFixed(2),
   );
@@ -77,7 +78,6 @@ Future<void> printReceipt({
     _selectedPrinter ??= saved ?? (all.isNotEmpty ? all.first : null);
   }
 
-  if (shouldPrint)
   _loadPrinterInfo();
 
    showDialog(
@@ -85,27 +85,26 @@ Future<void> printReceipt({
     barrierDismissible: false,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
-        final dialogColors = Theme.of(context).colorScheme;
         final total = salesProvider.calculateTaxableTotal();
         final enteredAmount = double.tryParse(amountPaidController.text) ?? 0;
         final change = enteredAmount - total;
 
         return AlertDialog(
-          backgroundColor: dialogColors.surface,
+          backgroundColor: const Color(0xFF1A2332),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: Text(
+          title: const Text(
             'Amount Paid',
-            style: TextStyle(color: dialogColors.onSurface),
+            style: TextStyle(color: Colors.white),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Total: GHS ${total.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: dialogColors.onSurfaceVariant,
+                style: const TextStyle(
+                  color: Colors.white70,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -117,15 +116,13 @@ Future<void> printReceipt({
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                style: TextStyle(color: dialogColors.onSurface, fontSize: 20),
+                style: const TextStyle(color: Colors.white, fontSize: 20),
                 onChanged: (value) {
                   setState(() {});
                 },
                 decoration: InputDecoration(
                   labelText: 'Amount Paid by Customer',
-                  labelStyle: TextStyle(
-                    color: dialogColors.onSurfaceVariant,
-                  ),
+                  labelStyle: const TextStyle(color: Colors.white70),
                   prefixText: 'GHS ',
                   prefixStyle: const TextStyle(
                     color: Colors.green,
@@ -137,9 +134,7 @@ Future<void> printReceipt({
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: dialogColors.outlineVariant,
-                    ),
+                    borderSide: const BorderSide(color: Colors.white24),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -148,7 +143,7 @@ Future<void> printReceipt({
                       width: 2,
                     ),
                   ),
-                  fillColor: dialogColors.surfaceContainerHighest,
+                  fillColor: const Color(0xFF22304A),
                   filled: true,
                 ),
               ),
@@ -156,7 +151,9 @@ Future<void> printReceipt({
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: dialogColors.surfaceContainerHighest,
+                  color: change >= 0
+                      ? const Color(0xFF1B4D3E)
+                      : const Color(0xFF4D1B1B),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: change >= 0 ? Colors.green : Colors.red,
@@ -170,12 +167,8 @@ Future<void> printReceipt({
                       'Change:',
                       style: TextStyle(
                         color: change >= 0
-                            ? (isLightTheme
-                                  ? Colors.green.shade800
-                                  : Colors.green.shade200)
-                            : (isLightTheme
-                                  ? Colors.red.shade800
-                                  : Colors.red.shade200),
+                            ? Colors.green[200]
+                            : Colors.red[200],
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -183,13 +176,7 @@ Future<void> printReceipt({
                     Text(
                       'GHS ${change.toStringAsFixed(2)}',
                       style: TextStyle(
-                        color: change >= 0
-                            ? (isLightTheme
-                                  ? Colors.green.shade800
-                                  : Colors.greenAccent)
-                            : (isLightTheme
-                                  ? Colors.red.shade800
-                                  : Colors.redAccent),
+                        color: change >= 0 ? Colors.green : Colors.red,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
@@ -199,30 +186,26 @@ Future<void> printReceipt({
               ),
               const SizedBox(height: 20),
               // ---- Printer Selection Card ----
-              if (shouldPrint) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: dialogColors.surfaceContainerHighest,
+                  color: const Color(0xFF0D1B2A),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: dialogColors.outlineVariant),
+                  border: Border.all(color: Colors.white12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.print_outlined,
-                          color: dialogColors.secondary,
-                          size: 16,
-                        ),
+                        const Icon(Icons.print_outlined,
+                            color: Color(0xFFFFC857), size: 16),
                         const SizedBox(width: 8),
-                        Text(
+                        const Text(
                           'Printer',
                           style: TextStyle(
-                            color: dialogColors.onSurface,
+                            color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -232,8 +215,8 @@ Future<void> printReceipt({
                     const SizedBox(height: 10),
                     Text(
                       _selectedPrinter ?? '— Select printer',
-                      style: TextStyle(
-                        color: dialogColors.onSurfaceVariant,
+                      style: const TextStyle(
+                        color: Colors.white70,
                         fontSize: 11,
                       ),
                     ),
@@ -260,22 +243,11 @@ Future<void> printReceipt({
                   ],
                 ),
               ),
-              ]
             ],
           ),
           actions: [
-            ValueListenableBuilder<String>(
-              valueListenable: processState,
-              builder: (context, actionState, _) {
-                final isBusy = actionState != "idle";
-                return Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-            if (shouldPrint)
             TextButton(
-              onPressed: isBusy ? null : () async {
+              onPressed: () async {
                 if (_availablePrinters.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -288,32 +260,31 @@ Future<void> printReceipt({
                 final selected = await showDialog<String>(
                   context: context,
                   builder: (_) => AlertDialog(
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    title: Text(
+                    backgroundColor: const Color(0xFF1B263B),
+                    title: const Text(
                       'Select Printer',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                      style: TextStyle(color: Colors.white),
                     ),
                     content: SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: _availablePrinters
-                            .map((p) => ListTile(
-                              title: Text(
-                                p,
-                                style: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontSize: 12,
+                            .map((p) => Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                title: Text(
+                                  p,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
                                 ),
+                                trailing: _selectedPrinter == p
+                                    ? const Icon(Icons.check,
+                                        color: Colors.green)
+                                    : null,
+                                onTap: () => Navigator.pop(context, p),
                               ),
-                              trailing: _selectedPrinter == p
-                                  ? const Icon(Icons.check,
-                                      color: Colors.green)
-                                  : null,
-                              onTap: () => Navigator.pop(context, p),
                             ))
                             .toList(),
                       ),
@@ -327,19 +298,18 @@ Future<void> printReceipt({
                   });
                 }
               },
-              child: Text(
+              child: const Text(
                 'Change Printer',
-                style: TextStyle(color: dialogColors.onSurfaceVariant),
+                style: TextStyle(color: Colors.white70),
               ),
             ),
             TextButton(
-              onPressed: isBusy ? null : () => Navigator.pop(context),
-              child: Text( 'Cancel',
-                style: TextStyle(color: dialogColors.onSurfaceVariant),
+              onPressed: () => Navigator.pop(context),
+              child: const Text( 'Cancel',
+                style: TextStyle(color: Colors.white70),
               ),
             ),
 
-            const SizedBox(width: double.infinity, height: 0),
 
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -349,12 +319,12 @@ Future<void> printReceipt({
                 ),
               ),
 
-              onPressed: isBusy ? null : () async {
+              onPressed: () async {
 
                 if (_isSaving || processState.value == "loading") return;
 
                 _isSaving = true;
-                setState(() => processState.value = "loading");
+                processState.value = "loading";
 
                 try {
                   final amount =
@@ -374,9 +344,25 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
+                /*  final ensureSalesWarehouseSelected =
+                  salesProvider.ensureSalesWarehouseSelected(
+                    context,
+                    datafeed,
+                    selectedItem,
+                    requireItemSelection: false,
+                  );
 
+                  final isValid =
+                  await salesProvider.validateCartStockOnSave(
+                    context,
+                    salesItems,
+                    datafeed,
+                  );
 
-                  if (!isService && datafeed.stockCheckEnabled) {
+                  if (!ensureSalesWarehouseSelected || !isValid) {
+                    return;
+                  }*/
+                  if (!isService) {
                     final ensureSalesWarehouseSelected =
                     salesProvider.ensureSalesWarehouseSelected(
                       context,
@@ -394,10 +380,16 @@ Future<void> printReceipt({
                   }
                   final companyId = datafeed.companyid;
                   final staffPosition = datafeed.staffPosition;
+                  final dailyReceiptInfo = await salesProvider.generateDailyReceiptData(
+                    companyId: companyId,
+                    branchId: datafeed.branchid,
+                    amount: salesProvider.calculateGrossTotal(),
+                    staffPosition: staffPosition,
+                  );
+                  final receiptNumber = dailyReceiptInfo['receiptNumber'];
+                  final dailyNumber = dailyReceiptInfo['dailyNumber'];
+                  final docId = dailyReceiptInfo['docId'];
                   final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-                  final receiptNumber = '$staffPosition$timestamp';
-                  final docId = '${companyId}_${staffPosition}_$timestamp';
 
                   final itemsMap = <String, dynamic>{};
                   for (int i = 0; i < salesItems.length; i++) {
@@ -418,12 +410,7 @@ Future<void> printReceipt({
                       ((now1.difference(DateTime(now1.year, 1, 1)).inDays) / 7).floor() + 1;
 
                   final week = '${now1.year}.$weekNumber';
-                  final queuedOffline = datafeed.isOffline;
-                  final dailyNumber = queuedOffline
-                      ? null
-                      : await datafeed.nextDailyReceiptNumber(
-                          datafeed.branchid,
-                        );
+
 
                   final saleData = SalesModel(
                     id: docId,
@@ -431,9 +418,9 @@ Future<void> printReceipt({
                     companyname: datafeed.company,
                     branchId: datafeed.branchid,
                     branchName: datafeed.branch,
-                    address: datafeed.branchaddress,
                     staffPosition: staffPosition,
                     receiptNumber: receiptNumber,
+                    dailyNumber: dailyNumber,
                     receiptby: datafeed.staff,
                     receiptat: now,
                     day: day,
@@ -454,8 +441,7 @@ Future<void> printReceipt({
                     paymentStatus: 'paid',
                     items: itemsMap,
                     discount: totalDiscount,
-                   // totalamount: total,
-                    totalamount: salesProvider.calculateGrossTotal(),
+                    totalamount: salesProvider.amountPayable(),
                     amountPaid: amount,
                     change: change,
                     itemCount: salesItems.length,
@@ -463,70 +449,46 @@ Future<void> printReceipt({
                     createdAt: now,
                     createdBy: datafeed.staff,
                     pricingtype: datafeed.branchtype,
-                    branchType:  datafeed.branchtype,
+                    branchType: datafeed.branchtype,
                     approvedby: datafeed.staff,
-                    printedby: shouldPrint ? datafeed.staff : '',
-                    printedat: shouldPrint ? now : null,
-                    stockCheckedAt: queuedOffline ? null : now,
-                    stockCheckStatus:
-                        queuedOffline && !datafeed.stockCheckEnabled
-                        ? 'approved'
-                        : null,
+                    printedby: datafeed.staff,
+                    printedat: now,
+                    stockCheckedAt: now,
                     timestamp: timestamp,
-                    printed:  shouldPrint,
+                    printed: true,
                     reciepted: true,
                     customerId: 'cash',
                     customerName: 'cash customer',
                     customerPhone: 'cash',
                     staffemail: datafeed.staffemail,
                     receiptbyemail: datafeed.staffemail,
-
+                   // dateymd: DateFormat('yyyy-MM-dd').format(DateTime.now()),
                     dateymd: context.read<SalesProvider>().saleDate,
                     supplystatus: false,
-                    dailyreceiptno: dailyNumber,
-                    syncStatus: '0',
-                    online:queuedOffline?'1':'0',
 
                   );
 
-                  if (queuedOffline) {
-                     datafeed.offlineSalesQueue.saveLocally(
-                      companyId: companyId,
-                      saleId: docId,
-                      saleData: saleData.toMap(),
-                    );
-                  } else {
-                     FirebaseFirestore.instance
-                        .collection('sales')
-                        .doc(docId)
-                        .set(saleData.toMap());
-                  }
+                  await FirebaseFirestore.instance
+                      .collection('sales')
+                      .doc(docId)
+                      .set(saleData.toMap());
+                  final skipCheck = salesProvider.isServiceOnlySale(salesProvider.salesItems);
+                  final approved = await salesProvider.ensureSaleApproved(context, docId, skipStockCheck: skipCheck);
+                 // final approved =  await salesProvider.ensureSaleApproved(context, docId);
 
-                  if (!queuedOffline) {
-                    final skipCheck = !datafeed.stockCheckEnabled ||
-                        salesProvider.isServiceOnlySale(salesProvider.salesItems);
-                    final approved = await salesProvider.ensureSaleApproved(
-                      context,
-                      docId,
-                      skipStockCheck: skipCheck,
-                    );
-                    if (!approved) return;
-                  }
+                  if (!approved) return;
 
-                  if (shouldPrint &&
-                      (!queuedOffline || !datafeed.stockCheckEnabled)) {
-                    final receiptItems = salesItems.map((e) {
+                  final receiptItems = salesItems.map((e) {
                     return ReceiptItem(
                       name: e['item'] ?? '',
                       qty: double.tryParse(e['quantity'].toString()) ?? 0,
                       price: double.tryParse(e['price'].toString()) ?? 0,
                       mode: e['mode'] ?? '',
                       isService: (e['producttype']?.toString().toLowerCase().trim() ?? '') == 'service',
-                      branch: e['branchname']?.toString(),
                     );
                   }).toList();
 
-                  final pageFormat = ReceiptPrinter.roll80;
+                  final pageFormat = PdfPageFormat.undefined;
 
                   final receiptData = ReceiptData(
                     cashier: datafeed.staff,
@@ -539,6 +501,7 @@ Future<void> printReceipt({
                     datetime: DateTime.now(),
                     email: datafeed.companyemail,
                     receiptNumber: receiptNumber,
+                    dailyNumber: dailyNumber,
                     paymentMethod: 'cash',
                     vatPercent: 15,
                     vatInclusiveAmount: salesProvider.amountPayable(),
@@ -553,56 +516,49 @@ Future<void> printReceipt({
                     receiptName: 'OFFICIAL RECEIPT',
                     Customertin: '',
                     Suppliertin: '',
-                    dailyNumber: dailyNumber,
                   );
 
-                  final doc = await ReceiptPrinter.build(
+                  final generator = ReceiptPrinterA4();
+
+                  final doc = await generator.buildPdfA4(
                     receiptData,
-                    format: pageFormat,
+                    pageFormat: pageFormat,
                   );
 
                   final isWindowsDesktop = !kIsWeb &&
                       defaultTargetPlatform == TargetPlatform.windows;
 
-                  if (isWindowsDesktop) {
-                    if (_selectedPrinter == null) {
-                      salesProvider.showMessage(
-                        context,
-                        'No printer selected for silent Windows printing.',
-                        Colors.red,
-                      );
-                    } else {
-                      final width = receiptWidthForPrinter(_selectedPrinter);
-                      final rawReceipt = buildRawReceiptText(receiptData, width: width);
-                      final rawResult = await PrintService.printRaw(
-                        printerName: _selectedPrinter!,
-                        text: rawReceipt,
-                      );
+                  bool printedSuccessfully = false;
 
-                      if (!rawResult.success) {
-                        final pdfResult = await PrintService.printPdf(
-                          printerName: _selectedPrinter!,
-                          pdf: doc,
-                        );
-                        if (!pdfResult.success) {
-                          salesProvider.showMessage(
-                            context,
-                            'Windows print failed: ${rawResult.errorMessage ?? 'Raw text print failed'}. PDF fallback failed: ${pdfResult.errorMessage ?? 'Unknown error'}.',
-                            Colors.red,
-                          );
-                        }
+                  if (isWindowsDesktop && _selectedPrinter != null) {
+                    final width = receiptWidthForPrinter(_selectedPrinter);
+                    final rawReceipt = buildRawReceiptText(receiptData, width: width);
+                    final rawResult = await PrintService.printRaw(
+                      printerName: _selectedPrinter!,
+                      text: rawReceipt,
+                    );
+
+                    if (rawResult.success) {
+                      printedSuccessfully = true;
+                    } else {
+                      final pdfResult = await PrintService.printPdf(
+                        printerName: _selectedPrinter!,
+                        pdf: doc,
+                      );
+                      if (pdfResult.success) {
+                        printedSuccessfully = true;
                       }
                     }
-                  } else {
+                  }
+
+                  if (!printedSuccessfully) {
                     await Printing.layoutPdf(
                       name: docId,
-                      format: ReceiptPrinter.roll80,
-                      usePrinterSettings: false,
-                      onLayout: (_) async => doc.save(),
+                      onLayout: (format) async => doc.save(),
                     );
                   }
-              }
-              if (!context.mounted) return;
+
+                  if (!context.mounted) return;
 
                   context.read<SalesProvider>().clearCurrentCart();
 
@@ -610,12 +566,8 @@ Future<void> printReceipt({
 
                   salesProvider.showMessage(
                     context,
-                    queuedOffline
-                        ? 'Sale saved ,waiting for internet to sync. Receipt: $receiptNumber'
-                        : shouldPrint
-                        ? 'Receipt printed: $receiptNumber'
-                        : 'Sale saved: $receiptNumber',
-                    queuedOffline ? Colors.orange : Colors.green,
+                    'Receipt printed: $receiptNumber (Daily No: #$dailyNumber)',
+                    Colors.green,
                   );
                 } catch (e) {
                   salesProvider.showMessage(
@@ -626,11 +578,7 @@ Future<void> printReceipt({
                 } finally {
 
                   _isSaving = false;
-                  if (context.mounted) {
-                    setState(() => processState.value = "idle");
-                  } else {
-                    processState.value = "idle";
-                  }
+                  processState.value = "idle";
                 }
               },
 
@@ -655,7 +603,6 @@ Future<void> printReceipt({
                 },
               ),
             ),
-            if (shouldPrint)
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
@@ -664,16 +611,16 @@ Future<void> printReceipt({
                 ),
               ),
 
-              onPressed: isBusy ? null : () async {
+              onPressed: () async {
 
                 if (_isSaving || processState.value == "loadinga4") return;
 
                 _isSaving = true;
-                setState(() => processState.value = "loadinga4");
+                processState.value = "loadinga4";
 
                 try {
-
-                  final amount =  double.tryParse(amountPaidController.text) ?? 0;
+                  final amount =
+                      double.tryParse(amountPaidController.text) ?? 0;
 
                   final total = salesProvider.calculateTaxableTotal();
                   final totalDiscount = salesProvider.calculateDiscountTotal();
@@ -689,10 +636,25 @@ Future<void> printReceipt({
 
                   final change = amount - total;
 
+                 /* final ensureSalesWarehouseSelected =
+                  salesProvider.ensureSalesWarehouseSelected(
+                    context,
+                    datafeed,
+                    selectedItem,
+                    requireItemSelection: false,
+                  );
 
+                  final isValid =
+                  await salesProvider.validateCartStockOnSave(
+                    context,
+                    salesItems,
+                    datafeed,
+                  );
 
-
-                  if (!isService&& datafeed.stockCheckEnabled) {
+                  if (!ensureSalesWarehouseSelected || !isValid) {
+                    return;
+                  }*/
+                  if (!isService) {
                     final ensureSalesWarehouseSelected =
                     salesProvider.ensureSalesWarehouseSelected(
                       context,
@@ -701,7 +663,8 @@ Future<void> printReceipt({
                       requireItemSelection: false,
                     );
 
-                    final isValid =  await salesProvider.validateCartStockOnSave(
+                    final isValid =
+                    await salesProvider.validateCartStockOnSave(
                       context,
                       salesItems,
                       datafeed,
@@ -713,10 +676,16 @@ Future<void> printReceipt({
                   }
                   final companyId = datafeed.companyid;
                   final staffPosition = datafeed.staffPosition;
+                  final dailyReceiptInfo = await salesProvider.generateDailyReceiptData(
+                    companyId: companyId,
+                    branchId: datafeed.branchid,
+                    amount: salesProvider.calculateGrossTotal(),
+                    staffPosition: staffPosition,
+                  );
+                  final receiptNumber = dailyReceiptInfo['receiptNumber'];
+                  final dailyNumber = dailyReceiptInfo['dailyNumber'];
+                  final docId = dailyReceiptInfo['docId'];
                   final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-                  final receiptNumber = '$staffPosition$timestamp';
-                  final docId = '${companyId}_${staffPosition}_$timestamp';
 
                   final itemsMap = <String, dynamic>{};
                   for (int i = 0; i < salesItems.length; i++) {
@@ -738,12 +707,6 @@ Future<void> printReceipt({
 
                   final week = '${now1.year}.$weekNumber';
 
-                  final queuedOffline = datafeed.isOffline;
-                  final dailyNumber = queuedOffline
-                      ? null
-                      : await datafeed.nextDailyReceiptNumber(
-                          datafeed.branchid,
-                        );
 
                   final saleData = SalesModel(
                     id: docId,
@@ -751,9 +714,9 @@ Future<void> printReceipt({
                     companyname: datafeed.company,
                     branchId: datafeed.branchid,
                     branchName: datafeed.branch,
-                    address: datafeed.branchaddress,
                     staffPosition: staffPosition,
                     receiptNumber: receiptNumber,
+                    dailyNumber: dailyNumber,
                     receiptby: datafeed.staff,
                     receiptat: now,
                     day: day,
@@ -775,8 +738,7 @@ Future<void> printReceipt({
                     paymentStatus: 'paid',
                     items: itemsMap,
                     discount: totalDiscount,
-
-                    totalamount: salesProvider.calculateGrossTotal(),
+                    totalamount: salesProvider.amountPayable(),
                     amountPaid: amount,
                     change: change,
                     itemCount: salesItems.length,
@@ -784,15 +746,11 @@ Future<void> printReceipt({
                     createdAt: now,
                     createdBy: datafeed.staff,
                     pricingtype: datafeed.branchtype,
-
+                    branchType: datafeed.branchtype,
                     approvedby: datafeed.staff,
                     printedby: datafeed.staff,
                     printedat: now,
-                    stockCheckedAt: queuedOffline ? null : now,
-                    stockCheckStatus:
-                        queuedOffline && !datafeed.stockCheckEnabled
-                        ? 'approved'
-                        : null,
+                    stockCheckedAt: now,
                     timestamp: timestamp,
                     printed: true,
                     reciepted: true,
@@ -801,52 +759,31 @@ Future<void> printReceipt({
                     customerPhone: 'cash',
                     staffemail: datafeed.staffemail,
                     receiptbyemail: datafeed.staffemail,
-                    dateymd: context.read<SalesProvider>().saleDate,
-                    branchType:  datafeed.branchtype,
-                    dailyreceiptno: dailyNumber,
-                    syncStatus: '0',
-                    online: queuedOffline?'1':'0',
-
+                    dateymd: DateFormat('yyyy-MM-dd').format(DateTime.now()),
                   );
 
-                  if (queuedOffline) {
-                     datafeed.offlineSalesQueue.saveLocally(
-                      companyId: companyId,
-                      saleId: docId,
-                      saleData: saleData.toMap(),
-                    );
-                  } else {
-                     FirebaseFirestore.instance
-                        .collection('sales')
-                        .doc(docId)
-                        .set(saleData.toMap());
-                  }
+                  await FirebaseFirestore.instance
+                      .collection('sales')
+                      .doc(docId)
+                      .set(saleData.toMap());
 
-                  if (!queuedOffline) {
-                    final skipCheck = !datafeed.stockCheckEnabled ||
-                        salesProvider.isServiceOnlySale(salesProvider.salesItems);
-                    final approved = await salesProvider.ensureSaleApproved(
-                      context,
-                      docId,
-                      skipStockCheck: skipCheck,
-                    );
-                    if (!approved) return;
-                  }
+                  final approved =
+                  await salesProvider.ensureSaleApproved(context, docId);
 
-                  if (shouldPrint) {
-                    final receiptItems = salesItems.map((e) {
+                  if (!approved) return;
+
+                  final receiptItems = salesItems.map((e) {
                     return ReceiptItem(
                       name: e['item'] ?? '',
                       qty: double.tryParse(e['quantity'].toString()) ?? 0,
                       price: double.tryParse(e['price'].toString()) ?? 0,
                       mode: e['mode'] ?? '',
-                      isService: (e['producttype']?.toString().toLowerCase().trim() ?? '') == 'service',
-                      branch: e['branchname']?.toString(),
                     );
                   }).toList();
 
-                  final pageFormat = PdfPageFormat.a4;
-                   final receiptData = ReceiptData(
+                  final pageFormat = PdfPageFormat.undefined;
+
+                  final receiptData = ReceiptData(
                     cashier: datafeed.staff,
                     barcode: receiptNumber,
                     items: receiptItems,
@@ -857,6 +794,7 @@ Future<void> printReceipt({
                     datetime: DateTime.now(),
                     email: datafeed.companyemail,
                     receiptNumber: receiptNumber,
+                    dailyNumber: dailyNumber,
                     paymentMethod: 'cash',
                     vatPercent: 15,
                     vatInclusiveAmount: salesProvider.amountPayable(),
@@ -871,16 +809,9 @@ Future<void> printReceipt({
                     receiptName: 'OFFICIAL RECEIPT',
                     Customertin: '',
                     Suppliertin: '',
-                    dailyNumber: dailyNumber,
-
                   );
 
-                  final doc = await ReceiptPrinter.build(
-                    receiptData,
-                    format: pageFormat,
-                  );
-
-
+                  final generator = ReceiptA4Printer();
                   final isWindowsDesktop = !kIsWeb &&
                       defaultTargetPlatform == TargetPlatform.windows;
 
@@ -892,9 +823,9 @@ Future<void> printReceipt({
                         Colors.red,
                       );
                     } else {
-                      final pdfResult = await PrintService.printPdf(
+                      final pdfResult = await generator.printA4Pdf(
                         printerName: _selectedPrinter!,
-                        pdf: doc,
+                        data: receiptData,
                       );
                       if (!pdfResult.success) {
                         salesProvider.showMessage(
@@ -905,12 +836,14 @@ Future<void> printReceipt({
                       }
                     }
                   } else {
+                    final doc = await generator.buildA4Pdf(
+                      receiptData,
+                      pageFormat: pageFormat,
+                    );
                     await Printing.layoutPdf(
                       name: docId,
-                      format: pageFormat,
-                      onLayout: (_) async => doc.save(),
+                      onLayout: (format) async => doc.save(),
                     );
-                  }
                   }
                   if (!context.mounted) return;
 
@@ -920,10 +853,8 @@ Future<void> printReceipt({
 
                   salesProvider.showMessage(
                     context,
-                    queuedOffline
-                        ? 'Sale saved safely on this device; waiting for internet to sync. Receipt: $receiptNumber'
-                        : 'Receipt printed: $receiptNumber',
-                    queuedOffline ? Colors.orange : Colors.green,
+                    'Receipt printed: $receiptNumber (Daily No: #$dailyNumber)',
+                    Colors.green,
                   );
                 } catch (e) {
                   salesProvider.showMessage(
@@ -934,11 +865,7 @@ Future<void> printReceipt({
                 } finally {
 
                   _isSaving = false;
-                  if (context.mounted) {
-                    setState(() => processState.value = "idle");
-                  } else {
-                    processState.value = "idle";
-                  }
+                  processState.value = "idle";
                 }
               },
 
@@ -963,13 +890,11 @@ Future<void> printReceipt({
                 },
               ),
             )
-                  ],
-                );
-              },
-            ),
           ],
         );
       },
     ),
   );
 }
+
+
