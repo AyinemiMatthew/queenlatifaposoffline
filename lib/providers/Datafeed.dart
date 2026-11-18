@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'dart:convert';
 import 'dart:math';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:kologsoft/models/banktransfermodel.dart';
@@ -8433,7 +8434,7 @@ class Datafeed extends ChangeNotifier {
   }
 
   Future<String?> nextDailyReceiptNumber(String branchId) async {
-    if (companyid.isEmpty) return null;
+    if (companyid.isEmpty || isOffline) return null;
     try {
       final cfg = await db
           .collection('settings')
@@ -8495,4 +8496,36 @@ class Datafeed extends ChangeNotifier {
       notifyListeners();
     }
   }
+  Future<void> syncStaff(String email) async {
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('syncStaffOnLogin')
+          .call({'email': email.trim().toLowerCase()});
+    } catch (e) {
+      debugPrint('Staff sync failed (login continues): $e');
+    }
+  }
+  Future<void> synccustomers() async {
+
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'syncCustomers',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 300)),
+      );
+      final result = await callable.call();
+      final d = Map<String, dynamic>.from(result.data as Map);
+
+      final errors = (d['errors'] as List?)?.length ?? 0;
+      final ackError = d['ackError'];
+
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('syncCustomers error: ${e.code} ${e.message}');
+      print(e.message ?? 'Customer import failed.',);
+    } catch (e) {
+      debugPrint('syncCustomers error: $e');
+      print('Customer import failed: $e', );
+    } finally {
+    }
+  }
+
 }

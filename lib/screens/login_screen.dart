@@ -330,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     }
                                     try {
                                       setState(() => _loading = true);
-
+                                      //value.syncStaff(_emailController.text.trim());
                                       await value.login(
                                         _emailController.text.trim(),
                                         _passwordController.text.trim(),

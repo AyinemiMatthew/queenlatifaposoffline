@@ -5,7 +5,6 @@ const https = require('https');
 exports.fetchStockPage = onCall({ region: 'us-central1' }, async (req) => {
   const page = Number(req.data.page) || 1;
   const limit = Number(req.data.limit) || 100;
-  //const url = `https://kologsoft.site/queenlatifah/production/api/test?page=${page}&limit=${limit}`;
  const url = `https://queenlatifahenterprise.com/pos/firebase/item_reg?page=${page}&limit=${limit}`;
 
   // TEMPORARY: remove once the server certificate is renewed
