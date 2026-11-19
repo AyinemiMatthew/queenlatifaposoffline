@@ -470,10 +470,6 @@ class CustomerInfoDialog {
         showError('Enter name');
         return false;
       }
-      if (name.length < 2) {
-        showError('$name must be more than one letter');
-        return false;
-      }
       if (phone.isEmpty) {
         showError('Enter phone');
         return false;
@@ -707,22 +703,24 @@ class CustomerInfoDialog {
           }
 
           Future<void> submitSale({required bool printA4}) async {
+
             //String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-            final formattedDate = context.read<SalesProvider>().saleDate;
-            final isValid = validateInputs();
-            if (!isValid) return;
-            final bool isCreditNow = paymentMethod == 'credit';
-            final String transactionType = isCreditNow
-                ? 'credit'
-                : ((paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel'))
-                    ? 'hubtel'
-                    : paymentMethod);
-            setState(() => isSaving = true);
-            final momoTransactionIds = paymentMethod == 'momo'
-                ? getMomoTransactionMap()
-                : <String, dynamic>{};
+
 
             try {
+              final formattedDate = context.read<SalesProvider>().saleDate;
+              final isValid = validateInputs();
+              if (!isValid) return;
+              final bool isCreditNow = paymentMethod == 'credit';
+              final String transactionType = isCreditNow
+                  ? 'credit'
+                  : ((paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel'))
+                  ? 'hubtel'
+                  : paymentMethod);
+              setState(() => isSaving = true);
+              final momoTransactionIds = paymentMethod == 'momo'
+                  ? getMomoTransactionMap()
+                  : <String, dynamic>{};
               switch (paymentMethod) {
                 case 'cash':
                   if (!handleCash()) {
@@ -820,7 +818,7 @@ class CustomerInfoDialog {
               final isService =
                   (selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
 
-              if (!isService) {
+              if (!isService && !datafeed.isOffline) {
                 if (!salesProvider.ensureSalesWarehouseSelected(context, datafeed, selectedItem, requireItemSelection: false)) {
                   setState(() => isSaving = false);
                   return;
@@ -864,7 +862,7 @@ class CustomerInfoDialog {
                   'updatedAt': Timestamp.now(),
                 };
                 print("SMS Record: ${datafeed.companyid},$smsCreditbalance");
-                await db.collection('sms_logs').add(smsRecord);
+                db.collection('sms_logs').add(smsRecord);
               }
               else {
                 customerName = nameController.text.trim();
@@ -877,7 +875,7 @@ class CustomerInfoDialog {
 
                 if (!(await ref).exists) {
                   final provider = Provider.of<Datafeed>(context, listen: false);
-                  await provider.getdata();
+                  provider.getdata();
                   final customer = CustomerRegModel(
                     id: customerId,
                     branchname: provider.selectedBranch?.branchname ?? '',
@@ -895,19 +893,29 @@ class CustomerInfoDialog {
                     companyname: company,
                     creditBalance: newBalance.toString(),
                   );
-                  await datafeed.db.collection('customers').doc(customerId).set(customer.toMap());
+                  datafeed.db.collection('customers').doc(customerId).set(customer.toMap());
                 }
               }
 
-              final dailyReceiptInfo = await salesProvider.generateDailyReceiptData(
-                companyId: datafeed.companyid,
-                branchId: activeBranchId,
-                amount: totalAmount,
-                staffPosition: datafeed.staffPosition,
-              );
+              Map<String, dynamic> dailyReceiptInfo;
+              if (datafeed.isOffline) {
+                final timestamp = DateTime.now().millisecondsSinceEpoch;
+                dailyReceiptInfo = {
+                  'docId': '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp',
+                  'receiptNumber': '${datafeed.staffPosition}$timestamp',
+                  'dailyNumber': null,
+                };
+              } else {
+                dailyReceiptInfo = await salesProvider.generateDailyReceiptData(
+                  companyId: datafeed.companyid,
+                  branchId: activeBranchId,
+                  amount: totalAmount,
+                  staffPosition: datafeed.staffPosition,
+                );
+              }
               final saleDocId = dailyReceiptInfo['docId'];
               final receiptNumber = dailyReceiptInfo['receiptNumber'];
-              final dailyNumber = dailyReceiptInfo['dailyNumber'];
+              final dailyNumber = dailyReceiptInfo['dailyNumber']?.toString();
               final timestamp = DateTime.now().millisecondsSinceEpoch;
               final itemsMap = {
                 for (int i = 0; i < salesItems.length; i++) 'item_$i': salesItems[i]
@@ -1077,10 +1085,12 @@ class CustomerInfoDialog {
 
               );
 
-              await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
+              datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
+              datafeed.salesview.insert(0, saleData);
+              datafeed.notifyListeners();
 
               if (isCreditNow) {
-                await datafeed.recordDebtorLedgerEntry(
+                datafeed.recordDebtorLedgerEntry(
                   customerId: customerId,
                   customerName: customerName,
                   customerPhone: customerPhone,
@@ -1094,41 +1104,43 @@ class CustomerInfoDialog {
                 );
               }
 
-             // final approved = await salesProvider.ensureSaleApproved(context, saleDocId);
               final skipCheck = salesProvider.isServiceOnlySale(salesProvider.salesItems);
-              final approved = await salesProvider.ensureSaleApproved(context, saleDocId, skipStockCheck: skipCheck);
-
-              if (!approved) {
-                setState(() => isSaving = false);
-                return;
+              bool approved = true;
+              if (!datafeed.isOffline) {
+                approved = await salesProvider.ensureSaleApproved(context, saleDocId, skipStockCheck: skipCheck);
+                if (!approved) {
+                  setState(() => isSaving = false);
+                  return;
+                }
               }
 
               if (paymentMethod == 'momo') {
                 final momoTransactions = getMomoTransactionMap();
                 for (final transactionId in momoTransactions.keys) {
-                  final query = await datafeed.db
+                  datafeed.db
                       .collection('momo')
-                      //.where('companyid', isEqualTo: datafeed.companyid)
                       .where('transactionId', isEqualTo: transactionId)
                       .limit(1)
-                      .get();
-                  if (query.docs.isNotEmpty) {
-                    await query.docs.first.reference.update({
-                      'status': 'saved',
-                      'salesid': saleDocId,
-                      'companyid': datafeed.companyid,
-                      'branchid': datafeed.branchid,
-                      'staff': datafeed.staff,
-                      'updatedAt': Timestamp.now(),
-                    });
-                  }
+                      .get()
+                      .then((query) {
+                        if (query.docs.isNotEmpty) {
+                          query.docs.first.reference.update({
+                            'status': 'saved',
+                            'salesid': saleDocId,
+                            'companyid': datafeed.companyid,
+                            'branchid': datafeed.branchid,
+                            'staff': datafeed.staff,
+                            'updatedAt': Timestamp.now(),
+                          });
+                        }
+                      });
                 }
               }
 
               for (final p in payments) {
                 if (p.paymentmethod == 'hubtel' || (p.paymentmethod == 'momo' && selectedMomoProvider == 'Hubtel')) {
                   final momoPaymentId = saleDocId;
-                  await datafeed.db.collection('momo_payments').doc(momoPaymentId).set({
+                  datafeed.db.collection('momo_payments').doc(momoPaymentId).set({
                     'id': saleDocId,
                     'tid': saleDocId,
                     'phoneNumber': phoneController.text.trim(),
@@ -1222,7 +1234,7 @@ class CustomerInfoDialog {
                     return;
                   }
 
-                  await datafeed.db.collection('sales').doc(saleDocId).update({
+                  datafeed.db.collection('sales').doc(saleDocId).update({
                     'paymentStatus': 'paid',
                     'status': true,
                   });
@@ -1326,6 +1338,7 @@ class CustomerInfoDialog {
                 Navigator.pop(context);
               }
             } catch (e) {
+             // print(e);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error: $e')),

@@ -362,7 +362,7 @@ Future<void> printReceipt({
                   if (!ensureSalesWarehouseSelected || !isValid) {
                     return;
                   }*/
-                  if (!isService) {
+                  if (!isService && !datafeed.isOffline) {
                     final ensureSalesWarehouseSelected =
                     salesProvider.ensureSalesWarehouseSelected(
                       context,
@@ -387,7 +387,7 @@ Future<void> printReceipt({
                     staffPosition: staffPosition,
                   );
                   final receiptNumber = dailyReceiptInfo['receiptNumber'];
-                  final dailyNumber = dailyReceiptInfo['dailyNumber'];
+                  final dailyNumber = dailyReceiptInfo['dailyNumber']?.toString();
                   final docId = dailyReceiptInfo['docId'];
                   final timestamp = DateTime.now().millisecondsSinceEpoch;
 
@@ -683,7 +683,7 @@ Future<void> printReceipt({
                     staffPosition: staffPosition,
                   );
                   final receiptNumber = dailyReceiptInfo['receiptNumber'];
-                  final dailyNumber = dailyReceiptInfo['dailyNumber'];
+                  final dailyNumber = dailyReceiptInfo['dailyNumber']?.toString();
                   final docId = dailyReceiptInfo['docId'];
                   final timestamp = DateTime.now().millisecondsSinceEpoch;
 

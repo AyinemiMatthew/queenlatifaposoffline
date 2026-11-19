@@ -57,7 +57,6 @@ class DefaultFirebaseOptions {
     projectId: 'queenlatifapos',
     storageBucket: 'queenlatifapos.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDxnfapWvvPatQCgC8NVRhwpDZouuAvb4o',
     appId: '1:1047877250722:ios:be0f5677f97c65200331fb',
@@ -66,7 +65,6 @@ class DefaultFirebaseOptions {
     storageBucket: 'queenlatifapos.firebasestorage.app',
     iosBundleId: 'com.pos.kologsoft',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDxnfapWvvPatQCgC8NVRhwpDZouuAvb4o',
     appId: '1:1047877250722:ios:e2089c15f603bf2c0331fb',
@@ -85,5 +83,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'queenlatifapos.firebasestorage.app',
     measurementId: 'G-XRV9C5P69L',
   );
-
 }
