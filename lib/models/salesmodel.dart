@@ -20,6 +20,8 @@ class SalesModel {
   String? dateymd ;
 
   String receiptNumber;
+  String? dailyNumber;
+  String? get dailyreceiptno => dailyNumber;
   String transMode;
 
   String? customerId;
@@ -49,7 +51,7 @@ class SalesModel {
   String? stockCheckStatus;
   String paymentStatus;
   int timestamp;
-  final String? dailyreceiptno;
+
   Map<String, dynamic> items;
 
   /// OPTIONAL PAYMENT FIELDS
@@ -66,8 +68,8 @@ class SalesModel {
   String? week;
   String? month;
   String? year;
-  String syncStatus;
-  String online;
+  String? syncStatus;
+  String? online;
 
   SalesModel({
     required this.id,
@@ -82,18 +84,19 @@ class SalesModel {
     this.printedby,
     this.payments,
     required this.receiptNumber,
+    this.dailyNumber,
     required this.transMode,
-     this.customerId,
-     this.customerName,
-     this.customerPhone,
-     this.day,
-     this.week,
-     this.month,
-     this.year,
-     this.paymentStatus = 'pending',
-     required this.totalamount,
+    this.customerId,
+    this.customerName,
+    this.customerPhone,
+    this.day,
+    this.week,
+    this.month,
+    this.year,
+    this.paymentStatus = 'pending',
+    required this.totalamount,
     required this.amountPaid,
-     this.discount,
+    this.discount,
     required this.change,
     required this.itemCount,
     required this.staffPosition,
@@ -123,9 +126,8 @@ class SalesModel {
     this.supplyat,
     this.supplyby,
     required this.supplystatus,
-    this.dailyreceiptno,
-    required this.syncStatus,
-    required this.online,
+    this.syncStatus,
+    this.online,
   });
 
   /// WRITE TO FIRESTORE
@@ -142,6 +144,7 @@ class SalesModel {
       "receiptbyemail": receiptbyemail,
       "printedby": printedby,
       "receiptNumber": receiptNumber,
+      "dailyNumber": dailyNumber,
       "transMode": transMode,
       "customerId": customerId,
       "customerName": customerName,
@@ -164,7 +167,7 @@ class SalesModel {
       "timestamp": timestamp,
       "items": items,
       "branchType": branchType,
-      "address":address,
+      "address": address,
       "payments": payments,
       'paymentStatus': paymentStatus,
       'dateymd': dateymd,
@@ -173,10 +176,9 @@ class SalesModel {
       'week': week,
       'month': month,
       'year': year,
-      'supplystatus':supplystatus,
-      'supplyat':supplyat,
-      'supplyby':supplyby,
-      'dailyreceiptno': dailyreceiptno ?? '',
+      'supplystatus': supplystatus,
+      'supplyat': supplyat,
+      'supplyby': supplyby,
       'syncstatus': syncStatus ?? '0',
       'online': online ?? '0',
     };
@@ -213,6 +215,7 @@ class SalesModel {
       receiptbyemail: map['receiptbyemail'],
       printedby: map['printedby'],
       receiptNumber: map['receiptNumber'] ?? '',
+      dailyNumber: map['dailyNumber']?.toString(),
       transMode: map['transMode'] ?? '',
       customerId: map['customerId'] ?? '',
       customerName: map['customerName'] ?? '',
@@ -252,7 +255,7 @@ class SalesModel {
       paymentCardReference: map['paymentCardReference'],
       printed: map['printed'] ?? false,
       reciepted: map['reciepted'] ?? false,
-      supplystatus: map['supplystatus']?? false,
+      supplystatus: map['supplystatus'] ?? false,
       supplyat: map['supplyat'],
       supplyby: map['supplyby'],
       paymentStatus: map['paymentStatus'] ?? 'pending',
@@ -261,10 +264,7 @@ class SalesModel {
       payments: map['payments'] is List
           ? List<dynamic>.from(map['payments'])
           : null,
-      dailyreceiptno: (map['dailyreceiptno'] ?? '').toString().isEmpty
-          ? null
-          : map['dailyreceiptno'].toString(),
-      syncStatus: map['syncstatus'] ?? '',
+      syncStatus: map['syncstatus'] ?? map['syncStatus'] ?? '',
       online: map['online'] ?? '',
     );
   }

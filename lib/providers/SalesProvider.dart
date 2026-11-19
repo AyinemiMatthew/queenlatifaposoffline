@@ -1296,6 +1296,64 @@ class SalesProvider extends Datafeed {
     }
   }
 
+  Future<Map<String, dynamic>> generateDailyReceiptData({
+    required String companyId,
+    required String branchId,
+    required double amount,
+    int? staffPosition,
+  }) async {
+    final now = DateTime.now();
+    final timestamp = now.millisecondsSinceEpoch;
+    final dateStr = DateFormat('dd_MM_yy').format(now);
+    final counterId = '${dateStr}_${companyId}_${branchId}';
+    final counterRef = db.collection('daily_counters').doc(counterId);
+
+    final dailyNumberInt = await db.runTransaction((transaction) async {
+      final snapshot = await transaction.get(counterRef);
+      int current = 0;
+      if (snapshot.exists) {
+        current = (snapshot.data()?['lastNumber'] ?? 0) as int;
+      }
+      int next = current + 1;
+      transaction.set(
+        counterRef,
+        {
+          'lastNumber': next,
+          'date': dateStr,
+          'companyId': companyId,
+          'branchId': branchId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      return next;
+    });
+
+    final uniqueReceiptNumber = '${staffPosition ?? 1}$timestamp';
+    final docId = '${counterId}_$dailyNumberInt';
+
+    final receiptLogId = '${counterId}_$dailyNumberInt';
+    await db.collection('daily_receipt_logs').doc(receiptLogId).set({
+      'receiptNumber': uniqueReceiptNumber,
+      'dailyNumber': dailyNumberInt,
+      'companyId': companyId,
+      'branchId': branchId,
+      'date': dateStr,
+      'amount': amount,
+      'timestamp': FieldValue.serverTimestamp(),
+      'docId': docId,
+    }, SetOptions(merge: true));
+
+    return {
+      'receiptNumber': uniqueReceiptNumber,
+      'dailyNumber': dailyNumberInt,
+      'receiptNumberInt': dailyNumberInt,
+      'docId': docId,
+      'amount': amount,
+      'dateStr': dateStr,
+    };
+  }
+
   Future<bool> validateCartStockOnSaves(String branchId) async {
     final requestedByItem = <String, double>{};
     final itemNameById = <String, String>{};

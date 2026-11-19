@@ -2306,6 +2306,62 @@ class Datafeed extends ChangeNotifier {
     );
   }
 
+  Future<void> recordDebtorLedgerEntry({
+    required String customerId,
+    required String customerName,
+    required String customerPhone,
+    required double amount,
+    required String type, // 'debit' (credit sale / debt increase) or 'credit' (debt payment / debt decrease)
+    required String transType, // 'Credit Sale', 'Debt Payment', 'Debtor Balance Adjustment', 'Opening Balance'
+    required String description,
+    required String reference,
+    String? branchId,
+    String? branchName,
+    DateTime? date,
+  }) async {
+    try {
+      if (amount <= 0) return;
+      final now = date ?? DateTime.now();
+      final dateStr = DateFormat('yyyy-MM-dd').format(now);
+      final bId = (branchId != null && branchId.isNotEmpty) ? branchId : this.branchid;
+      final bName = (branchName != null && branchName.isNotEmpty) ? branchName : this.branch;
+
+      final docRef = db.collection('ledgers').doc();
+      final Map<String, dynamic> ledgerData = {
+        'id': docRef.id,
+        'companyId': companyid,
+        'companyName': company,
+        'branchId': bId,
+        'branchName': bName,
+        'account': 'accounts_receivable',
+        'type': type.toLowerCase(), // 'debit' or 'credit'
+        'amount': amount,
+        'customerId': customerId,
+        'customerName': customerName,
+        'customerPhone': customerPhone,
+        'customerid': customerId,
+        'customername': customerName,
+        'customer': customerName,
+        'transType': transType,
+        'transtype': transType,
+        'activityType': transType,
+        'description': description,
+        'reference': reference,
+        'invoiceNo': reference,
+        'receiptNumber': reference,
+        'date': dateStr,
+        'createdAt': Timestamp.fromDate(now),
+        'createdat': Timestamp.fromDate(now),
+        'staff': staff,
+      };
+
+      await docRef.set(ledgerData, SetOptions(merge: true));
+      debugPrint('Debtor ledger entry recorded successfully: ${docRef.id}');
+    } catch (e, stack) {
+      debugPrint('Error recording debtor ledger entry: $e\n$stack');
+    }
+  }
+
   Future<void> loadSalesStaffSummary({
     required DateTime startDate,
     required DateTime endDate,
@@ -5013,6 +5069,109 @@ class Datafeed extends ChangeNotifier {
   }
 
   List<DiscountCodeModel> discountCodes = [];
+  List<StaffModel> allStaffs = [];
+  List<Map<String, dynamic>> discountRequests = [];
+  StreamSubscription? _discountRequestsSub;
+
+  Future<void> fetchAllStaffs() async {
+    if (companyid.isEmpty) return;
+    try {
+      final snap = await db.collection('staff').where('companyid', isEqualTo: companyid).get();
+      allStaffs = snap.docs.map((d) => StaffModel.fromMap(d.data())).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('fetchAllStaffs error: $e');
+    }
+  }
+
+  void listenToDiscountRequests() {
+    if (companyid.isEmpty) return;
+    _discountRequestsSub?.cancel();
+    _discountRequestsSub = db.collection('discount_requests')
+        .where('companyId', isEqualTo: companyid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .listen((snap) {
+      discountRequests = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+      notifyListeners();
+    });
+  }
+
+  Future<bool> requestDiscountCode({
+    required String companyId,
+    required String staffName,
+    required String staffEmail,
+    required String branchId,
+  }) async {
+    try {
+      final reqId = '${companyId}_${staffEmail}_${DateTime.now().millisecondsSinceEpoch}';
+      await db.collection('discount_requests').doc(reqId).set({
+        'id': reqId,
+        'companyId': companyId,
+        'staffName': staffName,
+        'staffEmail': staffEmail,
+        'branchId': branchId,
+        'status': 'pending',
+        'createdAt': Timestamp.now(),
+      });
+      return true;
+    } catch (e) {
+      debugPrint('requestDiscountCode error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> fulfillDiscountRequest({
+    required String requestId,
+    required String staffName,
+    required String staffEmail,
+    required String branchId,
+    required double amount,
+    required String code,
+  }) async {
+    try {
+      final dc = DiscountCodeModel(
+        id: code,
+        companyId: companyid,
+        companyName: company,
+        staff: staffName,
+        branch: branchId,
+        code: code,
+        amount: amount,
+        createdBy: staff,
+        createdAt: Timestamp.now(),
+        assignedStaffId: staffEmail,
+        assignedStaffEmail: staffEmail,
+        assignedStaffName: staffName,
+      );
+      await saveDiscountCode(dc);
+
+      await db.collection('discount_requests').doc(requestId).update({
+        'status': 'approved',
+        'fulfilledAt': Timestamp.now(),
+        'fulfilledBy': staff,
+        'assignedCode': code,
+      });
+      return true;
+    } catch (e) {
+      debugPrint('fulfillDiscountRequest error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> declineDiscountRequest(String requestId) async {
+    try {
+      await db.collection('discount_requests').doc(requestId).update({
+        'status': 'declined',
+        'declinedAt': Timestamp.now(),
+        'declinedBy': staff,
+      });
+      return true;
+    } catch (e) {
+      debugPrint('declineDiscountRequest error: $e');
+      return false;
+    }
+  }
 
   Future<void> fetchDiscountCodes() async {
     try {

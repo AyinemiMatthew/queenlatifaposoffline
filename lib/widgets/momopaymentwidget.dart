@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -13,11 +14,6 @@ class MomoPaymentFields extends StatelessWidget {
   final Widget? merchantFields;
 
   final TextEditingController? phoneController;
-  final Color fieldColor;
-  final Color foregroundColor;
-  final Color mutedColor;
-  final Color borderColor;
-  final Color floatingLabelColor;
 
   const MomoPaymentFields({
     super.key,
@@ -28,20 +24,15 @@ class MomoPaymentFields extends StatelessWidget {
     required this.onMomoTypeChanged,
     this.merchantFields,
     this.phoneController,
-    required this.fieldColor,
-    required this.foregroundColor,
-    required this.mutedColor,
-    required this.borderColor,
-    required this.floatingLabelColor,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildNetworkDropdown(context),
+        _buildNetworkDropdown(),
         const SizedBox(height: 10),
-        _buildMomoTypeDropdown(context),
+        _buildMomoTypeDropdown(),
 
         const SizedBox(height: 5),
 
@@ -54,84 +45,145 @@ class MomoPaymentFields extends StatelessWidget {
         // Hubtel phone
         if (momoType == 'hubtel' && phoneController != null) ...[
           const SizedBox(height: 8),
-          _buildPhoneField(context),
+          _buildPhoneField(),
         ],
       ],
     );
   }
 
-  Widget _buildNetworkDropdown(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      value: selectedNetwork,
-      isExpanded: true,
-      dropdownColor: fieldColor,
-      style: TextStyle(color: foregroundColor),
-      decoration: _dropdownDecoration(
-        label: 'Select Network',
-        prefix: Icons.sim_card,
+  Widget _buildNetworkDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E3A5F),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white,
+          width: 0.5,
+        ),
       ),
-      items: networks.map((network) {
-        return DropdownMenuItem<String>(
-          value: network.toLowerCase(),
-          child: Row(
-            children: [
-              Icon(
-                _getNetworkIcon(network),
-                color: _getNetworkColor(network),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(network, style: TextStyle(color: foregroundColor)),
-            ],
+      child: DropdownButtonFormField<String>(
+        value: selectedNetwork,
+        dropdownColor: const Color(0xFF1E3A5A),
+        style: const TextStyle(
+          color: Colors.white,
+        ),
+        decoration: InputDecoration(
+          labelText: 'Select Network',
+          labelStyle: TextStyle(
+            color: Colors.white.withOpacity(0.7),
           ),
-        );
-      }).toList(),
-      onChanged: onNetworkChanged,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please select a network';
-        }
+          prefixIcon: const Icon(
+            Icons.sim_card,
+            color: Colors.white70,
+          ),
+          filled: true,
+          fillColor: const Color(0xFF1E3A5A),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        items: networks.map((network) {
+          return DropdownMenuItem<String>(
+            value: network.toLowerCase(),
+            child: Row(
+              children: [
+                Icon(
+                  _getNetworkIcon(network),
+                  color: _getNetworkColor(network),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  network,
+                  style: const TextStyle(
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: onNetworkChanged,
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select a network';
+          }
 
-        return null;
-      },
-    );
-  }
-
-  Widget _buildMomoTypeDropdown(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      value: momoType,
-      isExpanded: true,
-      dropdownColor: fieldColor,
-      style: TextStyle(color: foregroundColor),
-      decoration: _dropdownDecoration(
-        label: 'Payment Type',
-        prefix: Icons.account_balance_wallet,
+          return null;
+        },
       ),
-      items: [
-        DropdownMenuItem(
-          value: 'hubtel',
-          child: Text('Hubtel', style: TextStyle(color: foregroundColor)),
-        ),
-        DropdownMenuItem(
-          value: 'merchant',
-          child: Text('Merchant', style: TextStyle(color: foregroundColor)),
-        ),
-      ],
-      onChanged: onMomoTypeChanged,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please select payment type';
-        }
-
-        return null;
-      },
     );
   }
 
-  Widget _buildPhoneField(BuildContext context) {
+  Widget _buildMomoTypeDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E3A5F),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white,
+          width: 0.5,
+        ),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: momoType,
+        dropdownColor: const Color(0xFF1E3A5A),
+        style: const TextStyle(
+          color: Colors.white,
+        ),
+        decoration: InputDecoration(
+          labelText: 'Payment Type',
+          labelStyle: TextStyle(
+            color: Colors.white.withOpacity(0.7),
+          ),
+          prefixIcon: const Icon(
+            Icons.account_balance_wallet,
+            color: Colors.white70,
+          ),
+          filled: true,
+          fillColor: const Color(0xFF1E3A5A),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        items: const [
+          DropdownMenuItem(
+            value: 'hubtel',
+            child: Text(
+              'Hubtel',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          DropdownMenuItem(
+            value: 'merchant',
+            child: Text(
+              'Merchant',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+        onChanged: onMomoTypeChanged,
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please select payment type';
+          }
+
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildPhoneField() {
     return TextFormField(
       controller: phoneController,
-      style: TextStyle(color: foregroundColor),
+      style: const TextStyle(
+        color: Colors.white70,
+      ),
       decoration: _inputDecoration(
         label: 'Phone Number',
         prefix: Icons.phone,
@@ -139,11 +191,13 @@ class MomoPaymentFields extends StatelessWidget {
       ),
       keyboardType: TextInputType.phone,
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+        FilteringTextInputFormatter.allow(
+          RegExp(r'[0-9+]'),
+        ),
         LengthLimitingTextInputFormatter(13),
       ],
       validator: (v) {
-        if (v == null || v.trim().isEmpty) {
+        if (v == null || v.isEmpty) {
           return 'Required';
         }
 
@@ -156,12 +210,16 @@ class MomoPaymentFields extends StatelessWidget {
             return 'Invalid format. Use +233XXXXXXXXX';
           }
         }
+
         // 0XXXXXXXXX
         else if (cleaned.startsWith('0')) {
-          if (cleaned.length != 10 || !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
+          if (cleaned.length != 10 ||
+              !RegExp(r'^0\d{9}$').hasMatch(cleaned)) {
             return 'Invalid format. Use 0XXXXXXXXX';
           }
-        } else {
+        }
+
+        else {
           return 'Phone must start with 0 or +233';
         }
 
@@ -209,40 +267,24 @@ class MomoPaymentFields extends StatelessWidget {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: mutedColor),
-      floatingLabelStyle: TextStyle(color: floatingLabelColor),
+      labelStyle: const TextStyle(
+        color: Colors.white70,
+      ),
       hintText: hint,
-      hintStyle: TextStyle(color: mutedColor),
-      prefixIcon: Icon(prefix, color: mutedColor),
+      hintStyle: const TextStyle(
+        color: Colors.white38,
+      ),
+      prefixIcon: Icon(
+        prefix,
+        color: Colors.white70,
+      ),
       filled: true,
-      fillColor: fieldColor,
+      fillColor: const Color(0xFF1E3A5F),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: Colors.blue, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.red),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
       ),
     );
   }
 
-  InputDecoration _dropdownDecoration({
-    required String label,
-    required IconData prefix,
-  }) {
-    return _inputDecoration(label: label, prefix: prefix, hint: '');
-  }
 }

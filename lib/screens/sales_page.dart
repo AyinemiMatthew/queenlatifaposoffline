@@ -1250,8 +1250,6 @@ class _SalesPageState extends State<SalesPage> {
       final double grossTotal = salesProvider.calculateGrossTotal();
 
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final saleDocId =
-          '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp';
       final receiptNumber = '${datafeed.staffPosition}$timestamp';
 
       final itemsMap = {
@@ -1274,6 +1272,17 @@ class _SalesPageState extends State<SalesPage> {
       final saleBranchName = datafeed.isSalesPoint
           ? datafeed.branch
           : activeBranchName;
+
+      final queuedOffline = datafeed.isOffline;
+      final dailyNumber = queuedOffline
+          ? null
+          : await datafeed.nextDailyReceiptNumber(
+              saleBranchId,
+            );
+      final dateStr = DateFormat('dd_MM_yy').format(DateTime.now());
+      final saleDocId = (queuedOffline || dailyNumber == null)
+          ? '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp'
+          : '${dateStr}_${datafeed.companyid}_${saleBranchId}_$dailyNumber';
 
       final saleData = SalesModel(
         id: saleDocId,
@@ -1318,6 +1327,7 @@ class _SalesPageState extends State<SalesPage> {
         month: month,
         year: year,
         supplystatus: false,
+        dailyNumber: dailyNumber,
         syncStatus: '0',
         online: '1',
 
@@ -1327,6 +1337,42 @@ class _SalesPageState extends State<SalesPage> {
           .collection('sales')
           .doc(saleDocId)
           .set(saleData.toMap());
+
+      if (dailyNumber != null && dailyNumber.isNotEmpty && context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF0D2A3C),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                const Icon(Icons.receipt_long, color: Colors.cyanAccent),
+                const SizedBox(width: 10),
+                const Text('Sale Saved Successfully', style: TextStyle(color: Colors.white, fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Daily Receipt Number:', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                const SizedBox(height: 8),
+                Text(
+                  '#$dailyNumber',
+                  style: const TextStyle(color: Colors.cyanAccent, fontSize: 32, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                const Text('Please tell this number to the customer.', style: TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      }
 
       final skipCheck =
           !datafeed.stockCheckEnabled ||

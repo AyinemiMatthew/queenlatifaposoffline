@@ -1,4 +1,3 @@
-
 class ReceiptItem {
   final String name;
   final double qty;
@@ -7,16 +6,15 @@ class ReceiptItem {
   final bool isService;
   final String? branch;
   ReceiptItem(
-       {
+      {
         required this.name,
         required this.qty,
         required this.price,
         required this.mode,
         this.isService = false,
-         this.branch,
-
+        this.branch,
       }
-   );
+      );
 }
 
 class ReceiptData {
@@ -26,17 +24,18 @@ class ReceiptData {
   final String Suppliertin;
   final String? transactionId;
   final String? branch;
+  final String? branchType;
   final String? address;
   final String Customertin;
   final String customername;
   final DateTime datetime;
   final String email;
   final String receiptNumber;
+  final String? dailyNumber;
   final String barcode;
-  final String? branchType;
+
   final String cashier;
   final String paymentMethod;
-  final String? dailyNumber;
 
   // Items
   final List<ReceiptItem> items;
@@ -58,8 +57,8 @@ class ReceiptData {
     required this.datetime,
     required this.email,
     required this.receiptNumber,
+    this.dailyNumber,
     required this.barcode,
-
     required this.cashier,
     required this.paymentMethod,
     required this.items,
@@ -74,12 +73,9 @@ class ReceiptData {
     required this.Customertin,
     required this.Suppliertin,
     required this.receiptName,
-     this.branch,
+    this.branch,
+    this.branchType,
     this.address,
     this.transactionId,
-    this.branchType,
-    this.dailyNumber,
   });
-
-
 }

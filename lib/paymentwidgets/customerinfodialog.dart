@@ -1,8 +1,7 @@
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +10,6 @@ import 'package:kologsoft/models/itemregmodel.dart';
 import 'package:kologsoft/paymentwidgets/PDFprints/print_service.dart';
 import 'package:kologsoft/providers/Datafeed.dart';
 import 'package:kologsoft/widgets/salespagewidgets/snackmsg.dart';
-import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
@@ -23,15 +21,14 @@ import '../providers/SalesProvider.dart';
 import 'customerselectiondialog.dart';
 import 'invoice1.dart';
 import 'receipt_formatter.dart';
-
-
+import 'receipt_formaterA4.dart';
 class CustomerInfoDialog {
   static Future<void> show({
     required BuildContext context,
     dynamic activeBranchId,
     ItemModel? selectedItem,
+
   }) async {
-    final colorScheme = Theme.of(context).colorScheme;
     final salesItems = context.read<SalesProvider>().salesItems;
     final TextEditingController nameController = TextEditingController();
     final TextEditingController phoneController = TextEditingController();
@@ -39,7 +36,8 @@ class CustomerInfoDialog {
     final datafeed = Provider.of<Datafeed>(context, listen: false);
     final TextEditingController amountPaidController = TextEditingController();
 
-    String company = datafeed.company;
+    await datafeed.getdata();
+    String company =datafeed.company;
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
 
     final resolvedBranchId = (activeBranchId?.toString().isNotEmpty == true)
@@ -47,7 +45,7 @@ class CustomerInfoDialog {
         : datafeed.branchid;
 
     final resolvedBranch = datafeed.branches.firstWhere(
-      (b) => b.id == resolvedBranchId,
+          (b) => b.id == resolvedBranchId,
       orElse: () => BranchModel(),
     );
 
@@ -58,13 +56,12 @@ class CustomerInfoDialog {
     final resolvedBranchType = resolvedBranch.branchtype?.isNotEmpty == true
         ? resolvedBranch.branchtype!
         : datafeed.branchtype;
-    bool canPrint = datafeed.canPrint;
+    bool canPrint = datafeed.canPrint ;
 
     final allowed = datafeed.allowedPaymentMethods;
-    final isSalesPoint = datafeed.isSalesPoint;
     String paymentMethod = allowed.isNotEmpty ? allowed.first : '';
     final totalDiscount = salesProvider.calculateDiscountTotal();
-    double totalAmount = salesProvider.calculateTaxableTotal();
+    double totalAmount = salesProvider.amountPayable();
     Map<String, dynamic>? selectedCreditCustomer;
     String customerType = '';
 
@@ -75,8 +72,6 @@ class CustomerInfoDialog {
     String selectedMomoProvider = 'Merchant';
     String paymentStatus = 'pending';
     final isSalesBranch = datafeed.branchtype == "Sales Branch";
-    final shouldCollectPayment =
-        !datafeed.isSalesPoint && (canPrint || isSalesBranch);
     double paidAmount = 0.0;
     double newBalance = 0.0;
     String printedBy = '';
@@ -84,23 +79,18 @@ class CustomerInfoDialog {
     String accountName = '';
     String accountNumber = '';
     String reference = '';
-    double changeAmount = 0.0;
+    double changeAmount =0.0;
     bool printed = false;
     bool reciepted = false;
     bool status = false;
     bool isSaving = false;
-    bool? activeSubmitIsA4;
-
+    bool isSavingA4 = false;
     Timestamp? printedAt;
     Timestamp? receiptAt;
 
     List<PaymentMethodModel> payments = [];
-    List<TextEditingController> momoTransactionControllers = [
-      TextEditingController(),
-    ];
-    List<TextEditingController> momoTransactionAmountControllers = [
-      TextEditingController(),
-    ];
+    List<TextEditingController> momoTransactionControllers = [TextEditingController()];
+    List<TextEditingController> momoTransactionAmountControllers = [TextEditingController()];
     List<bool> momoTransactionAmountLoaded = [false];
     List<Timer?> momoTransactionTimers = [null];
 
@@ -108,11 +98,12 @@ class CustomerInfoDialog {
       final transactionMap = <String, dynamic>{};
       for (int i = 0; i < momoTransactionControllers.length; i++) {
         final transactionId = momoTransactionControllers[i].text.trim();
-        final amount = double.tryParse(
-          momoTransactionAmountControllers[i].text.trim(),
-        );
+        final amount = double.tryParse(momoTransactionAmountControllers[i].text.trim());
         if (transactionId.isEmpty || amount == null) continue;
-        transactionMap[transactionId] = {'id': transactionId, 'amount': amount};
+        transactionMap[transactionId] = {
+          'id': transactionId,
+          'amount': amount,
+        };
       }
       return transactionMap;
     }
@@ -120,7 +111,6 @@ class CustomerInfoDialog {
     bool isValidPhone(String phone) {
       return RegExp(r'^(?:0\d{9}|\+233\d{9})$').hasMatch(phone);
     }
-
     void showError(String message) {
       salesProvider.showMessageDialog(context, message, Colors.red);
     }
@@ -129,7 +119,7 @@ class CustomerInfoDialog {
       final name = nameController.text.trim();
       final phone = phoneController.text.trim();
       if (!canPrint) {
-        if (name.isEmpty) {
+        if (name.isEmpty ) {
           showError('Enter name ');
           return false;
         }
@@ -137,7 +127,7 @@ class CustomerInfoDialog {
           showError('$name must be more than one letter ');
           return false;
         }
-        if (phone.isEmpty) {
+        if ( phone.isEmpty) {
           showError('Enter  phone');
           return false;
         }
@@ -148,6 +138,37 @@ class CustomerInfoDialog {
       }
 
       if (canPrint) {
+        if (selectedMomoProvider == 'Hubtel') {
+          final phone = phoneController.text.trim();
+          final amountText = amountPaidController.text.trim();
+          if (phone.isEmpty) {
+            showError('Enter phone number');
+            return false;
+          }
+          if (!isValidPhone(phone)) {
+            showError('Enter valid phone number');
+            return false;
+          }
+          if (selectedMomoNetwork == null) {
+            showError('Select MOMO network');
+            return false;
+          }
+          if (amountText.isEmpty) {
+            showError('Enter amount');
+            return false;
+          }
+          final amount = double.tryParse(amountText);
+          if (amount == null || amount <= 0) {
+            showError('Invalid amount');
+            return false;
+          }
+          if (isSalesBranch && amount > totalAmount) {
+            showError('Amount must not exceed ${totalAmount.toStringAsFixed(2)}');
+            return false;
+          }
+          return true;
+        }
+
         final amountText = amountPaidController.text.trim();
         if (referenceController.text.trim().isEmpty) {
           showError('Enter reference');
@@ -178,7 +199,7 @@ class CustomerInfoDialog {
       final name = nameController.text.trim();
       final phone = phoneController.text.trim();
       if (!canPrint) {
-        if (name.isEmpty) {
+        if (name.isEmpty ) {
           showError('Enter name ');
           return false;
         }
@@ -186,7 +207,7 @@ class CustomerInfoDialog {
           showError('$name must be more than one letter ');
           return false;
         }
-        if (phone.isEmpty) {
+        if ( phone.isEmpty) {
           showError('Enter  phone');
           return false;
         }
@@ -196,6 +217,37 @@ class CustomerInfoDialog {
         }
       }
       if (canPrint) {
+        if (selectedMomoProvider == 'Hubtel') {
+          final phone = phoneController.text.trim();
+          final amountText = amountPaidController.text.trim();
+          if (phone.isEmpty) {
+            showError('Enter phone number');
+            return false;
+          }
+          if (!isValidPhone(phone)) {
+            showError('Enter valid phone number');
+            return false;
+          }
+          if (selectedMomoNetwork == null) {
+            showError('Select MOMO network');
+            return false;
+          }
+          if (amountText.isEmpty) {
+            showError('Enter amount');
+            return false;
+          }
+          final amount = double.tryParse(amountText);
+          if (amount == null || amount <= 0) {
+            showError('Invalid amount');
+            return false;
+          }
+          if (isSalesBranch && amount > totalAmount) {
+            showError('Amount must not exceed ${totalAmount.toStringAsFixed(2)}');
+            return false;
+          }
+          return true;
+        }
+
         final amountText = amountPaidController.text.trim();
         if (referenceController.text.trim().isEmpty) {
           showError('Enter card reference');
@@ -221,11 +273,44 @@ class CustomerInfoDialog {
       return true;
     }
 
+    bool handleHubtel() {
+      final phone = phoneController.text.trim();
+      final amountText = amountPaidController.text.trim();
+
+      if (phone.isEmpty) {
+        showError('Enter phone number for Hubtel payment');
+        return false;
+      }
+      if (!isValidPhone(phone)) {
+        showError('Enter valid phone number');
+        return false;
+      }
+      if (selectedMomoNetwork == null) {
+        showError('Select MOMO network');
+        return false;
+      }
+      if (amountText.isEmpty) {
+        showError('Enter amount');
+        return false;
+      }
+
+      final amount = double.tryParse(amountText);
+      if (amount == null || amount <= 0) {
+        showError('Invalid amount');
+        return false;
+      }
+      if (isSalesBranch && amount > totalAmount) {
+        showError('Amount must not exceed ${totalAmount.toStringAsFixed(2)}');
+        return false;
+      }
+      return true;
+    }
+
     bool handleMomo() {
       final name = nameController.text.trim();
       final phone = phoneController.text.trim();
       if (!canPrint) {
-        if (name.isEmpty) {
+        if (name.isEmpty ) {
           showError('Enter name ');
           return false;
         }
@@ -233,7 +318,7 @@ class CustomerInfoDialog {
           showError('$name must be more than one letter ');
           return false;
         }
-        if (phone.isEmpty) {
+        if ( phone.isEmpty) {
           showError('Enter  phone');
           return false;
         }
@@ -243,7 +328,39 @@ class CustomerInfoDialog {
         }
       }
       if (canPrint) {
-        if (phone.isEmpty) {
+        if (selectedMomoProvider == 'Hubtel') {
+          final phone = phoneController.text.trim();
+          final amountText = amountPaidController.text.trim();
+          if (phone.isEmpty) {
+            showError('Enter phone number');
+            return false;
+          }
+          if (!isValidPhone(phone)) {
+            showError('Enter valid phone number');
+            return false;
+          }
+          if (selectedMomoNetwork == null) {
+            showError('Select MOMO network');
+            return false;
+          }
+          if (amountText.isEmpty) {
+            showError('Enter amount');
+            return false;
+          }
+          final amount = double.tryParse(amountText);
+          if (amount == null || amount <= 0) {
+            showError('Invalid amount');
+            return false;
+          }
+          if (isSalesBranch && amount > totalAmount) {
+            showError('Amount must not exceed ${totalAmount.toStringAsFixed(2)}');
+            return false;
+          }
+          return true;
+        }
+
+        final amountText = amountPaidController.text.trim();
+        if ( phone.isEmpty) {
           showError('Enter  phone');
           return false;
         }
@@ -255,132 +372,100 @@ class CustomerInfoDialog {
           showError('Select MOMO network');
           return false;
         }
+        if (amountText.isEmpty) {
+          showError('Enter MOMO amount');
+          return false;
+        }
 
-        if (selectedMomoProvider != 'Hubtel') {
-          final amountText = amountPaidController.text.trim();
-          if (amountText.isEmpty) {
-            showError('Enter MOMO amount');
-            return false;
-          }
+        final amount = double.tryParse(amountText);
 
-          final amount = double.tryParse(amountText);
+        if (amount == null) {
+          showError('Invalid MOMO amount');
+          return false;
+        }
 
-          if (amount == null) {
-            showError('Invalid MOMO amount');
-            return false;
-          }
-          if (amount <= 0) {
-            showError('Amount must be greater than 0');
-            return false;
-          }
-          if (isSalesBranch) {
-            if (amount > totalAmount) {
-              showError(
-                'Amount must not exceed ${totalAmount.toStringAsFixed(2)}',
-              );
-              return false;
-            }
-          }
-
-          final transactionEntries = <Map<String, dynamic>>[];
-          for (int i = 0; i < momoTransactionControllers.length; i++) {
-            final transactionId = momoTransactionControllers[i].text.trim();
-            final transactionAmountText = momoTransactionAmountControllers[i]
-                .text
-                .trim();
-            final transactionAmount = double.tryParse(transactionAmountText);
-
-            if (transactionId.isEmpty && transactionAmountText.isEmpty)
-              continue;
-            if (transactionId.isEmpty) {
-              showError('Enter transaction ID ${i + 1}');
-              return false;
-            }
-            if (transactionAmountText.isEmpty) {
-              showError('Enter amount for transaction ${i + 1}');
-              return false;
-            }
-            if (!momoTransactionAmountLoaded[i]) {
-              showError(
-                'Submit transaction ID ${i + 1} to load amount from momo collection',
-              );
-              return false;
-            }
-            if (transactionAmount == null) {
-              showError('Invalid amount for transaction ${i + 1}');
-              return false;
-            }
-            if (transactionAmount <= 0) {
-              showError(
-                'Amount must be greater than 0 for transaction ${i + 1}',
-              );
-              return false;
-            }
-            transactionEntries.add({
-              'transactionId': transactionId,
-              'amount': transactionAmount,
-            });
-          }
-
-          if (transactionEntries.isEmpty) {
-            showError('Enter at least one MOMO transaction ID and amount');
+        if (amount <= 0) {
+          showError('Amount must be greater than 0');
+          return false;
+        }
+        if (isSalesBranch) {
+          if (amount > totalAmount) {
+            showError('Amount must not exceed ${totalAmount.toStringAsFixed(2)}');
             return false;
           }
         }
+
+        final transactionEntries = <Map<String, dynamic>>[];
+        for (int i = 0; i < momoTransactionControllers.length; i++) {
+          final transactionId = momoTransactionControllers[i].text.trim();
+          final amountText = momoTransactionAmountControllers[i].text.trim();
+          final transactionAmount = double.tryParse(amountText);
+
+          if (transactionId.isEmpty && amountText.isEmpty) continue;
+          if (transactionId.isEmpty) {
+            showError('Enter transaction ID ${i + 1}');
+            return false;
+          }
+          if (amountText.isEmpty) {
+            showError('Enter amount for transaction ${i + 1}');
+            return false;
+          }
+          if (!momoTransactionAmountLoaded[i]) {
+            showError('Submit transaction ID ${i + 1} to load amount from momo collection');
+            return false;
+          }
+          if (transactionAmount == null) {
+            showError('Invalid amount for transaction ${i + 1}');
+            return false;
+          }
+          if (transactionAmount <= 0) {
+            showError('Amount must be greater than 0 for transaction ${i + 1}');
+            return false;
+          }
+          transactionEntries.add({
+            'transactionId': transactionId,
+            'amount': transactionAmount,
+          });
+        }
+
+        if (transactionEntries.isEmpty) {
+          showError('Enter at least one MOMO transaction ID and amount');
+          return false;
+        }
       }
       return true;
-    }
-
-    Future<double> HubtelPayment({
-      required String phoneNumber,
-      required String networkType,
-    }) async {
-      if (phoneNumber.isEmpty || networkType.isEmpty) {
-        throw ArgumentError('Phone number and network type are required for Hubtel payment.');
-      }
-      try {
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-        return totalAmount;
-      } on Exception catch (e, st) {
-        Error.throwWithStackTrace(
-          StateError('Hubtel payment failed: $e'),
-          st,
-        );
-      }
     }
 
     bool handleCash() {
       final name = nameController.text.trim();
       final phone = phoneController.text.trim();
 
-      if (name.isEmpty) {
-        showError('Enter name ');
-        return false;
-      }
-      if (name.length < 2) {
-        showError('$name must be more than one letter ');
-        return false;
-      }
-      if (phone.isEmpty) {
-        showError('Enter  phone');
-        return false;
-      }
-      if (!isValidPhone(phone)) {
-        showError('Enter valid phone number');
-        return false;
-      }
+        if (name.isEmpty ) {
+          showError('Enter name ');
+          return false;
+        }
+        if (name.length < 2) {
+          showError('$name must be more than one letter ');
+          return false;
+        }
+        if ( phone.isEmpty) {
+          showError('Enter  phone');
+          return false;
+        }
+        if (!isValidPhone(phone)) {
+          showError('Enter valid phone number');
+          return false;
+        }
 
-      return true;
+
+        return true;
+
+
     }
-
     bool handleCredit() {
       final name = nameController.text.trim();
       final phone = phoneController.text.trim();
 
-      if (isSalesPoint && selectedCreditCustomer == null) {
-        showError('Select a credit customer');
-        return false;
-      }
       if (name.isEmpty) {
         showError('Enter name');
         return false;
@@ -401,11 +486,10 @@ class CustomerInfoDialog {
         final creditLimit = double.tryParse(
           (selectedCreditCustomer?['creditlimit'] ?? '').toString(),
         );
-        double balance =
-            double.tryParse('${selectedCreditCustomer?['creditBalance']}') ?? 0;
+        double balance = double.tryParse('${selectedCreditCustomer?['creditBalance']}') ?? 0;
         double total = double.tryParse('$totalAmount') ?? 0;
 
-        newBalance = balance + total;
+         newBalance = balance + total;
         if (creditLimit != null) {
           final total = salesProvider.calculateTaxableTotal();
 
@@ -414,10 +498,10 @@ class CustomerInfoDialog {
             return false;
           }
         }
-        if (creditLimit != null && newBalance > creditLimit) {
-          showError('Credit limit exceeded\nLimit: $creditLimit');
-          return false;
-        }
+       if(creditLimit!=null&& newBalance > creditLimit){
+         showError('Credit limit exceeded\nLimit: $creditLimit');
+         return false;
+       }
         status = true;
         return true;
       }
@@ -425,7 +509,6 @@ class CustomerInfoDialog {
       status = true;
       return true;
     }
-
     bool validateInputs() {
       switch (paymentMethod) {
         case 'cash':
@@ -449,7 +532,6 @@ class CustomerInfoDialog {
           return false;
       }
     }
-
     /// Prevent opening dialog with empty cart
     if (salesItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -460,10 +542,10 @@ class CustomerInfoDialog {
       );
       return;
     }
-    final db = FirebaseFirestore.instance;
-    String customerId = '';
-    String customerName = '';
-    String customerPhone = '';
+    final db =FirebaseFirestore.instance;
+    String customerId='';
+    String customerName ='';
+    String customerPhone='';
     dynamic customerCreditLimit;
 
     String? _selectedPrinter;
@@ -489,82 +571,72 @@ class CustomerInfoDialog {
           final screenWidth = MediaQuery.of(context).size.width;
           final horizontalPad = (screenWidth * 0.10).clamp(12.0, 60.0);
 
-          void _showPrinterSelectionDialog(
-            BuildContext ctx,
-            StateSetter stateSetter,
-          ) {
+          void _showPrinterSelectionDialog(BuildContext ctx, StateSetter stateSetter) {
             showDialog(
               context: ctx,
               builder: (dlgContext) => AlertDialog(
-                backgroundColor: colorScheme.surface,
+                backgroundColor: const Color(0xFF1A1F3A),
                 title: Text(
                   'Select Printer',
-                  style: TextStyle(color: colorScheme.onSurface),
+                  style: TextStyle(color: Colors.white),
                 ),
                 content: _availablePrinters.isEmpty
                     ? Text(
-                        'No printers found',
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
-                      )
+                  'No printers found',
+                  style: TextStyle(color: Colors.white70),
+                )
                     : SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: _availablePrinters.map((printer) {
-                            final isCurrent = _selectedPrinter == printer;
-                            final isSaved = printer == _savedPrinter;
-                            return ListTile(
-                              title: Text(
-                                printer,
-                                style: TextStyle(
-                                  color: isCurrent
-                                      ? colorScheme.secondary
-                                      : colorScheme.onSurface,
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _availablePrinters.map((printer) {
+                      final isCurrent = _selectedPrinter == printer;
+                      final isSaved = printer == _savedPrinter;
+                      return Material(
+                        color: Colors.transparent,
+                        child: ListTile(
+                          title: Text(
+                            printer,
+                            style: TextStyle(
+                              color: isCurrent ? Colors.teal : Colors.white,
+                              fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          trailing: isCurrent
+                              ? const Icon(Icons.check, color: Colors.teal)
+                              : (isSaved
+                              ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'SAVED',
+                              style: TextStyle(
+                                color: Colors.greenAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
                               ),
-                              trailing: isCurrent
-                                  ? Icon(Icons.check, color: Colors.teal)
-                                  : (isSaved
-                                        ? Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green.withOpacity(
-                                                0.2,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              'SAVED',
-                                              style: TextStyle(
-                                                color: Colors.greenAccent,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          )
-                                        : null),
-                              onTap: () {
-                                stateSetter(() {
-                                  _selectedPrinter = printer;
-                                });
-                                Navigator.pop(dlgContext);
-                              },
-                            );
-                          }).toList(),
+                            ),
+                          )
+                              : null),
+                          onTap: () {
+                            stateSetter(() {
+                              _selectedPrinter = printer;
+                            });
+                            Navigator.pop(dlgContext);
+                          },
                         ),
-                      ),
+                      );
+                    }).toList(),
+                  ),
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(dlgContext),
                     child: Text(
                       'Close',
-                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      style: TextStyle(color: Colors.white70),
                     ),
                   ),
                 ],
@@ -574,9 +646,7 @@ class CustomerInfoDialog {
 
           void updateMomoPaidTotal() {
             final total = momoTransactionAmountControllers
-                .map(
-                  (controller) => double.tryParse(controller.text.trim()) ?? 0,
-                )
+                .map((controller) => double.tryParse(controller.text.trim()) ?? 0)
                 .fold(0.0, (sum, value) => sum + value);
             setState(() {
               amountPaidController.text = total.toStringAsFixed(2);
@@ -606,8 +676,7 @@ class CustomerInfoDialog {
 
             final doc = query.docs.first;
             final momoData = doc.data();
-            final statusValue =
-                momoData['status']?.toString().toLowerCase() ?? '';
+            final statusValue = momoData['status']?.toString().toLowerCase() ?? '';
             if (statusValue == 'saved') {
               showError('Transaction ID $transactionId has already been used');
               setState(() {
@@ -621,9 +690,7 @@ class CustomerInfoDialog {
             final amountText = momoData['amount']?.toString() ?? '';
             final amount = double.tryParse(amountText);
             if (amount == null) {
-              showError(
-                'Unable to parse amount for transaction $transactionId',
-              );
+              showError('Unable to parse amount for transaction $transactionId');
               setState(() {
                 momoTransactionAmountControllers[index].text = '';
                 momoTransactionAmountLoaded[index] = false;
@@ -633,34 +700,27 @@ class CustomerInfoDialog {
             }
 
             setState(() {
-              momoTransactionAmountControllers[index].text = amount
-                  .toStringAsFixed(2);
+              momoTransactionAmountControllers[index].text = amount.toStringAsFixed(2);
               momoTransactionAmountLoaded[index] = true;
               updateMomoPaidTotal();
             });
           }
 
           Future<void> submitSale({required bool printA4}) async {
-            if (isSaving) return;
+            //String formattedDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
             final formattedDate = context.read<SalesProvider>().saleDate;
             final isValid = validateInputs();
             if (!isValid) return;
             final bool isCreditNow = paymentMethod == 'credit';
-            final String transactionType = isCreditNow ? 'credit' : 'cash';
-            setState(() {
-              isSaving = true;
-              activeSubmitIsA4 = printA4;
-            });
-
+            final String transactionType = isCreditNow
+                ? 'credit'
+                : ((paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel'))
+                    ? 'hubtel'
+                    : paymentMethod);
+            setState(() => isSaving = true);
             final momoTransactionIds = paymentMethod == 'momo'
                 ? getMomoTransactionMap()
                 : <String, dynamic>{};
-            final recordedPaymentMethod =
-                paymentMethod == 'momo' &&
-                    shouldCollectPayment &&
-                    selectedMomoProvider == 'Hubtel'
-                ? 'hubtel'
-                : paymentMethod;
 
             try {
               switch (paymentMethod) {
@@ -677,36 +737,25 @@ class CustomerInfoDialog {
                     setState(() => isSaving = false);
                     return;
                   }
-                  if (shouldCollectPayment &&
-                      selectedMomoProvider == 'Hubtel') {
-                    final hubtelAmount = await HubtelPayment(
-                      phoneNumber: phoneController.text.trim(),
-                      networkType: selectedMomoNetwork!,
-                    );
-                    if (hubtelAmount <= 0 || hubtelAmount > totalAmount) {
-                      throw StateError(
-                        'Hubtel returned an invalid paid amount: $hubtelAmount',
-                      );
-                    }
-                    amountPaidController.text = hubtelAmount.toStringAsFixed(2);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'TEST ONLY: Hubtel payment simulated successfully '
-                            'for GHS ${hubtelAmount.toStringAsFixed(2)}.',
-                          ),
-                          backgroundColor: colorScheme.primary,
-                        ),
-                      );
-                    }
-                  }
-                  if (shouldCollectPayment) {
+                  if (canPrint || isSalesBranch) {
                     accountName = selectedMomoNetwork ?? 'MTN';
                     accountNumber = phoneController.text.trim();
                     reference = phoneController.text.trim();
-                    status = canPrint && selectedMomoProvider == 'Hubtel';
-                    paymentStatus = 'paid';
+                    status = selectedMomoProvider == 'Hubtel' ? false : true;
+                    paymentStatus = selectedMomoProvider == 'Hubtel' ? 'pending' : 'paid';
+                  }
+                  break;
+                case 'hubtel':
+                  if (!handleHubtel()) {
+                    setState(() => isSaving = false);
+                    return;
+                  }
+                  if (canPrint || isSalesBranch) {
+                    accountName = selectedMomoNetwork ?? 'MTN';
+                    accountNumber = phoneController.text.trim();
+                    reference = phoneController.text.trim();
+                    status = false;
+                    paymentStatus = 'pending';
                   }
                   break;
                 case 'card':
@@ -714,7 +763,7 @@ class CustomerInfoDialog {
                     setState(() => isSaving = false);
                     return;
                   }
-                  if (shouldCollectPayment) {
+                  if (canPrint || isSalesBranch) {
                     accountName = 'card';
                     accountNumber = 'card';
                     reference = referenceController.text.trim();
@@ -728,7 +777,7 @@ class CustomerInfoDialog {
                     setState(() => isSaving = false);
                     return;
                   }
-                  if (shouldCollectPayment) {
+                  if (canPrint || isSalesBranch) {
                     accountName = 'bank';
                     accountNumber = 'bank_transfer';
                     reference = referenceController.text.trim();
@@ -745,59 +794,66 @@ class CustomerInfoDialog {
                   paidAmount = 0;
                   paymentStatus = 'pending';
                   break;
+                case 'hubtel':
+                  if (phoneController.text.trim().isEmpty) {
+                    showError('Enter phone number for Hubtel payment');
+                    setState(() => isSaving = false);
+                    return;
+                  }
+                  accountName = 'Hubtel';
+                  accountNumber = phoneController.text.trim();
+                  reference = phoneController.text.trim();
+                  status = false;
+                  paymentStatus = 'pending';
+                  break;
               }
 
-              final isService =
-                  (selectedItem?.producttype ?? '').toLowerCase().trim() ==
-                  'service';
+             /* if (!salesProvider.ensureSalesWarehouseSelected(context, datafeed, selectedItem, requireItemSelection: false)) {
+                setState(() => isSaving = false);
+                return;
+              }
 
-              if (!isService && datafeed.stockCheckEnabled) {
-                if (!salesProvider.ensureSalesWarehouseSelected(
-                  context,
-                  datafeed,
-                  selectedItem,
-                  requireItemSelection: false,
-                )) {
+              if (!await salesProvider.validateCartStockOnSave(context, salesItems, datafeed)) {
+                setState(() => isSaving = false);
+                return;
+              } */
+              final isService =
+                  (selectedItem?.producttype ?? '').toLowerCase().trim() == 'service';
+
+              if (!isService) {
+                if (!salesProvider.ensureSalesWarehouseSelected(context, datafeed, selectedItem, requireItemSelection: false)) {
                   setState(() => isSaving = false);
                   return;
                 }
 
-                if (!await salesProvider.validateCartStockOnSave(
-                  context,
-                  salesItems,
-                  datafeed,
-                )) {
+                if (!await salesProvider.validateCartStockOnSave(context, salesItems, datafeed)) {
                   setState(() => isSaving = false);
                   return;
                 }
               }
               if (isCreditNow) {
-                customerId = (selectedCreditCustomer?['id'] ?? '').toString();
-                customerName = (selectedCreditCustomer?['name'] ?? '')
-                    .toString();
-                customerPhone =
-                    (selectedCreditCustomer?['contact'] ??
-                            selectedCreditCustomer?['phone'] ??
-                            '')
-                        .toString();
-                customerType = 'Credit';
 
+                customerId = (selectedCreditCustomer?['id'] ?? '').toString();
+                customerName = (selectedCreditCustomer?['name'] ?? '').toString();
+                customerPhone = (selectedCreditCustomer?['contact'] ?? selectedCreditCustomer?['phone'] ?? '').toString();
+                customerType = 'credit';
+                // await db.collection('customers').doc(customerId).update({
+                //   'creditBalance': FieldValue.increment(salesProvider.calculateTaxableTotal()),
+                // });
                 final formatter = NumberFormat.currency(
                   locale: 'en_GH',
                   symbol: 'GHS',
                   decimalDigits: 2,
                 );
 
-                String smsCreditbalance = formatter.format(
-                  salesProvider.calculateTaxableTotal(),
-                );
+                String smsCreditbalance = formatter.format(salesProvider.calculateTaxableTotal());
+
 
                 final smsRecord = {
                   'companyid': datafeed.companyid,
                   'branchid': datafeed.branchid,
                   'staff': datafeed.staff,
-                  'message':"Dear $customerName, goods valued at $smsCreditbalance have been supplied on credit to your account. Kindly settle the outstanding balance promptly. Thank you.",
-                  'senderid': "",
+                  'message': "Dear $customerName, goods valued at $smsCreditbalance have been supplied on credit to your account. Kindly settle the outstanding balance promptly. Thank you.",                                    'senderid': "",
                   'recipient': customerPhone,
                   'type': 'single',
                   'bulkFilterType': null,
@@ -808,65 +864,65 @@ class CustomerInfoDialog {
                   'updatedAt': Timestamp.now(),
                 };
                 print("SMS Record: ${datafeed.companyid},$smsCreditbalance");
-                 db.collection('sms_logs').add(smsRecord);
-              } else {
-                customerName =(selectedCreditCustomer?['name'] ??
-                            nameController.text.trim())
-                        .toString();
-                customerPhone =(selectedCreditCustomer?['contact'] ??
-                            selectedCreditCustomer?['phone'] ??
-                            phoneController.text.trim())
-                        .toString();
-                customerType = 'Cash';
+                await db.collection('sms_logs').add(smsRecord);
+              }
+              else {
+                customerName = nameController.text.trim();
+                customerPhone = phoneController.text.trim();
+                customerType = 'cash';
                 newBalance = 0.0;
-                customerId =
-                    (selectedCreditCustomer?['id'] ??
-                            '${datafeed.companyid.toLowerCase()}_$customerPhone')
-                        .toString();
-                final provider = Provider.of<Datafeed>(
-                  context,
-                  listen: false,
-                );
-                provider.getdata();
-                final customer = CustomerRegModel(
-                  id: customerId,
-                  branchname: provider.selectedBranch?.branchname ?? '',
-                  branchid: provider.selectedBranch?.id ?? '',
-                  name: customerName,
-                  contact: customerPhone,
-                  customertype: customerType,
-                  creditlimit: customerCreditLimit,
-                  companyid: datafeed.companyid,
-                  staff: datafeed.staff,
-                  date: DateTime.now(),
-                  updatedby: null,
-                  updatedat: null,
-                  deletedat: null,
-                  companyname: company,
-                  creditBalance: newBalance.toString(),
-                );
-                datafeed.db
-                    .collection('customers')
-                    .doc(customerId)
-                    .set(customer.toMap(), SetOptions(merge: true));
+                customerId = '${datafeed.companyid.toLowerCase()}_${phoneController.text.trim()}';
+                final existingDoc = datafeed.db.collection('customers');
+                final ref = existingDoc.doc(customerId).get();
+
+                if (!(await ref).exists) {
+                  final provider = Provider.of<Datafeed>(context, listen: false);
+                  await provider.getdata();
+                  final customer = CustomerRegModel(
+                    id: customerId,
+                    branchname: provider.selectedBranch?.branchname ?? '',
+                    branchid: provider.selectedBranch?.id ?? '',
+                    name: customerName,
+                    contact: customerPhone,
+                    customertype: customerType,
+                    creditlimit: customerCreditLimit,
+                    companyid: datafeed.companyid,
+                    staff: datafeed.staff,
+                    date: DateTime.now(),
+                    updatedby: null,
+                    updatedat: null,
+                    deletedat: null,
+                    companyname: company,
+                    creditBalance: newBalance.toString(),
+                  );
+                  await datafeed.db.collection('customers').doc(customerId).set(customer.toMap());
+                }
               }
 
+              final dailyReceiptInfo = await salesProvider.generateDailyReceiptData(
+                companyId: datafeed.companyid,
+                branchId: activeBranchId,
+                amount: totalAmount,
+                staffPosition: datafeed.staffPosition,
+              );
+              final saleDocId = dailyReceiptInfo['docId'];
+              final receiptNumber = dailyReceiptInfo['receiptNumber'];
+              final dailyNumber = dailyReceiptInfo['dailyNumber'];
               final timestamp = DateTime.now().millisecondsSinceEpoch;
-              final saleDocId =
-                  '${datafeed.companyid}_${datafeed.staffPosition}_$timestamp';
-              final receiptNumber = '${datafeed.staffPosition}$timestamp';
               final itemsMap = {
-                for (int i = 0; i < salesItems.length; i++)
-                  'item_$i': salesItems[i],
+                for (int i = 0; i < salesItems.length; i++) 'item_$i': salesItems[i]
               };
-              final enteredAmount =
-                  double.tryParse(amountPaidController.text.trim()) ?? 0;
+              final enteredAmount = double.tryParse(amountPaidController.text.trim()) ?? 0;
 
               payments.clear();
               changeAmount = 0;
               paidAmount = totalAmount;
-              //  if ((canPrint || isSalesBranch) && !isCreditNow)
-              if (shouldCollectPayment && !isCreditNow) {
+
+              final normAccess = datafeed.accesslevel.toLowerCase().trim();
+              final bool isSalesAttendance = normAccess.contains('sales attendance') ||
+                  normAccess.replaceAll(' ', '').contains('salesattendance');
+
+              if ((canPrint || isSalesBranch) && !isCreditNow && !isSalesAttendance) {
                 if (paymentMethod == 'cash') {
                   payments.add(
                     PaymentMethodModel(
@@ -888,9 +944,7 @@ class CustomerInfoDialog {
                   paymentStatus = 'paid';
                 } else {
                   if (enteredAmount < totalAmount) {
-                    final remaining = double.parse(
-                      (totalAmount - enteredAmount).toStringAsFixed(2),
-                    );
+                    final remaining = double.parse((totalAmount - enteredAmount).toStringAsFixed(2));
                     if (enteredAmount > 0) {
                       payments.add(
                         PaymentMethodModel(
@@ -899,7 +953,9 @@ class CustomerInfoDialog {
                           accountNumber: accountNumber,
                           status: status,
                           reference: reference,
-                          paymentmethod: recordedPaymentMethod,
+                          paymentmethod: (paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel')) ? 'hubtel' : paymentMethod,
+                          channel: (paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel')) ? 'hubtel' : 'merchant',
+                          merchant: (paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel')) ? 'hubtel' : 'merchant',
                         ),
                       );
                     }
@@ -921,9 +977,7 @@ class CustomerInfoDialog {
                     printedBy = datafeed.staff;
                     receiptBy = datafeed.staff;
                   } else {
-                    final change = double.parse(
-                      (enteredAmount - totalAmount).toStringAsFixed(2),
-                    );
+                    final change = double.parse((enteredAmount - totalAmount).toStringAsFixed(2));
                     payments.add(
                       PaymentMethodModel(
                         amount: enteredAmount,
@@ -931,10 +985,10 @@ class CustomerInfoDialog {
                         accountNumber: accountNumber,
                         status: status,
                         reference: reference,
-                        paymentmethod: recordedPaymentMethod,
-                        transactionIds: recordedPaymentMethod == 'momo'
-                            ? momoTransactionIds
-                            : null,
+                        paymentmethod: (paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel')) ? 'hubtel' : paymentMethod,
+                        transactionIds: paymentMethod == 'momo' ? momoTransactionIds : null,
+                        channel: (paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel')) ? 'hubtel' : 'merchant',
+                        merchant: (paymentMethod == 'hubtel' || (paymentMethod == 'momo' && selectedMomoProvider == 'Hubtel')) ? 'hubtel' : 'merchant',
                       ),
                     );
                     changeAmount = change;
@@ -957,8 +1011,16 @@ class CustomerInfoDialog {
                 status = false;
                 payments.clear();
                 paymentStatus = 'pending';
-                receiptAt = null;
-                printedAt = null;
+                if (isCreditNow) {
+                  receiptAt = Timestamp.now();
+                  printedAt = Timestamp.now();
+                  status = true;
+                  printed = true;
+                  reciepted = true;
+                  printedBy = datafeed.staff;
+                  receiptBy = datafeed.staff;
+
+                }
               }
 
               final paymentsMap = payments.map((e) => e.toMap()).toList();
@@ -966,40 +1028,27 @@ class CustomerInfoDialog {
               final day = DateFormat('EEEE').format(now);
               final year = now.year.toString();
               final month = '${now.year}.${now.month}';
-              final weekNumber =
-                  ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7)
-                      .floor() +
-                  1;
+              final weekNumber = ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
               final week = '${now.year}.$weekNumber';
-
-              final dailyNumber = datafeed.isOffline
-                  ? null
-                  : await datafeed.nextDailyReceiptNumber(
-                      datafeed.branchid,
-                    );
 
               final saleData = SalesModel(
                 id: saleDocId,
                 companyId: datafeed.companyid,
                 companyname: datafeed.company,
-                address: datafeed.branchaddress,
                 branchId: resolvedBranchId,
                 branchName: resolvedBranchName,
-                branchType: datafeed.isSalesPoint
-                    ? 'Sales Point'
-                    : resolvedBranchType,
-                pricingtype: datafeed.isSalesPoint
-                    ? 'Sales Point'
-                    : resolvedBranchType,
+                branchType: resolvedBranchType,
+                pricingtype: resolvedBranchType,
                 staffPosition: datafeed.staffPosition,
                 payments: paymentsMap,
                 receiptNumber: receiptNumber,
+                dailyNumber: dailyNumber,
                 receiptby: receiptBy,
                 receiptat: receiptAt,
                 paymentStatus: paymentStatus,
                 transMode: transactionType,
                 items: itemsMap,
-                totalamount: salesProvider.calculateGrossTotal(),
+                totalamount: salesProvider.amountPayable(),
                 amountPaid: paidAmount,
                 discount: salesProvider.calculateDiscountTotal(),
                 change: 0.0,
@@ -1011,10 +1060,9 @@ class CustomerInfoDialog {
                 printedby: printedBy,
                 printedat: printedAt,
                 staffemail: datafeed.staffemail,
-                receiptbyemail: receiptBy.isEmpty ? '' : datafeed.staffemail,
+                receiptbyemail: datafeed.staffemail,
                 dateymd: formattedDate,
                 stockCheckedAt: Timestamp.fromDate(DateTime.now()),
-                stockCheckStatus: null,
                 timestamp: timestamp,
                 printed: printed,
                 customerId: customerId,
@@ -1026,26 +1074,34 @@ class CustomerInfoDialog {
                 month: month,
                 year: year,
                 supplystatus: false,
-                dailyreceiptno: dailyNumber,
-                syncStatus: '0',
-                online: datafeed.isOffline ? '1' : '0',
+
               );
 
-               datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
+              await datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
 
-              final skipCheck =
-                  !datafeed.stockCheckEnabled ||
-                  salesProvider.isServiceOnlySale(salesProvider.salesItems);
-              // final approved = await salesProvider.ensureSaleApproved(
-              //   context,
-              //   saleDocId,
-              //   skipStockCheck: skipCheck,
-              // );
-              //
-              // if (!approved) {
-              //   setState(() => isSaving = false);
-              //   return;
-              // }
+              if (isCreditNow) {
+                await datafeed.recordDebtorLedgerEntry(
+                  customerId: customerId,
+                  customerName: customerName,
+                  customerPhone: customerPhone,
+                  amount: salesProvider.amountPayable(),
+                  type: 'debit',
+                  transType: 'Credit Sale',
+                  description: 'Credit Sale - Receipt #$receiptNumber',
+                  reference: receiptNumber,
+                  branchId: resolvedBranchId,
+                  branchName: resolvedBranchName,
+                );
+              }
+
+             // final approved = await salesProvider.ensureSaleApproved(context, saleDocId);
+              final skipCheck = salesProvider.isServiceOnlySale(salesProvider.salesItems);
+              final approved = await salesProvider.ensureSaleApproved(context, saleDocId, skipStockCheck: skipCheck);
+
+              if (!approved) {
+                setState(() => isSaving = false);
+                return;
+              }
 
               if (paymentMethod == 'momo') {
                 final momoTransactions = getMomoTransactionMap();
@@ -1068,8 +1124,112 @@ class CustomerInfoDialog {
                   }
                 }
               }
-              //  canPrint || isSalesBranch || isCreditNow
-              if (canPrint && !datafeed.isSalesPoint) {
+
+              for (final p in payments) {
+                if (p.paymentmethod == 'hubtel' || (p.paymentmethod == 'momo' && selectedMomoProvider == 'Hubtel')) {
+                  final momoPaymentId = saleDocId;
+                  await datafeed.db.collection('momo_payments').doc(momoPaymentId).set({
+                    'id': saleDocId,
+                    'tid': saleDocId,
+                    'phoneNumber': phoneController.text.trim(),
+                    'amount': p.amount,
+                    'branchId': datafeed.selectedBranch?.id ?? datafeed.branchid,
+                    'branchName': datafeed.selectedBranch?.branchname ?? datafeed.branch,
+                    'companyId': datafeed.companyid,
+                    'staff': datafeed.staff,
+                    'status': 'pending',
+                    'createdAt': FieldValue.serverTimestamp(),
+                    'customerName': customerName,
+                    'network': selectedMomoNetwork ?? 'MTN',
+                    'provider': 'Hubtel',
+                  });
+                }
+              }
+
+              bool hasHubtelPayment = payments.any((p) => p.paymentmethod == 'hubtel' || (p.paymentmethod == 'momo' && selectedMomoProvider == 'Hubtel'));
+              
+              if (hasHubtelPayment) {
+                final momoPaymentRef = datafeed.db.collection('momo_payments').doc(saleDocId);
+                
+                if (context.mounted) {
+                  bool verified = await showDialog<bool>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (dialogContext) {
+                      bool hasPopped = false;
+                      return StreamBuilder<DocumentSnapshot>(
+                        stream: momoPaymentRef.snapshots(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data!.exists && !hasPopped) {
+                            final data = snapshot.data!.data() as Map<String, dynamic>?;
+                            final status = data?['status']?.toString().toLowerCase() ?? 'pending';
+                            if (status == 'successful') {
+                              hasPopped = true;
+                              Future.microtask(() {
+                                if (dialogContext.mounted) {
+                                  Navigator.pop(dialogContext, true);
+                                }
+                              });
+                            } else if (status == 'failed') {
+                              hasPopped = true;
+                              Future.microtask(() {
+                                if (dialogContext.mounted) {
+                                  Navigator.pop(dialogContext, false);
+                                }
+                              });
+                            }
+                          }
+                          return AlertDialog(
+                            backgroundColor: const Color(0xFF1A2332),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const CircularProgressIndicator(color: Color(0xFF00C853)),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'Waiting for Hubtel Payment...',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Please approve the payment prompt sent to ${phoneController.text.trim()}',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                ),
+                                const SizedBox(height: 20),
+                                TextButton(
+                                  onPressed: () {
+                                    if (!hasPopped) {
+                                      hasPopped = true;
+                                      Navigator.pop(dialogContext, false);
+                                    }
+                                  },
+                                  child: const Text('Cancel / Check Later', style: TextStyle(color: Colors.redAccent)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ) ?? false;
+
+                  if (!verified) {
+                    setState(() => isSaving = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Hubtel payment was not completed or verified.'), backgroundColor: Colors.orange),
+                    );
+                    return;
+                  }
+
+                  await datafeed.db.collection('sales').doc(saleDocId).update({
+                    'paymentStatus': 'paid',
+                    'status': true,
+                  });
+                }
+              }
+
+              if (canPrint || isSalesBranch || isCreditNow) {
                 final receiptData = ReceiptData(
                   cashier: datafeed.staff,
                   barcode: receiptNumber,
@@ -1080,11 +1240,7 @@ class CustomerInfoDialog {
                       qty: double.tryParse(e['quantity'].toString()) ?? 0,
                       price: double.tryParse(e['price'].toString()) ?? 0,
                       mode: e['mode'],
-                      isService:
-                          (e['producttype']?.toString().toLowerCase().trim() ??
-                              '') ==
-                          'service',
-                      branch: e['branchname']?.toString(),
+                      isService: (e['producttype']?.toString().toLowerCase().trim() ?? '') == 'service',
                     );
                   }).toList(),
                   companyName: datafeed.company,
@@ -1092,160 +1248,114 @@ class CustomerInfoDialog {
                   customername: customerName,
                   datetime: DateTime.now(),
                   receiptNumber: receiptNumber,
+                  dailyNumber: dailyNumber,
                   paymentMethod: paymentMethod,
                   payable: totalAmount,
                   amountPaid: totalAmount,
                   discount: totalDiscount,
                   subTotal: totalAmount,
                   change: changeAmount,
-                  receiptName: isCreditNow
-                      ? 'OFFICIAL RECEIPT'
-                      : 'OFFICIAL RECEIPT',
+                  receiptName: isCreditNow ? 'INVOICE' : 'OFFICIAL RECEIPT',
                   email: datafeed.companyemail,
                   vatPercent: 15,
                   vatInclusiveAmount: salesProvider.amountPayable(),
-                  vatAmount: salesProvider.calculateVatFromInclusive(
-                    totalAmount,
-                  ),
+                  vatAmount: salesProvider.calculateVatFromInclusive(totalAmount),
                   branch: datafeed.branch,
                   address: datafeed.branchaddress,
                   Customertin: '',
                   Suppliertin: '',
-                  branchType: resolvedBranchType,
-                  dailyNumber: dailyNumber,
                 );
 
-                final isWindowsDesktop =
-                    !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+                final isWindowsDesktop = !kIsWeb &&
+                    defaultTargetPlatform == TargetPlatform.windows;
 
                 if (printA4) {
-                  final pageFormat = PdfPageFormat.a4;
-
-                  final doc = await ReceiptPrinter.build(
-                    receiptData,
-                    format: pageFormat,
-                  );
-
-                  if (isWindowsDesktop) {
-                    if (_selectedPrinter == null) {
-                      salesProvider.showMessage(
-                        context,
-                        'No printer selected for silent Windows printing.',
-                        Colors.red,
-                      );
+                  final generator = ReceiptPrinterA4();
+                  final doc = await generator.buildPdfA4(receiptData);
+                  bool printedSuccessfully = false;
+                  if (isWindowsDesktop && _selectedPrinter != null) {
+                    final pdfResult = await generator.printA4Pdf(
+                      printerName: _selectedPrinter!,
+                      data: receiptData,
+                    );
+                    if (pdfResult.success) {
+                      printedSuccessfully = true;
+                    }
+                  }
+                  if (!printedSuccessfully) {
+                    await Printing.layoutPdf(
+                      name: saleDocId,
+                      onLayout: (format) async => doc.save(),
+                    );
+                  }
+                } else {
+                  final generator = ReceiptPrinterA4();
+                  final doc = await generator.buildPdfA4(receiptData);
+                  bool printedSuccessfully = false;
+                  if (isWindowsDesktop && _selectedPrinter != null) {
+                    final width = receiptWidthForPrinter(_selectedPrinter!);
+                    final rawReceipt = buildRawReceiptText(receiptData, width: width);
+                    final rawResult = await PrintService.printRaw(
+                      printerName: _selectedPrinter!,
+                      text: rawReceipt,
+                    );
+                    if (rawResult.success) {
+                      printedSuccessfully = true;
                     } else {
                       final pdfResult = await PrintService.printPdf(
                         printerName: _selectedPrinter!,
                         pdf: doc,
                       );
-                      if (!pdfResult.success) {
-                        salesProvider.showMessage(
-                          context,
-                          'print failed: ${pdfResult.errorMessage ?? 'Unknown error'}.',
-                          Colors.red,
-                        );
+                      if (pdfResult.success) {
+                        printedSuccessfully = true;
                       }
                     }
-                  } else {
-                    await Printing.layoutPdf(
-                      name: saleDocId,
-                      format: pageFormat,
-                      onLayout: (_) async => doc.save(),
-                    );
                   }
-                } else {
-                  final doc = await ReceiptPrinter.build(
-                    receiptData,
-                    format: ReceiptPrinter.roll80,
-                  );
-
-                  if (isWindowsDesktop) {
-                    if (_selectedPrinter == null) {
-                      salesProvider.showMessage(
-                        context,
-                        'No printer selected for silent Windows printing.',
-                        Colors.red,
-                      );
-                    } else {
-                      final width = receiptWidthForPrinter(_selectedPrinter!);
-                      final rawReceipt = buildRawReceiptText(
-                        receiptData,
-                        width: width,
-                      );
-                      final rawResult = await PrintService.printRaw(
-                        printerName: _selectedPrinter!,
-                        text: rawReceipt,
-                      );
-                      if (!rawResult.success) {
-                        final pdfResult = await PrintService.printPdf(
-                          printerName: _selectedPrinter!,
-                          pdf: doc,
-                        );
-                        if (!pdfResult.success) {
-                          salesProvider.showMessage(
-                            context,
-                            'Windows print failed: ${rawResult.errorMessage ?? 'Raw text print failed'}. PDF fallback failed: ${pdfResult.errorMessage ?? 'Unknown error'}.',
-                            Colors.red,
-                          );
-                        }
-                      }
-                    }
-                  } else {
+                  if (!printedSuccessfully) {
                     await Printing.layoutPdf(
                       name: saleDocId,
-                      format: ReceiptPrinter.roll80,
-                      usePrinterSettings: false,
-                      onLayout: (_) async => doc.save(),
+                      onLayout: (format) async => doc.save(),
                     );
                   }
                 }
               }
 
               if (context.mounted) {
-                snackMsg(
-                  context,
-                  'Sale saved! Receipt: $receiptNumber',
-                  Colors.green,
-                );
+                snackMsg(context, 'Sale saved! Daily No: #$dailyNumber (Receipt: $receiptNumber)', Colors.green);
                 context.read<SalesProvider>().clearCurrentCart();
                 Navigator.pop(context);
               }
             } catch (e) {
               if (context.mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e')),
+                );
               }
             } finally {
               if (context.mounted) {
-                setState(() {
-                  isSaving = false;
-                  activeSubmitIsA4 = null;
-                });
+                setState(() => isSaving = false);
               }
             }
           }
 
           Widget buildAmountField({bool isReadOnly = false}) {
-            return TextFormField(
+            return   TextFormField(
               controller: amountPaidController,
               autofocus: true,
               readOnly: isReadOnly,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
               ],
-              style: TextStyle(color: colorScheme.onSurface, fontSize: 20),
+              style: const TextStyle(color: Colors.white, fontSize: 20),
               onChanged: (value) {
                 setState(() {});
               },
               decoration: InputDecoration(
                 labelText: 'Amount Paid by Customer',
-                labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+                labelStyle: const TextStyle(color: Colors.white70),
                 prefixText: 'GHS ',
-                prefixStyle: TextStyle(
+                prefixStyle: const TextStyle(
                   color: Colors.green,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1255,58 +1365,259 @@ class CustomerInfoDialog {
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: colorScheme.outlineVariant),
+                  borderSide: const BorderSide(color: Colors.white24),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.green, width: 2),
+                  borderSide: const BorderSide(color: Colors.green, width: 2),
                 ),
-                fillColor: colorScheme.surfaceContainerHighest,
+                fillColor: const Color(0xFF22304A),
                 filled: true,
               ),
             );
           }
-
           Widget buildReferenceField() {
-            return TextFormField(
+            return    TextFormField(
               controller: referenceController,
-              style: TextStyle(color: colorScheme.onSurface),
+              style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: ' Reference*',
-                labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-                prefixIcon: Icon(Icons.receipt_long, color: Color(0xFF9C27B0)),
+                labelStyle: const TextStyle(
+                  color: Colors.white70,
+                ),
+                prefixIcon: const Icon(
+                  Icons.receipt_long,
+                  color: Color(0xFF9C27B0),
+                ),
                 filled: true,
-                fillColor: colorScheme.surfaceContainerHighest,
+                fillColor: const Color(0xFF22304A),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
             );
           }
+          // Widget buildMomoFields() {
+          //   if (!canPrint) return const SizedBox();
+          //
+          //   return Column(
+          //     crossAxisAlignment: CrossAxisAlignment.start,
+          //     children: [
+          //       const SizedBox(height: 12),
+          //       Container(
+          //         padding: const EdgeInsets.symmetric(
+          //           horizontal: 16,
+          //         ),
+          //         decoration: BoxDecoration(
+          //           color: const Color(0xFF22304A),
+          //           borderRadius: BorderRadius.circular(12),
+          //         ),
+          //         child: DropdownButtonHideUnderline(
+          //           child: DropdownButton<String>(
+          //             value: selectedMomoNetwork,
+          //             isExpanded: true,
+          //             hint: const Text(
+          //               'Select MOMO Network',
+          //               style: TextStyle(color: Colors.white70),
+          //             ),
+          //             dropdownColor: const Color(0xFF22304A),
+          //             style: const TextStyle(color: Colors.white),
+          //             items: ['MTN', 'Vodafone', 'AirtelTigo'].map(
+          //                   (network) => DropdownMenuItem<String>(
+          //                 value: network,
+          //                 child: Row(
+          //                   children: [
+          //                     Icon(
+          //                       Icons.sim_card,
+          //                       color: network == 'MTN'
+          //                           ? Colors.yellow
+          //                           : network == 'Vodafone'
+          //                           ? Colors.red
+          //                           : Colors.blue,
+          //                     ),
+          //                     const SizedBox(width: 8),
+          //                     Text(network),
+          //                   ],
+          //                 ),
+          //               ),
+          //             ).toList(),
+          //             onChanged: (value) {
+          //               if(value != null){
+          //                 setState(() {
+          //                   selectedMomoNetwork = value;
+          //                 });
+          //               }
+          //             },
+          //           ),
+          //         ),
+          //       ),
+          //       const SizedBox(height: 12),
+          //       TextFormField(
+          //         controller: phoneController,
+          //         keyboardType: TextInputType.phone,
+          //         style: const TextStyle(color: Colors.white),
+          //         // enabled: paymentMethod != 'credit',
+          //         decoration: InputDecoration(
+          //           labelText: 'Phone Number *',
+          //           labelStyle: const TextStyle(
+          //             color: Colors.white70,
+          //           ),
+          //           prefixIcon: const Icon(
+          //             Icons.phone,
+          //             color: Color(0xFF4CAF50),
+          //           ),
+          //           filled: true,
+          //           fillColor: const Color(0xFF22304A),
+          //           border: OutlineInputBorder(
+          //             borderRadius: BorderRadius.circular(12),
+          //           ),
+          //         ),
+          //       ),
+          //       const SizedBox(height: 12),
+          //       buildAmountField(isReadOnly: true),
+          //       const SizedBox(height: 12),
+          //       Column(
+          //         children: [
+          //           for (int index = 0; index < momoTransactionControllers.length; index++)
+          //             Padding(
+          //               padding: const EdgeInsets.only(bottom: 12),
+          //               child: Row(
+          //                 children: [
+          //                   Expanded(
+          //                     child: TextFormField(
+          //                       controller: momoTransactionControllers[index],
+          //                       style: const TextStyle(color: Colors.white),
+          //                       decoration: InputDecoration(
+          //                         labelText: 'Transaction ID ${index + 1}',
+          //                         labelStyle: const TextStyle(color: Colors.white70),
+          //                         prefixIcon: const Icon(
+          //                           Icons.confirmation_number,
+          //                           color: Colors.orange,
+          //                         ),
+          //                         filled: true,
+          //                         fillColor: const Color(0xFF22304A),
+          //                         border: OutlineInputBorder(
+          //                           borderRadius: BorderRadius.circular(12),
+          //                         ),
+          //                       ),
+          //                       textInputAction: TextInputAction.next,
+          //                       onChanged: (value) {
+          //                         momoTransactionTimers[index]?.cancel();
+          //                         momoTransactionTimers[index] = Timer(
+          //                           const Duration(milliseconds: 500),
+          //                           () => fetchMomoAmountForTransaction(index),
+          //                         );
+          //                       },
+          //                       onFieldSubmitted: (_) {
+          //                         fetchMomoAmountForTransaction(index);
+          //                       },
+          //                     ),
+          //                   ),
+          //                   const SizedBox(width: 8),
+          //                   Expanded(
+          //                     child: TextFormField(
+          //                       controller: momoTransactionAmountControllers[index],
+          //                       readOnly: true,
+          //                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          //                       inputFormatters: [
+          //                         FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          //                       ],
+          //                       style: const TextStyle(color: Colors.white),
+          //                       onChanged: (_) {
+          //                         updateMomoPaidTotal();
+          //                       },
+          //                       decoration: InputDecoration(
+          //                         labelText: 'Amount ${index + 1}',
+          //                         labelStyle: const TextStyle(color: Colors.white70),
+          //                         prefixText: 'GHS ',
+          //                         prefixStyle: const TextStyle(
+          //                           color: Colors.green,
+          //                           fontSize: 16,
+          //                           fontWeight: FontWeight.bold,
+          //                         ),
+          //                         filled: true,
+          //                         fillColor: const Color(0xFF22304A),
+          //                         border: OutlineInputBorder(
+          //                           borderRadius: BorderRadius.circular(12),
+          //                         ),
+          //                       ),
+          //                     ),
+          //                   ),
+          //                   if (index > 0) ...[
+          //                     const SizedBox(width: 8),
+          //                     InkWell(
+          //                       onTap: () {
+          //                         setState(() {
+          //                           momoTransactionControllers[index].dispose();
+          //                           momoTransactionAmountControllers[index].dispose();
+          //                           momoTransactionTimers[index]?.cancel();
+          //                           momoTransactionControllers.removeAt(index);
+          //                           momoTransactionAmountControllers.removeAt(index);
+          //                           momoTransactionAmountLoaded.removeAt(index);
+          //                           momoTransactionTimers.removeAt(index);
+          //                           updateMomoPaidTotal();
+          //                         });
+          //                       },
+          //                       child: const Icon(Icons.close, color: Colors.red),
+          //                     ),
+          //                   ],
+          //                 ],
+          //               ),
+          //             ),
+          //           SizedBox(
+          //             width: double.infinity,
+          //             child: OutlinedButton.icon(
+          //               onPressed: () {
+          //                 setState(() {
+          //                   momoTransactionControllers.add(TextEditingController());
+          //                   momoTransactionAmountControllers.add(TextEditingController());
+          //                   momoTransactionAmountLoaded.add(false);
+          //                   momoTransactionTimers.add(null);
+          //                 });
+          //               },
+          //               icon: const Icon(Icons.add, color: Colors.white),
+          //               label: const Text(
+          //                 'Add transaction id',
+          //                 style: TextStyle(color: Colors.white),
+          //               ),
+          //               style: OutlinedButton.styleFrom(
+          //                 side: const BorderSide(color: Colors.white24),
+          //                 backgroundColor: const Color(0xFF22304A),
+          //                 shape: RoundedRectangleBorder(
+          //                   borderRadius: BorderRadius.circular(12),
+          //                 ),
+          //               ),
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //     ],
+          //   );
+          // }
 
           Widget buildMomoFields() {
+
+            if (!canPrint) return const SizedBox();
+
             Widget buildProviderSelector() {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
+                  color: const Color(0xFF22304A),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: selectedMomoProvider,
                     isExpanded: true,
-                    dropdownColor: colorScheme.surfaceContainerHighest,
-                    style: TextStyle(color: colorScheme.onSurface),
-                    items: ['Merchant', 'Hubtel']
-                        .map(
+                    dropdownColor: const Color(0xFF22304A),
+                    style: const TextStyle(color: Colors.white),
+                    items: ['Merchant', 'Hubtel'].map(
                           (provider) => DropdownMenuItem<String>(
-                            value: provider,
-                            child: Text(provider),
-                          ),
-                        )
-                        .toList(),
+                        value: provider,
+                        child: Text(provider),
+                      ),
+                    ).toList(),
                     onChanged: (value) {
                       if (value != null) {
                         setState(() {
@@ -1329,61 +1640,56 @@ class CustomerInfoDialog {
                   TextFormField(
                     controller: phoneController,
                     keyboardType: TextInputType.phone,
-                    style: TextStyle(color: colorScheme.onSurface),
+                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       labelText: 'Phone Number *',
-                      labelStyle: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      prefixIcon: Icon(Icons.phone, color: Color(0xFF4CAF50)),
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.phone, color: Color(0xFF4CAF50)),
                       filled: true,
-                      fillColor: colorScheme.surfaceContainerHighest,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      fillColor: const Color(0xFF22304A),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                    ),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
+                      color: const Color(0xFF22304A),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: colorScheme.outlineVariant),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: selectedMomoNetwork,
                         isExpanded: true,
-                        hint: Text(
+                        hint: const Text(
                           'Select MOMO Network',
-                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                          style: TextStyle(color: Colors.white70),
                         ),
-                        dropdownColor: colorScheme.surfaceContainerHighest,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        items: ['MTN', 'Vodafone', 'AirtelTigo']
-                            .map(
+                        dropdownColor: const Color(0xFF22304A),
+                        style: const TextStyle(color: Colors.white),
+                        items: ['MTN', 'Vodafone', 'AirtelTigo'].map(
                               (network) => DropdownMenuItem<String>(
-                                value: network,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.sim_card,
-                                      color: network == 'MTN'
-                                          ? Colors.yellow
-                                          : network == 'Vodafone'
-                                          ? Colors.red
-                                          : Colors.blue,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(network),
-                                  ],
+                            value: network,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.sim_card,
+                                  color: network == 'MTN'
+                                      ? Colors.yellow
+                                      : network == 'Vodafone'
+                                      ? Colors.red
+                                      : Colors.blue,
                                 ),
-                              ),
-                            )
-                            .toList(),
+                                const SizedBox(width: 8),
+                                Text(network),
+                              ],
+                            ),
+                          ),
+                        ).toList(),
                         onChanged: (value) {
-                          if (value != null) {
+                          if(value != null){
                             setState(() {
                               selectedMomoNetwork = value;
                             });
@@ -1392,6 +1698,8 @@ class CustomerInfoDialog {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  buildAmountField(),
                 ],
               );
             }
@@ -1403,45 +1711,44 @@ class CustomerInfoDialog {
                 buildProviderSelector(),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                  ),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
+                    color: const Color(0xFF22304A),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: colorScheme.outlineVariant),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: selectedMomoNetwork,
                       isExpanded: true,
-                      hint: Text(
+                      hint: const Text(
                         'Select MOMO Network',
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        style: TextStyle(color: Colors.white70),
                       ),
-                      dropdownColor: colorScheme.surfaceContainerHighest,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      items: ['MTN', 'Vodafone', 'AirtelTigo']
-                          .map(
+                      dropdownColor: const Color(0xFF22304A),
+                      style: const TextStyle(color: Colors.white),
+                      items: ['MTN', 'Vodafone', 'AirtelTigo'].map(
                             (network) => DropdownMenuItem<String>(
-                              value: network,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.sim_card,
-                                    color: network == 'MTN'
-                                        ? Colors.yellow
-                                        : network == 'Vodafone'
-                                        ? Colors.red
-                                        : Colors.blue,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(network),
-                                ],
+                          value: network,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.sim_card,
+                                color: network == 'MTN'
+                                    ? Colors.yellow
+                                    : network == 'Vodafone'
+                                    ? Colors.red
+                                    : Colors.blue,
                               ),
-                            ),
-                          )
-                          .toList(),
+                              const SizedBox(width: 8),
+                              Text(network),
+                            ],
+                          ),
+                        ),
+                      ).toList(),
                       onChanged: (value) {
-                        if (value != null) {
+                        if(value != null){
                           setState(() {
                             selectedMomoNetwork = value;
                           });
@@ -1454,13 +1761,18 @@ class CustomerInfoDialog {
                 TextFormField(
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  style: TextStyle(color: colorScheme.onSurface),
+                  style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Phone Number *',
-                    labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-                    prefixIcon: Icon(Icons.phone, color: Color(0xFF4CAF50)),
+                    labelStyle: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.phone,
+                      color: Color(0xFF4CAF50),
+                    ),
                     filled: true,
-                    fillColor: colorScheme.surfaceContainerHighest,
+                    fillColor: const Color(0xFF22304A),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1471,11 +1783,7 @@ class CustomerInfoDialog {
                 const SizedBox(height: 12),
                 Column(
                   children: [
-                    for (
-                      int index = 0;
-                      index < momoTransactionControllers.length;
-                      index++
-                    )
+                    for (int index = 0; index < momoTransactionControllers.length; index++)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Row(
@@ -1483,19 +1791,16 @@ class CustomerInfoDialog {
                             Expanded(
                               child: TextFormField(
                                 controller: momoTransactionControllers[index],
-                                style: TextStyle(color: colorScheme.onSurface),
+                                style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
                                   labelText: 'Transaction ID ${index + 1}',
-                                  labelStyle: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  prefixIcon: Icon(
+                                  labelStyle: const TextStyle(color: Colors.white70),
+                                  prefixIcon: const Icon(
                                     Icons.confirmation_number,
                                     color: Colors.orange,
                                   ),
                                   filled: true,
-                                  fillColor:
-                                      colorScheme.surfaceContainerHighest,
+                                  fillColor: const Color(0xFF22304A),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1505,7 +1810,7 @@ class CustomerInfoDialog {
                                   momoTransactionTimers[index]?.cancel();
                                   momoTransactionTimers[index] = Timer(
                                     const Duration(milliseconds: 500),
-                                    () => fetchMomoAmountForTransaction(index),
+                                        () => fetchMomoAmountForTransaction(index),
                                   );
                                 },
                                 onFieldSubmitted: (_) {
@@ -1516,36 +1821,27 @@ class CustomerInfoDialog {
                             const SizedBox(width: 8),
                             Expanded(
                               child: TextFormField(
-                                controller:
-                                    momoTransactionAmountControllers[index],
+                                controller: momoTransactionAmountControllers[index],
                                 readOnly: true,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                 inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'^\d*\.?\d*'),
-                                  ),
+                                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                                 ],
-                                style: TextStyle(color: colorScheme.onSurface),
+                                style: const TextStyle(color: Colors.white),
                                 onChanged: (_) {
                                   updateMomoPaidTotal();
                                 },
                                 decoration: InputDecoration(
                                   labelText: 'Amount ${index + 1}',
-                                  labelStyle: TextStyle(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
+                                  labelStyle: const TextStyle(color: Colors.white70),
                                   prefixText: 'GHS ',
-                                  prefixStyle: TextStyle(
+                                  prefixStyle: const TextStyle(
                                     color: Colors.green,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                   filled: true,
-                                  fillColor:
-                                      colorScheme.surfaceContainerHighest,
+                                  fillColor: const Color(0xFF22304A),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1558,19 +1854,16 @@ class CustomerInfoDialog {
                                 onTap: () {
                                   setState(() {
                                     momoTransactionControllers[index].dispose();
-                                    momoTransactionAmountControllers[index]
-                                        .dispose();
+                                    momoTransactionAmountControllers[index].dispose();
                                     momoTransactionTimers[index]?.cancel();
                                     momoTransactionControllers.removeAt(index);
-                                    momoTransactionAmountControllers.removeAt(
-                                      index,
-                                    );
+                                    momoTransactionAmountControllers.removeAt(index);
                                     momoTransactionAmountLoaded.removeAt(index);
                                     momoTransactionTimers.removeAt(index);
                                     updateMomoPaidTotal();
                                   });
                                 },
-                                child: Icon(Icons.close, color: Colors.red),
+                                child: const Icon(Icons.close, color: Colors.red),
                               ),
                             ],
                           ],
@@ -1581,24 +1874,20 @@ class CustomerInfoDialog {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           setState(() {
-                            momoTransactionControllers.add(
-                              TextEditingController(),
-                            );
-                            momoTransactionAmountControllers.add(
-                              TextEditingController(),
-                            );
+                            momoTransactionControllers.add(TextEditingController());
+                            momoTransactionAmountControllers.add(TextEditingController());
                             momoTransactionAmountLoaded.add(false);
                             momoTransactionTimers.add(null);
                           });
                         },
-                        icon: Icon(Icons.add, color: colorScheme.onSurface),
-                        label: Text(
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        label: const Text(
                           'Add transaction id',
-                          style: TextStyle(color: colorScheme.onSurface),
+                          style: TextStyle(color: Colors.white),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: colorScheme.outlineVariant),
-                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          side: const BorderSide(color: Colors.white24),
+                          backgroundColor: const Color(0xFF22304A),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -1610,7 +1899,6 @@ class CustomerInfoDialog {
               ],
             );
           }
-
           Widget buildCardFields() {
             if (!canPrint) return const SizedBox();
 
@@ -1625,7 +1913,6 @@ class CustomerInfoDialog {
               ],
             );
           }
-
           Widget buildBankFields() {
             if (!canPrint) return const SizedBox();
 
@@ -1640,44 +1927,45 @@ class CustomerInfoDialog {
               ],
             );
           }
-
           Widget buildCreditFields() {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: const Color(0xFF415A77),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () async {
-                      final picked =
-                          await CustomerSelectionDialog.showCustomerDialog(
-                            context: context,
-                            // salesItems: salesItems,
-                          );
+                      final picked = await CustomerSelectionDialog.showCustomerDialog(
+                        context: context,
+                       // salesItems: salesItems,
+                      );
 
                       if (picked != null) {
-                        setState(() {});
+                        setState(() {
+
+                        });
                       }
 
                       if (picked == null) return;
                       setState(() {
                         selectedCreditCustomer = picked;
                         nameController.text = (picked['name'] ?? '').toString();
-                        phoneController.text =
-                            (picked['contact'] ?? picked['phone'] ?? '')
-                                .toString();
+                        phoneController.text = (picked['contact'] ??  picked['phone'] ??  '').toString();
                       });
                     },
-                    icon: Icon(Icons.search),
+                    icon: const Icon(Icons.search),
                     label: Text(
                       selectedCreditCustomer == null
                           ? 'Select Customer (Credit)'
@@ -1691,32 +1979,33 @@ class CustomerInfoDialog {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
+                      color: const Color(0xFF22304A),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          (selectedCreditCustomer?['name'] ?? '').toString(),
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
+                          (selectedCreditCustomer?['name'] ?? '')
+                              .toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Phone: ${(selectedCreditCustomer?['contact'] ?? selectedCreditCustomer?['phone'] ?? '').toString()}',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
+                          style: const TextStyle(
+                            color: Colors.white70,
                             fontSize: 12,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Credit Limit: ${(selectedCreditCustomer?['creditlimit'] ?? 'N/A').toString()}',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
+                          style: const TextStyle(
+                            color: Colors.white70,
                             fontSize: 12,
                           ),
                         ),
@@ -1728,7 +2017,6 @@ class CustomerInfoDialog {
               ],
             );
           }
-
           Widget buildCashFields() {
             return Column(
               children: [
@@ -1737,132 +2025,110 @@ class CustomerInfoDialog {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: const Color(0xFF415A77),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () async {
-                      final picked =
-                          await CustomerSelectionDialog.showCustomerDialog(
-                            context: context,
-                            // salesItems: salesItems,
-                          );
+                      final picked = await CustomerSelectionDialog.showCustomerDialog(
+                        context: context,
+                        // salesItems: salesItems,
+                      );
 
                       if (picked != null) {
-                        setState(() {});
+                        setState(() {
+
+                        });
                       }
 
                       if (picked == null) return;
                       setState(() {
                         selectedCreditCustomer = picked;
                         nameController.text = (picked['name'] ?? '').toString();
-                        phoneController.text =
-                            (picked['contact'] ?? picked['phone'] ?? '')
-                                .toString();
+                        phoneController.text = (picked['contact'] ??  picked['phone'] ??  '').toString();
                       });
                     },
-                    icon: Icon(Icons.search),
+                    icon: const Icon(Icons.search),
                     label: Text(
                       selectedCreditCustomer == null
-                          ? (isSalesPoint
-                                ? 'Select Customer'
-                                : 'Select Customer (Credit)')
+                          ? 'Select Customer (Credit)'
                           : 'Change Customer',
                     ),
                   ),
                 ),
-                if (isSalesPoint && selectedCreditCustomer != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
+                const SizedBox(height: 12),
+                if(canPrint || isSalesBranch)...[
+                TextFormField(
+                  controller: nameController,
+                  style: const TextStyle(color: Colors.white),
+                  // enabled: paymentMethod != 'credit',
+                  decoration: InputDecoration(
+                    labelText: 'Customer Name *',
+                    labelStyle: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.person,
+                      color: Color(0xFFFF9800),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF22304A),
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          (selectedCreditCustomer?['name'] ?? '').toString(),
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Phone: ${(selectedCreditCustomer?['contact'] ?? selectedCreditCustomer?['phone'] ?? '').toString()}',
-                          style: TextStyle(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ],
+                ),
                 const SizedBox(height: 12),
-                if (canPrint || isSalesBranch) ...[
-                  TextFormField(
-                    controller: nameController,
-                    style: TextStyle(color: colorScheme.onSurface),
-                    // enabled: paymentMethod != 'credit',
-                    decoration: InputDecoration(
-                      labelText: 'Customer Name *',
-                      labelStyle: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      prefixIcon: Icon(Icons.person, color: Color(0xFFFF9800)),
-                      filled: true,
-                      fillColor: colorScheme.surfaceContainerHighest,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                TextFormField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  style: const TextStyle(color: Colors.white),
+                  // enabled: paymentMethod != 'credit',
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number *',
+                    labelStyle: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.phone,
+                      color: Color(0xFF4CAF50),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF22304A),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: phoneController,
-                    keyboardType: TextInputType.phone,
-                    style: TextStyle(color: colorScheme.onSurface),
-                    // enabled: paymentMethod != 'credit',
-                    decoration: InputDecoration(
-                      labelText: 'Phone Number *',
-                      labelStyle: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      prefixIcon: Icon(Icons.phone, color: Color(0xFF4CAF50)),
-                      filled: true,
-                      fillColor: colorScheme.surfaceContainerHighest,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
+                ),
                   const SizedBox(height: 2),
                 ],
                 const SizedBox(height: 5),
               ],
             );
           }
-
-          Widget buildCustomerInfo() {
+          Widget buildCustomerInfo(){
             return Column(
               children: [
                 TextFormField(
                   controller: nameController,
-                  style: TextStyle(color: colorScheme.onSurface),
+                  style: const TextStyle(color: Colors.white),
                   enabled: paymentMethod != 'credit',
                   decoration: InputDecoration(
                     labelText: 'Customer Name *',
-                    labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-                    prefixIcon: Icon(Icons.person, color: Color(0xFFFF9800)),
+                    labelStyle: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.person,
+                      color: Color(0xFFFF9800),
+                    ),
                     filled: true,
-                    fillColor: colorScheme.surfaceContainerHighest,
+                    fillColor: const Color(0xFF22304A),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1874,14 +2140,19 @@ class CustomerInfoDialog {
                 TextFormField(
                   controller: phoneController,
                   keyboardType: TextInputType.phone,
-                  style: TextStyle(color: colorScheme.onSurface),
+                  style: const TextStyle(color: Colors.white),
                   enabled: paymentMethod != 'credit',
                   decoration: InputDecoration(
                     labelText: 'Phone Number *',
-                    labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-                    prefixIcon: Icon(Icons.phone, color: Color(0xFF4CAF50)),
+                    labelStyle: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.phone,
+                      color: Color(0xFF4CAF50),
+                    ),
                     filled: true,
-                    fillColor: colorScheme.surfaceContainerHighest,
+                    fillColor: const Color(0xFF22304A),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1890,7 +2161,6 @@ class CustomerInfoDialog {
               ],
             );
           }
-
           Widget buildPaymentFields() {
             switch (paymentMethod) {
               case 'momo':
@@ -1913,7 +2183,6 @@ class CustomerInfoDialog {
                 return const SizedBox();
             }
           }
-
           return Dialog(
             backgroundColor: Colors.transparent,
             insetPadding: EdgeInsets.symmetric(
@@ -1929,7 +2198,7 @@ class CustomerInfoDialog {
                   maxHeight: MediaQuery.of(context).size.height * 0.90,
                 ),
                 decoration: BoxDecoration(
-                  color: colorScheme.surface,
+                  color: const Color(0xFF1A2332),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -1937,22 +2206,22 @@ class CustomerInfoDialog {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [colorScheme.primary, colorScheme.secondary],
+                          colors: [Color(0xFFFF6F00), Color(0xFFFF9800)],
                         ),
                         borderRadius: BorderRadius.vertical(
                           top: Radius.circular(20),
                         ),
                       ),
                       child: Row(
-                        children: [
-                          Icon(Icons.person_add, color: colorScheme.onPrimary),
+                        children: const [
+                          Icon(Icons.person_add, color: Colors.white),
                           SizedBox(width: 10),
                           Text(
                             'Customer Information',
                             style: TextStyle(
-                              color: colorScheme.onPrimary,
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18,
                             ),
@@ -1960,50 +2229,46 @@ class CustomerInfoDialog {
                         ],
                       ),
                     ),
-
+              
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Payment Method',
                               style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
+                                color: Colors.white70,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 12),
-
+              
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest,
+                                color: const Color(0xFF22304A),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Builder(
-                                builder: (context) {
+                               builder: (context) {
                                   // Normalize allowed payment methods to a set.
-                                  final allowedSet = allowed
-                                      .map(
-                                        (e) =>
-                                            e.toString().trim().toLowerCase(),
-                                      )
-                                      .where((e) => e.isNotEmpty)
-                                      .toSet();
+                                  final allowedSet = allowed.map((e) => e.toString().trim().toLowerCase(),)
+                                      .where((e) => e.isNotEmpty).toSet();
                                   final bool gate = allowedSet.isNotEmpty;
-
+              
                                   bool isAllowed(String method) {
                                     if (!gate) return false;
                                     return allowedSet.contains(method);
                                   }
-
+              
                                   Widget methodTile({
                                     required String label,
                                     required String value,
                                     required Color active,
-                                  }) {
+                                  })
+                                  {
                                     if (!isAllowed(value)) {
                                       return const SizedBox.shrink();
                                     }
@@ -2013,18 +2278,16 @@ class CustomerInfoDialog {
                                         dense: true,
                                         visualDensity: VisualDensity.compact,
                                         contentPadding: EdgeInsets.zero,
-                                        materialTapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        title: Text(
-                                          label,
-                                          style: TextStyle(
-                                            color: colorScheme.onSurface,
+                                        materialTapTargetSize:   MaterialTapTargetSize.shrinkWrap,
+                                        title: Text( label,
+                                          style: const TextStyle(
+                                            color: Colors.white,
                                           ),
                                         ),
                                         value: value,
                                         groupValue: paymentMethod,
-                                        onChanged: (val) async {
-                                          setState(() {
+                                        onChanged: (val) async{
+                                          setState(()  {
                                             paymentMethod = val!;
                                             amountPaidController.clear();
                                             referenceController.clear();
@@ -2035,25 +2298,25 @@ class CustomerInfoDialog {
                                             }
                                             if (paymentMethod != 'momo') {
                                               selectedMomoNetwork = 'MTN';
+
                                             }
                                           });
+
                                         },
                                         activeColor: active,
-                                        fillColor:
-                                            MaterialStateProperty.resolveWith<
-                                              Color
-                                            >((states) {
-                                              if (states.contains(
-                                                MaterialState.selected,
-                                              )) {
-                                                return active;
-                                              }
-                                              return colorScheme.onSurfaceVariant;
-                                            }),
+                                        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
+                                          if (states.contains(
+                                            MaterialState.selected,
+                                          ))
+                                          {
+                                            return active;
+                                          }
+                                          return Colors.white54;
+                                        }),
                                       ),
                                     );
                                   }
-
+              
                                   final methodWidgets = <Widget>[
                                     methodTile(
                                       label: 'Credit',
@@ -2085,40 +2348,40 @@ class CustomerInfoDialog {
                                       value: 'momo',
                                       active: const Color(0xFFE91E63),
                                     ),
+                                    methodTile(
+                                      label: 'Hubtel',
+                                      value: 'hubtel',
+                                      active: const Color(0xFF00C853),
+                                    ),
                                   ].where((w) => w is! SizedBox).toList();
-
+              
                                   if (methodWidgets.isEmpty) {
-                                    return Padding(
+                                    return const Padding(
                                       padding: EdgeInsets.all(8.0),
                                       child: Text(
                                         'No payment methods enabled for this user.\nEnable them in Staff setup.',
-                                        style: TextStyle(
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
+                                        style: TextStyle(color: Colors.white70),
                                       ),
                                     );
                                   }
-
+              
                                   return LayoutBuilder(
                                     builder: (context, constraints) {
                                       final width = constraints.maxWidth;
                                       final columns = width < 360 ? 1 : 2;
                                       final spacing = 12.0;
-                                      final tileWidth = columns == 1
-                                          ? width
+                                      final tileWidth = columns == 1  ? width
                                           : (width - spacing) / 2;
-
+              
                                       return Wrap(
                                         spacing: spacing,
                                         runSpacing: 6,
                                         children: methodWidgets
-                                            .map(
-                                              (w) => SizedBox(
-                                                width: tileWidth,
-                                                child: w,
-                                              ),
-                                            )
-                                            .toList(),
+                                            .map((w) => SizedBox(
+                                            width: tileWidth,
+                                            child: w,
+                                          ),
+                                        ).toList(),
                                       );
                                     },
                                   );
@@ -2135,23 +2398,19 @@ class CustomerInfoDialog {
                             // if(!canPrint || (paymentMethod =='credit'))...[
                             //   buildCustomerInfo(),
                             // ],
-                            if ((!canPrint && paymentMethod != 'cash') ||
-                                (paymentMethod == 'credit')) ...[
+                            if((!canPrint && paymentMethod != 'cash') || (paymentMethod == 'credit'))...[
                               buildCustomerInfo(),
                             ],
                             const SizedBox(height: 10),
-                            Divider(color: colorScheme.outlineVariant),
+                            const Divider(color: Colors.white24),
 
                             // Printer Status Card
                             if (canPrint || isSalesBranch)
-                              Container(
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 0,
-                                  vertical: 12,
-                                ),
+                           Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest,
+                                  color: const Color(0xFF22304A),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: Colors.teal.withOpacity(0.5),
@@ -2162,18 +2421,15 @@ class CustomerInfoDialog {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(
+                                            const Text(
                                               'Printer',
                                               style: TextStyle(
-                                                color: colorScheme
-                                                    .onSurfaceVariant,
+                                                color: Colors.white70,
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -2187,45 +2443,28 @@ class CustomerInfoDialog {
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  _selectedPrinter ??
-                                                      'No printer',
-                                                  style: TextStyle(
-                                                    color:
-                                                        colorScheme.onSurface,
+                                                  _selectedPrinter ?? 'No printer',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
                                                     fontSize: 14,
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
-                                                if (_selectedPrinter ==
-                                                        _savedPrinter &&
-                                                    _savedPrinter != null)
+                                                if (_selectedPrinter == _savedPrinter && _savedPrinter != null)
                                                   Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          left: 8,
-                                                        ),
+                                                    padding: const EdgeInsets.only(left: 8),
                                                     child: Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 2,
-                                                          ),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: Colors.green
-                                                            .withOpacity(0.3),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              4,
-                                                            ),
+                                                        color: Colors.green.withOpacity(0.3),
+                                                        borderRadius: BorderRadius.circular(4),
                                                       ),
-                                                      child: Text(
+                                                      child: const Text(
                                                         'SAVED',
                                                         style: TextStyle(
-                                                          color: Colors
-                                                              .greenAccent,
+                                                          color: Colors.greenAccent,
                                                           fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.bold,
+                                                          fontWeight: FontWeight.bold,
                                                         ),
                                                       ),
                                                     ),
@@ -2236,25 +2475,16 @@ class CustomerInfoDialog {
                                         ),
                                         ElevatedButton.icon(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.teal
-                                                .withOpacity(0.3),
+                                            backgroundColor: Colors.teal.withOpacity(0.3),
                                             foregroundColor: Colors.teal,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
                                           ),
-                                          onPressed: () =>
-                                              _showPrinterSelectionDialog(
-                                                context,
-                                                setState,
-                                              ),
-                                          icon: Icon(Icons.edit, size: 16),
-                                          label: Text(
+                                          onPressed: () => _showPrinterSelectionDialog(context, setState),
+                                          icon: const Icon(Icons.edit, size: 16),
+                                          label: const Text(
                                             'Change',
                                             style: TextStyle(fontSize: 12),
                                           ),
@@ -2265,104 +2495,72 @@ class CustomerInfoDialog {
                                 ),
                               ),
 
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    onPressed: isSaving
-                                        ? null
-                                        : () => Navigator.pop(context),
-                                    child: Text(
-                                      'Cancel',
-                                      style: TextStyle(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
+                        Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
 
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFFFF9800),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: isSaving
-                                        ? null
-                                        : () async =>
-                                              submitSale(printA4: false),
-                                    child: isSaving && activeSubmitIsA4 == false
-                                        ? SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: colorScheme.onPrimary,
-                                            ),
-                                          )
-                                        : Text(
-                                            'Save Customer',
-                                            style: TextStyle(
-                                              color: colorScheme.onPrimary,
-                                            ),
-                                          ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  if (canPrint)
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.teal,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 24,
-                                          vertical: 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                      ),
-                                      onPressed: isSaving
-                                          ? null
-                                          : () async =>
-                                                submitSale(printA4: true),
-                                      child: isSaving && activeSubmitIsA4 == true
-                                          ? SizedBox(
-                                              height: 20,
-                                              width: 20,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: colorScheme.onPrimary,
-                                              ),
-                                            )
-                                          : Text(
-                                              'A4 Print',
-                                              style: TextStyle(
-                                                color: colorScheme.onPrimary,
-                                              ),
-                                            ),
-                                    ),
-                                ],
+                         TextButton(
+                            onPressed: isSaving ? null
+                                : () => Navigator.pop(context),
+                            child: const Text('Cancel', style: TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF9800),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                          ],
-                        ),
+                            onPressed: isSaving ? null : () async => submitSale(printA4: false),
+                            child: isSaving
+                                ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                                : const Text('Save Customer', style: TextStyle(color: Colors.white)),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: isSaving ? null : () async => submitSale(printA4: true),
+                            child: isSaving
+                                ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                                : const Text('A4 Print', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+            ],
+            ),
+            ),
+            ),
           );
+
         },
+
       ),
     );
+
   }
 }

@@ -1,236 +1,325 @@
-
-
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:pdf/pdf.dart';
+import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
 
 import '../models/Receiptdatamodel.dart';
 
-String _qty(double q) =>
-    q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(2);
-
 class ReceiptPrinter {
-  static String _money(double v) => v.toStringAsFixed(2);
-  static String _gh(double v) => 'GHS ${_money(v)}';
-  static String _two(int n) => n.toString().padLeft(2, '0');
-
-
-  static const PdfPageFormat roll80 = PdfPageFormat(
-    72.1 * PdfPageFormat.mm,
-    double.infinity,
-    marginAll: 0,
-  );
-
   static PdfPageFormat getFormat(String size) {
     switch (size.toLowerCase()) {
       case 'thermal':
       case '80mm':
+        return PdfPageFormat(72.1 * PdfPageFormat.mm, 210 * PdfPageFormat.mm);
       case '58mm':
-        return roll80;
+        return PdfPageFormat(58 * PdfPageFormat.mm, 210 * PdfPageFormat.mm);
+      case 'a4':
       default:
         return PdfPageFormat.a4;
     }
   }
 
-  static Future<pw.Document> build(
+  PdfPageFormat _sanitizeFormat(PdfPageFormat format) {
+    final width = (format.width.isFinite && format.width > 0)
+        ? format.width
+        : 72.1 * PdfPageFormat.mm;
+    final height = (format.height.isFinite && format.height > 0)
+        ? format.height
+        : 210 * PdfPageFormat.mm;
+    return PdfPageFormat(width, height);
+  }
+
+  Future<pw.Document> buildPdf(
       ReceiptData data, {
-        required PdfPageFormat format,
+        PdfPageFormat pageFormat = PdfPageFormat.a4,
       }) async {
-    final reg =
+    pageFormat = _sanitizeFormat(pageFormat);
+
+    final ttfRegular =
     pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
-    final bold =
+    final ttfBold =
     pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
-    final mute = PdfColor.fromHex('#555555');
 
-    String _cap(String s) => s.trim().split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty).map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+    final doc = pw.Document(title: data.transactionId);
 
-    final isRoll = format.height == double.infinity;
-    const pageMargin = 24.0;
-    final usable =
-    isRoll ? format.availableWidth : format.width - pageMargin * 2;
-    final s = (usable / 198).clamp(1.0, 1.6).toDouble();
+    final isThermal = pageFormat.width <= 80 * PdfPageFormat.mm;
+    final pageMargin = isThermal ? 0.0 : 10.0;
+    final cardPadding = isThermal ? 4.0 : 14.0;
+    final qrSize = (pageFormat.width - (pageMargin * 2) - (cardPadding * 2)) *
+        (isThermal ? 0.25 : 0.18);
 
-    pw.TextStyle st(double size, {bool b = false, PdfColor? color}) =>
-        pw.TextStyle(
-            font: b ? bold : reg,
-            fontSize: size * s,
-            color: color ?? PdfColors.black);
-
-    //data
-    final isSalesPoint =
-        (data.branchType ?? '').trim().toLowerCase() == 'sales point';
-    final title = data.receiptName.trim().isEmpty
-        ? 'SALES RECEIPT'
+    final now = DateTime.now();
+    final isChristmas = now.month == 12;
+    final cashierName = data.cashier.trim();
+    final receiptTitle = data.receiptName.trim().isEmpty
+        ? 'OFFICIAL RECEIPT'
         : data.receiptName.toUpperCase();
-    final company = data.companyName.trim().toUpperCase();
-    final branch = (data.branch ?? '').trim();
+    final companyName = data.companyName.trim().toUpperCase();
+    final branchName = (data.branch ?? '').trim();
+    final branchType = (data.branchType ?? '').trim();
     final address = (data.address ?? '').trim();
-    final cashier = _cap(data.cashier.trim().split(' ').first);
-    final customer = data.customername.trim().isEmpty
+
+    final customerName = data.customername.trim().isEmpty
         ? 'Cash Customer'
         : data.customername.trim();
     final barcodeText = data.barcode.trim().isNotEmpty
         ? data.barcode.trim()
         : data.receiptNumber;
-    final when = data.datetime;
-    final units = data.items.fold<double>(0, (a, i) => a + i.qty.toDouble());
-    final change = data.change < 0 ? 0.0 : data.change.toDouble();
-    final isChristmas = DateTime.now().month == 12;
 
-
-    String itemName(dynamic i) {
-      return (i.isService || i.mode.trim().isEmpty)
-          ? i.name.toString()
-          : '${i.name} (${i.mode})';
+    pw.Widget dashedLine() {
+      return pw.Text(
+        '------------------------------------------------------------',
+        style: pw.TextStyle(font: ttfRegular, fontSize: 8, color: PdfColors.grey800),
+        textAlign: pw.TextAlign.center,
+      );
     }
 
-    String itemWarehouse(dynamic i) {
-      if (!isSalesPoint) return '';
-      final wh = (i.branch ?? '').toString().trim();
-      return wh.isEmpty ? '' : '($wh)';
-    }
-    pw.Widget dashed() => pw.Divider(
-        height: 6, thickness: 0.6, borderStyle: pw.BorderStyle.dashed);
-    pw.Widget solid() => pw.Divider(height: 10, thickness: 1.6);
-
-    pw.Widget centered(String t,
-        {double size = 8.5, bool b = false, PdfColor? c}) =>
-        pw.Center(
-            child: pw.Text(t,
-                style: st(size, b: b, color: c),
-                textAlign: pw.TextAlign.center));
-
-    pw.Widget kv(String a, String v, {double size = 8.5, bool b = false}) =>
-        pw.Row(
+    pw.Widget infoRow(String label, String value) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+        child: pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text(a, style: st(size, b: b)),
-            pw.Text(v, style: st(size, b: b)),
+            pw.Text(label, style: pw.TextStyle(font: ttfRegular, fontSize: 9)),
+            pw.Text(value, style: pw.TextStyle(font: ttfRegular, fontSize: 9)),
           ],
-        );
-
-    pw.Widget cols(String a, String q, String p, String t,
-        {bool b = false, double size = 8.5}) =>
-        pw.Row(children: [
-          pw.Expanded(child: pw.Text(a, style: st(size, b: b))),
-          pw.SizedBox(
-              width: 20 * s,
-              child: pw.Text(q,
-                  style: st(size, b: b), textAlign: pw.TextAlign.right)),
-          pw.SizedBox(width: 5 * s),
-          pw.SizedBox(
-              width: 40 * s,
-              child: pw.Text(p,
-                  style: st(size, b: b), textAlign: pw.TextAlign.right)),
-          pw.SizedBox(width: 5 * s),
-          pw.SizedBox(
-              width: 46 * s,
-              child: pw.Text(t,
-                  style: st(size, b: b), textAlign: pw.TextAlign.right)),
-        ]);
-
-    //content
-    final content = <pw.Widget>[
-      centered(company, size: 15, b: true),
-      if (branch.isNotEmpty) centered(branch, size: 8, c: mute),
-      for (final line in address.split('\n'))
-        if (line.trim().isNotEmpty) centered(line),
-      if (data.contact.trim().isNotEmpty) centered('Tel: ${data.contact}'),
-      dashed(),
-      centered(title, size: 10, b: true),
-      dashed(),
-      kv('Receipt Id:', data.receiptNumber),
-      kv('Date:', '${when.day}th ${when.month} ${when.year}'),
-      kv('Time:',
-          '${_two(when.hour)}:${_two(when.minute)}:${_two(when.second)}'),
-      kv('Cashier Name:', cashier),
-      kv('CustomerName:', customer),
-      dashed(),
-      cols('ITEM', 'QTY', 'UNIT PRICE', 'TOTAL', b: true, size: 8),
-      pw.Divider(height: 4, thickness: 0.6),
-
-      for (final i in data.items)
-        pw.Padding(
-          padding: const pw.EdgeInsets.only(bottom: 4),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              cols(
-                itemName(i),
-                _qty(i.qty.toDouble()),
-                _money(i.price.toDouble()),
-                _money(i.qty.toDouble() * i.price.toDouble()),
-                b: true,
-              ),
-              if (itemWarehouse(i).isNotEmpty)
-                pw.Text(itemWarehouse(i), style: st(7, color: mute)),
-            ],
-          ),
         ),
-      dashed(),
-      kv('Subtotal', _gh(data.subTotal.toDouble())),
-      kv('Discount', '-${_gh(data.discount.toDouble())}'),
-      solid(),
-      kv('Total', _gh(data.payable.toDouble()), size: 11, b: true),
-      solid(),
-      kv('Amount Paid', _gh(data.amountPaid.toDouble())),
-      kv('Change', _gh(change), b: true),
-      dashed(),
-      centered(isChristmas
-          ? 'Thank you for choosing ${data.companyName.trim()}. Happy Christmas!'
-          : 'Thank you for choosing ${data.companyName.trim()}!'),
-      if (data.companyName.toLowerCase() == 'farmertribe')
-        centered(
-          'Exchanges accepted within 7 days. No cash refund.',
-          size: 8,
-          c: mute,
-        )
-      else
-        centered(
-          'Goods sold are not returnable.',
-          size: 8,
-          c: mute,
-        ),
-      pw.SizedBox(height: 1),
-      centered('POWERED BY KOLOGSOFT', size: 7, c: mute),
-      dashed(),
-      pw.SizedBox(height: 1),
-      pw.Center(
-        child: pw.BarcodeWidget(
-          barcode: pw.Barcode.qrCode(),
-          data: barcodeText,
-          width: 30,
-          height: 30,
-          drawText: false,
-          color: PdfColors.black,
-        ),
-      ),
-     // pw.Text('scan to verify')
-      dashed(),
-      if ((data.dailyNumber ?? '').isNotEmpty)
-        kv('RECEIPT NO:', '#${data.dailyNumber}',size: 16, b: true),
-    ];
-
-    final doc = pw.Document(title: data.transactionId);
-
-    if (isRoll) {
-      doc.addPage(pw.Page(
-        pageFormat: format,
-        margin: const pw.EdgeInsets.all(4),
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-          children: content,
-        ),
-      ));
-    } else {
-      doc.addPage(pw.MultiPage(
-        pageFormat: format,
-        margin: const pw.EdgeInsets.all(pageMargin),
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        build: (context) => content,
-      ));
+      );
     }
+
+    pw.Widget summaryRow(String title, double amount, {bool bold = false, double fontSize = 9, bool isNegative = false}) {
+      final font = bold ? ttfBold : ttfRegular;
+      final prefix = isNegative ? '-' : '';
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(title, style: pw.TextStyle(font: font, fontSize: fontSize, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+            pw.Text('${prefix}GHS ${amount.toStringAsFixed(2)}', style: pw.TextStyle(font: font, fontSize: fontSize, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal)),
+          ],
+        ),
+      );
+    }
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.symmetric(vertical: pageMargin, horizontal: pageMargin),
+        build: (pw.Context context) {
+          return [
+            // Company Header
+            pw.Center(
+              child: pw.Text(
+                companyName,
+                style: pw.TextStyle(font: ttfBold, fontSize: 16, color: PdfColors.black),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+            if (branchType.isNotEmpty) ...[
+              pw.SizedBox(height: 2),
+              pw.Center(
+                child: pw.Text(
+                  branchType,
+                  style: pw.TextStyle(font: ttfRegular, fontSize: 9),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ],
+            if (branchName.isNotEmpty && branchName != branchType) ...[
+              pw.SizedBox(height: 1),
+              pw.Center(
+                child: pw.Text(
+                  branchName,
+                  style: pw.TextStyle(font: ttfRegular, fontSize: 9),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ],
+            if (address.isNotEmpty) ...[
+              pw.SizedBox(height: 1),
+              pw.Center(
+                child: pw.Text(
+                  address,
+                  style: pw.TextStyle(font: ttfRegular, fontSize: 9),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ],
+            if (data.contact.isNotEmpty) ...[
+              pw.SizedBox(height: 1),
+              pw.Center(
+                child: pw.Text(
+                  'Tel: ${data.contact}',
+                  style: pw.TextStyle(font: ttfRegular, fontSize: 9),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ],
+
+            pw.SizedBox(height: 4),
+            dashedLine(),
+            pw.SizedBox(height: 4),
+
+            // Official Receipt Title
+            pw.Center(
+              child: pw.Text(
+                receiptTitle,
+                style: pw.TextStyle(font: ttfBold, fontSize: 12, color: PdfColors.black),
+              ),
+            ),
+
+            pw.SizedBox(height: 4),
+            dashedLine(),
+            pw.SizedBox(height: 4),
+
+            // Metadata
+            infoRow('Receipt No:', data.receiptNumber),
+            infoRow('Date:', _formatPdfDate(data.datetime)),
+            infoRow('Time:', _formatPdfTime(data.datetime)),
+            infoRow('Cashier:', cashierName),
+            infoRow('Customer:', customerName),
+
+            pw.SizedBox(height: 4),
+            dashedLine(),
+            pw.SizedBox(height: 4),
+
+            // Items Table Header
+            pw.Row(
+              children: [
+                pw.Expanded(flex: 3, child: pw.Text('ITEM', style: pw.TextStyle(font: ttfBold, fontSize: 9))),
+                pw.Expanded(flex: 1, child: pw.Text('QTY', style: pw.TextStyle(font: ttfBold, fontSize: 9), textAlign: pw.TextAlign.center)),
+                pw.Expanded(flex: 1, child: pw.Text('PRICE', style: pw.TextStyle(font: ttfBold, fontSize: 9), textAlign: pw.TextAlign.right)),
+                pw.Expanded(flex: 1, child: pw.Text('TOTAL', style: pw.TextStyle(font: ttfBold, fontSize: 9), textAlign: pw.TextAlign.right)),
+              ],
+            ),
+            pw.SizedBox(height: 2),
+            pw.Divider(color: PdfColors.black, thickness: 0.8),
+            pw.SizedBox(height: 2),
+
+            // Items List
+            ...data.items.map((i) {
+              final qtyText = i.qty == i.qty.roundToDouble()
+                  ? i.qty.toStringAsFixed(0)
+                  : i.qty.toStringAsFixed(2);
+              final itemText = (i.isService || i.mode.trim().isEmpty)
+                  ? i.name
+                  : '${i.name} (${i.mode})';
+              final lineTotal = i.qty * i.price;
+
+              return pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(flex: 3, child: pw.Text(itemText, style: pw.TextStyle(font: ttfRegular, fontSize: 9))),
+                    pw.Expanded(flex: 1, child: pw.Text(qtyText, style: pw.TextStyle(font: ttfRegular, fontSize: 9), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(i.price.toStringAsFixed(2), style: pw.TextStyle(font: ttfRegular, fontSize: 9), textAlign: pw.TextAlign.right)),
+                    pw.Expanded(flex: 1, child: pw.Text(lineTotal.toStringAsFixed(2), style: pw.TextStyle(font: ttfRegular, fontSize: 9), textAlign: pw.TextAlign.right)),
+                  ],
+                ),
+              );
+            }),
+
+            pw.SizedBox(height: 4),
+            dashedLine(),
+            pw.SizedBox(height: 4),
+
+            summaryRow('Subtotal', data.subTotal),
+            summaryRow('Discount', data.discount, isNegative: data.discount > 0),
+
+            pw.SizedBox(height: 4),
+            pw.Divider(color: PdfColors.black, thickness: 1.2),
+            pw.SizedBox(height: 2),
+
+            // Payable
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('PAYABLE', style: pw.TextStyle(font: ttfBold, fontSize: 11)),
+                pw.Text('GHS ${data.payable.toStringAsFixed(2)}', style: pw.TextStyle(font: ttfBold, fontSize: 11)),
+              ],
+            ),
+
+            pw.SizedBox(height: 2),
+            pw.Divider(color: PdfColors.black, thickness: 1.2),
+            pw.SizedBox(height: 4),
+
+            summaryRow('Paid', data.amountPaid),
+            summaryRow('Change', data.change < 0 ? 0.0 : data.change, bold: true),
+
+            pw.SizedBox(height: 4),
+            dashedLine(),
+            pw.SizedBox(height: 6),
+
+            // Footer Messages
+            pw.Center(
+              child: pw.Text(
+                isChristmas
+                    ? 'Thank you for choosing $companyName. Happy Christmas!'
+                    : 'Thank you for choosing $companyName!',
+                style: pw.TextStyle(font: ttfRegular, fontSize: 9),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Center(
+              child: pw.Text(
+                'Goods sold are not returnable.',
+                style: pw.TextStyle(font: ttfRegular, fontSize: 8),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Center(
+              child: pw.Text(
+                'POWERED BY KOLOGSOFT',
+                style: pw.TextStyle(font: ttfRegular, fontSize: 7, color: PdfColors.grey700),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+
+            pw.SizedBox(height: 4),
+            dashedLine(),
+            pw.SizedBox(height: 8),
+
+            // QR Code
+            pw.Center(
+              child: pw.BarcodeWidget(
+                barcode: pw.Barcode.qrCode(),
+                data: barcodeText,
+                width: qrSize,
+                height: qrSize,
+              ),
+            ),
+            if (data.dailyNumber != null) ...[
+              pw.SizedBox(height: 4),
+              dashedLine(),
+              pw.SizedBox(height: 4),
+              pw.Center(
+                child: pw.Text(
+                  'RECEIPT NO: #${data.dailyNumber}',
+                  style: pw.TextStyle(font: ttfBold, fontSize: 14, color: PdfColors.black),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ],
+          ];
+        },
+      ),
+    );
+
     return doc;
+  }
+
+  String _formatPdfDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  }
+
+  String _formatPdfTime(DateTime date) {
+    return '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}:'
+        '${date.second.toString().padLeft(2, '0')}';
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,7 +36,11 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<Datafeed>().fetchDiscountCodes());
+    Future.microtask(() {
+      final df = context.read<Datafeed>();
+      df.fetchDiscountCodes();
+      df.listenToDiscountRequests();
+    });
   }
 
   Future<void> _edit(DiscountCodeModel dc) async {
@@ -217,6 +222,76 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
     );
   }
 
+  void _showFulfillDialog(String requestId, String staffName, String staffEmail, String branchId) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = Random.secure();
+    String autoCode = List.generate(8, (_) => chars[rng.nextInt(chars.length)]).join();
+
+    final codeCtrl = TextEditingController(text: autoCode);
+    final amountCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        title: Text('Fulfill Discount Request', style: TextStyle(color: _textColor)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Staff: $staffName ($staffEmail)', style: TextStyle(color: _mutedTextColor, fontSize: 13)),
+            Text('Branch: $branchId', style: TextStyle(color: _mutedTextColor, fontSize: 13)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: codeCtrl,
+              style: TextStyle(color: _textColor, fontWeight: FontWeight.bold, letterSpacing: 2),
+              decoration: decorationInput(context, 'Discount Code', hint: 'Generated code'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: amountCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: _textColor),
+              decoration: decorationInput(context, 'Discount Amount (GHS)', prefix: 'GHS  '),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: _mutedTextColor)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white),
+            onPressed: () async {
+              final amount = double.tryParse(amountCtrl.text.trim());
+              final code = codeCtrl.text.trim().toUpperCase();
+              if (amount == null || amount <= 0 || code.isEmpty) {
+                snackMsg(context, 'Enter a valid amount and code', Colors.red);
+                return;
+              }
+              Navigator.pop(context);
+              final success = await context.read<Datafeed>().fulfillDiscountRequest(
+                requestId: requestId,
+                staffName: staffName,
+                staffEmail: staffEmail,
+                branchId: branchId,
+                amount: amount,
+                code: code,
+              );
+              if (success) {
+                snackMsg(context, 'Request fulfilled and code assigned successfully!', Colors.green);
+              } else {
+                snackMsg(context, 'Failed to fulfill request', Colors.red);
+              }
+            },
+            child: const Text('Save & Assign'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -231,6 +306,7 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
         final active = all.where((c) => c.canBeUsed).length;
         final used = all.where((c) => c.isUsed).length;
         final expired = all.where((c) => c.isExpired).length;
+        final requestsCount = datafeed.discountRequests.length;
 
         final filtered = all.where((c) {
           if (_filter == 'active') return c.canBeUsed;
@@ -257,6 +333,20 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
             ).colorScheme.surfaceContainerHighest,
             iconTheme: IconThemeData(color: _textColor),
             actions: [
+              if (requestsCount > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Center(
+                    child: Badge(
+                      label: Text('$requestsCount'),
+                      child: IconButton(
+                        icon: const Icon(Icons.notifications_active_outlined),
+                        tooltip: 'Pending Requests',
+                        onPressed: () => setState(() => _filter = 'requests'),
+                      ),
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: TextButton.icon(
@@ -307,74 +397,90 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                           spacing: 8,
                           children: [
                             _chipDiscount('All', 'all', all.length),
-                            //  const SizedBox(width: 8),
                             _chipDiscount('Active', 'active', active),
-                            //  const SizedBox(width: 8),
                             _chipDiscount('Used', 'used', used),
-                            //  const SizedBox(width: 8),
                             _chipDiscount('Expired', 'expired', expired),
+                            _chipDiscount('Requests', 'requests', requestsCount),
                           ],
                         ),
                       ),
                     ),
 
                     Expanded(
-                      child: filtered.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.discount_outlined,
-                                    color: _mutedTextColor,
-                                    size: 56,
+                      child: _filter == 'requests'
+                          ? (datafeed.discountRequests.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.inbox_outlined, color: _mutedTextColor, size: 56),
+                                      const SizedBox(height: 12),
+                                      Text('No pending requests', style: TextStyle(color: _mutedTextColor, fontSize: 15)),
+                                    ],
                                   ),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    'No codes here',
-                                    style: TextStyle(
-                                      color: _mutedTextColor,
-                                      fontSize: 15,
+                                )
+                              : ListView.separated(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: datafeed.discountRequests.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                  itemBuilder: (_, i) => _buildRequestTile(datafeed.discountRequests[i]),
+                                ))
+                          : (filtered.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.discount_outlined,
+                                        color: _mutedTextColor,
+                                        size: 56,
+                                      ),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        'No codes here',
+                                        style: TextStyle(
+                                          color: _mutedTextColor,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : ScrollbarTheme(
+                                  data: ScrollbarThemeData(
+                                    thumbColor: MaterialStateProperty.all(
+                                      _isLightTheme
+                                          ? _colors.outline
+                                          : const Color(0xFF22304A),
+                                    ),
+                                    trackColor: MaterialStateProperty.all(
+                                      Colors.grey.shade300,
+                                    ),
+                                    thickness: MaterialStateProperty.all(10),
+                                    radius: const Radius.circular(10),
+                                    thumbVisibility: MaterialStateProperty.all(
+                                      true,
                                     ),
                                   ),
-                                ],
-                              ),
-                            )
-                          : ScrollbarTheme(
-                              data: ScrollbarThemeData(
-                                thumbColor: MaterialStateProperty.all(
-                                  _isLightTheme
-                                      ? _colors.outline
-                                      : const Color(0xFF22304A),
-                                ),
-                                trackColor: MaterialStateProperty.all(
-                                  Colors.grey.shade300,
-                                ),
-                                thickness: MaterialStateProperty.all(10),
-                                radius: const Radius.circular(10),
-                                thumbVisibility: MaterialStateProperty.all(
-                                  true,
-                                ),
-                              ),
-                              child: Scrollbar(
-                                controller: _scrollController,
-                                thumbVisibility: true,
-                                interactive: true,
-                                thickness: 10,
-                                radius: const Radius.circular(10),
-                                child: ListView.separated(
-                                  controller: _scrollController,
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 10),
-                                  itemBuilder: (_, i) =>
-                                      _buildTile(filtered[i]),
-                                ),
-                              ),
-                            ),
+                                  child: Scrollbar(
+                                    controller: _scrollController,
+                                    thumbVisibility: true,
+                                    interactive: true,
+                                    thickness: 10,
+                                    radius: const Radius.circular(10),
+                                    child: ListView.separated(
+                                      controller: _scrollController,
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      padding: const EdgeInsets.all(16),
+                                      itemCount: filtered.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 10),
+                                      itemBuilder: (_, i) =>
+                                          _buildTile(filtered[i]),
+                                    ),
+                                  ),
+                                )),
                     ),
                   ],
                 ),
@@ -407,6 +513,59 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRequestTile(Map<String, dynamic> req) {
+    final staffName = req['staffName'] ?? 'Unknown Staff';
+    final staffEmail = req['staffEmail'] ?? '';
+    final branchId = req['branchId'] ?? '';
+    final createdAt = (req['createdAt'] as Timestamp?)?.toDate();
+    final requestId = req['id'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.withOpacity(0.35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.pending_actions, color: Colors.orangeAccent, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(staffName, style: TextStyle(color: _textColor, fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text('$staffEmail • Branch: $branchId', style: TextStyle(color: _mutedTextColor, fontSize: 12)),
+                if (createdAt != null) ...[
+                  const SizedBox(height: 2),
+                  Text('Requested: ${_formatDate(createdAt)}', style: TextStyle(color: _mutedTextColor, fontSize: 11)),
+                ],
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Fulfill', style: TextStyle(fontSize: 12)),
+            onPressed: () => _showFulfillDialog(requestId, staffName, staffEmail, branchId),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+            icon: const Icon(Icons.close, size: 16),
+            label: const Text('Decline', style: TextStyle(fontSize: 12)),
+            onPressed: () async {
+              await context.read<Datafeed>().declineDiscountRequest(requestId);
+              snackMsg(context, 'Request declined', Colors.orange);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -519,6 +678,8 @@ class _DiscountCodeListPageState extends State<DiscountCodeListPage> {
                 // Meta line
                 Text(
                   [
+                    if (dc.assignedStaffName != null && dc.assignedStaffName!.isNotEmpty)
+                      'Assigned to ${dc.assignedStaffName}',
                     if (dc.createdAt != null)
                       'Created ${_formatDate(dc.createdAt!.toDate())}',
                     if (dc.expiresAt != null)
