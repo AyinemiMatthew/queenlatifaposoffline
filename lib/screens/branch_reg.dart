@@ -70,17 +70,30 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                 : Theme.of(context).colorScheme.surface,
             foregroundColor: foregroundColor,
             elevation: 2,
+            actions: [
+              IconButton(
+                tooltip: "View",
+                icon: const Icon(Icons.view_list),
+                onPressed: () {
+                  Navigator.pushNamed(context,Routes.branchview,);
+                },
+
+              ),
+              const SizedBox(width: 8),
+
+            ],
+
           ),
-          floatingActionButton: FloatingActionButton(
-            backgroundColor: const Color(0xFF415A77),
-            child: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const BranchView()),
-              );
-            },
-          ),
+          // floatingActionButton: FloatingActionButton(
+          //   backgroundColor: const Color(0xFF415A77),
+          //   child: const Icon(Icons.add),
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (_) => const BranchView()),
+          //     );
+          //   },
+          // ),
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(8.0),
@@ -405,40 +418,40 @@ class _BranchRegistrationState extends State<BranchRegistration> {
                                             ),
                                     ),
                                   ),
-                                  SizedBox(
-                                    width: 200,
-                                    child: OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        side: BorderSide(
-                                          color: secondaryForegroundColor,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                      ),
-                                      icon: Icon(
-                                        Icons.view_list,
-                                        color: secondaryForegroundColor,
-                                      ),
-                                      label: Text(
-                                        "View",
-                                        style: TextStyle(
-                                          color: secondaryForegroundColor,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        Navigator.pushNamed(
-                                          context,
-                                          Routes.branchview,
-                                        );
-                                      },
-                                    ),
-                                  ),
+                                  // SizedBox(
+                                  //   width: 200,
+                                  //   child: OutlinedButton.icon(
+                                  //     style: OutlinedButton.styleFrom(
+                                  //       side: BorderSide(
+                                  //         color: secondaryForegroundColor,
+                                  //       ),
+                                  //       padding: const EdgeInsets.symmetric(
+                                  //         vertical: 16,
+                                  //       ),
+                                  //       shape: RoundedRectangleBorder(
+                                  //         borderRadius: BorderRadius.circular(
+                                  //           14,
+                                  //         ),
+                                  //       ),
+                                  //     ),
+                                  //     icon: Icon(
+                                  //       Icons.view_list,
+                                  //       color: secondaryForegroundColor,
+                                  //     ),
+                                  //     label: Text(
+                                  //       "View",
+                                  //       style: TextStyle(
+                                  //         color: secondaryForegroundColor,
+                                  //       ),
+                                  //     ),
+                                  //     onPressed: () {
+                                  //       Navigator.pushNamed(
+                                  //         context,
+                                  //         Routes.branchview,
+                                  //       );
+                                  //     },
+                                  //   ),
+                                  // ),
                                 ],
                               ),
                             ],

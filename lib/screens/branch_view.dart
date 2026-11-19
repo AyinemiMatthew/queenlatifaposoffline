@@ -70,21 +70,24 @@ class _BranchViewState extends State<BranchView> {
 
         return Scaffold(
           backgroundColor: isLight ? Colors.white : const Color(0xFF101624),
+
           appBar: AppBar(
             title: const Text("Registered Branches"),
             backgroundColor: surfaceColor,
             foregroundColor: foregroundColor,
-          ),
-          floatingActionButton: FloatingActionButton(
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: theme.colorScheme.onPrimary,
-            child: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const BranchRegistration()),
-              );
-            },
+            actions: [
+              IconButton(
+                tooltip: "add branch",
+                icon: const Icon(Icons.add),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BranchRegistration()),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
           body: Padding(
             padding: const EdgeInsets.all(20.0),
@@ -204,7 +207,7 @@ class _BranchViewState extends State<BranchView> {
                                       },
                                       child: Icon(
                                         Icons.edit,
-                                        color: theme.colorScheme.primary,
+                                        color: theme.colorScheme.secondary,
                                       ),
                                     ),
                                     SizedBox(width: 8),

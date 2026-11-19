@@ -8,17 +8,20 @@ const db = getFirestore();
 const STAFF_API_URL = 'https://queenlatifahenterprise.com/pos/firebase/staff';
 const STAFF_COLLECTION = 'staff';
 const META_DOC = 'system/staffsync';
-const COOLDOWN_MS = 60 * 1000; // skip a full re-sync if one ran in the last minute
+const COOLDOWN_MS = 60 * 1000;
 
-// The endpoint says KS000 / "QUEEN LATIFA", but your Firestore staff use KS001.
-// Map them here if they should match, e.g.
-// { KS000: { companyid: 'KS001', company: 'Queen Latifah Ent' } }
+
 const COMPANY_OVERRIDES = {};
 
-// Endpoint `level` -> numeric `position`. ASSUMED, so confirm it.
 // Unknown levels leave `position` unset.
 const LEVEL_TO_POSITION = { 'super admin': 0, admin: 1, 'sales attendance': 2 };
+// Endpoint level -> level stored in Firestore
+const LEVEL_ALIASES = { sales: 'sales attendance' };
 
+const normalizeLevel = (v) => {
+  const l = str(v).toLowerCase();
+  return LEVEL_ALIASES[l] || l;
+};
 const str = (v) => (v ?? '').toString().trim();
 const slug = (s) => str(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -31,10 +34,10 @@ function parsePricing(text) {
 function mapSourceFields(r) {
   const email = str(r.email).toLowerCase();
   const override = COMPANY_OVERRIDES[str(r.companyid)] || {};
-  const companyid = 'KS001';//override.companyid || str(r.companyid);
+  const companyid = 'KS001';
   const company = override.company || str(r.company);
   const branchname = str(r.branchname || r.branch);
-  const level = str(r.level).toLowerCase();
+    const level = normalizeLevel(r.level);
 
   const out = {
     id: email,

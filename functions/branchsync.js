@@ -61,10 +61,20 @@ function parseCreated(date, time) {
 }
 
 /** warehouse "1" -> Warehouse; otherwise use the source branchtype, else Sales Branch. */
+
 function resolveBranchType(r) {
+  const salestype = str(r.salestype).toLowerCase();
   const isWarehouse = str(r.warehouse) === '1';
-  if (isWarehouse) return 'Warehouse';
-  return str(r.branchtype) || 'Sales Branch';
+  const hasSalesBranch = str(r.salesbranch) !== '';
+
+  if (salestype === 'retail') return 'Sales Branch';
+
+  if (salestype === 'none') {
+    if (isWarehouse) return 'Warehouse';
+    if (hasSalesBranch) return 'Sales Point';
+  }
+
+  return str(r.branchtype);
 }
 
 /** Fields the endpoint owns. Written on every sync. */

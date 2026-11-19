@@ -333,7 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       setState(() => _loading = true);
                                       //final provider = context.read<StockSyncProvider>();
                                       //provider.syncStockFromApi(value);
-                                      value.syncStaff(_emailController.text.trim());
+                                      //value.syncStaff(_emailController.text.trim());
                                       await value.login(
                                         _emailController.text.trim(),
                                         _passwordController.text.trim(),
