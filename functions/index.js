@@ -20,8 +20,12 @@ const { fetchStockPage } = require('./syncitemregtosotck');
 const { ackItems } = require('./callback_ids');
 const { syncStaffOnLogin } = require('./staffsync');
 const { syncCustomers } = require('./customersync');
-const { syncSaleToWebhook } = require('./syncsalesprocess');
+const { syncSaleOnCreate, syncSaleOnUpdate } = require('./salespost');
+
+//const { syncSaleToWebhook } = require('./syncsalesprocess');
 const { syncBranches } = require('./branchsync');
+//const { syncSaleUpdateToEndpoint } = require('./cashier');
+
 const { admin, db } = require("./fb");
 
 
@@ -37,9 +41,12 @@ exports.uploadSales = uploadSales;
 exports.uploadItemsreg = uploadItemsreg;
 exports.syncStaffOnLogin = syncStaffOnLogin;
 exports.syncCustomers = syncCustomers;
-exports.syncSaleToWebhook = syncSaleToWebhook;
+//exports.syncSaleToWebhook = syncSaleToWebhook;
 exports.syncBranches = syncBranches;
+//exports.syncSaleUpdateToEndpoint = syncSaleUpdateToEndpoint;
 
+exports.syncSaleOnCreate = syncSaleOnCreate;
+exports.syncSaleOnUpdate = syncSaleOnUpdate;
 // Firestore allows 500 field transforms per document per commit; keep a margin.
 const MAX_TRANSFORMS_PER_DOC = 450;
 

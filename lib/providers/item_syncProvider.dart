@@ -221,7 +221,7 @@ class StockSyncProvider extends ChangeNotifier {
             .whereType<Map>()
             .map((r) => Map<String, dynamic>.from(r))
             .where((row) {
-          final balanceData = row['balance'];
+          final balanceData = row['warehousebalance'];
 
           if (balanceData is! Map) return false;
 
@@ -371,7 +371,7 @@ class StockSyncProvider extends ChangeNotifier {
         );
       }
 
-      final balanceField = row['balance'];
+      final balanceField = row['warehousebalance'];
 
       if (balanceField is Map) {
         balanceField.forEach((branchName, bal) {

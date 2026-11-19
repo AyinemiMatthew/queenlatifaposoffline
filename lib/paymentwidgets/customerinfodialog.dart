@@ -950,10 +950,10 @@ class CustomerInfoDialog {
               } else {
                 payments = [];
                 paidAmount = 0;
-                printedBy = '';
-                receiptBy = '';
-                printed = false;
-                reciepted = false;
+                printedBy = datafeed.staff;
+                receiptBy = datafeed.staff;
+                printed = true;
+                reciepted = true;
                 status = false;
                 payments.clear();
                 paymentStatus = 'pending';
