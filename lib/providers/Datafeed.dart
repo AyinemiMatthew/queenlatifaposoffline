@@ -473,13 +473,7 @@ class Datafeed extends ChangeNotifier {
       }
       if (companyid.isEmpty) return Stream.value(const []);
 
-      return db
-          .collection('itemsreg')
-          .where('companyid', isEqualTo: companyid)
-          .where(fieldName, isGreaterThan: 0)
-          .orderBy(fieldName, descending: true)
-          .limit(10)
-          .snapshots()
+      return db.collection('itemsreg').where(fieldName, isGreaterThan: 0).orderBy(fieldName, descending: true).limit(10).snapshots()
           .map((snapshot) {
         final items = <Map<String, dynamic>>[];
 
@@ -521,37 +515,6 @@ class Datafeed extends ChangeNotifier {
       return Stream.value(const []);
     }
   }
-  // Stream<List<Map<String, dynamic>>> top10BestSellingItems(String fieldName) {
-  //   if (fieldName != 'sales_value' && fieldName != 'sales_qty') {
-  //     throw ArgumentError.value(
-  //       fieldName,
-  //       'fieldName',
-  //       'Unsupported top-selling item field',
-  //     );
-  //   }
-  //   if (companyid.isEmpty) return Stream.value(const []);
-  //
-  //   return db
-  //       .collection('itemsreg')
-  //       .where('companyid', isEqualTo: companyid)
-  //       .where(fieldName, isGreaterThan: 0)
-  //       .orderBy(fieldName, descending: true)
-  //       .limit(10)
-  //       .snapshots()
-  //       .map((snapshot) {
-  //         return snapshot.docs.map((doc) {
-  //           final data = doc.data();
-  //           return {
-  //             'itemid': doc.id,
-  //             'item': data['name'] ?? '',
-  //             'barcode': data['barcode'] ?? '',
-  //             'sales_value': toDouble(data['sales_value']),
-  //             'sales_qty': toInt(data['sales_qty']),
-  //             'retailprice': toDouble(data['retailprice']),
-  //           };
-  //         }).toList();
-  //       });
-  // }
 
   final auth = FirebaseAuth.instance;
   final db = FirebaseFirestore.instance;
@@ -7591,9 +7554,7 @@ class Datafeed extends ChangeNotifier {
     final items = <Map<String, dynamic>>[];
 
     // First, try to find item_0, item_1, etc. at root level
-    final itemKeys = doc.keys
-        .where((key) => key.toString().startsWith('item_'))
-        .toList();
+    final itemKeys = doc.keys.where((key) => key.toString().startsWith('item_')).toList();
     if (itemKeys.isNotEmpty) {
       for (final key in itemKeys) {
         final value = doc[key];

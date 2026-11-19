@@ -660,8 +660,7 @@ class _SalesPageState extends State<SalesPage> {
       final item = _selectedItem;
       final isService =
           (item?.producttype ?? '').toLowerCase().trim() == 'service';
-      final bool filterByBalance =
-          item != null && !isService && datafeed.stockCheckEnabled;
+      final bool filterByBalance = item != null && !isService;
 
       double balanceOf(String id) {
         final bal = item?.branchbalance?[id] as Map<String, dynamic>? ?? {};
@@ -683,9 +682,7 @@ class _SalesPageState extends State<SalesPage> {
 
       final available = filterByBalance
           ? allBranches
-                .where(
-                  (b) => _isSalesPointType(b.branchtype) || balanceOf(b.id) > 0,
-                )
+                .where((b) => balanceOf(b.id) > 0)
                 .toList()
           : allBranches;
 
@@ -711,26 +708,15 @@ class _SalesPageState extends State<SalesPage> {
       final safeValue = availableIds.contains(current) ? current : null;
 
       final branchDropdown = Padding(
-        padding: const EdgeInsets.only(bottom: 12.0),
+        padding: const EdgeInsets.all(12.0),
         child: DropdownButtonFormField<String>(
           key: ValueKey('branch_${item?.id ?? 'none'}_$safeValue'),
           value: safeValue,
           isExpanded: true,
           dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-          decoration: deco(
-            'Sell From (Sales Branch / Sales Point)',
-          ).copyWith(
-            helperText: _canSwitchBranches(datafeed)
-                ? 'Select a branch to switch. Switching clears all open sales carts.'
-                : 'Your account is not permitted to switch branches.',
-          ),
-          hint: Text(
-            'Select a sales branch or point',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
+          decoration: deco('Warehouse/Branch '),
+
           items: available.map((b) {
             final pcs = balanceOf(b.id);
             final boxes = boxQty > 0 ? pcs / boxQty : 0.0;
@@ -755,10 +741,13 @@ class _SalesPageState extends State<SalesPage> {
           onChanged:
               !_canSwitchBranches(datafeed) || _isSwitchingBranch
               ? null
-              : (v) async {
+              : (v) {
                   if (v == null) return;
                   final selected = available.firstWhere((b) => b.id == v);
-                  await _switchSalesBranch(datafeed, sp, selected);
+                  setState(() {
+                    _superAdminBranchId = selected.id;
+                    _superAdminBranchName = selected.branchname ?? '';
+                  });
                 },
         ),
       );
@@ -916,22 +905,17 @@ class _SalesPageState extends State<SalesPage> {
 
     final item = _selectedItem;
     if (item == null) {
-      return Column(
-        children: [
-          branchDropdown,
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              'Select an item first to choose warehouse.',
-              style: TextStyle(color: _secondaryText),
-            ),
-          ),
-        ],
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(
+          'Select an item first to choose warehouse.',
+          style: TextStyle(color: _secondaryText),
+        ),
       );
     }
 
     if (item.producttype.toLowerCase().trim() == 'service') {
-      return branchDropdown;
+      return const SizedBox.shrink();
     }
 
     final salesProvider = Provider.of<SalesProvider>(context, listen: false);
@@ -952,17 +936,12 @@ class _SalesPageState extends State<SalesPage> {
         .toList();
 
     if (itemWarehouses.isEmpty) {
-      return Column(
-        children: [
-          branchDropdown,
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              'No assigned warehouse has a balance for this item.',
-              style: TextStyle(color: _colorScheme.error),
-            ),
-          ),
-        ],
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(
+          'No assigned warehouse has a balance for this item.',
+          style: TextStyle(color: _colorScheme.error),
+        ),
       );
     }
 
@@ -995,48 +974,43 @@ class _SalesPageState extends State<SalesPage> {
       boxQty = double.tryParse(carton.first.qty) ?? 1;
     }
 
-    return Column(
-      children: [
-        branchDropdown,
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: DropdownButtonFormField<String>(
-            key: ValueKey(
-              'own_assigned_warehouse_${item.id}_$selectedWarehouseId',
-            ),
-            initialValue: selectedWarehouseId,
-            isExpanded: true,
-            dropdownColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-            decoration: deco('Sell From Assigned Warehouse'),
-            items: itemWarehouses.map((warehouse) {
-              final balance =
-                  item.branchbalance?[warehouse.id] as Map<String, dynamic>? ??
-                  {};
-              final pieces = salesProvider.parseNetPieces(balance);
-              final boxes = boxQty > 0 ? pieces / boxQty : 0;
-              return DropdownMenuItem<String>(
-                value: warehouse.id,
-                child: Text(
-                  '${warehouse.branchname} - ${pieces.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
-            onChanged: (id) {
-              if (id == null) return;
-              final warehouse = itemWarehouses.firstWhere(
-                (entry) => entry.id == id,
-              );
-              datafeed.setSalesWarehouse(id, warehouse.branchname);
-              _refreshPricingForBranch(id);
-              setState(() {});
-            },
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey(
+          'own_assigned_warehouse_${item.id}_$selectedWarehouseId',
         ),
-      ],
+        initialValue: selectedWarehouseId,
+        isExpanded: true,
+        dropdownColor: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        decoration: deco('Sell From Assigned Warehouse'),
+        items: itemWarehouses.map((warehouse) {
+          final balance =
+              item.branchbalance?[warehouse.id] as Map<String, dynamic>? ??
+              {};
+          final pieces = salesProvider.parseNetPieces(balance);
+          final boxes = boxQty > 0 ? pieces / boxQty : 0;
+          return DropdownMenuItem<String>(
+            value: warehouse.id,
+            child: Text(
+              '${warehouse.branchname} - ${pieces.toStringAsFixed(0)} pcs / ${boxes.toStringAsFixed(2)} boxes',
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).toList(),
+        onChanged: (id) {
+          if (id == null) return;
+          final warehouse = itemWarehouses.firstWhere(
+            (entry) => entry.id == id,
+          );
+          datafeed.setSalesWarehouse(id, warehouse.branchname);
+          _refreshPricingForBranch(id);
+          setState(() {});
+        },
+      ),
     );
   }
 
@@ -1231,7 +1205,7 @@ class _SalesPageState extends State<SalesPage> {
     setState(() => _isSavingDirect = true);
 
     try {
-      if (datafeed.stockCheckEnabled) {
+      if (datafeed.stockCheckEnabled && !datafeed.isOffline) {
         final isValid = await salesProvider.validateCartStockOnSaves(
           activeBranchId,
         );
@@ -1333,11 +1307,9 @@ class _SalesPageState extends State<SalesPage> {
 
       );
 
-      datafeed.db
-          .collection('sales')
-          .doc(saleDocId)
-          .set(saleData.toMap());
-
+      datafeed.db.collection('sales').doc(saleDocId).set(saleData.toMap());
+      datafeed.salesview.insert(0, saleData);
+      datafeed.notifyListeners();
       if (dailyNumber != null && dailyNumber.isNotEmpty && context.mounted) {
         showDialog(
           context: context,
@@ -1378,11 +1350,14 @@ class _SalesPageState extends State<SalesPage> {
           !datafeed.stockCheckEnabled ||
           salesProvider.isServiceOnlySale(salesItems);
       if (!context.mounted) return;
-      final approved = await salesProvider.ensureSaleApproved(
-        context,
-        saleDocId,
-        skipStockCheck: skipCheck,
-      );
+      bool approved = true;
+      if (!datafeed.isOffline) {
+        approved = await salesProvider.ensureSaleApproved(
+          context,
+          saleDocId,
+          skipStockCheck: skipCheck,
+        );
+      }
 
       if (!approved) {
         return;
@@ -1431,7 +1406,7 @@ class _SalesPageState extends State<SalesPage> {
     if (!_ensureSelectedBranchCart(value, salesProvider)) return;
 
     if (value.isSalesPoint) {
-      await _saveDirectSale();
+       _saveDirectSale();
       return;
     }
 
@@ -2207,10 +2182,7 @@ class _SalesPageState extends State<SalesPage> {
                                                               : null,
                                                         ),
                                                       ],
-                                                      SizedBox(height: 8),
-                                                      _buildSalesWarehouseSelector(
-                                                        value,
-                                                      ),
+
                                                       Row(
                                                         children: [
                                                           Expanded(
@@ -2223,59 +2195,18 @@ class _SalesPageState extends State<SalesPage> {
                                                                 ),
                                                               ),
                                                               child: TextFormField(
-                                                                controller:
-                                                                    _barcodeController,
+                                                                controller: _barcodeController,
                                                                 style: TextStyle(
                                                                   color: Theme.of(
                                                                     context,
                                                                   ).colorScheme.onSurface,
                                                                 ),
-                                                                decoration: InputDecoration(
-                                                                  labelText:
-                                                                      'Barcode',
-                                                                  labelStyle: TextStyle(
-                                                                    color: Theme.of(
-                                                                      context,
-                                                                    ).colorScheme.onSurfaceVariant,
-                                                                  ),
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                  ),
-                                                                  enabledBorder: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.blue.withOpacity(0.6),
-                                                                      width: 1.5,
-                                                                    ),
-                                                                  ),
-                                                                  focusedBorder: OutlineInputBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                          12,
-                                                                        ),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.blue,
-                                                                      width: 2.5,
-                                                                    ),
-                                                                  ),
-                                                                  fillColor:
-                                                                      Theme.of(
-                                                                            context,
-                                                                          )
-                                                                          .colorScheme
-                                                                          .surfaceContainerHighest,
-                                                                  filled: true,
+                                                                decoration: _inputDecoration(
+                                                                  label: 'Barcode',
+                                                                  borderColor: Colors.blue,
+                                                                  borderWidth: 1.5,
                                                                 ),
-
-                                                                validator:
-                                                                    SalesFormValidators
-                                                                        .barcode,
+                                                                validator: SalesFormValidators.barcode,
                                                              ),
                                                             ),
                                                           ),
@@ -2533,7 +2464,7 @@ class _SalesPageState extends State<SalesPage> {
                                                                 );
                                                               })(),
 
-                                                      SizedBox(height: 8),
+                                                      SizedBox(height: 12),
                                                       TextFormField(
                                                         enabled: false,
                                                         controller:
@@ -2544,59 +2475,17 @@ class _SalesPageState extends State<SalesPage> {
                                                                   .colorScheme
                                                                   .onSurface,
                                                         ),
-                                                        decoration: InputDecoration(
-                                                          labelText: 'Item',
-                                                          labelStyle: TextStyle(
-                                                            color: Theme.of(context)
-                                                                .colorScheme
-                                                                .onSurfaceVariant,
-                                                          ),
-                                                          border: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                          enabledBorder: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            borderSide: BorderSide(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .outline,
-                                                            ),
-                                                          ),
-                                                          focusedBorder: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            borderSide: BorderSide(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary,
-                                                            ),
-                                                          ),
-                                                          fillColor:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .surfaceContainerHighest,
-                                                          filled: true,
-                                                        ),
+                                                        decoration: _inputDecoration(label: 'Item'),
 
                                                         validator:
                                                             SalesFormValidators
                                                                 .item,
                                                       ),
-                                                      SizedBox(height: 8),
+                                                      SizedBox(height: 12),
+                                                      _buildSalesWarehouseSelector(
+                                                        value,
+                                                      ),
+                                                      SizedBox(height: 12),
                                                       DropdownButtonFormField<
                                                         String
                                                       >(
@@ -2611,53 +2500,8 @@ class _SalesPageState extends State<SalesPage> {
                                                                   .colorScheme
                                                                   .onSurface,
                                                         ),
-                                                        decoration: InputDecoration(
-                                                          labelText:
-                                                              'Sales Mode',
-                                                          labelStyle: TextStyle(
-                                                            color: Theme.of(context)
-                                                                .colorScheme
-                                                                .onSurfaceVariant,
-                                                          ),
-                                                          border: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                          enabledBorder: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            borderSide: BorderSide(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .outline,
-                                                            ),
-                                                          ),
-                                                          focusedBorder: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            borderSide: BorderSide(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary,
-                                                            ),
-                                                          ),
-                                                          fillColor:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .surfaceContainerHighest,
-                                                          filled: true,
+                                                        decoration: _inputDecoration(
+                                                          label: 'Sales Mode',
                                                         ),
                                                         items:
                                                             _salesMode.isEmpty
@@ -2686,7 +2530,7 @@ class _SalesPageState extends State<SalesPage> {
                                                             SalesFormValidators
                                                                 .salesMode,
                                                       ),
-                                                      SizedBox(height: 8),
+                                                      SizedBox(height: 12),
                                                       TextFormField(
                                                         controller:
                                                             _priceController,
@@ -2696,53 +2540,7 @@ class _SalesPageState extends State<SalesPage> {
                                                                   .colorScheme
                                                                   .onSurface,
                                                         ),
-                                                        decoration: InputDecoration(
-                                                          labelText: 'Price',
-                                                          labelStyle: TextStyle(
-                                                            color: Theme.of(context)
-                                                                .colorScheme
-                                                                .onSurfaceVariant,
-                                                          ),
-                                                          border: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                          ),
-                                                          enabledBorder: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            borderSide: BorderSide(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .outline,
-                                                            ),
-                                                          ),
-                                                          focusedBorder: OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            borderSide: BorderSide(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary,
-                                                            ),
-                                                          ),
-                                                          fillColor:
-                                                              Theme.of(context)
-                                                                  .colorScheme
-                                                                  .surfaceContainerHighest,
-                                                          filled: true,
-                                                        ),
+                                                        decoration: _inputDecoration(label: 'Price'),
                                                         inputFormatters: [
                                                           FilteringTextInputFormatter.allow(
                                                             RegExp(
@@ -2911,47 +2709,10 @@ class _SalesPageState extends State<SalesPage> {
                                                                       : oldValue;
                                                                 }),
                                                               ],
-                                                              decoration: InputDecoration(
-                                                                labelText:
-                                                                    'Quantity',
-                                                                labelStyle: TextStyle(
-                                                                  color: Theme.of(
-                                                                    context,
-                                                                  ).colorScheme.onSurfaceVariant,
-                                                                ),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                                enabledBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue.withOpacity(0.6),
-                                                                    width: 1.5,
-                                                                  ),
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue,
-                                                                    width: 2.5,
-                                                                  ),
-                                                                ),
-                                                                fillColor:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .surfaceContainerHighest,
-                                                                filled: true,
+                                                              decoration: _inputDecoration(
+                                                                label: 'Quantity',
+                                                                borderColor: Colors.blue,
+                                                                borderWidth: 1.5,
                                                               ),
 
                                                               validator:
@@ -2988,7 +2749,7 @@ class _SalesPageState extends State<SalesPage> {
                                                           ),
                                                         ],
                                                       ),
-                                                      SizedBox(height: 8),
+                                                      SizedBox(height: 12),
                                                       Row(
                                                         children: [
                                                           Expanded(
@@ -3001,47 +2762,10 @@ class _SalesPageState extends State<SalesPage> {
                                                                 ).colorScheme.onSurface,
                                                               ),
                                                               readOnly: true,
-                                                              decoration: InputDecoration(
-                                                                labelText:
-                                                                    'Total Pieces',
-                                                                labelStyle: TextStyle(
-                                                                  color: Theme.of(
-                                                                    context,
-                                                                  ).colorScheme.onSurfaceVariant,
-                                                                ),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                                enabledBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue.withOpacity(0.6),
-                                                                    width: 1.5,
-                                                                  ),
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue,
-                                                                    width: 2.5,
-                                                                  ),
-                                                                ),
-                                                                fillColor:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .surfaceContainerHighest,
-                                                                filled: true,
+                                                              decoration: _inputDecoration(
+                                                                label: 'Total Pieces',
+                                                                borderColor: Colors.blue,
+                                                                borderWidth: 1.5,
                                                               ),
                                                             ),
                                                           ),
@@ -3056,54 +2780,17 @@ class _SalesPageState extends State<SalesPage> {
                                                                 ).colorScheme.onSurface,
                                                               ),
                                                               readOnly: true,
-                                                              decoration: InputDecoration(
-                                                                labelText:
-                                                                    'Total Amount',
-                                                                labelStyle: TextStyle(
-                                                                  color: Theme.of(
-                                                                    context,
-                                                                  ).colorScheme.onSurfaceVariant,
-                                                                ),
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                                enabledBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue.withOpacity(0.6),
-                                                                    width: 1.5,
-                                                                  ),
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue,
-                                                                    width: 2.5,
-                                                                  ),
-                                                                ),
-                                                                fillColor:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .surfaceContainerHighest,
-                                                                filled: true,
+                                                              decoration: _inputDecoration(
+                                                                label: 'Total Amount',
+                                                                borderColor: Colors.blue,
+                                                                borderWidth: 1.5,
                                                               ),
                                                             ),
                                                           ),
                                                         ],
                                                       ),
 
-                                                      SizedBox(height: 8),
+                                                      SizedBox(height: 12),
                                                       if (value
                                                           .allowDiscount) ...[
                                                         TextFormField(
@@ -3128,50 +2815,10 @@ class _SalesPageState extends State<SalesPage> {
                                                               ),
                                                             ),
                                                           ],
-                                                          decoration: InputDecoration(
-                                                            labelText:
-                                                                'Discount',
-                                                            labelStyle: TextStyle(
-                                                              color: Theme.of(context)
-                                                                  .colorScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
+                                                          decoration: _inputDecoration(
+                                                            label: 'Discount',
+                                                          ).copyWith(
                                                             prefixText: 'GHS ',
-                                                            border: OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                            ),
-                                                            enabledBorder: OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide: BorderSide(
-                                                                color: Theme.of(
-                                                                  context,
-                                                                ).colorScheme.outline,
-                                                              ),
-                                                            ),
-                                                            focusedBorder: OutlineInputBorder(
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              borderSide: BorderSide(
-                                                                color: Theme.of(
-                                                                  context,
-                                                                ).colorScheme.primary,
-                                                              ),
-                                                            ),
-                                                            fillColor:
-                                                                Theme.of(
-                                                                      context,
-                                                                    )
-                                                                    .colorScheme
-                                                                    .surfaceContainerHighest,
-                                                            filled: true,
                                                           ),
                                                           validator: (value) {
                                                             if (value == null ||
@@ -3493,49 +3140,12 @@ class _SalesPageState extends State<SalesPage> {
                                                                   ),
                                                                 ),
                                                               ],
-                                                              decoration: InputDecoration(
-                                                                labelText:
-                                                                    'Discount',
-                                                                labelStyle: TextStyle(
-                                                                  color: Theme.of(
-                                                                    context,
-                                                                  ).colorScheme.onSurfaceVariant,
-                                                                ),
-                                                                prefixText:
-                                                                    'GHS ',
-                                                                border: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                ),
-                                                                enabledBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue.withOpacity(0.6),
-                                                                    width: 1.5,
-                                                                  ),
-                                                                ),
-                                                                focusedBorder: OutlineInputBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        12,
-                                                                      ),
-                                                                  borderSide: BorderSide(
-                                                                    color: Colors.blue,
-                                                                    width: 2.5,
-                                                                  ),
-                                                                ),
-                                                                fillColor:
-                                                                    Theme.of(
-                                                                          context,
-                                                                        )
-                                                                        .colorScheme
-                                                                        .surfaceContainerHighest,
-                                                                filled: true,
+                                                              decoration: _inputDecoration(
+                                                                label: 'Discount',
+                                                                borderColor: Colors.blue,
+                                                                borderWidth: 1.5,
+                                                              ).copyWith(
+                                                                prefixText: 'GHS ',
                                                               ),
                                                               validator: (value) {
                                                                 if (value ==
@@ -4153,6 +3763,8 @@ class _SalesPageState extends State<SalesPage> {
     IconData? prefix,
     String? hint,
     Widget? suffix,
+    Color? borderColor,
+    double? borderWidth,
   }) {
     return InputDecoration(
       labelText: label,
@@ -4170,11 +3782,17 @@ class _SalesPageState extends State<SalesPage> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.outline),
+        borderSide: BorderSide(
+          color: borderColor ?? Theme.of(context).colorScheme.outline,
+          width: borderWidth ?? 1.0,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+        borderSide: BorderSide(
+          color: borderColor ?? Theme.of(context).colorScheme.primary,
+          width: (borderWidth != null && borderWidth > 1.0) ? borderWidth : 2.0,
+        ),
       ),
       fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       filled: true,
